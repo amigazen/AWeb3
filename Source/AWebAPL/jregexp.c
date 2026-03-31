@@ -62,21 +62,29 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
     {
         BOOL global = (re->flags & REF_GLOBAL?TRUE:FALSE) ;
         int lastindex = (global?re->lastIndex:0);
+        int mlen;
+        if(!match) match = "";
+        mlen = strlen(match);
 
         /* find out how many capturing substrings */
 
         rc = pcre_fullinfo(re->compiled,(const void *)NULL,PCRE_INFO_CAPTURECOUNT,&capcnt);
+        if(rc < 0 || capcnt < 0)
+        {
+            Runtimeerror(jc,NTE_GENERAL,jc->elt,"Regular Expression internal error");
+            return NULL;
+        }
 
         ovecsize=3*(capcnt +1);
         ovector = ALLOCTYPE(int,ovecsize,0,jc->pool);
 
-        if((lastindex > strlen(match)) || (ovector == NULL))
+        if((lastindex > mlen) || (ovector == NULL))
         {
             rc = -1;
         }
         else
         {
-            rc = pcre_exec(re->compiled,(const void *)NULL,match,strlen(match),lastindex,0,ovector,ovecsize);
+            rc = pcre_exec(re->compiled,(const void *)NULL,match,mlen,lastindex,0,ovector,ovecsize);
         }
 
         if (rc >=0)
@@ -86,6 +94,11 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
 
             if (global) re->lastIndex = ovector[1];
             result = Newarray(jc);
+            if(!result)
+            {
+                if(ovector) FREE(ovector);
+                return NULL;
+            }
             for(i=0;i<=capcnt;i++)
             {
                 if(ovector[i*2] >=0)
@@ -151,7 +164,7 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
             }
             if((var = Getownproperty(jc->regexp,"rightContext")))
             {
-                Asgstringlen(&var->val,match+ovector[1],strlen(match) - ovector[0],jc->pool);
+                Asgstringlen(&var->val,match+ovector[1],mlen - ovector[0],jc->pool);
             }
             if((var = Getownproperty(jc->regexp,"input")))
             {

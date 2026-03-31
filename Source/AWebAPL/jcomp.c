@@ -165,15 +165,28 @@ static void *Objectlit(struct Jcontext *jc, void *pa)
 
 static void *Identifier(struct Jcontext *jc,void *pa)
 {  struct Elementstring *elt=ALLOCSTRUCT(Elementstring,1,0,jc->pool);
+   if(!elt)
+   {  Errormsg(pa,"Out of memory");
+      return NULL;
+   }
    elt->type=ET_IDENTIFIER;
    elt->generation=jc->generation;
    elt->linenr=Plinenr(pa);
    elt->svalue=Jdupstr(jc->nexttoken->svalue,-1,jc->pool);
+   if(!elt->svalue)
+   {  Errormsg(pa,"Out of memory");
+      FREE(elt);
+      return NULL;
+   }
    return elt;
 }
 
 static void *Integer(struct Jcontext *jc,void *pa)
 {  struct Elementint *elt=ALLOCSTRUCT(Elementint,1,0,jc->pool);
+   if(!elt)
+   {  Errormsg(pa,"Out of memory");
+      return NULL;
+   }
    elt->type=ET_INTEGER;
    elt->generation=jc->generation;
    elt->linenr=Plinenr(pa);
@@ -183,6 +196,10 @@ static void *Integer(struct Jcontext *jc,void *pa)
 
 static void *Float(struct Jcontext *jc,void *pa)
 {  struct Elementfloat *elt=ALLOCSTRUCT(Elementfloat,1,0,jc->pool);
+   if(!elt)
+   {  Errormsg(pa,"Out of memory");
+      return NULL;
+   }
    elt->type=ET_FLOAT;
    elt->generation=jc->generation;
    elt->linenr=Plinenr(pa);
@@ -192,6 +209,10 @@ static void *Float(struct Jcontext *jc,void *pa)
 
 static void *Boolean(struct Jcontext *jc,void *pa)
 {  struct Elementint *elt=ALLOCSTRUCT(Elementint,1,0,jc->pool);
+   if(!elt)
+   {  Errormsg(pa,"Out of memory");
+      return NULL;
+   }
    elt->type=ET_BOOLEAN;
    elt->generation=jc->generation;
    elt->linenr=Plinenr(pa);
@@ -201,21 +222,41 @@ static void *Boolean(struct Jcontext *jc,void *pa)
 
 static void *String(struct Jcontext *jc,void *pa)
 {  struct Elementstring *elt=ALLOCSTRUCT(Elementstring,1,0,jc->pool);
+   if(!elt)
+   {  Errormsg(pa,"Out of memory");
+      return NULL;
+   }
    elt->type=ET_STRING;
    elt->generation=jc->generation;
    elt->linenr=Plinenr(pa);
    elt->svalue=Jdupstr(jc->nexttoken->svalue,-1,jc->pool);
+   if(!elt->svalue)
+   {  Errormsg(pa,"Out of memory");
+      FREE(elt);
+      return NULL;
+   }
    return elt;
 }
 
 static void *Regexp(struct Jcontext *jc,void *pa)
 {
     struct Elementregexp *elt=ALLOCSTRUCT(Elementregexp,1,0,jc->pool);
+    if(!elt)
+    {  Errormsg(pa,"Out of memory");
+       return NULL;
+    }
     elt->type=ET_REGEXP;
     elt->generation=jc->generation;
     elt->linenr=Plinenr(pa);
     elt->pattern=Jdupstr(jc->nexttoken->svalue,-1,jc->pool);
     elt->flags=Jdupstr(jc->nexttoken->svalue2,-1,jc->pool);
+    if(!elt->pattern || (!elt->flags && jc->nexttoken->svalue2))
+    {  Errormsg(pa,"Out of memory");
+       if(elt->pattern) FREE(elt->pattern);
+       if(elt->flags) FREE(elt->flags);
+       FREE(elt);
+       return NULL;
+    }
     return elt;
 }
 
@@ -743,6 +784,10 @@ static void *Switchstatement(struct Jcontext *jc, void *pa)
     if (cond)
     {
         elt= ALLOCSTRUCT(Elementswitch,1,0,jc->pool);
+        if(!elt)
+        {  Errormsg(pa,"Out of memory");
+           return NULL;
+        }
         elt->type=ET_SWITCH;
         elt->generation=jc->generation;
         elt->linenr=Plinenr(pa);
