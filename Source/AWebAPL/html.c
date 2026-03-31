@@ -516,8 +516,6 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    short fontSize;
    BOOL isRelative;
    extern BOOL httpdebug;
-   long ruleCount;
-   long selectorCount;
    
    if(!doc || !body || !doc->cssstylesheet)
    {  if(httpdebug)
@@ -552,122 +550,10 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    
-   /* First pass: Find matching CSS rules and determine position type */
-   ruleCount = 0;
-   selectorCount = 0;
-   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
-       (struct MinNode *)rule->node.mln_Succ;
-       rule = (struct CSSRule *)rule->node.mln_Succ)
-   {  ruleCount++;
-   }
-   if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
-   {  printf("[CSS] ApplyCSSToBody: Checking %ld rule(s) against PRE element\n", ruleCount);
-   }
-   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
-       (struct MinNode *)rule->node.mln_Succ;
-       rule = (struct CSSRule *)rule->node.mln_Succ)
-   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
-         (struct MinNode *)sel->node.mln_Succ;
-         sel = (struct CSSSelector *)sel->node.mln_Succ)
-      {  matches = TRUE;
-         if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
-         {  printf("[CSS] ApplyCSSToBody: Checking selector - element=%s, class=%s, id=%s against PRE\n",
-                  sel->name ? (char *)sel->name : "any",
-                  sel->class ? (char *)sel->class : "none",
-                  sel->id ? (char *)sel->id : "none");
-         }
-         
-         /* debug_printf("CSS: Checking selector: type=0x%lx name=%s class=%s id=%s against element tagname=%s class=%s id=%s\n",
-                     (ULONG)sel->type,
-                     (sel->name ? (char *)sel->name : "NULL"),
-                     (sel->class ? (char *)sel->class : "NULL"),
-                     (sel->id ? (char *)sel->id : "NULL"),
-                     (tagname ? (char *)tagname : "NULL"),
-                     (class ? (char *)class : "NULL"),
-                     (id ? (char *)id : "NULL")); */
-         
-         /* Match element name */
-         if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  /* For body selector, tagname can be "BODY" or NULL (for document body) */
-            if(Stricmp((char *)sel->name,"body") == 0)
-            {  if(tagname && Stricmp((char *)tagname,"BODY") != 0)
-               {  /* debug_printf("CSS: Element name mismatch: selector wants 'body' but element is '%s'\n", tagname); */
-                  matches = FALSE;
-               }
-            }
-            else if(Stricmp((char *)sel->name, "html") == 0)
-            {  /* html selector matches html element OR root element (no tagname) */
-               if(tagname && Stricmp((char *)tagname, "html") != 0)
-               {  /* Has tagname but it's not "html" - doesn't match */
-                  matches = FALSE;
-               }
-               /* If no tagname, this is the root element - html selector matches */
-            }
-            else if(!tagname || Stricmp((char *)sel->name,(char *)tagname) != 0)
-            {  /* debug_printf("CSS: Element name mismatch: selector wants '%s' but element is '%s'\n",
-                           sel->name, tagname ? (char *)tagname : "NULL"); */
-               matches = FALSE;
-            }
-            else
-            {  /* debug_printf("CSS: Element name matches: '%s'\n", sel->name); */
-            }
-         }
-         
-         /* Match class */
-         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
-         {  if(!class)
-            {  /* debug_printf("CSS: Class selector requires class but element has none\n"); */
-               matches = FALSE;
-            }
-            else
-            {  /* Use proper word-boundary matching */
-               if(!MatchClassAttribute(class, sel->class))
-               {  matches = FALSE;
-               }
-            }
-         }
-         
-         /* Match ID */
-         if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0)
-            {  /* debug_printf("CSS: ID mismatch: selector wants '%s' but element has '%s'\n",
-                           sel->id, id ? (char *)id : "NULL"); */
-               matches = FALSE;
-            }
-            else
-            {  /* debug_printf("CSS: ID matches: '%s'\n", sel->id); */
-            }
-         }
-         
-         /* If selector matches, collect position-related properties */
-         if(matches)
-         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
-               (struct MinNode *)prop->node.mln_Succ;
-               prop = (struct CSSProperty *)prop->node.mln_Succ)
-            {  if(prop->name && prop->value)
-               {  /* Check position property first */
-                  if(Stricmp((char *)prop->name,"position") == 0)
-                  {  if(Stricmp((char *)prop->value,"absolute") == 0)
-                     {  isAbsolute = TRUE;
-                     }
-                  }
-                  /* Store top, left, margin-right for later processing */
-                  else if(Stricmp((char *)prop->name,"top") == 0)
-                  {  topValue = prop->value;
-                  }
-                  else if(Stricmp((char *)prop->name,"left") == 0)
-                  {  leftValue = prop->value;
-                  }
-                  else if(Stricmp((char *)prop->name,"margin-right") == 0)
-                  {  marginRightValue = prop->value;
-                  }
-               }
-            }
-         }
-      }
-   }
-   
-   /* Second pass: Apply all properties */
+   /* Single pass: Match selectors and apply properties.
+    * Position-related properties (top, left, margin-right) are collected
+    * during this pass and applied after the loop, since they depend on
+    * whether position:absolute was set (which may be in a different rule). */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
@@ -1002,9 +888,11 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      {  /* Fixed positioning - not yet implemented */
                      }
                   }
-                  /* CSS2: top property */
+                  /* CSS2: top property - save for deferred processing in case
+                   * position:absolute appears in a later rule */
                   else if(Stricmp((char *)prop->name,"top") == 0)
-                  {  posValue = ParseCSSLengthValue(prop->value,&num);
+                  {  topValue = prop->value;
+                     posValue = ParseCSSLengthValue(prop->value,&num);
                      if(isAbsolute && num.type == NUMBER_PERCENT)
                      {  /* Percentage-based top positioning */
                         /* Convert percentage (0-100) to 0-10000 scale */
@@ -1012,15 +900,19 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         if(percentValue < 0) percentValue = 0;
                         if(percentValue > 10000) percentValue = 10000;
                         Asetattrs(body,AOBDY_TopPercent,percentValue,TAG_END);
+                        topValue = NULL; /* Already applied */
                      }
                      else if(isAbsolute && (num.type == NUMBER_NUMBER || num.type == NUMBER_SIGNED))
                      {  /* Pixel-based top positioning (can be negative) */
                         Asetattrs(body,AOBJ_Top,posValue,TAG_END);
+                        topValue = NULL; /* Already applied */
                      }
                   }
-                  /* CSS2: left property */
+                  /* CSS2: left property - save for deferred processing in case
+                   * position:absolute appears in a later rule */
                   else if(Stricmp((char *)prop->name,"left") == 0)
-                  {  posValue = ParseCSSLengthValue(prop->value,&num);
+                  {  leftValue = prop->value;
+                     posValue = ParseCSSLengthValue(prop->value,&num);
                      if(isAbsolute && num.type == NUMBER_PERCENT)
                      {  /* Percentage-based left positioning */
                         /* Convert percentage (0-100) to 0-10000 scale */
@@ -1028,15 +920,18 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         if(percentValue < 0) percentValue = 0;
                         if(percentValue > 10000) percentValue = 10000;
                         Asetattrs(body,AOBDY_LeftPercent,percentValue,TAG_END);
+                        leftValue = NULL; /* Already applied */
                      }
                      else if(isAbsolute && (num.type == NUMBER_NUMBER || num.type == NUMBER_SIGNED))
                      {  /* Pixel-based left positioning (can be negative) */
                         Asetattrs(body,AOBJ_Left,posValue,TAG_END);
+                        leftValue = NULL; /* Already applied */
                      }
                   }
-                  /* CSS1: margin-right property */
+                  /* CSS1: margin-right property - save for deferred processing */
                   else if(Stricmp((char *)prop->name,"margin-right") == 0)
-                  {  posValue = ParseCSSLengthValue(prop->value,&num);
+                  {  marginRightValue = prop->value;
+                     posValue = ParseCSSLengthValue(prop->value,&num);
                      if(num.type == NUMBER_PERCENT)
                      {  /* Percentage-based margin */
                         /* Convert percentage (0-100) to 0-10000 scale */
@@ -2324,10 +2219,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                /* Prevent duplicate merge if AODOC_Docextready is called later */
                doc->pflags |= DPF_NORLDOCEXT;
                /* Apply link colors from CSS (a:link, a:visited) */
-               if(doc->cssstylesheet)
-               {
-                  ApplyCSSToLinkColors(doc);
-               }
+               ApplyCSSToLinkColors(doc);
                /* Always re-apply CSS to body when external CSS loads */
                if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
@@ -2790,7 +2682,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
       {  printf("[RENDER] Dobody: Applying CSS to body, stylesheet=%p, body=%p\n",
                 doc->cssstylesheet, doc->body);
       }
-      ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+      if(doc->cssstylesheet) ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
       /* If CSS exists, always reapply CSS to all existing elements */
       /* This ensures CSS is applied to elements created before CSS loaded (like PRE) */
       /* (New children will get CSS applied via Addelement) */
@@ -3019,7 +2911,7 @@ static BOOL Docenter(struct Document *doc,struct Tagattr *ta)
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"CENTER",-1),TAG_END);
    /* Apply CSS to CENTER element based on its class/id/tagname */
-   ApplyCSSToBody(doc,body,class,id,"CENTER");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"CENTER");
    Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }
@@ -3102,7 +2994,7 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    }
    Checkid(doc,tap);  /* Use original sentinel pointer */
    /* Apply CSS to body based on class/ID */
-   ApplyCSSToBody(doc,body,class,id,"DIV");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"DIV");
    /* Extract background-color from external stylesheet for text elements */
    {  struct Colorinfo *cssBgcolor;
       cssBgcolor = ExtractBackgroundColorFromRules(doc,class,id,"DIV");
@@ -3190,7 +3082,7 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
    if(!Ensuresp(doc)) return FALSE;
    Checkid(doc,sentinel);
    /* Apply CSS to body based on class/ID */
-   ApplyCSSToBody(doc,body,class,id,"P");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"P");
    /* Extract background-color from external stylesheet for text elements */
    {  struct Colorinfo *cssBgcolor;
       cssBgcolor = ExtractBackgroundColorFromRules(doc,class,id,"P");
@@ -3412,7 +3304,7 @@ static BOOL Dopre(struct Document *doc,struct Tagattr *ta)
    Checkid(doc,sentinel);
    
    /* Apply CSS to PRE body based on class/ID */
-   ApplyCSSToBody(doc,body,class,id,"PRE");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"PRE");
    
    pre_debug_printf("Dopre: <PRE> tag opened successfully\n");
    return TRUE;
@@ -3553,7 +3445,7 @@ static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
       if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
       Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"SPAN",-1),TAG_END);
       /* Apply CSS to body based on class/ID */
-      ApplyCSSToBody(doc,body,class,id,"SPAN");
+      if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"SPAN");
    }
    
    /* Handle id for anchor navigation */
@@ -3653,7 +3545,7 @@ static BOOL Doaddress(struct Document *doc,struct Tagattr *ta)
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"ADDRESS",-1),TAG_END);
    /* Apply CSS to ADDRESS element based on its class/id/tagname */
-   ApplyCSSToBody(doc,body,class,id,"ADDRESS");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"ADDRESS");
    Checkid(doc,tap);  /* Use original ta pointer */
    Wantbreak(doc,1);
    return TRUE;
@@ -3707,7 +3599,7 @@ static BOOL Doblockquote(struct Document *doc,struct Tagattr *ta)
       Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"BLOCKQUOTE",-1),TAG_END);
       /* Apply CSS to body based on class/ID */
       if(doc->cssstylesheet)
-      {  ApplyCSSToBody(doc,body,class,id,"BLOCKQUOTE");
+      {  if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"BLOCKQUOTE");
       }
    }
    Checkid(doc,sentinel);
@@ -3776,7 +3668,7 @@ static BOOL Doheading(struct Document *doc,short level,struct Tagattr *ta)
       Asetattrs(body,AOBDY_TagName,tagname,TAG_END);
       /* Apply CSS to body based on class/ID */
       if(doc->cssstylesheet)
-      {  ApplyCSSToBody(doc,body,class,id,tagname);
+      {  if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,tagname);
       }
    }
    if(!Ensuresp(doc)) return FALSE;
@@ -3929,7 +3821,7 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"FONT",-1),TAG_END);
    /* Apply CSS to body based on class/ID (before applying FONT attributes) */
-   ApplyCSSToBody(doc,body,class,id,"FONT");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"FONT");
    if(sizetag!=TAG_IGNORE || colorrgb!=(ULONG)~0 || face)
    {  if(!Solvebreaks(doc)) return FALSE;
       if(doc->doctype==DOCTP_BODY)
@@ -4082,7 +3974,7 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
    if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
    /* Apply CSS to anchor based on class/ID */
-   ApplyCSSToBody(doc,body,class,id,"A");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"A");
    if((href || onclick || onmouseover || onmouseout) && doc->doctype==DOCTP_BODY)
    {  void *link;
       struct Url *url=NULL;
@@ -4678,7 +4570,7 @@ static BOOL Dodd(struct Document *doc,struct Tagattr *ta)
    
    /* Apply CSS to dd element */
    if(body)
-   {  ApplyCSSToBody(doc,body,classAttr,NULL,"DD");
+   {  if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,NULL,"DD");
       /* Also apply inline CSS if present */
       if(styleAttr)
       {  ApplyInlineCSSToBody(doc,body,styleAttr,"DD");
@@ -4721,7 +4613,7 @@ static BOOL Dodl(struct Document *doc,struct Tagattr *ta)
    
    /* Apply CSS to dl element */
    if(body)
-   {  ApplyCSSToBody(doc,body,classAttr,NULL,"DL");
+   {  if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,NULL,"DL");
    }
    
    /* Add extra space if it is the outer list */
@@ -4771,7 +4663,7 @@ static BOOL Dodt(struct Document *doc,struct Tagattr *ta)
    
    /* Apply CSS to DT element based on class */
    if(classAttr)
-   {  ApplyCSSToBody(doc,body,classAttr,NULL,"DT");
+   {  if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,NULL,"DT");
    }
    
    Asetattrs(body,
@@ -4999,7 +4891,7 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
    if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"OL",-1),TAG_END);
    /* Apply CSS to OL element based on its class/id/tagname */
-   ApplyCSSToBody(doc,body,classAttr,idAttr,"OL");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,idAttr,"OL");
    
    /* Check if list-style-image was set via CSS and apply to Listinfo */
    {  UBYTE *listStyleImage;
@@ -5226,7 +5118,7 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"UL",-1),TAG_END);
    /* Apply CSS to UL element based on its class/id/tagname */
-   ApplyCSSToBody(doc,body,classAttr,idAttr,"UL");
+   if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,idAttr,"UL");
    
    /* Check if list-style-image was set via CSS and apply to Listinfo */
    {  UBYTE *listStyleImage;
@@ -5305,7 +5197,7 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
       if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
       if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
       /* Apply CSS to LI element based on its own class/id/tagname */
-      ApplyCSSToBody(doc,body,classAttr,idAttr,"LI");
+      if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,idAttr,"LI");
    }
    
    /* Apply CSS rules for .classname li to this list item (generic, not hardcoded to "menubar") */
@@ -6037,7 +5929,7 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
       if(cellBody)
       {  void *table;
          table = doc->tables.first->table;
-         ApplyCSSToBody(doc,cellBody,class,id,heading ? "TH" : "TD");
+         if(doc->cssstylesheet) ApplyCSSToBody(doc,cellBody,class,id,heading ? "TH" : "TD");
          /* Apply table-cell-specific CSS properties from external stylesheet */
          ApplyCSSToTableCellFromRules(doc,table,class,id,heading ? "TH" : "TD");
       }

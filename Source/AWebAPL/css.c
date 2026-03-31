@@ -311,7 +311,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             if(*p == '{')
             {  long braceDepth = 1;
                long mediaStart = p - cssStart;
-               (*p)++; /* Skip opening brace */
+               p++; /* Skip opening brace */
                /* Skip entire @media block */
                while(*p && braceDepth > 0)
                {  if(*p == '{') braceDepth++;
@@ -471,7 +471,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             {  p++;
             }
             if(*p == ';')
-            {  (*p)++;
+            {  p++;
                /* Update position after skipping @ rule */
                position = p - cssStart;
                lastPosition = position;
@@ -480,7 +480,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             }
             else if(*p == '{')
             {  long braceDepth = 1;
-               (*p)++;
+               p++;
                while(*p && braceDepth > 0)
                {  if(*p == '{') braceDepth++;
                   else if(*p == '}') braceDepth--;
@@ -1163,8 +1163,9 @@ static UBYTE* ParseIdentifier(UBYTE **p)
    SkipWhitespace(p);
    start = *p;
    
-   /* First character must be letter, underscore, or non-ASCII */
-   if(!isalpha(**p) && **p != '_' && (unsigned char)**p >= 128)
+   /* First character must be letter, underscore, or non-ASCII (>= 128).
+    * Reject if it's none of those (i.e. ASCII but not alpha and not underscore). */
+   if(!isalpha(**p) && **p != '_' && (unsigned char)**p < 128)
    {  return NULL;
    }
    (*p)++;
@@ -2174,12 +2175,17 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       {  Asetattrs(element, AOELT_Style, newStyle, TAG_END);
       }
    }
-   /* text-decoration */
+   /* text-decoration - can have multiple space-separated values
+    * like "underline line-through". Compare each word individually
+    * using Strnicmp with the word length to avoid matching the
+    * full remaining string. */
    else if(Stricmp((char *)name,"text-decoration") == 0)
    {  USHORT currentStyle;
       USHORT newStyle;
       UBYTE *decValue;
       UBYTE *pdec;
+      UBYTE *wordStart;
+      long wordLen;
       
       currentStyle = (USHORT)Agetattr(element, AOELT_Style);
       newStyle = currentStyle;
@@ -2191,18 +2197,21 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
          {  SkipWhitespace(&pdec);
             if(!*pdec) break;
             
-            if(Stricmp((char *)pdec,"underline") == 0)
+            /* Find current word boundaries */
+            wordStart = pdec;
+            while(*pdec && !isspace(*pdec)) pdec++;
+            wordLen = pdec - wordStart;
+            
+            if(wordLen == 9 && Strnicmp((char *)wordStart,"underline",9) == 0)
             {  newStyle |= FSF_UNDERLINED;
             }
-            else if(Stricmp((char *)pdec,"line-through") == 0 || Stricmp((char *)pdec,"strikethrough") == 0)
+            else if((wordLen == 12 && Strnicmp((char *)wordStart,"line-through",12) == 0) ||
+                    (wordLen == 13 && Strnicmp((char *)wordStart,"strikethrough",13) == 0))
             {  newStyle |= FSF_STRIKE;
             }
-            else if(Stricmp((char *)pdec,"none") == 0)
+            else if(wordLen == 4 && Strnicmp((char *)wordStart,"none",4) == 0)
             {  newStyle &= ~(FSF_UNDERLINED | FSF_STRIKE);
             }
-            
-            /* Skip to next space or end */
-            while(*pdec && !isspace(*pdec)) pdec++;
          }
          FREE(decValue);
       }
@@ -2231,6 +2240,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    struct RuleWithSpecificity *insertAfter;
    struct CSSStylesheet *sheet;
    USHORT maxSpec;
+   BOOL matched;
    extern BOOL httpdebug;
    short objtype;
    struct Aobject *ao;
@@ -2264,6 +2274,18 @@ void ApplyCSSToElement(struct Document *doc,void *element)
             id ? (char *)id : "NULL");
    }
    
+   /* Fast path: if the element has no tagname, class, or id, no CSS
+    * selector with an element/class/id requirement can match it.
+    * Skip the expensive rule iteration entirely unless there are
+    * universal selectors (which have no such requirements). */
+   if(!tagname && !class && !id)
+   {  if(httpdebug)
+      {  printf("[CSS] ApplyCSSToElement: Skipping - no tagname/class/id\n");
+      }
+      currentCSSDoc = NULL;
+      return;
+   }
+   
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    
    NEWLIST(&matches);
@@ -2273,31 +2295,22 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
-   {  maxSpec = 0;
+   {  matched = FALSE;
+      maxSpec = 0;
       for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
          (struct MinNode *)sel->node.mln_Succ;
          sel = (struct CSSSelector *)sel->node.mln_Succ)
       {  /* Quick rejection: If selector has an ID and element doesn't match, skip */
          if(sel->type & CSS_SEL_ID && sel->id)
-         {  UBYTE *elemId;
-            short objtype;
-            struct Aobject *ao;
-            
-            ao = (struct Aobject *)element;
-            objtype = ao->objecttype;
-            if(objtype == AOTP_BODY)
-            {  elemId = (UBYTE *)Agetattr(element, AOBDY_Id);
-            }
-            else
-            {  elemId = (UBYTE *)Agetattr(element, AOELT_Id);
-            }
-            if(!elemId || Stricmp((char *)sel->id, (char *)elemId) != 0)
+         {  /* Reuse id already fetched above to avoid redundant Agetattr calls */
+            if(!id || Stricmp((char *)sel->id, (char *)id) != 0)
             {  continue;  /* ID doesn't match, skip this selector */
             }
          }
          
          if(MatchSelector(sel,element))
-         {  /* Find maximum specificity among matching selectors */
+         {  matched = TRUE;
+            /* Find maximum specificity among matching selectors */
             if(sel->specificity > maxSpec)
             {  maxSpec = sel->specificity;
             }
@@ -2307,8 +2320,10 @@ void ApplyCSSToElement(struct Document *doc,void *element)
          }
       }
       
-      /* If at least one selector matched, add rule with its specificity */
-      if(maxSpec > 0)
+      /* If at least one selector matched, add rule with its specificity.
+       * Use matched flag rather than maxSpec > 0 so that universal selector (*)
+       * with specificity 0 is correctly applied. */
+      if(matched)
       {  ruleSpec = ALLOCSTRUCT(RuleWithSpecificity, 1, MEMF_FAST);
          if(ruleSpec)
          {  ruleSpec->rule = rule;
@@ -2339,24 +2354,14 @@ void ApplyCSSToElement(struct Document *doc,void *element)
       }
    }
    
-   /* Count matching rules */
+   /* Apply properties from matching rules sorted by specificity */
+   /* Rules with same specificity maintain document order (last wins) */
    matchCount = 0;
    for(ruleSpec = (struct RuleWithSpecificity *)matches.mlh_Head;
        (struct MinNode *)ruleSpec->node.mln_Succ;
        ruleSpec = (struct RuleWithSpecificity *)ruleSpec->node.mln_Succ)
    {  matchCount++;
-   }
-   
-   if(httpdebug)
-   {  printf("[CSS] ApplyCSSToElement: Found %ld matching rule(s) for element\n", matchCount);
-   }
-   
-   /* Apply properties from matching rules sorted by specificity */
-   /* Rules with same specificity maintain document order (last wins) */
-   for(ruleSpec = (struct RuleWithSpecificity *)matches.mlh_Head;
-       (struct MinNode *)ruleSpec->node.mln_Succ;
-       ruleSpec = (struct RuleWithSpecificity *)ruleSpec->node.mln_Succ)
-   {  rule = ruleSpec->rule;
+      rule = ruleSpec->rule;
       for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
          (struct MinNode *)prop->node.mln_Succ;
          prop = (struct CSSProperty *)prop->node.mln_Succ)
@@ -2369,6 +2374,10 @@ void ApplyCSSToElement(struct Document *doc,void *element)
       /* Free the helper structure */
       REMOVE((struct MinNode *)ruleSpec);
       FREE(ruleSpec);
+   }
+   
+   if(httpdebug)
+   {  printf("[CSS] ApplyCSSToElement: Found %ld matching rule(s) for element\n", matchCount);
    }
    
    /* Clear static document pointer */
@@ -2493,14 +2502,22 @@ static void ReapplyCSSToBodyRecursive(struct Document *doc, void *body)
 void ReapplyCSSToAllElements(struct Document *doc)
 {  extern BOOL httpdebug;
    
-   if(!doc || !doc->cssstylesheet || !doc->body) 
+   if(!doc || !doc->cssstylesheet || !doc->body)
    {  if(httpdebug)
       {  printf("[CSS] ReapplyCSSToAllElements: Skipped - doc=%p stylesheet=%p body=%p\n",
                 doc, (doc ? doc->cssstylesheet : NULL), (doc ? doc->body : NULL));
       }
       return;
    }
-   
+   /* Skip if document has no frame yet: reapply/attribute path may use doc->frame
+    * (e.g. Registerdoccolors or object propagation). Prevents crash on about:home
+    * and when CSS is ready before the document is attached to a frame. */
+   if(!doc->frame)
+   {  if(httpdebug)
+      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - no frame (doc=%p), will reapply when attached\n", doc);
+      }
+      return;
+   }
    if(httpdebug)
    {  printf("[CSS] ReapplyCSSToAllElements: Starting - recursively applying CSS to all elements\n");
    }
@@ -2521,16 +2538,14 @@ void FreeCSSStylesheet(struct Document *doc)
    }
 }
 
-/* Free a single CSS rule and all its selectors and properties */
-static void FreeCSSRule(struct CSSRule *rule)
-{  struct CSSSelector *sel;
-   struct CSSProperty *prop;
-   
-   if(!rule) return;
-   
-   /* Remove and free all selectors from the rule's list */
-   while((sel = (struct CSSSelector *)REMHEAD(&rule->selectors)))
-   {  if(sel->name) FREE(sel->name);
+/* Free a single CSS selector and its parent chain (for descendant/child selectors).
+ * The selector passed here is the leaf; each ->parent pointer is walked and freed
+ * up to the root of the chain. */
+static void FreeCSSSelector(struct CSSSelector *sel)
+{  struct CSSSelector *parent;
+   while(sel)
+   {  parent = sel->parent;
+      if(sel->name) FREE(sel->name);
       if(sel->class) FREE(sel->class);
       if(sel->id) FREE(sel->id);
       if(sel->pseudo) FREE(sel->pseudo);
@@ -2541,6 +2556,20 @@ static void FreeCSSRule(struct CSSRule *rule)
          FREE(sel->attr);
       }
       FREE(sel);
+      sel = parent;
+   }
+}
+
+/* Free a single CSS rule and all its selectors and properties */
+static void FreeCSSRule(struct CSSRule *rule)
+{  struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   
+   if(!rule) return;
+   
+   /* Remove and free all selectors from the rule's list, including parent chains */
+   while((sel = (struct CSSSelector *)REMHEAD(&rule->selectors)))
+   {  FreeCSSSelector(sel);
    }
    /* Remove and free all properties from the rule's list */
    while((prop = (struct CSSProperty *)REMHEAD(&rule->properties)))
@@ -2813,7 +2842,8 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             positionStr = Dupstr(prop->value, -1);
             if(positionStr)
             {  /* Store position value as-is - can be keywords (center, top, bottom, left, right)
-                 * or percentages/lengths (e.g., "50% 50%", "10px 20px", "center top") */
+                 * or percentages/lengths (e.g., "50% 50%", "10px 20px", "center top").
+                 * Asetattrs takes ownership of the Dupstr'd string. */
                Asetattrs(body, AOBDY_BackgroundPosition, positionStr, TAG_END);
             }
          }
@@ -3191,6 +3221,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   if(styleStr)
                   {  memmove(styleStr, token, len);
                      styleStr[len] = '\0';
+                     /* Asetattrs takes ownership of the allocated string */
                      Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
                   }
                }
@@ -3207,7 +3238,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
-         /* Apply border-style */
+         /* Apply border-style - Asetattrs takes ownership of the Dupstr'd string */
          else if(Stricmp((char *)prop->name,"border-style") == 0)
          {  UBYTE *styleStr;
             styleStr = Dupstr(prop->value, -1);
@@ -3293,32 +3324,44 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
-         /* Apply text-decoration */
+         /* Apply text-decoration - can have multiple space-separated values
+          * like "underline line-through". Compare each word individually
+          * using Strnicmp with the word length. */
          else if(Stricmp((char *)prop->name,"text-decoration") == 0)
-         {  /* text-decoration can have multiple values like "underline line-through" */
-            UBYTE *decValue;
+         {  UBYTE *decValue;
             UBYTE *pdec;
+            UBYTE *wordStart;
+            long wordLen;
             decValue = Dupstr(prop->value,-1);
             if(decValue)
             {  pdec = decValue;
                while(*pdec)
                {  SkipWhitespace(&pdec);
                   if(!*pdec) break;
-                  if(Stricmp((char *)pdec,"line-through") == 0 || Stricmp((char *)pdec,"strikethrough") == 0)
+                  
+                  /* Find current word boundaries */
+                  wordStart = pdec;
+                  while(*pdec && !isspace(*pdec)) pdec++;
+                  wordLen = pdec - wordStart;
+                  
+                  if((wordLen == 12 && Strnicmp((char *)wordStart,"line-through",12) == 0) ||
+                     (wordLen == 13 && Strnicmp((char *)wordStart,"strikethrough",13) == 0))
                   {  Asetattrs(body,AOBDY_Sethardstyle,FSF_STRIKE,TAG_END);
                   }
-                  else if(Stricmp((char *)pdec,"none") == 0)
+                  else if(wordLen == 9 && Strnicmp((char *)wordStart,"underline",9) == 0)
+                  {  Asetattrs(body,AOBDY_Sethardstyle,FSF_UNDERLINED,TAG_END);
+                  }
+                  else if(wordLen == 4 && Strnicmp((char *)wordStart,"none",4) == 0)
                   {  /* Remove all text decorations */
                      Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
+                     Asetattrs(body,AOBDY_Unsethardstyle,FSF_UNDERLINED,TAG_END);
                   }
-                  /* Skip to next space or end */
-                  while(*pdec && !isspace(*pdec)) pdec++;
                }
                FREE(decValue);
             }
          }
          /* Apply white-space */
-         /* Apply cursor */
+         /* Apply cursor - Asetattrs takes ownership of the Dupstr'd string */
          else if(Stricmp((char *)prop->name,"cursor") == 0)
          {  UBYTE *cursorStr;
             cursorStr = Dupstr(prop->value, -1);
@@ -3331,36 +3374,41 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          {  UBYTE *whitespaceStr;
             whitespaceStr = Dupstr(prop->value, -1);
             if(whitespaceStr)
-            {  Asetattrs(body, AOBDY_WhiteSpace, whitespaceStr, TAG_END);
-               /* Also apply to AOBDY_Nobr for nowrap */
-               if(Stricmp((char *)whitespaceStr, "nowrap") == 0)
+            {  /* Asetattrs takes ownership of the Dupstr'd string */
+               Asetattrs(body, AOBDY_WhiteSpace, whitespaceStr, TAG_END);
+               /* Also apply to AOBDY_Nobr for nowrap.
+                * Use prop->value for comparisons since whitespaceStr
+                * is now owned by the body object. */
+               if(Stricmp((char *)prop->value, "nowrap") == 0)
                {  Asetattrs(body, AOBDY_Nobr, TRUE, TAG_END);
                }
-               else if(Stricmp((char *)whitespaceStr, "normal") == 0 || 
-                       Stricmp((char *)whitespaceStr, "pre-wrap") == 0 || 
-                       Stricmp((char *)whitespaceStr, "pre-line") == 0)
+               else if(Stricmp((char *)prop->value, "normal") == 0 || 
+                       Stricmp((char *)prop->value, "pre-wrap") == 0 || 
+                       Stricmp((char *)prop->value, "pre-line") == 0)
                {  Asetattrs(body, AOBDY_Nobr, FALSE, TAG_END);
                }
                /* Note: "pre" is handled by STYLE_PRE, not white-space */
             }
          }
-         /* Apply text-transform */
+         /* Apply text-transform - Asetattrs takes ownership of the Dupstr'd string */
          else if(Stricmp((char *)prop->name,"text-transform") == 0)
          {  UBYTE *transformStr;
             transformStr = Dupstr(prop->value, -1);
             if(transformStr)
             {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
-               /* Also set document-level text-transform for compatibility */
-               if(Stricmp((char *)transformStr, "uppercase") == 0)
+               /* Also set document-level text-transform for compatibility.
+                * Use prop->value for comparisons since transformStr is
+                * now owned by the body object. */
+               if(Stricmp((char *)prop->value, "uppercase") == 0)
                {  doc->texttransform = 1;
                }
-               else if(Stricmp((char *)transformStr, "lowercase") == 0)
+               else if(Stricmp((char *)prop->value, "lowercase") == 0)
                {  doc->texttransform = 2;
                }
-               else if(Stricmp((char *)transformStr, "capitalize") == 0)
+               else if(Stricmp((char *)prop->value, "capitalize") == 0)
                {  doc->texttransform = 3;
                }
-               else if(Stricmp((char *)transformStr, "none") == 0)
+               else if(Stricmp((char *)prop->value, "none") == 0)
                {  doc->texttransform = 0;
                }
             }
@@ -3628,7 +3676,8 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             displayValue = prop->value;
             /* Skip whitespace */
             while(*displayValue && isspace(*displayValue)) displayValue++;
-            /* Store display value - rendering code in body.c checks for "none" to hide elements */
+            /* Store display value - rendering code in body.c checks for "none" to hide elements.
+             * Asetattrs takes ownership of the Dupstr'd string. */
             dispStr = Dupstr(displayValue, -1);
             if(dispStr)
             {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
@@ -3681,6 +3730,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             posValue = prop->value;
             SkipWhitespace(&posValue);
             
+            /* Asetattrs takes ownership of the Dupstr'd string */
             posStr = Dupstr(posValue, -1);
             if(posStr)
             {  Asetattrs(body, AOBDY_Position, posStr, TAG_END);
@@ -3766,19 +3816,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
             Asetattrs(body, AOBDY_ZIndex, zIndexValue, TAG_END);
          }
-         /* Apply display */
-         else if(Stricmp((char *)prop->name,"display") == 0)
-         {  UBYTE *dispValue;
-            UBYTE *dispStr;
-            
-            dispValue = prop->value;
-            SkipWhitespace(&dispValue);
-            
-            dispStr = Dupstr(dispValue, -1);
-            if(dispStr)
-            {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
-            }
-         }
+         /* NOTE: display property is handled earlier in this function (not duplicated here) */
          /* Apply vertical-align */
          else if(Stricmp((char *)prop->name,"vertical-align") == 0)
          {  UBYTE *valignValue;
@@ -3813,6 +3851,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             clearValue = prop->value;
             SkipWhitespace(&clearValue);
             
+            /* Asetattrs takes ownership of the Dupstr'd string */
             clearStr = Dupstr(clearValue, -1);
             if(clearStr)
             {  Asetattrs(body, AOBDY_Clear, clearStr, TAG_END);
@@ -3826,6 +3865,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             overflowValue = prop->value;
             SkipWhitespace(&overflowValue);
             
+            /* Asetattrs takes ownership of the Dupstr'd string */
             overflowStr = Dupstr(overflowValue, -1);
             if(overflowStr)
             {  Asetattrs(body, AOBDY_Overflow, overflowStr, TAG_END);
@@ -3839,6 +3879,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             listStyleValue = prop->value;
             SkipWhitespace(&listStyleValue);
             
+            /* Asetattrs takes ownership of the Dupstr'd string */
             listStyleStr = Dupstr(listStyleValue, -1);
             if(listStyleStr)
             {  Asetattrs(body, AOBDY_ListStyle, listStyleStr, TAG_END);
@@ -3946,6 +3987,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             
             /* Store transform value as-is - will be parsed during layout */
             /* Supported formats: translate(x, y), translateX(x), translateY(y) */
+            /* Asetattrs takes ownership of the Dupstr'd string */
             transformStr = Dupstr(pval, -1);
             if(transformStr)
             {  Asetattrs(body, AOBDY_Transform, transformStr, TAG_END);
@@ -4155,21 +4197,20 @@ ULONG ParseHexColor(UBYTE *pcolor)
    }
    
    if(len == 3)
-   {  /* Short format: #RGB -> #RRGGBB */
-      rgb = 0;
-      if(start[0] >= '0' && start[0] <= '9') rgb |= (start[0] - '0') << 20;
-      else if(start[0] >= 'a' && start[0] <= 'f') rgb |= (start[0] - 'a' + 10) << 20;
-      else if(start[0] >= 'A' && start[0] <= 'F') rgb |= (start[0] - 'A' + 10) << 20;
-      if(start[1] >= '0' && start[1] <= '9') rgb |= (start[1] - '0') << 12;
-      else if(start[1] >= 'a' && start[1] <= 'f') rgb |= (start[1] - 'a' + 10) << 12;
-      else if(start[1] >= 'A' && start[1] <= 'F') rgb |= (start[1] - 'A' + 10) << 12;
-      if(start[2] >= '0' && start[2] <= '9') rgb |= (start[2] - '0') << 4;
-      else if(start[2] >= 'a' && start[2] <= 'f') rgb |= (start[2] - 'a' + 10) << 4;
-      else if(start[2] >= 'A' && start[2] <= 'F') rgb |= (start[2] - 'A' + 10) << 4;
-      /* Expand to full format */
-      rgb = (rgb & 0xf00) << 8 | (rgb & 0x0f0) << 4 | (rgb & 0x00f);
-      rgb = rgb << 16 | rgb << 8 | rgb;
-      rgbval = rgb;
+   {  /* Short format: #RGB -> #RRGGBB
+       * Each nibble is duplicated: R -> RR, G -> GG, B -> BB */
+      ULONG r = 0, g = 0, b = 0;
+      if(start[0] >= '0' && start[0] <= '9') r = start[0] - '0';
+      else if(start[0] >= 'a' && start[0] <= 'f') r = start[0] - 'a' + 10;
+      else if(start[0] >= 'A' && start[0] <= 'F') r = start[0] - 'A' + 10;
+      if(start[1] >= '0' && start[1] <= '9') g = start[1] - '0';
+      else if(start[1] >= 'a' && start[1] <= 'f') g = start[1] - 'a' + 10;
+      else if(start[1] >= 'A' && start[1] <= 'F') g = start[1] - 'A' + 10;
+      if(start[2] >= '0' && start[2] <= '9') b = start[2] - '0';
+      else if(start[2] >= 'a' && start[2] <= 'f') b = start[2] - 'a' + 10;
+      else if(start[2] >= 'A' && start[2] <= 'F') b = start[2] - 'A' + 10;
+      /* Duplicate each nibble: 0xR -> 0xRR, etc. */
+      rgbval = (r << 20) | (r << 16) | (g << 12) | (g << 8) | (b << 4) | b;
    }
    else if(len == 6)
    {  /* Full format: #RRGGBB */
@@ -4244,7 +4285,7 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
       /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
-      {           /* Apply text-decoration: none */
+      {  /* Apply text-decoration: none */
          if(Stricmp((char *)prop->name,"text-decoration") == 0)
          {  if(Stricmp((char *)prop->value,"none") == 0)
             {  Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
@@ -4270,16 +4311,15 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
          /* Note: a:link and a:visited colors are handled at the document level via ApplyCSSToLinkColors */
       }
       
-      /* Free the property */
       if(prop)
-      {  if(prop->name) FREE(prop->name);
+      {  /* Free the property after applying */
+         if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
          FREE(prop);
       }
-      
-      /* Skip to next semicolon on parse error */
-      if(!prop)
-      {  while(*p && *p != ';')
+      else
+      {  /* Parse error - skip to next semicolon */
+         while(*p && *p != ';')
          {  p++;
          }
       }
@@ -4307,11 +4347,12 @@ void ApplyCSSToLinkColors(struct Document *doc)
    
    /* Find a:link and a:visited rules to set document link colors */
    /* Process :link and :visited FIRST, then fall back to 'a' without pseudo-class */
+   /* Guard rule so we never dereference NULL when list is empty or uninitialized */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
-       (struct MinNode *)rule->node.mln_Succ;
+       rule && (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
    {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
-         (struct MinNode *)sel->node.mln_Succ;
+         sel && (struct MinNode *)sel->node.mln_Succ;
          sel = (struct CSSSelector *)sel->node.mln_Succ)
       {  matches = TRUE;
          
@@ -4327,7 +4368,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
          {  if(Stricmp((char *)sel->pseudo,"link") == 0)
             {  /* Apply a:link color to doc->linkcolor */
                for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
-                   (struct MinNode *)prop->node.mln_Succ;
+                   prop && (struct MinNode *)prop->node.mln_Succ;
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
                {  if(prop->name && prop->value && Stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
@@ -4354,7 +4395,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
             else if(Stricmp((char *)sel->pseudo,"visited") == 0)
             {  /* Apply a:visited color to doc->vlinkcolor */
                for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
-                   (struct MinNode *)prop->node.mln_Succ;
+                   prop && (struct MinNode *)prop->node.mln_Succ;
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
                {  if(prop->name && prop->value && Stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
@@ -4376,10 +4417,10 @@ void ApplyCSSToLinkColors(struct Document *doc)
    /* Second pass: Handle 'a' without pseudo-class as fallback default link color */
    if(!linkColorSet)
    {  for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
-          (struct MinNode *)rule->node.mln_Succ;
+          rule && (struct MinNode *)rule->node.mln_Succ;
           rule = (struct CSSRule *)rule->node.mln_Succ)
       {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
-            (struct MinNode *)sel->node.mln_Succ;
+            sel && (struct MinNode *)sel->node.mln_Succ;
             sel = (struct CSSSelector *)sel->node.mln_Succ)
          {  matches = TRUE;
             
@@ -4398,7 +4439,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
             /* Apply 'a' without pseudo-class as default link color */
             if(matches)
             {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
-                   (struct MinNode *)prop->node.mln_Succ;
+                   prop && (struct MinNode *)prop->node.mln_Succ;
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
                {  if(prop->name && prop->value && Stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
