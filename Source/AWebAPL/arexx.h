@@ -70,10 +70,12 @@ enum AREXX_COMMANDS        /* (parameters) */
    ARX_GETHISTORY,         /* (long *window,BOOL mainline,UBYTE *stem) */
    ARX_GO,                 /* (long *n,BOOL back,BOOL fwd,BOOL home) */
    ARX_HOTLIST,            /* (UBYTE *set,BOOL save,BOOL restore) */
+   ARX_HTTPGET,            /* (UBYTE *url,UBYTE *stem,BOOL headers,long *timeout) */
    ARX_ICONIFY,            /* (BOOL hide,BOOL show) */
    ARX_IMAGELOADING,       /* (BOOL off,BOOL maps,BOOL all) */
    ARX_INFO,               /* (UBYTE *target) */
    ARX_JAVASCRIPT,         /* (UBYTE *source,UBYTE *file,UBYTE *target,UBYTE *var) */
+   ARX_JSONGET,            /* (UBYTE *data,UBYTE *path,UBYTE *var,UBYTE *stem) */
    ARX_JSBREAK,            /* (void) */
    ARX_JSDEBUG,            /* (BOOL on,BOOL off) */
    ARX_LOAD,               /* (UBYTE *url,UBYTE *saveas,BOOL reload,BOOL append,
