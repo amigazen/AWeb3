@@ -221,10 +221,13 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
 
     result = Newarray(jc);
 
-    while ((limit > 0) && result && ovector && (rc = pcre_exec(re->compiled,(const void *)NULL,match,strlen(match),lastindex,0,ovector,ovecsize) > -1))
+    while(limit > 0 && result && ovector)
     {
         struct Variable *var;
         int i;
+
+        rc = pcre_exec(re->compiled,(const void *)NULL,match,strlen(match),lastindex,0,ovector,ovecsize);
+        if(rc < 0) break;
 
     //    if (global) re->lastIndex = ovector[1];
 
