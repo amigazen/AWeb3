@@ -164,7 +164,7 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
             }
             if((var = Getownproperty(jc->regexp,"rightContext")))
             {
-                Asgstringlen(&var->val,match+ovector[1],mlen - ovector[0],jc->pool);
+                Asgstringlen(&var->val,match+ovector[1],mlen - ovector[1],jc->pool);
             }
             if((var = Getownproperty(jc->regexp,"input")))
             {
@@ -224,6 +224,7 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
     int ovecsize = 0;
     int *ovector;
     int lastindex = 0;
+    int mlen;
 
     if(!re || jo->type != OBJT_REGEXP || !re->compiled)
     {
@@ -231,6 +232,7 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
         return NULL;
     }
     if(!match) match = "";
+    mlen = strlen(match);
 
     /* find out how many capturing substrings */
 
@@ -251,7 +253,7 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
         struct Variable *var;
         int i;
 
-        rc = pcre_exec(re->compiled,(const void *)NULL,match,strlen(match),lastindex,0,ovector,ovecsize);
+        rc = pcre_exec(re->compiled,(const void *)NULL,match,mlen,lastindex,0,ovector,ovecsize);
         if(rc < 0) break;
 
     //    if (global) re->lastIndex = ovector[1];
