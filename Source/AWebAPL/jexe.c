@@ -381,7 +381,7 @@ static void Escape(struct Jcontext *jc)
          {  Addtojbuffer(jb,s,1);
          }
          else
-         {  sprintf(buf,"%%%02X",*s);
+         {  sprintf(buf,"%%%02X",(unsigned int)(UBYTE)(*s));
             Addtojbuffer(jb,buf,-1);
          }
       }
@@ -1130,39 +1130,21 @@ static void Exeplus(struct Jcontext *jc,struct Element *elt)
    }
    if(concat)
    {  /* Do string concatenation */
-      long l;
-      UBYTE *s;
       Tostring(&val1,jc);
       Tostring(&val2,jc);
-      /* Ensure both values are strings with valid pointers after conversion */
-      if(val1.type==VTP_STRING && val1.value.svalue && val2.type==VTP_STRING && val2.value.svalue)
-      {  l=strlen(val1.value.svalue)+strlen(val2.value.svalue);
-         if(s=ALLOCTYPE(UBYTE,l+1,0,jc->pool))
-         {  strcpy(s,val1.value.svalue);
-            strcat(s,val2.value.svalue);
-            Asgstring(jc->val,s,jc->pool);
-            FREE(s);
-         }
-         else
-         {  /* Memory allocation failed - use empty string */
-            Asgstring(jc->val,"",jc->pool);
-         }
+      if(val1.type!=VTP_STRING || !val1.value.svalue)
+      {  Asgstring(&val1,"",jc->pool);
       }
-      else
-      {  /* One or both values failed to convert or have NULL pointers */
-         /* Try to ensure strings are valid - if Tostring didn't set them, set to empty */
-         if(val1.type!=VTP_STRING || !val1.value.svalue)
-         {  Asgstring(&val1,"",jc->pool);
-         }
-         if(val2.type!=VTP_STRING || !val2.value.svalue)
-         {  Asgstring(&val2,"",jc->pool);
-         }
-         l=strlen(val1.value.svalue)+strlen(val2.value.svalue);
-         if(s=ALLOCTYPE(UBYTE,l+1,0,jc->pool))
-         {  strcpy(s,val1.value.svalue);
-            strcat(s,val2.value.svalue);
-            Asgstring(jc->val,s,jc->pool);
-            FREE(s);
+      if(val2.type!=VTP_STRING || !val2.value.svalue)
+      {  Asgstring(&val2,"",jc->pool);
+      }
+      {  struct Jbuffer *jb=Newjbuffer(jc->pool);
+         if(jb)
+         {  Addtojbuffer(jb,val1.value.svalue,-1);
+            Addtojbuffer(jb,val2.value.svalue,-1);
+            Addtojbuffer(jb,"",1);
+            Asgstring(jc->val,jb->buffer?jb->buffer:(UBYTE *)"",jc->pool);
+            Freejbuffer(jb);
          }
          else
          {  Asgstring(jc->val,"",jc->pool);
@@ -1785,9 +1767,13 @@ static void Execomma(struct Jcontext *jc,struct Element *elt)
 
 static void Exein(struct Jcontext *jc, struct Element *elt)
 {  UBYTE* name;
+   struct Value sval;
+   sval.type = 0;
    Executeelem(jc,elt->sub1);
-   Tostring(jc->val,jc);
-   name = jc->val->value.svalue;
+   /* Preserve the property name string across RHS evaluation. */
+   Asgvalue(&sval,jc->val);
+   Tostring(&sval,jc);
+   name = sval.value.svalue;
    Executeelem(jc,elt->sub2);
    if(jc->val->type == VTP_OBJECT && jc->val->value.obj.ovalue)
    {  BOOL result = FALSE;
@@ -1800,6 +1786,7 @@ static void Exein(struct Jcontext *jc, struct Element *elt)
    else
    {  Runtimeerror(jc,NTE_TYPE,elt,"Right hand side of in statement is not an object");
    }
+   Clearvalue(&sval);
 }
 
 static void Exeinstanceof(struct Jcontext *jc, struct Element *elt)
@@ -2297,12 +2284,15 @@ static void Exeobject(struct Jcontext *jc, struct Elementlist *elist)
          /* If a numeric literal execute and use tostring value */
          /* if other this is an error, (dispose of object, return null?) */
          UBYTE *propname;
+         struct Value pval;
+         pval.type=0;
          switch(((struct Element *)enode->sub)->type)
          {  case ET_INTEGER:
             case ET_STRING:
                Executeelem(jc,enode->sub);
-               Tostring(jc->val,jc);
-               propname=jc->val->value.svalue;
+               Asgvalue(&pval,jc->val);
+               Tostring(&pval,jc);
+               propname=pval.value.svalue;
                break;
             case ET_IDENTIFIER:
                propname=((struct Elementstring *)enode->sub)->svalue;
@@ -2310,12 +2300,14 @@ static void Exeobject(struct Jcontext *jc, struct Elementlist *elist)
             default:
                /* temporay code */
                enode=enode->next;
+               Clearvalue(&pval);
                continue;
                break;
          }
          if(!(prop = Getownproperty(object,propname)))
          {  prop = Addproperty(object,propname);
          }
+         Clearvalue(&pval);
          enode=enode->next;
          Executeelem(jc,enode->sub);
          Asgvalue(&prop->val,jc->val);
@@ -2354,7 +2346,7 @@ static void Exeaddress(struct Jcontext *jc,struct Element *elt)
    Executeinternal(jc,elt->sub1);
    Asgvalue(&val,jc->val);
    Toobject(&val,jc);
-   sprintf(buf,"0x%08X",val.value.obj.ovalue);
+   sprintf(buf,"0x%08lX",(ULONG)val.value.obj.ovalue);
    Asgstring(jc->val,buf,jc->pool);
 }
 #endif

@@ -345,6 +345,9 @@ static void *Functioncall(struct Jcontext *jc,void *pa,void *elt)
       }
       Skiptoken(jc,pa,JT_RIGHTPAR);
    }
+   else
+   {  Errormsg(pa,"Out of memory");
+   }
    return elist;
 }
 
@@ -1096,6 +1099,9 @@ static void *Element(struct Jcontext *jc,void *pa)
          /* Remember current scope with function */
          func->fscope=jc->fscope;
       }
+      else
+      {  Errormsg(pa,"Out of memory");
+      }
 
       /* This will return the function object when "function" is used
        * in an expression of type foo = function name () {body}
@@ -1110,6 +1116,10 @@ static void *Element(struct Jcontext *jc,void *pa)
             funcref->linenr = jc->linenr;
             funcref->func = fobj;
             elt = funcref;
+         }
+         else
+         {  Errormsg(pa,"Out of memory");
+            elt = NULL;
          }
       }
    }

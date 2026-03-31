@@ -122,11 +122,11 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
                 Asgnumber(&var->val,VNA_VALID,(double)ovector[0]);
                 var->hook = Constantvhook;
             }
-            /* update global regexp object index */
-            /* deprecated by ECMA and javascript 1.5included for MSIE compat */
-            if((var = Getownproperty(jc->regexp,"index")))
-            {
-                Asgnumber(&var->val,VNA_VALID,(double)ovector[0]);
+            /* update global regexp object index (legacy/MSIE compat) */
+            if(jc->regexp)
+            {  if((var = Getownproperty(jc->regexp,"index")))
+               {  Asgnumber(&var->val,VNA_VALID,(double)ovector[0]);
+               }
             }
 
             if((var = Addproperty(result,"input")))
@@ -147,32 +147,26 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
             }
 
 
-            /* update global regexp object index */
-            /* deprecated by ECMA and javascript 1.5 included for MSIE compat */
-
-            if((var = Getownproperty(jc->regexp,"index")))
-            {
-                Asgnumber(&var->val,VNA_VALID,(double)ovector[0]);
-            }
-            if((var = Getownproperty(jc->regexp, "lastIndex")))
-            {
-                Asgnumber(&var->val,VNA_VALID,(double)re->lastIndex);
-            }
-            if((var = Getownproperty(jc->regexp,"leftContext")))
-            {
-                Asgstringlen(&var->val,match,ovector[0],jc->pool);
-            }
-            if((var = Getownproperty(jc->regexp,"rightContext")))
-            {
-                Asgstringlen(&var->val,match+ovector[1],mlen - ovector[1],jc->pool);
-            }
-            if((var = Getownproperty(jc->regexp,"input")))
-            {
-                Asgstring(&var->val,match,jc->pool);
-            }
-            if((var = Getownproperty(jc->regexp,"lastMatch")))
-            {
-                Asgstringlen(&var->val,match+ovector[0],ovector[1] - ovector[0],jc->pool);
+            /* update global regexp properties (legacy/MSIE compat) */
+            if(jc->regexp)
+            {  if((var = Getownproperty(jc->regexp,"index")))
+               {  Asgnumber(&var->val,VNA_VALID,(double)ovector[0]);
+               }
+               if((var = Getownproperty(jc->regexp, "lastIndex")))
+               {  Asgnumber(&var->val,VNA_VALID,(double)re->lastIndex);
+               }
+               if((var = Getownproperty(jc->regexp,"leftContext")))
+               {  Asgstringlen(&var->val,match,ovector[0],jc->pool);
+               }
+               if((var = Getownproperty(jc->regexp,"rightContext")))
+               {  Asgstringlen(&var->val,match+ovector[1],mlen - ovector[1],jc->pool);
+               }
+               if((var = Getownproperty(jc->regexp,"input")))
+               {  Asgstring(&var->val,match,jc->pool);
+               }
+               if((var = Getownproperty(jc->regexp,"lastMatch")))
+               {  Asgstringlen(&var->val,match+ovector[0],ovector[1] - ovector[0],jc->pool);
+               }
             }
             for(i=1;i<=9;i++)
             {
@@ -180,25 +174,21 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
                 int captures = rc;
                 sprintf(varname,"$%d",i);
 
-                if((var=Getownproperty(jc->regexp,varname)))
-                {
-                    if(ovector[i*2] >=0 && i <= capcnt)
-                    {
-                        captures--;
-                        Asgstringlen(&var->val,(UBYTE *)(match + ovector[i*2]),ovector[i*2 +1] - ovector[i*2],jc->pool);
-                        if(captures==1)
-                        {
-                            if((var = Getownproperty(jc->regexp,"lastParen")))
-                            {
-                                Asgstringlen(&var->val,(UBYTE *)(match + ovector[i*2]),ovector[i*2 +1] - ovector[i*2],jc->pool);
+                if(jc->regexp)
+                {  if((var=Getownproperty(jc->regexp,varname)))
+                   {  if(ovector[i*2] >=0 && i <= capcnt)
+                      {  captures--;
+                         Asgstringlen(&var->val,(UBYTE *)(match + ovector[i*2]),ovector[i*2 +1] - ovector[i*2],jc->pool);
+                         if(captures==1)
+                         {  if((var = Getownproperty(jc->regexp,"lastParen")))
+                            {  Asgstringlen(&var->val,(UBYTE *)(match + ovector[i*2]),ovector[i*2 +1] - ovector[i*2],jc->pool);
                             }
-
-                        }
-                    }
-                    else
-                    {
-                        Asgstring(&var->val,"",jc->pool);
-                    }
+                         }
+                      }
+                      else
+                      {  Asgstring(&var->val,"",jc->pool);
+                      }
+                   }
                 }
             }
 
@@ -247,12 +237,20 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
     ovector = ALLOCTYPE(int,ovecsize,0,jc->pool);
 
     result = Newarray(jc);
+    if(!ovector || !result)
+    {
+        if(ovector) FREE(ovector);
+        Runtimeerror(jc,NTE_GENERAL,jc->elt,"Out of memory");
+        return NULL;
+    }
 
-    while(limit > 0 && result && ovector)
+    while(limit > 0)
     {
         struct Variable *var;
         int i;
+        int previndex;
 
+        previndex = lastindex;
         rc = pcre_exec(re->compiled,(const void *)NULL,match,mlen,lastindex,0,ovector,ovecsize);
         if(rc < 0) break;
 
@@ -260,7 +258,8 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
 
         for(i=0;i<=capcnt;i++)
         {
-            if (limit -- == 0) break;
+            if(limit == 0) break;
+            limit--;
 
             if(ovector[i*2] >=0)
             {
@@ -285,7 +284,11 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
             }
         }
         lastindex = ovector[1];
-        if(lastindex == 0) break;
+        /* Prevent stalling on zero-length matches */
+        if(lastindex <= previndex)
+        {  lastindex = previndex + 1;
+           if(lastindex > mlen) break;
+        }
 
     }
 
