@@ -124,10 +124,10 @@ static UBYTE *Getstring(struct Parser *pa,UBYTE sep)
                   case 'x':
                   case 'X':
                      *q=0;
-                     *p++;
+                     p++;
                      if(isxdigit(*p))
                      {  *q=(*q)*16+Hexvalue(*p);
-                        *p++;
+                        p++;
                         if(isxdigit(*p))
                         {  *q=(*q)*16+Hexvalue(*p);
                            p++;

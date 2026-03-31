@@ -212,9 +212,21 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
     int *ovector;
     int lastindex = 0;
 
+    if(!re || jo->type != OBJT_REGEXP || !re->compiled)
+    {
+        Runtimeerror(jc,NTE_TYPE,jc->elt,"Object is not a Regular Expression");
+        return NULL;
+    }
+    if(!match) match = "";
+
     /* find out how many capturing substrings */
 
     rc = pcre_fullinfo(re->compiled,(const void *)NULL,PCRE_INFO_CAPTURECOUNT,&capcnt);
+    if(rc < 0 || capcnt < 0)
+    {
+        Runtimeerror(jc,NTE_GENERAL,jc->elt,"Regular Expression internal error");
+        return NULL;
+    }
 
     ovecsize=3*(capcnt +1);
     ovector = ALLOCTYPE(int,ovecsize,0,jc->pool);

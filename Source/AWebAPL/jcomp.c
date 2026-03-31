@@ -81,6 +81,11 @@ static void *Nextarrayelement(struct Jcontext *jc, void *pa)
     if(jc->nexttoken->id == JT_COMMA)
     {
         struct Element *elt = ALLOCSTRUCT(Element,1,0,jc->pool);
+        if(!elt)
+        {
+            Errormsg(pa,"Out of memory");
+            return NULL;
+        }
         elt->type = ET_EMPTY;
         return elt;
     }
@@ -93,6 +98,11 @@ static void *Array(struct Jcontext *jc, void *pa)
     struct Elementlist *elist=ALLOCSTRUCT(Elementlist,1,0,jc->pool);
     struct Elementnode *enode;
 
+    if(!elist)
+    {
+        Errormsg(pa,"Out of memory");
+        return NULL;
+    }
     elist->type=ET_ARRAY;
     elist->generation=jc->generation;
     elist->linenr=Plinenr(pa);
@@ -119,6 +129,11 @@ static void *Objectlit(struct Jcontext *jc, void *pa)
     struct Elementlist *elist=ALLOCSTRUCT(Elementlist,1,0,jc->pool);
     struct Elementnode *enode;
 
+    if(!elist)
+    {
+        Errormsg(pa,"Out of memory");
+        return NULL;
+    }
 
     elist->type=ET_OBJECTLIT;
     elist->generation=jc->generation;
@@ -1061,7 +1076,7 @@ static void *Element(struct Jcontext *jc,void *pa)
 
 /* Create new program, or expand existing one */
 static void Compileprogram(struct Jcontext *jc,void *pa)
-{  struct Elementlist *plist;
+{  struct Elementlist *plist=NULL;
    struct Elementnode *enode;
    struct Element *elt;
    ULONG state;
