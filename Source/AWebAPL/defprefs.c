@@ -1117,7 +1117,17 @@ static long Openname(BOOL saved,UBYTE *name,UBYTE *file,long mode)
          saved?"ENVARC":"ENV",
          *configname?'/':'\0',
          *configname?configname:(UBYTE *)"");
-      if(mode==MODE_NEWFILE) Makedir(iobuf);
+      if(mode==MODE_NEWFILE)
+      {  UBYTE *p;
+         /* Create ENV:DEFAULTCFG first, then optional subdir. */
+         p=strchr(iobuf,'/');
+         if(p)
+         {  *p='\0';
+            Makedir(iobuf);
+            *p='/';
+         }
+         Makedir(iobuf);
+      }
       if(file) strcat(iobuf,file);
    }
    return Open(iobuf,mode);
