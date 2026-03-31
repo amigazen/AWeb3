@@ -821,10 +821,17 @@ static void Exetry(struct Jcontext *jc, struct Elementtry *elt)
 
    Executeelem(jc,elt->try);
    if(jc->complete == ECO_THROW)
-   {  Asgvalue(&var->val,jc->throwval);
-      var->flags |= VARF_DONTDELETE;
-      jc->try = oldtry;
-      Executeelem(jc,elt->catch);
+   {  if(var && jc->throwval)
+      {  Asgvalue(&var->val,jc->throwval);
+         var->flags |= VARF_DONTDELETE;
+         jc->try = oldtry;
+         Executeelem(jc,elt->catch);
+      }
+      else
+      {  /* Should not happen: catch variable could not be resolved. */
+         jc->try = oldtry;
+         Runtimeerror(jc,NTE_GENERAL,(struct Element *)elt,"Invalid catch variable");
+      }
    }
    jc->try = oldtry;
 
@@ -863,7 +870,7 @@ static void Exenull(struct Jcontext *jc,struct Element *elt)
 }
 
 static void Exenegative(struct Jcontext *jc,struct Element *elt)
-{  double n;
+{  double n=0.0;
    UBYTE v;
    Executeelem(jc,elt->sub1);
    Tonumber(jc->val,jc);
@@ -1491,7 +1498,7 @@ static void Exebitxor(struct Jcontext *jc,struct Element *elt)
 static void Exeshleft(struct Jcontext *jc,struct Element *elt)
 {  struct Value val1,val2;
    struct Variable *lhs;
-   ULONG n;
+   ULONG n=0;
    val1.type=val2.type=0;
    Executeelem(jc,elt->sub1);
    lhs=jc->varref;
@@ -1517,7 +1524,7 @@ static void Exeshleft(struct Jcontext *jc,struct Element *elt)
 static void Exeshright(struct Jcontext *jc,struct Element *elt)
 {  struct Value val1,val2;
    struct Variable *lhs;
-   ULONG n;
+   ULONG n=0;
    val1.type=val2.type=0;
    Executeelem(jc,elt->sub1);
    lhs=jc->varref;
@@ -1543,7 +1550,7 @@ static void Exeshright(struct Jcontext *jc,struct Element *elt)
 static void Exeushright(struct Jcontext *jc,struct Element *elt)
 {  struct Value val1,val2;
    struct Variable *lhs;
-   ULONG n;
+   ULONG n=0;
    val1.type=val2.type=0;
    Executeelem(jc,elt->sub1);
    lhs=jc->varref;
@@ -1804,14 +1811,21 @@ static void Exeinstanceof(struct Jcontext *jc, struct Element *elt)
    {  BOOL result = FALSE;
       struct Variable *proto;
       if(res1.type == VTP_OBJECT)
-      {  if((proto = Getproperty(jc->val->value.obj.ovalue,"prototype")))
-         {  if(proto->val.type == VTP_OBJECT)
-            {  if(res1.value.obj.ovalue->prototype == proto->val.value.obj.ovalue)
-               {  result = TRUE;
+      {  if(res1.value.obj.ovalue)
+         {  if((proto = Getproperty(jc->val->value.obj.ovalue,"prototype")))
+            {  if(proto->val.type == VTP_OBJECT)
+               {  struct Jobject *p;
+                  struct Jobject *target = proto->val.value.obj.ovalue;
+                  for(p = res1.value.obj.ovalue->prototype; p; p = p->prototype)
+                  {  if(p == target)
+                     {  result = TRUE;
+                        break;
+                     }
+                  }
                }
-            }
-            else
-            {  Runtimeerror(jc,NTE_TYPE,elt,"Instanceof operand is of wrong type");
+               else
+               {  Runtimeerror(jc,NTE_TYPE,elt,"Instanceof operand is of wrong type");
+               }
             }
          }
       }
