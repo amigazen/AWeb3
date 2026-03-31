@@ -321,7 +321,22 @@ struct Token *Nexttoken(struct Parser *pa)
    }
    
    while(isspace(*pa->next))
-   {  if((pa->next[0]=='\r' && pa->next[1]!='\n') || pa->next[0]=='\n')
+   {  /* If requested, stop at newline and return it as a token. */
+      if(!pa->skipnewline
+      && ((pa->next[0]=='\r' && pa->next[1]!='\n') || pa->next[0]=='\n'))
+      {  token.id=JT_NEWLINE;
+         /* Advance over newline and update line/linenr */
+         if(pa->next[0]=='\r' && pa->next[1]=='\n')
+         {  pa->next+=2;
+         }
+         else
+         {  pa->next++;
+         }
+         pa->line=pa->next;
+         pa->linenr++;
+         return tokenp;
+      }
+      if((pa->next[0]=='\r' && pa->next[1]!='\n') || pa->next[0]=='\n')
       {  pa->line=pa->next+1;
          pa->linenr++;
       }
