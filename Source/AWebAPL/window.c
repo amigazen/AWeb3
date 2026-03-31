@@ -221,10 +221,12 @@ static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
 static UBYTE *Makescreentitle(struct Awindow *win)
 {  ULONG availmem;
    
+   /* Guard against NULL win - must not dereference when intuition refreshes title */
+   if(!win) return NULL;
    /* Use global buffer - ensure it's null-terminated */
    screentitlebuf[0] = '\0';
    /* Start with version */
-   sprintf(screentitlebuf, "AWeb %s", awebversion);
+   sprintf(screentitlebuf, "AWeb %s", awebversion ? awebversion : "");
    
    /* Add portname */
    if(win->portname && win->portname[0])
@@ -263,7 +265,7 @@ static UBYTE *Makescreentitle(struct Awindow *win)
 
 /* Build screen title with status message (for modern layout) */
 static UBYTE *Makestatusscreentitle(struct Awindow *win, UBYTE *status)
-{  if(!status || !*status) return NULL;
+{  if(!win || !status || !*status) return NULL;
    
    /* Use global buffer - ensure it's null-terminated and copy status */
    strncpy(screentitlebuf, status, sizeof(screentitlebuf) - 1);
@@ -278,14 +280,16 @@ static void Settitle(struct Awindow *win,UBYTE *title)
    {  
       /* Update window title, preserve screen title if it exists */
       if(win->window)
-      {  if(win->screentitle && win->screentitle[0])
-         {  /* Keep existing screen title when updating window title */
+      {  /* COMMENTED OUT: Screen title feature temporarily disabled */
+         /* if(win->screentitle && win->screentitle[0])
+         {  Keep existing screen title when updating window title
             SetWindowTitles(win->window,newtitle,win->screentitle);
          }
          else
-         {  /* No screen title yet, just update window title */
+         {  No screen title yet, just update window title
             SetWindowTitles(win->window,newtitle,(UBYTE *)~0);
-         }
+         } */
+         SetWindowTitles(win->window,newtitle,(UBYTE *)~0);
       }
       if(win->wintitle) FREE(win->wintitle);
       win->wintitle=newtitle;
@@ -766,8 +770,8 @@ static void *BuildModernLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *u
 
 /* Open intuition window */
 static BOOL Openwindow(struct Awindow *win)
-{  void *url=(void *)Agetattr(win->frame,AOFRM_Url);
-   UBYTE *urlname=(UBYTE *)Agetattr(url,AOURL_Url);
+{  void *url;
+   UBYTE *urlname;
    struct Screen *screen=NULL;
    struct ColorMap *colormap=NULL;
    struct DrawInfo *drinfo=NULL;
@@ -780,6 +784,11 @@ static BOOL Openwindow(struct Awindow *win)
    void *buttonrow;
    ULONG bgrgb[3];
    short i;
+   if(httpdebug)
+   {  printf("[CRASH_TRACE] Openwindow: entry win=%p frame=%p\n", win, win->frame);
+   }
+   url=(void *)Agetattr(win->frame,AOFRM_Url);
+   urlname=(UBYTE *)Agetattr(url,AOURL_Url);
    if(ISEMPTY(&win->urlpoplist))
    {  for(i=0;urlpops[i];i++)
       {  if(node=AllocChooserNode(CNA_Text,urlpops[i],TAG_END))
@@ -873,7 +882,7 @@ static BOOL Openwindow(struct Awindow *win)
       win->box.Height=calc_height;
       if(win->newwidth || win->newheight)
       {  struct Awindow *awin;
-         for(awin=windows.first;awin->next;awin=awin->next)
+         for(awin=windows.first;awin && awin->next;awin=awin->next)
          {  if(awin->window)
             {  if(win->newwidth)
                {  win->box.Width=awin->window->Width-awin->spacegad->Width+win->newwidth;
@@ -961,7 +970,7 @@ static BOOL Openwindow(struct Awindow *win)
    Setactiveport(win->portname);
    activewindow=win;
    /* Update screen title when window is first opened */
-   Updatescreentitle(win);
+   /* Updatescreentitle(win); */  /* COMMENTED OUT: Screen title feature temporarily disabled */
    win->window->UserData=(BYTE *)win;
    win->window->UserPort=windowport;
    /* Add IDCMP_EXTENDEDMOUSE if intuition.library v47+ supports mousewheel */
@@ -1195,18 +1204,20 @@ static BOOL Openwindow(struct Awindow *win)
          CHILD_MinWidth,80,
       EndMember,
       TAG_END);
-   LayoutLimits(win->layoutgad,&limits,NULL,screen);
-   WindowLimits(win->window,
-      limits.MinWidth+win->window->BorderLeft+win->window->BorderRight,
-      limits.MinHeight+win->window->BorderTop+win->window->BorderBottom,
-      0,0);
-   SetGadgetAttrs(win->layoutgad,NULL,NULL,
-      GA_Top,win->window->BorderTop,
-      GA_Left,win->window->BorderLeft,
-      GA_RelWidth,-win->window->BorderLeft-win->window->BorderRight,
-      GA_RelHeight,-win->window->BorderTop-win->window->BorderBottom,
-      ICA_TARGET,ICTARGET_IDCMP,
-      TAG_END);
+   if(win->layoutgad)
+   {  LayoutLimits(win->layoutgad,&limits,NULL,screen);
+      WindowLimits(win->window,
+         limits.MinWidth+win->window->BorderLeft+win->window->BorderRight,
+         limits.MinHeight+win->window->BorderTop+win->window->BorderBottom,
+         0,0);
+      SetGadgetAttrs(win->layoutgad,NULL,NULL,
+         GA_Top,win->window->BorderTop,
+         GA_Left,win->window->BorderLeft,
+         GA_RelWidth,-win->window->BorderLeft-win->window->BorderRight,
+         GA_RelHeight,-win->window->BorderTop-win->window->BorderBottom,
+         ICA_TARGET,ICTARGET_IDCMP,
+         TAG_END);
+   }
    /* Verify that spacegad width matches window inner width for viewport accuracy.
     * The spacegad represents the inner content area and should match the window
     * inner width exactly. This ensures the viewport width calculation is correct. */
@@ -1224,12 +1235,13 @@ static BOOL Openwindow(struct Awindow *win)
       }
    }
    if(buttonrow)
-   {  
-      Completebuttonrow(win,drinfo);
+   {  Completebuttonrow(win,drinfo);
    }
    AddGList(win->window,win->downarrow,-1,-1,NULL);
-   ((struct ExtGadget *)win->layoutgad)->MoreFlags&=~GMORE_SCROLLRASTER;
-   AddGList(win->window,win->layoutgad,-1,-1,NULL);
+   if(win->layoutgad)
+   {  ((struct ExtGadget *)win->layoutgad)->MoreFlags&=~GMORE_SCROLLRASTER;
+      AddGList(win->window,win->layoutgad,-1,-1,NULL);
+   }
    RefreshGList(win->downarrow,win->window,NULL,-1);
    Asetattrs(win->frame,
       AOBJ_Width,win->window->Width,
@@ -1254,6 +1266,10 @@ static BOOL Openwindow(struct Awindow *win)
    {
       win->appwindow=AddAppWindow(win->key,0,win->window,appwindowport,TAG_END);
    }
+   if(httpdebug)
+   {  printf("[CRASH_TRACE] Openwindow: layout complete, toolbar and HTML view frame ready, win=%p frame=%p\n",
+             win, win->frame);
+   }
    return TRUE;
 }
 
@@ -1262,6 +1278,8 @@ static void Closewindow(struct Awindow *win)
 {  struct Node *node;
    struct ColorMap *colormap=(struct ColorMap *)Agetattr(Aweb(),AOAPP_Colormap);
    void *label;
+   /* Clear screen title cache so we never use a pointer to a closed window */
+   if(lastscreentitlewin == win) lastscreentitlewin = NULL;
    Remanimgad(win->ledgad);
    if(win->frame)
    {  Asetattrs(win->frame,AOBJ_Window,NULL,TAG_END);
@@ -1531,9 +1549,10 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
             TAG_END);
       }
       /* For modern layout, show status in screen title briefly */
-      if(win->layoutstyle == 1 && win->window)
+      /* COMMENTED OUT: Screen title feature temporarily disabled */
+      /* if(win->layoutstyle == 1 && win->window)
       {  if(status && *status)
-         {  /* Show status message in screen title */
+         {  Show status message in screen title
             struct timeval tv;
             UBYTE *statustitle;
             GetSysTime(&tv);
@@ -1541,17 +1560,17 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
             statustitle = Makestatusscreentitle(win, status);
             if(statustitle)
             {  SetWindowTitles(win->window,(UBYTE *)~0,statustitle);
-               /* Store copy for comparison */
+               Store copy for comparison
                if(win->screentitle) FREE(win->screentitle);
                win->screentitle = Dupstr(statustitle, -1);
             }
          }
          else
-         {  /* Status cleared, restore normal screen title immediately */
+         {  Status cleared, restore normal screen title immediately
             win->statustime = 0;
             Updatescreentitle(win);
          }
-      }
+      } */
       /* Screen title is updated when window becomes active, not on every status change
        * to avoid corruption from frequent updates */
    }
@@ -1597,7 +1616,7 @@ static struct Awindow *Newwindow(struct Amset *ams)
       win->capens.sp_DarkPen=-1;
       win->capens.sp_LightPen=-1;
       win->flags|=WINF_NAVS|WINF_BUTTONS;
-      win->layoutstyle=1;  /* 0 = Original layout, 1 = Modern layout */
+      win->layoutstyle=0;  /* 0 = Original layout, 1 = Modern layout */
       win->statustime=0;    /* No status shown initially */
       SETFLAG(win->flags,WINF_CLIPDRAG,prefs.clipdrag);
       if(portname=Openarexxport(win->key))
@@ -1830,7 +1849,7 @@ void *Firstwindow(void)
 
 void *Findwindow(ULONG key)
 {  struct Awindow *win;
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  if(win->key==key) return win;
    }
    return NULL;
@@ -1838,7 +1857,7 @@ void *Findwindow(ULONG key)
 
 void *Findwindownr(long nr)
 {  struct Awindow *win;
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  if(win->windownr==nr) return win;
    }
    return NULL;
@@ -1856,7 +1875,7 @@ void Busypointer(BOOL busy)
    if(set)
    {  ibase=IntuitionBase;
       version=(ibase)?ibase->lib_Version:0;
-      for(win=windows.first;win->next;win=win->next)
+      for(win=windows.first;win && win->next;win=win->next)
       {  if(win->window)
          {  if(busy)
             {  SetWindowPointer(win->window,
@@ -1899,7 +1918,7 @@ void Busypointer(BOOL busy)
 
 void Setanimgad(BOOL onoff)
 {  struct Awindow *win;
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  if(win->ledgad && win->window)
       {  SETFLAG(win->flags,WINF_ANIMON,onoff);
          Setgadgetattrs(win->ledgad,win->window,NULL,
@@ -1920,11 +1939,15 @@ UBYTE *Windowtitle(struct Awindow *win,UBYTE *name,UBYTE *title)
 }
 
 /* Update screen title for active window */
+/* COMMENTED OUT: Screen title feature temporarily disabled */
 void Updatescreentitle(struct Awindow *win)
 {  UBYTE *screentitle;
    struct timeval tv;
    ULONG currenttime;
    BOOL showstatus;
+   
+   /* COMMENTED OUT: Screen title feature temporarily disabled */
+   return;
    
    if(win && win->window)
    {  /* Check if we should show status message (modern layout only, within timeout) */
@@ -1979,14 +2002,14 @@ void *Activewindow(void)
 void Rebuildallbuttons(void)
 {  struct Awindow *win;
    struct DrawInfo *dri=(struct DrawInfo *)Agetattr(Aweb(),AOAPP_Drawinfo);
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  Rebuildbuttonrow(win,dri);
    }
 }
 
 void Reopenallwindows(void)
 {  struct Awindow *win;
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  Closewindow(win);
       Openwindow(win);
    }
@@ -1994,14 +2017,14 @@ void Reopenallwindows(void)
 
 void Jsetupallwindows(struct Jcontext *jc)
 {  struct Awindow *win;
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  Ajsetup(win,jc,NULL,NULL);
    }
 }
 
 void Inputallwindows(BOOL input)
 {  struct Awindow *win;
-   for(win=windows.first;win->next;win=win->next)
+   for(win=windows.first;win && win->next;win=win->next)
    {  if(input!=BOOLVAL(win->flags&WINF_INPUT))
       {  Setwincancel(win);
       }

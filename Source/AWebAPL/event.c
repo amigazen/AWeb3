@@ -122,7 +122,11 @@ BOOL Windowresized(struct Awindow *win)
 }
 
 void Refreshwindow(struct Awindow *win)
-{  LockLayerInfo(win->window->WLayer->LayerInfo);
+{  /* Race condition fix: Defensive checks before accessing window/frame.
+    * IDCMP_REFRESHWINDOW may arrive immediately after window opens before
+    * all structures are fully initialized. */
+   if(!win || !win->window || !win->frame) return;
+   LockLayerInfo(win->window->WLayer->LayerInfo);
    LockLayer(0,win->window->WLayer);
    BeginRefresh(win->window);
    win->flags|=WINF_REFRESHING;
@@ -886,7 +890,11 @@ void Processwindow(void)
                         STRINGA_BufferPos,strlen(urlpop),
                         STRINGA_DispPos,0,
                         TAG_END);
-                     ActivateLayoutGadget(win->layoutgad,win->window,NULL,(ULONG)win->urlgad);
+                     /* Race condition fix: Check layoutgad is valid before ActivateLayoutGadget,
+                      * as it may access ExtGadget MoreFlags internally. */
+                     if(win->layoutgad)
+                     {  ActivateLayoutGadget(win->layoutgad,win->window,NULL,(ULONG)win->urlgad);
+                     }
                      break;
                   case GID_UBUTTON:
                      Douserbutton(win,GetTagData(LAYOUT_RelCode,-1,
@@ -1029,7 +1037,7 @@ void Processwindow(void)
             case IDCMP_ACTIVEWINDOW:
                Setactiveport(win->portname);
                activewindow=win;
-               Updatescreentitle(win);
+               /* Updatescreentitle(win); */  /* COMMENTED OUT: Screen title feature temporarily disabled */
                break;
             case IDCMP_INACTIVEWINDOW:
                Tooltip(NULL,0,0);

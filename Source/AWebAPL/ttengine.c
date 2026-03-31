@@ -34,7 +34,8 @@
 #include <pragma/ttengine_lib.h>
 
 /* Library base pointer */
-static struct Library *TTEngineBase = NULL;
+/* Note: Not static so pragma libcall directives can access it */
+extern struct Library *TTEngineBase = NULL;
 
 /* Flag to track if ttengine is available */
 static BOOL ttengine_available = FALSE;
@@ -103,7 +104,7 @@ static UBYTE *GetTTFamilyName(UBYTE *fontname, UBYTE *buffer, ULONG bufsize)
    /* Copy font name to buffer */
    len = strlen(fontname);
    if(len >= bufsize) len = bufsize - 1;
-   Strncpy(buffer, fontname, len);
+   strncpy(buffer, fontname, len);
    buffer[len] = '\0';
    
    /* Remove .font extension if present */
@@ -118,22 +119,22 @@ static UBYTE *GetTTFamilyName(UBYTE *fontname, UBYTE *buffer, ULONG bufsize)
    /* Try exact match first, then common mappings */
    if(STRIEQUAL(buffer, "CGTimes") || STRIEQUAL(buffer, "times") || STRIEQUAL(buffer, "Times"))
    {
-      Strncpy(buffer, "Times New Roman", bufsize - 1);
+      strncpy(buffer, "Times New Roman", bufsize - 1);
       buffer[bufsize - 1] = '\0';
    }
    else if(STRIEQUAL(buffer, "CGHelvetica") || STRIEQUAL(buffer, "helvetica") || STRIEQUAL(buffer, "Helvetica"))
    {
-      Strncpy(buffer, "Arial", bufsize - 1);
+      strncpy(buffer, "Arial", bufsize - 1);
       buffer[bufsize - 1] = '\0';
    }
    else if(STRIEQUAL(buffer, "Courier") || STRIEQUAL(buffer, "courier"))
    {
-      Strncpy(buffer, "Courier New", bufsize - 1);
+      strncpy(buffer, "Courier New", bufsize - 1);
       buffer[bufsize - 1] = '\0';
    }
    else if(STRIEQUAL(buffer, "Topaz") || STRIEQUAL(buffer, "topaz"))
    {
-      Strncpy(buffer, "Courier New", bufsize - 1);
+      strncpy(buffer, "Courier New", bufsize - 1);
       buffer[bufsize - 1] = '\0';
    }
    /* If no mapping found, use the name as-is (might match a family in database) */
@@ -316,7 +317,7 @@ static void ParseFontFamilyList(UBYTE *fontface, UBYTE *workbuf, ULONG workbufsi
    }
    
    /* Copy fontface to work buffer */
-   Strncpy(workbuf, fontface, workbufsize - 1);
+   strncpy(workbuf, fontface, workbufsize - 1);
    workbuf[workbufsize - 1] = '\0';
    
    count = 0;
@@ -485,14 +486,17 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    /* Always use normal SetFont first - let AWeb handle font sizing and selection */
    SetFont(rp, font);
    
-   /* Check if a ttengine font is currently active - we'll need to clear it */
-   /* if we can't set a new one for this element */
-   if(ttengine_available && TTEngineBase)
+   /* Never call ttengine when library is not open */
+   if(!TTEngineBase || !ttengine_available)
    {
-      was_ttengine_active = IsTTEngineFontActive(rp);
+      return;
    }
    
-   /* Only use ttengine if available */
+   /* Check if a ttengine font is currently active - we'll need to clear it */
+   /* if we can't set a new one for this element */
+   was_ttengine_active = IsTTEngineFontActive(rp);
+   
+   /* Only use ttengine if available (we know it is from the check above, but keep for clarity) */
    if(ttengine_available && TTEngineBase)
    {
       /* Get font name from fontface (CSS or HTML face attribute) or from Fontprefs */
@@ -631,7 +635,8 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    /* If we reach here, we're not using ttengine for this font */
    /* If a ttengine font was previously active but we couldn't set a new one, */
    /* we need to clear it to prevent font inheritance */
-   if(was_ttengine_active && ttengine_available && TTEngineBase)
+   /* We know ttengine is available from the check above, so we can safely call IsTTEngineFontActive */
+   if(was_ttengine_active)
    {
       /* Check if ttengine font is still active (it shouldn't be if we failed to set a new one) */
       if(IsTTEngineFontActive(rp))
@@ -660,6 +665,7 @@ BOOL IsTTEngineFontActive(struct RastPort *rp)
    
    /* Try to get font name - if we can get it, a ttengine font is active */
    /* TT_GetAttrsA writes the font name pointer to ti_Data */
+   /* We've already checked TTEngineBase above, so it's safe to call TT_GetAttrsA */
    fontname = NULL;
    tags[0].ti_Tag = TT_FontName;
    tags[0].ti_Data = (ULONG)&fontname;
@@ -681,7 +687,12 @@ void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
    {
       return;
    }
-   
+   /* When library not open, use standard Text only - never call TT_* */
+   if(!TTEngineBase)
+   {
+      Text(rp, string, count);
+      return;
+   }
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
@@ -704,7 +715,11 @@ ULONG TTEngineTextLength(struct RastPort *rp, UBYTE *string, ULONG count)
    {
       return 0;
    }
-   
+   /* When library not open, use standard TextLength only - never call TT_* */
+   if(!TTEngineBase)
+   {
+      return TextLength(rp, string, count);
+   }
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
@@ -727,7 +742,12 @@ void TTEngineTextExtent(struct RastPort *rp, UBYTE *string, WORD count, struct T
    {
       return;
    }
-   
+   /* When library not open, use standard TextExtent only - never call TT_* */
+   if(!TTEngineBase)
+   {
+      TextExtent(rp, string, count, te);
+      return;
+   }
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
@@ -751,7 +771,11 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
    {
       return 0;
    }
-   
+   /* When library not open, use standard TextFit only - never call TT_* */
+   if(!TTEngineBase)
+   {
+      return TextFit(rp, string, count, te, tec, dir, cwidth, cheight);
+   }
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {

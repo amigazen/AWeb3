@@ -105,6 +105,9 @@ extern BOOL Windowtransferring(ULONG windowkey);
 extern void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *url);
    /* Reply this ARexx command when selected transfers are ready */
 
+extern BOOL Isurlloading(void *url);
+   /* Returns TRUE if the given URL has any active fetches */
+
 extern void Cancelfetchesbyreferer(UBYTE *refererurl);
    /* Cancel all fetches that have the specified referer URL string */
 

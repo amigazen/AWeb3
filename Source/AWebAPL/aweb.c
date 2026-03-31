@@ -130,7 +130,8 @@ UBYTE localinitialurl[16];
 static struct MsgPort *awebcontrolport;
 
 /* Commodities support */
-static struct Library *CommoditiesBase;
+/* Note: Not static so pragma libcall directives can access it */
+extern struct Library *CxBase;
 static struct MsgPort *cxbrokerport;
 static CxObj *cxbroker;
 static BOOL cxbrokeractive;
@@ -572,7 +573,7 @@ static void Processcommodity(void)
                   struct Window *iwindow;
                   Iconify(FALSE);
                   Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
-                  /* Bring all document windows to front */
+                  /* Bring all document windows to front (guard against no windows yet) */
                   for(win=windows.first;win->next;win=win->next)
                   {  if(iwindow=(struct Window *)Agetattr(win,AOWIN_Window))
                      {  WindowToFront(iwindow);
@@ -594,7 +595,7 @@ static void Processcommodity(void)
                   struct Window *iwindow;
                   Iconify(FALSE);
                   Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
-                  /* Bring all document windows to front */
+                  /* Bring all document windows to front (guard against no windows yet) */
                   for(win=windows.first;win->next;win=win->next)
                   {  if(iwindow=(struct Window *)Agetattr(win,AOWIN_Window))
                      {  WindowToFront(iwindow);
@@ -1138,9 +1139,9 @@ static void Cleanup(void)
       DeleteMsgPort(cxbrokerport);
       cxbrokerport=NULL;
    }
-   if(CommoditiesBase)
-   {  CloseLibrary(CommoditiesBase);
-      CommoditiesBase=NULL;
+   if(CxBase)
+   {  CloseLibrary(CxBase);
+      CxBase=NULL;
    }
    report();
 }
@@ -1267,21 +1268,21 @@ static BOOL Initcommodity(void)
    LONG error;
    
    /* Initialize to NULL/FALSE in case of early return */
-   CommoditiesBase=NULL;
+   CxBase=NULL;
    cxbrokerport=NULL;
    cxbroker=NULL;
    cxbrokeractive=FALSE;
    
    /* Open commodities.library - requires OS 3.0+ */
    /* Not critical - can run without commodity support */
-   if(!(CommoditiesBase=OpenLibrary("commodities.library",36)))
+   if(!(CxBase=OpenLibrary("commodities.library",36)))
    {  return TRUE; /* Non-fatal - continue without commodity support */
    }
    
    /* Create message port for broker */
    if(!(cxbrokerport=CreateMsgPort()))
-   {  CloseLibrary(CommoditiesBase);
-      CommoditiesBase=NULL;
+   {  CloseLibrary(CxBase);
+      CxBase=NULL;
       return TRUE; /* Non-fatal */
    }
    
@@ -1302,8 +1303,8 @@ static BOOL Initcommodity(void)
    {  /* Failed to create broker - cleanup and continue */
       DeleteMsgPort(cxbrokerport);
       cxbrokerport=NULL;
-      CloseLibrary(CommoditiesBase);
-      CommoditiesBase=NULL;
+      CloseLibrary(CxBase);
+      CxBase=NULL;
       return TRUE; /* Non-fatal - continue without commodity support */
    }
    
@@ -1314,8 +1315,8 @@ static BOOL Initcommodity(void)
       cxbroker=NULL;
       DeleteMsgPort(cxbrokerport);
       cxbrokerport=NULL;
-      CloseLibrary(CommoditiesBase);
-      CommoditiesBase=NULL;
+      CloseLibrary(CxBase);
+      CxBase=NULL;
       return TRUE; /* Non-fatal */
    }
    
@@ -1774,6 +1775,7 @@ int main(int fromcli,struct WBStartup *wbs)
             updateframes=FALSE;
          }
          Setmsgqueue();
+         Checkhttpgetrequests();
 #ifdef NETDEMO
 #ifndef OSVERSION
          CurrentTime(&secs,&mics);

@@ -673,10 +673,19 @@ BOOL Installscroller(void)
 }
 
 BOOL Initscroller(void)
-{  Agetattrs(Firstwindow(),
-      AOWIN_Borderright,&buttonw,
-      AOWIN_Borderbottom,&buttonh,
-      TAG_END);
+{  void *win;
+   /* Firstwindow() returns NULL when there is only one window (e.g. at init) */
+   win=Firstwindow();
+   if(win)
+   {  Agetattrs(win,
+         AOWIN_Borderright,&buttonw,
+         AOWIN_Borderbottom,&buttonh,
+         TAG_END);
+   }
+   else
+   {  buttonw=0;
+      buttonh=0;
+   }
    buttonw-=2*bevelw;
    buttonw=MAX(buttonw,2*knobw+5);
    buttonh-=2*bevelh;

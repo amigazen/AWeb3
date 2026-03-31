@@ -1394,6 +1394,25 @@ void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *
    }
 }
 
+/* Check if a URL has any active fetches (in any queue) */
+BOOL Isurlloading(void *url)
+{  struct Fetch *fch;
+   if(!url) return FALSE;
+   for(fch=running.first;fch->next;fch=fch->next)
+   {  if(fch->url==url) return TRUE;
+   }
+   for(fch=netqueue.first;fch->next;fch=fch->next)
+   {  if(fch->url==url) return TRUE;
+   }
+   for(fch=localqueue.first;fch->next;fch=fch->next)
+   {  if(fch->url==url) return TRUE;
+   }
+   for(fch=channels.first;fch->next;fch=fch->next)
+   {  if(fch->url==url) return TRUE;
+   }
+   return FALSE;
+}
+
 static void Channelreplied(void *task,struct Taskmsg *msg)
 {  struct Amset *ams;
    struct TagItem *tstate,*tag;

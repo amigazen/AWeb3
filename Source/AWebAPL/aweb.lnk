@@ -11,7 +11,7 @@ FROM     lib:c.o aweb.o locale.o memory.o version.o boopsi.o support.o
          awebtcp.o awebamitcp.o amissl.o
          sourcedriver.o docsource.o imgsource.o extprog.o saveas.o soundsource.o
          docext.o css.o ttengine.o
-         copydriver.o document.o docjs.o xhrjs.o imgcopy.o soundcopy.o
+         copydriver.o document.o docjs.o xhrjs.o jsonparse.o imgcopy.o soundcopy.o
          parse.o markdown.o html.o body.o frameset.o link.o map.o area.o form.o
          element.o break.o text.o ruler.o bullet.o table.o name.o
          field.o input.o checkbox.o radio.o select.o textarea.o button.o

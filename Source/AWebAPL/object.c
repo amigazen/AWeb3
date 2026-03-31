@@ -600,9 +600,14 @@ ULONG Ajsetup(struct Aobject *ao,struct Jcontext *jc,struct Jobject *parent,
    amj.jc=jc;
    amj.parent=parent;
    amj.parentframe=parentframe;
-   Jallowgc(jc,FALSE);
+   /* Only call Jallowgc if jc is valid and AWebJSBase is initialized */
+   if(jc && AWebJSBase)
+   {  Jallowgc(jc,FALSE);
+   }
    result=AmethodA(ao,(struct Amessage *)&amj);
-   Jallowgc(jc,TRUE);
+   if(jc && AWebJSBase)
+   {  Jallowgc(jc,TRUE);
+   }
    return result;
 }
 

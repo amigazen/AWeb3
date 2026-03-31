@@ -1431,11 +1431,13 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
             Broadcast(app,AOREL_APP_WANT_MARQUEE,
                AOAPP_Marquee,TRUE,
                TAG_END);
-            /* Restart timer */
-            Asetattrs(app->marqueetimer,
-               AOTIM_Waitseconds,0,
-               AOTIM_Waitmicros,50000,
-               TAG_END);
+            /* Restart timer (guard against failed allocation in Newapplication) */
+            if(app->marqueetimer)
+            {  Asetattrs(app->marqueetimer,
+                  AOTIM_Waitseconds,0,
+                  AOTIM_Waitmicros,50000,
+                  TAG_END);
+            }
             break;
          case AOAPP_Animtimer:
             if(prefs.contanim && (app->flags&APPF_ANIMON))

@@ -498,8 +498,16 @@ static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
 static void Srcupdatedocument(struct Document *doc)
 {  if(!(doc->pflags&DPF_SUSPEND))
    {  if(doc->frame)
-      {  Parsedocument(doc);
-         Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+      {  /* Only parse if we have data AND (content type is determined OR EOF reached).
+           * This prevents Parseplain() from being called prematurely for HTML content
+           * (e.g., about:blank) before DOSF_HTML flag is set. Wait for content type
+           * to be determined before parsing to avoid incorrect plain text parsing. */
+         BOOL eof=(doc->source->flags&DOSF_EOF) && !(doc->source->flags&DOSF_JSOPEN);
+         BOOL hasContentType=(doc->source->flags&(DOSF_HTML|DOSF_MD))!=0;
+         if(doc->source->buf.length>0 && (eof || hasContentType))
+         {  Parsedocument(doc);
+            Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+         }
       }
       else if(doc->dflags&DDF_MAPDOCUMENT)
       {  Parsedocument(doc);
@@ -702,14 +710,13 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                         {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
                         }
                         /* Apply link colors from CSS (a:link, a:visited) */
-                        if(doc->cssstylesheet) ApplyCSSToLinkColors(doc);
+                        ApplyCSSToLinkColors(doc);
                         /* Always re-apply CSS to body when external CSS loads */
                         if(doc->body && doc->cssstylesheet)
                         {  if(httpdebug)
                            {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
                                     doc->body, doc->cssstylesheet);
                            }
-                           /* Existing behavior: apply BODY rules */
                            ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
                            /* Ensure CSS is applied to the full existing tree */
                            ReapplyCSSToAllElements(doc);
@@ -903,9 +910,19 @@ static struct Document *Newdocument(struct Amset *ams)
    if(doc=(struct Document *)Agetattr(dos,AODOS_Spare))
    {  Asetattrs(dos,AODOS_Spare,NULL,TAG_END);
       doc->dflags&=~(DDF_ISSPARE|DDF_NOBACKGROUND);
-      /* Clear DPF_NORLDOCEXT flag when reusing spare document for new page load */
-      doc->pflags&=~DPF_NORLDOCEXT;
+      /* Clear all parse flags when reusing spare document for new page load.
+       * Preserve only DPF_RELOADVERIFY if it was set (for CSS reload verification).
+       * This prevents leftover flags like DPF_PREFORMAT from causing incorrect
+       * parsing behavior (e.g., PRE tag detection when no PRE tag exists). */
+      {  ULONG savedReloadVerify = (doc->pflags & DPF_RELOADVERIFY);
+         doc->pflags=0;
+         if(savedReloadVerify) doc->pflags|=DPF_RELOADVERIFY;
+      }
       SETFLAG(doc->pflags,DPF_SCRIPTJS,(dos->flags&DOSF_SCRIPTJS));
+      /* Reset source position to start parsing from beginning */
+      doc->srcpos=0;
+      doc->pmode=0;
+      doc->charcount=0;
       Anotifyset(doc->body,AOBJ_Nobackground,FALSE,TAG_END);
       Setdocument(doc,ams);
       if(doc->bgsound && doc->win) Asetattrs(doc->win,AOWIN_Bgsound,TRUE,TAG_END);
@@ -926,9 +943,17 @@ static struct Document *Newdocument(struct Amset *ams)
       NEWLIST(&doc->infotexts);
       doc->htmlmode=prefs.htmlmode;
       doc->gotbreak=2;
-      /* Ensure DPF_NORLDOCEXT is cleared for new document */
-      doc->pflags&=~DPF_NORLDOCEXT;
+      /* Initialize parse flags for new document. Clear all flags first,
+       * then set only the ones we need. This prevents garbage values
+       * from uninitialized memory (if Allocobject doesn't clear memory)
+       * from causing incorrect parsing behavior (e.g., PRE tag detection
+       * when no PRE tag exists). */
+      doc->pflags=0;
       SETFLAG(doc->pflags,DPF_SCRIPTJS,(dos->flags&DOSF_SCRIPTJS));
+      /* Initialize source position to start parsing from beginning */
+      doc->srcpos=0;
+      doc->pmode=0;
+      doc->charcount=0;
       Setdocument(doc,ams);
       if(!doc->source) goto err;
       if(!(doc->base=Getbaseurl(doc))) goto err;

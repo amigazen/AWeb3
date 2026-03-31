@@ -504,6 +504,9 @@ long Jsetupdocument(struct Document *doc,struct Amjsetup *amj)
    return 0;
 }
 
+/* Called when inline or external script is run during parse (e.g. </script> or
+ * when external script load completes via AODOC_Docextready). Sync XHR is
+ * implemented by blocking in send() until the fetch task signals completion. */
 void Docjexecute(struct Document *doc,UBYTE *source)
 {  struct Jcontext *jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
    if(jc)
@@ -524,11 +527,13 @@ void Docjexecute(struct Document *doc,UBYTE *source)
 }
 
 void Freejdoc(struct Document *doc)
-{  Asetattrs(doc->frame,
-      AOFRM_Jdocument,NULL,
-      AOFRM_Onfocus,NULL,
-      AOFRM_Onblur,NULL,
-      TAG_END);
+{  if(doc->frame)
+   {  Asetattrs(doc->frame,
+         AOFRM_Jdocument,NULL,
+         AOFRM_Onfocus,NULL,
+         AOFRM_Onblur,NULL,
+         TAG_END);
+   }
    if(doc->jobject)
    {  Disposejobject(doc->jobject);
       doc->jobject=NULL;

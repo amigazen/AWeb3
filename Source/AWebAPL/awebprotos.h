@@ -397,7 +397,7 @@ extern void Storecookie(UBYTE *originator,UBYTE *cookiespec,ULONG serverdate);
    /* Build a Cookie: header string terminated by CRLF */
 extern UBYTE *Findcookies(UBYTE *url,BOOL secure);
 
-   /* Build the JS cookie string */ */
+   /* Build the JS cookie string */
 extern UBYTE *Getjcookies(UBYTE *url);
 
    /* Flush all cookies beyond this memory limit */
@@ -411,13 +411,13 @@ extern void Setrexxcookies(struct Arexxcmd *ac,UBYTE *stem,BOOL add);
 /*-- copyjs -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   /* Add the JS Image() constructor to this object */ */
+   /* Add the JS Image() constructor to this object */
 extern void Addimageconstructor(struct Jcontext *jc,struct Jobject *parent);
 
-   /* Initialize XHR JavaScript support */ */
+   /* Initialize XHR JavaScript support */
 extern void Initxhrjs(void);
 
-   /* Add the JS XMLHttpRequest() constructor to this object */ */
+   /* Add the JS XMLHttpRequest() constructor to this object */
 extern void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent);
 
 /*-----------------------------------------------------------------------*/
@@ -926,6 +926,7 @@ extern void Historyarexx(struct Arexxcmd *ac,long *windownr,BOOL mainline,UBYTE 
 
    /* do arexx command. Returns TRUE if done with the command */
 extern BOOL Doarexxcmd(struct Arexxcmd *ac);
+extern void Checkhttpgetrequests(void);
 
 /*-----------------------------------------------------------------------*/
 /*-- xaweb --------------------------------------------------------------*/
