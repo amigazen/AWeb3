@@ -64,12 +64,14 @@ static struct Arexxtemplate templates[]=
 #ifdef BETAKEYFILE
    ARX_HTTPDEBUG,       "HTTPDEBUG",         "ON/S",
 #endif
+   ARX_HTTPGET,         "HTTPGET",           "URL/A,STEM/AK,HEADERS/S,TIMEOUT/K/N",
    ARX_ICONIFY,         "ICONIFY",           "HIDE/S,SHOW/S",
    ARX_IMAGELOADING,    "IMAGELOADING",      "OFF/S,MAPS/S,ALL/S",
    ARX_INFO,            "INFO",              "TARGET/K",
    ARX_JAVASCRIPT,      "JAVASCRIPT",        "SOURCE,FILE/K,TARGET/K,VAR/K",
    ARX_JSBREAK,         "JSBREAK",           "",
    ARX_JSDEBUG,         "JSDEBUG",           "ON/S,OFF/S",
+   ARX_JSONGET,         "JSONGET",           "DATA/A,PATH/A,VAR/K,STEM/K",
    ARX_LOAD,            "LOAD",              "URL/A,SAVEAS/K,RELOAD/S,APPEND/S,"
                                                 "SAVEREQ/S,NOICON/S,POST/K",
    ARX_LOADIMAGES,      "LOADIMAGES",        "TARGET/K,MAPS/S,RESTRICT/S",

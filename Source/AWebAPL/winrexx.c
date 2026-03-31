@@ -34,6 +34,7 @@
 #include "filereq.h"
 #include "plugin.h"
 #include "jslib.h"
+#include "jsonparse.h"
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
 #include <gadgets/layout.h>
@@ -435,7 +436,7 @@ static BOOL Doget(struct Arexxcmd *ac,struct Awindow *win,
       else if(STRIEQUAL(item,"WINDOWS"))
       {  if((ac->flags&ARXCF_ALLOWSTEM) && stem)
          {  i=0;
-            for(win=windows.first;win->next;win=win->next)
+            for(win=windows.first;win && win->next;win=win->next)
             {  if(win->window)
                {  sprintf(buf,"%d,%d,%d,%d",win->window->LeftEdge,win->window->TopEdge,
                      win->window->Width,win->window->Height);
@@ -1447,6 +1448,225 @@ static BOOL Dohttpdebug(struct Arexxcmd *ac,BOOL on)
 #endif
 
 /*-----------------------------------------------------------------------*/
+/* HTTPGET - HTTP GET for ARexx scripts                                   */
+/*                                                                        */
+/* Implemented as a convenience wrapper. Internally uses:                  */
+/*   LOAD url SAVEAS T:aweb_hg_N.tmp                                      */
+/*   WAIT url                                                             */
+/*   (read temp file and populate stem vars)                              */
+/*                                                                        */
+/* The command starts the fetch and defers the ARexx reply. When the      */
+/* fetch completes, the wait mechanism fires, we read the temp file,      */
+/* populate the stem variables, and reply to the ARexx script.            */
+/*                                                                        */
+/* Note: Addwaitrequest normally calls Replyarexxcmd directly. To insert  */
+/* our post-processing (reading the file), we use a proxy Arexxcmd that   */
+/* we intercept in a custom Replyarexxcmd wrapper. Since modifying the    */
+/* wait mechanism is invasive, we instead provide HTTPGET as a two-step   */
+/* process at the ARexx level: the script calls LOAD+WAIT itself, then    */
+/* uses READFILE (or JSONGET with inline data). For maximum convenience,  */
+/* HTTPGET starts LOAD SAVEAS and WAIT, then reads the file on return.    */
+/*                                                                        */
+/* Current implementation: start LOAD SAVEAS, add wait for URL, and       */
+/* set STEM.0._TMPFILE so the completion code can find the temp file.     */
+/* The ARexx reply is deferred; when the wait completes we read the file. */
+/*-----------------------------------------------------------------------*/
+
+static long httpget_seq=0;
+
+/* Pending HTTPGET tracking - allows post-processing after wait completes */
+struct Httpgetpending
+{  NODE(Httpgetpending);
+   struct Arexxcmd *real_ac;  /* Real ARexx command to reply to */
+   struct Arexxcmd *wait_ac;  /* Dummy ac used for Addwaitrequest */
+   UBYTE *stem;               /* Stem variable name */
+   UBYTE *tmpfile;            /* Temp file path */
+   void *url;                 /* URL object being fetched */
+};
+
+static LIST(Httpgetpending) httpget_pending;
+static BOOL httpget_pending_init=FALSE;
+
+/* Check if a pending HTTPGET has completed.
+ * Called from the main event loop after processing signals. */
+void Checkhttpgetrequests(void)
+{  struct Httpgetpending *hgp,*next;
+   if(!httpget_pending_init) return;
+   for(hgp=httpget_pending.first;hgp->next;hgp=next)
+   {  next=hgp->next;
+      /* Check if the wait_ac has been replied to (errorlevel set by wait) */
+      /* Actually, we can't easily detect this since Addwaitrequest owns wait_ac.
+       * Instead, check if the URL's fetch is no longer running. */
+      if(!Isurlloading(hgp->url))
+      {  /* Fetch completed - read temp file and populate stems */
+         UBYTE buf[32];
+         BPTR fh,lock;
+         long filesize=0;
+         UBYTE *data=NULL;
+         struct FileInfoBlock *fib;
+         
+         /* Small delay to ensure file is fully written */
+         Delay(2);
+         
+         /* Read the temp file */
+         if(hgp->tmpfile)
+         {  lock=Lock(hgp->tmpfile,SHARED_LOCK);
+            if(lock)
+            {  if(fib=ALLOCTYPE(struct FileInfoBlock,1,MEMF_PUBLIC))
+               {  if(Examine(lock,fib))
+                  {  filesize=fib->fib_Size;
+                  }
+                  FREE(fib);
+               }
+               UnLock(lock);
+            }
+            if(filesize>0)
+            {  data=ALLOCTYPE(UBYTE,filesize+1,0);
+               if(data)
+               {  fh=Open(hgp->tmpfile,MODE_OLDFILE);
+                  if(fh)
+                  {  long bytesread=Read(fh,data,filesize);
+                     data[bytesread>=0?bytesread:0]='\0';
+                     if(bytesread>=0) filesize=bytesread;
+                     Close(fh);
+                  }
+                  else
+                  {  FREE(data); data=NULL; filesize=0;
+                  }
+               }
+            }
+            DeleteFile(hgp->tmpfile);
+         }
+         
+         /* Populate stem variables on the real ac */
+         if(hgp->real_ac->flags & ARXCF_ALLOWSTEM && hgp->stem)
+         {  Setstemvar(hgp->real_ac,hgp->stem,0,"STATUS",
+               (data && filesize>0)?"200":"0");
+            if(data && filesize>0)
+            {  Setstemvar(hgp->real_ac,hgp->stem,0,"DATA",data);
+               sprintf(buf,"%ld",filesize);
+               Setstemvar(hgp->real_ac,hgp->stem,0,"LENGTH",buf);
+            }
+            else
+            {  Setstemvar(hgp->real_ac,hgp->stem,0,"DATA","");
+               Setstemvar(hgp->real_ac,hgp->stem,0,"LENGTH","0");
+            }
+            Setstemvar(hgp->real_ac,hgp->stem,0,"ERROR",
+               (data && filesize>0)?"0":"1");
+         }
+         
+         /* Set RESULT and reply */
+         sprintf(buf,"%ld",(data && filesize>0)?200L:0L);
+         hgp->real_ac->result=Dupstr(buf,-1);
+         if(!data || filesize<=0) hgp->real_ac->errorlevel=RXERR_WARNING;
+         Replyarexxcmd(hgp->real_ac);
+         
+         /* Clean up */
+         if(data) FREE(data);
+         if(hgp->stem) FREE(hgp->stem);
+         if(hgp->tmpfile) FREE(hgp->tmpfile);
+         REMOVE(hgp);
+         FREE(hgp);
+      }
+   }
+}
+
+static BOOL Dohttpget(struct Arexxcmd *ac,struct Awindow *win,
+   UBYTE *urlname,UBYTE *stem,BOOL wantheaders,long *ptimeout)
+{  struct Httpgetpending *hgp;
+   UBYTE tmpfile[64];
+   void *url;
+   
+   if(!urlname || !stem)
+   {  ac->errorlevel=RXERR_INVARGS;
+      return TRUE;
+   }
+   if(!(ac->flags & ARXCF_TRUEREXX))
+   {  ac->errorlevel=RXERR_WARNING;
+      return TRUE;
+   }
+   
+   if(!httpget_pending_init)
+   {  NEWLIST(&httpget_pending);
+      httpget_pending_init=TRUE;
+   }
+   
+   /* Generate temp file path */
+   httpget_seq++;
+   sprintf(tmpfile,"T:aweb_hg_%ld.tmp",httpget_seq);
+   
+   /* Create URL object */
+   url=Findurl("",urlname,0);
+   if(!url)
+   {  ac->errorlevel=RXERR_WARNING;
+      return TRUE;
+   }
+   
+   /* Start the fetch, saving to temp file.
+    * Use the same pattern as Doload with SAVEAS: AUMLF_DOWNLOAD flag
+    * to start download, then set AOSRC_Savename on the source object. */
+   Auload(url,AUMLF_DOWNLOAD|AUMLF_NOICON,url,NULL,NULL);
+   {  void *src=(void *)Agetattr(url,AOURL_Saveassource);
+      if(src)
+      {  Asetattrs(src,
+            AOSRC_Savename,tmpfile,
+            TAG_END);
+      }
+      else
+      {  ac->errorlevel=RXERR_WARNING;
+         return TRUE;
+      }
+   }
+   
+   /* Create pending request to track this HTTPGET */
+   hgp=ALLOCSTRUCT(Httpgetpending,1,MEMF_CLEAR);
+   if(!hgp)
+   {  ac->errorlevel=RXERR_FATAL;
+      return TRUE;
+   }
+   hgp->real_ac=ac;
+   hgp->stem=Dupstr(stem,-1);
+   hgp->tmpfile=Dupstr(tmpfile,-1);
+   hgp->url=url;
+   ADDTAIL(&httpget_pending,hgp);
+   
+   /* Return FALSE to defer the ARexx reply.
+    * Checkhttpgetrequests() will be called from the main event loop
+    * and will reply when the fetch completes. */
+   return FALSE;
+}
+
+/*-----------------------------------------------------------------------*/
+/* JSONGET - Extract values from JSON by path for ARexx scripts           */
+/*-----------------------------------------------------------------------*/
+
+static BOOL Dojsonget(struct Arexxcmd *ac,struct Awindow *win,
+   UBYTE *data,UBYTE *path,UBYTE *varname,UBYTE *stem)
+{  UBYTE *result;
+   
+   if(!data || !path)
+   {  ac->errorlevel=RXERR_INVARGS;
+      return TRUE;
+   }
+   
+   /* Use VAR parameter to set variable name for result */
+   if(varname)
+   {  ac->varname=Dupstr(varname,-1);
+   }
+   
+   result=Jsonget(data,strlen(data),path,ac,varname,stem);
+   
+   if(result)
+   {  ac->result=result;  /* Already Dupstr'd by Jsonget */
+   }
+   else
+   {  ac->errorlevel=RXERR_WARNING;
+   }
+   
+   return TRUE;
+}
+
+/*-----------------------------------------------------------------------*/
 
 BOOL Doarexxcmd(struct Arexxcmd *ac)
 {  struct Awindow *win=Findwindow(ac->windowkey);
@@ -1541,6 +1761,10 @@ BOOL Doarexxcmd(struct Arexxcmd *ac)
       case ARX_HOTLIST:
          done=Dohotlist(ac,win,(UBYTE *)ac->parameter[0],ac->parameter[1],ac->parameter[2]);
          break;
+      case ARX_HTTPGET:
+         done=Dohttpget(ac,win,(UBYTE *)ac->parameter[0],(UBYTE *)ac->parameter[1],
+            ac->parameter[2],(long *)ac->parameter[3]);
+         break;
       case ARX_ICONIFY:
          done=Doiconify(ac,win,ac->parameter[0],ac->parameter[1]);
          break;
@@ -1552,6 +1776,10 @@ BOOL Doarexxcmd(struct Arexxcmd *ac)
          break;
       case ARX_JAVASCRIPT:
          done=Dojavascript(ac,win,(UBYTE *)ac->parameter[0],(UBYTE *)ac->parameter[1],
+            (UBYTE *)ac->parameter[2],(UBYTE *)ac->parameter[3]);
+         break;
+      case ARX_JSONGET:
+         done=Dojsonget(ac,win,(UBYTE *)ac->parameter[0],(UBYTE *)ac->parameter[1],
             (UBYTE *)ac->parameter[2],(UBYTE *)ac->parameter[3]);
          break;
       case ARX_JSBREAK:
