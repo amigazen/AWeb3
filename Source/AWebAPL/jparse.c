@@ -308,11 +308,16 @@ static void Tokenize(struct Token *tok)
 
 /* Build the next token, advance parser */
 struct Token *Nexttoken(struct Parser *pa)
-{  static struct Token token={0};
+{  struct Token *tokenp=&pa->jc->token;
+#define token (*tokenp)
    long ivalue;
    if(token.svalue)
    {  FREE(token.svalue);
       token.svalue=NULL;
+   }
+   if(token.svalue2)
+   {  FREE(token.svalue2);
+      token.svalue2=NULL;
    }
    
    while(isspace(*pa->next))
@@ -559,7 +564,8 @@ struct Token *Nexttoken(struct Parser *pa)
          break;
    }
 
-   return &token;
+   return tokenp;
+#undef token
 }
 
 void *Newparser(struct Jcontext *jc,UBYTE *source)
@@ -572,13 +578,29 @@ void *Newparser(struct Jcontext *jc,UBYTE *source)
       pa->linenr=1;
       pa->newexpr = TRUE;
       pa->skipnewline=TRUE;
+      /* Ensure token strings are not left dangling across parser instances. */
+      if(pa->jc)
+      {  pa->jc->token.svalue=NULL;
+         pa->jc->token.svalue2=NULL;
+      }
    }
    return pa;
 }
 
 void Freeparser(struct Parser *pa)
 {  if(pa)
-   {  FREE(pa);
+   {  /* Release any token strings owned by this parser/context. */
+      if(pa->jc)
+      {  if(pa->jc->token.svalue)
+         {  FREE(pa->jc->token.svalue);
+            pa->jc->token.svalue=NULL;
+         }
+         if(pa->jc->token.svalue2)
+         {  FREE(pa->jc->token.svalue2);
+            pa->jc->token.svalue2=NULL;
+         }
+      }
+      FREE(pa);
    }
 }
 
