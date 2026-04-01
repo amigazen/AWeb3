@@ -73,7 +73,13 @@ void Asgvalue(struct Value *to,struct Value *from)
          to->value.bvalue=from->value.bvalue;
          break;
       case VTP_STRING:
-         to->value.svalue=Jdupstr(from->value.svalue,-1,Getpool(from->value.svalue));
+         /* Defensive: prevent crashes on invalid/low pointers. */
+         if(from->value.svalue && (ULONG)from->value.svalue >= 256)
+         {  to->value.svalue=Jdupstr(from->value.svalue,-1,Getpool(from->value.svalue));
+         }
+         else
+         {  to->value.svalue=NULL;
+         }
          break;
       case VTP_OBJECT:
          to->value.obj.ovalue=from->value.obj.ovalue;
@@ -254,7 +260,7 @@ void Toboolean(struct Value *v,struct Jcontext *jc)
       case VTP_BOOLEAN:
          break;
       case VTP_STRING:
-         Asgboolean(v,*v->value.svalue!='\0');
+         Asgboolean(v,(v->value.svalue && *v->value.svalue) ? TRUE : FALSE);
          break;
       case VTP_OBJECT:
          if(Callproperty(jc,v->value.obj.ovalue,"valueOf") && jc->val->type==VTP_BOOLEAN)
