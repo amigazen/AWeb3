@@ -316,9 +316,17 @@ static void Setdisplayed(struct Copy *cop,BOOL displayed)
 /* Our image has changed. If it is embedded and still fits in place, render it now
  * if we are displayed.
  * If it is background, only let parent know when driver is ready.
- * Else let our parent know we changed. */
-static void Changedcopy(struct Copy *cop)
-{  long oldw=cop->aow,oldh=cop->aoh;
+ * Else let our parent know we changed.
+ * Returns TRUE if a full frame layout pass (Changedlayout / Doupdateframes) is
+ * needed; FALSE when only a local Arender was enough. */
+static BOOL Changedcopy(struct Copy *cop)
+{  long oldw;
+   long oldh;
+   BOOL needlayout;
+
+   needlayout=FALSE;
+   oldw=cop->aow;
+   oldh=cop->aoh;
    if(cop->flags&CPYF_EMBEDDED)
    {  Ameasure(cop,1,1,0,0,cop->text,NULL);
       if(cop->aow==oldw && cop->aoh==oldh)
@@ -341,17 +349,21 @@ static void Changedcopy(struct Copy *cop)
       else
       {  Setdisplayed(cop,FALSE);
          Asetattrs(cop->parent,AOBJ_Changedchild,cop,TAG_END);
+         needlayout=TRUE;
       }
    }
    else if(cop->flags&CPYF_BACKGROUND)
    {  /* Only notify parent if bg bitmap is available */
       if(Agetattr(cop->driver,AOCDV_Imagebitmap))
       {  Asetattrs(cop->parent,AOBJ_Changedchild,cop,TAG_END);
+         needlayout=TRUE;
       }
    }
    else
    {  Asetattrs(cop->parent,AOBJ_Changedchild,cop,TAG_END);
+      needlayout=TRUE;
    }
+   return needlayout;
 }
 
 /* If the CHANGEDCOPY flag wasn't set yet, set it now and return TRUE.
@@ -1075,7 +1087,6 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
             {  /* Don't refresh if background and no background is shown */
                if(!(cop->flags&CPYF_BACKGROUND) || prefs.docolors)
                {  changed=Setchangedcopy(cop);
-                  if(changed) Changedlayout();
                }
             }
             break;
@@ -1159,7 +1170,7 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
    if(param) Addparam(cop,pname,pvalue,pvaluetype,ptype);
    if(initload) Initialloadcopy(cop);
    if(changed)
-   {  Changedcopy(cop);
+   {  if(Changedcopy(cop)) Changedlayout();
       cop->flags&=~CPYF_CHANGEDCOPY;
    }
    if(dispose)

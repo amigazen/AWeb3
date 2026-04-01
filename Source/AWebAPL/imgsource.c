@@ -1173,7 +1173,10 @@ static long Updateimgsource(struct Imgsource *ims,struct Amset *ams)
       }
    }
    Anotifyset(ims->source,AOIMP_Srcupdate,TRUE,TAG_END);
-   Changedlayout();
+   /* Layout refresh is driven from copy.c when the image Copy handles
+    * AOIMP_Srcupdate (Changedcopy / Changedlayout). Calling Changedlayout
+    * here too scheduled Doupdateframes for every decoded bitmap even when
+    * the embedded-image fast path only repaints the icon rectangle. */
    return 0;
 }
 

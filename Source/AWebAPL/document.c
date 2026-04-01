@@ -502,11 +502,21 @@ static void Srcupdatedocument(struct Document *doc)
            * This prevents Parseplain() from being called prematurely for HTML content
            * (e.g., about:blank) before DOSF_HTML flag is set. Wait for content type
            * to be determined before parsing to avoid incorrect plain text parsing. */
-         BOOL eof=(doc->source->flags&DOSF_EOF) && !(doc->source->flags&DOSF_JSOPEN);
-         BOOL hasContentType=(doc->source->flags&(DOSF_HTML|DOSF_MD))!=0;
+         BOOL eof;
+         BOOL hasContentType;
+         long srcpos_before;
+
+         eof=(doc->source->flags&DOSF_EOF) && !(doc->source->flags&DOSF_JSOPEN);
+         hasContentType=(doc->source->flags&(DOSF_HTML|DOSF_MD))!=0;
          if(doc->source->buf.length>0 && (eof || hasContentType))
-         {  Parsedocument(doc);
-            Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+         {  /* Only ask the frame for measure/layout/render when new input was actually
+             * consumed. A separate EOF Srcupdate after the last data chunk does not move
+             * srcpos; notifying AOBJ_Changedchild then repainted the whole viewport twice. */
+            srcpos_before=doc->srcpos;
+            Parsedocument(doc);
+            if(doc->srcpos!=srcpos_before)
+            {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+            }
          }
       }
       else if(doc->dflags&DDF_MAPDOCUMENT)

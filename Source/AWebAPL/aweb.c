@@ -574,7 +574,7 @@ static void Processcommodity(void)
                   Iconify(FALSE);
                   Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
                   /* Bring all document windows to front (guard against no windows yet) */
-                  for(win=windows.first;win->next;win=win->next)
+                  for(win=(struct Awindow *)windows.first;win && win->next;win=win->next)
                   {  if(iwindow=(struct Window *)Agetattr(win,AOWIN_Window))
                      {  WindowToFront(iwindow);
                      }
@@ -596,7 +596,7 @@ static void Processcommodity(void)
                   Iconify(FALSE);
                   Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
                   /* Bring all document windows to front (guard against no windows yet) */
-                  for(win=windows.first;win->next;win=win->next)
+                  for(win=(struct Awindow *)windows.first;win && win->next;win=win->next)
                   {  if(iwindow=(struct Window *)Agetattr(win,AOWIN_Window))
                      {  WindowToFront(iwindow);
                      }

@@ -407,11 +407,11 @@ static void Broadcastsafe(struct Application *app,long relation,...)
    struct Amset ams;
    struct Child *ch,*chs,**havehad;
    long i,n;
-   for(ch=list->first,i=0;ch->next;ch=ch->next) i++;
-   havehad=ALLOCTYPE(struct Child *,i,MEMF_CLEAR);
    if(list)
    {  ams.method=AOM_SET;
       ams.tags=VARARG(relation);
+      for(ch=list->first,i=0;ch->next;ch=ch->next) i++;
+      havehad=ALLOCTYPE(struct Child *,i,MEMF_CLEAR);
       n=0;
       for(chs=list->first;chs->next;)
       {  AmethodA(chs->object,&ams);
@@ -426,8 +426,8 @@ static void Broadcastsafe(struct Application *app,long relation,...)
             chs=ch;              /* Either not yet had, or list tail */
          }
       }
+      if(havehad) FREE(havehad);
    }
-   if(havehad) FREE(havehad);
 }
 
 /* Set a new save path */
@@ -1226,6 +1226,7 @@ static struct Application *Newapplication(struct Amset *ams)
       NEWLIST(&app->usebrowser);
       NEWLIST(&app->useoverlap);
       NEWLIST(&app->wantblink);
+      NEWLIST(&app->wantmarquee);
       InitSemaphore(&app->semaphore);
       app->pubsignum=-1;
       app->bgpen=-1;
@@ -1250,12 +1251,6 @@ static struct Application *Newapplication(struct Amset *ams)
          AOBJ_Map,blinktimermap,
          AOTIM_Waitseconds,prefs.blinkrate/10,
          AOTIM_Waitmicros,(prefs.blinkrate%10)*100000,
-         TAG_END);
-      app->marqueetimer=Anewobject(AOTP_TIMER,
-         AOBJ_Target,app,
-         AOBJ_Map,marqueetimermap,
-         AOTIM_Waitseconds,0,
-         AOTIM_Waitmicros,50000,  /* 50ms default update rate */
          TAG_END);
       app->animtimer=Anewobject(AOTP_TIMER,
          AOBJ_Target,app,
@@ -1427,13 +1422,13 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
                TAG_END);
             break;
          case AOAPP_Marqueetimer:
-            /* Update all marquee elements */
-            Broadcast(app,AOREL_APP_WANT_MARQUEE,
-               AOAPP_Marquee,TRUE,
-               TAG_END);
-            /* Restart timer (guard against failed allocation in Newapplication) */
-            if(app->marqueetimer)
-            {  Asetattrs(app->marqueetimer,
+            /* Update all marquee elements (timer is only created when needed) */
+            if(app->marqueetimer && !ISEMPTY(&app->wantmarquee))
+            {  Broadcast(app,AOREL_APP_WANT_MARQUEE,
+                  AOAPP_Marquee,TRUE,
+                  TAG_END);
+               /* Re-arm one-shot timer */
+               Asetattrs(app->marqueetimer,
                   AOTIM_Waitseconds,0,
                   AOTIM_Waitmicros,50000,
                   TAG_END);
@@ -1460,6 +1455,16 @@ static long Addchildapplication(struct Application *app,struct Amadd *ama)
    {  if(ch=ALLOCSTRUCT(Child,1,MEMF_CLEAR))
       {  ch->object=ama->child;
          ADDTAIL(list,ch);
+         if(ama->relation==AOREL_APP_WANT_MARQUEE)
+         {  if(!app->marqueetimer)
+            {  app->marqueetimer=Anewobject(AOTP_TIMER,
+                  AOBJ_Target,app,
+                  AOBJ_Map,marqueetimermap,
+                  AOTIM_Waitseconds,0,
+                  AOTIM_Waitmicros,50000,
+                  TAG_END);
+            }
+         }
       }
    }
    return 0;
@@ -1474,6 +1479,12 @@ static long Remchildapplication(struct Application *app,struct Amadd *ama)
          {  REMOVE(ch);
             FREE(ch);
             break;
+         }
+      }
+      if(ama->relation==AOREL_APP_WANT_MARQUEE)
+      {  if(app->marqueetimer && ISEMPTY(&app->wantmarquee))
+         {  Adisposeobject(app->marqueetimer);
+            app->marqueetimer=NULL;
          }
       }
    }
