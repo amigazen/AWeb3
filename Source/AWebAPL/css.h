@@ -88,7 +88,7 @@ struct CSSStylesheet
 };
 
 /* Function prototypes */
-void ParseCSSStylesheet(struct Document *doc,UBYTE *css);
+void ParseCSSStylesheet(struct Document *doc,UBYTE *css,long cssNBytes);
 void ApplyCSSToElement(struct Document *doc,void *element);
 void FreeCSSStylesheet(struct Document *doc);
 void ApplyInlineCSS(struct Document *doc,void *element,UBYTE *style);

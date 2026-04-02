@@ -57,7 +57,7 @@ struct BodyMinimal
 };
 
 /* Forward declarations */
-static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css);
+static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css,long cssBound);
 static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p);
 static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p);
 static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p);
@@ -109,8 +109,10 @@ void ApplyDocCssIfReady(struct Document *doc)
     * DPF_EXTCSSEXPECT), not here, so fast loads do not miss a single coalesced refresh. */
 }
 
-/* Parse a CSS stylesheet */
-void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
+/* Parse a CSS stylesheet.
+ * cssNBytes: number of CSS text bytes before the terminating NUL (from docsource buffer),
+ *            or -1 to use strlen(css) (e.g. merged or @import payload). */
+void ParseCSSStylesheet(struct Document *doc,UBYTE *css,long cssNBytes)
 {  struct CSSStylesheet *sheet;
    if(!doc || !css) return;
    
@@ -131,11 +133,22 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
    }
    
    /* Parse CSS */
-   sheet = ParseCSS(doc,css);
+   sheet = ParseCSS(doc,css,cssNBytes);
    if(sheet)
    {  struct CSSRule *rule;
       struct CSSSelector *sel;
       long ruleCount = 0;
+      /* If @import (or similar) assigned doc->cssstylesheet while ParseCSS still built
+       * a separate outer sheet, fold outer rules into the installed sheet and drop the shell. */
+      if(doc->cssstylesheet && (void *)sheet != doc->cssstylesheet)
+      {  struct CSSStylesheet *existingSheet;
+         existingSheet = (struct CSSStylesheet *)doc->cssstylesheet;
+         while((rule = (struct CSSRule *)REMHEAD(&sheet->rules)))
+         {  ADDTAIL(&existingSheet->rules, rule);
+         }
+         FREE(sheet);
+         sheet = existingSheet;
+      }
       doc->cssstylesheet = (void *)sheet;
       MarkDocCssDirty(doc);
       /* Count rules and log selectors */
@@ -175,7 +188,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    {  printf("[CSS] MergeCSSStylesheet: Starting merge\n");
    }
    /* Parse the new CSS */
-   newSheet = ParseCSS(doc,css);
+   newSheet = ParseCSS(doc,css,-1);
    if(!newSheet)
    {  css_debug_printf("MergeCSSStylesheet: ERROR - ParseCSS failed\n");
       return;
@@ -233,10 +246,12 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
 }
 
 /* Parse CSS content */
-static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
+static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css,long cssBound)
 {  struct CSSStylesheet *sheet;
+   struct CSSStylesheet *importSheet;
    struct CSSRule *rule;
    UBYTE *p;
+   UBYTE *cssEnd;
    long cssLen;
    long ruleCount = 0;
    long iterationCount = 0;
@@ -244,8 +259,15 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return NULL;
    
+   importSheet = NULL;
    cssStart = css;
-   cssLen = strlen((char *)css);
+   if(cssBound < 0)
+   {  cssLen = (long)strlen((char *)css);
+   }
+   else
+   {  cssLen = cssBound;
+   }
+   cssEnd = cssStart + cssLen;
    css_debug_printf("ParseCSS: Starting, CSS length=%ld bytes\n", cssLen);
    
    sheet = ALLOCSTRUCT(CSSStylesheet,1,MEMF_FAST);
@@ -257,10 +279,10 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    NEWLIST(&sheet->rules);
    sheet->pool = doc->pool;
    
-   p = css;
+   p = cssStart;
    
-   /* Skip UTF-8 BOM if present (0xEF 0xBB 0xBF) */
-   if(p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF)
+   /* Skip UTF-8 BOM if present (0xEF 0xBB 0xBF); do not read past cssEnd. */
+   if(cssLen >= 3 && p + 3 <= cssEnd && p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF)
    {  p += 3;
       css_debug_printf("ParseCSS: Skipped UTF-8 BOM\n");
    }
@@ -268,7 +290,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    {  long lastPosition = -1;
       long stuckCount = 0;
       
-      while(*p)
+      while(p < cssEnd && *p)
       {  UBYTE *oldp;
          long position;
          UBYTE *contextStart;
@@ -280,10 +302,15 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
          iterationCount++;
          
          if(iterationCount % 100 == 0)
-         {  position = p - cssStart;
-            css_debug_printf("ParseCSS: Iteration %ld, position %ld/%ld (%.1f%%), rules parsed=%ld\n",
-                            iterationCount, position, cssLen, 
-                            (cssLen > 0 ? (100.0 * position / cssLen) : 0.0), ruleCount);
+         {  long pct;
+            position = p - cssStart;
+            pct = 0;
+            if(cssLen > 0)
+            {  pct = (100L * position) / cssLen;
+            }
+            /* Integer percent only: avoid double literals (FPU opcodes on EC020 without FPU). */
+            css_debug_printf("ParseCSS: Iteration %ld, position %ld/%ld (%ld%%), rules parsed=%ld\n",
+                            iterationCount, position, cssLen, pct, ruleCount);
          }
          
          /* Hard limit: if we've done more than 100000 iterations, something is very wrong */
@@ -306,9 +333,10 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             {  /* Show context around stuck position */
                contextStart = (position > 50) ? p - 50 : cssStart;
                contextEnd = p + 50;
+               if(contextEnd > cssEnd) contextEnd = cssEnd;
                contextLen = contextEnd - contextStart;
                if(contextLen > 100) contextLen = 100;
-               for(j = 0; j < contextLen && contextStart[j]; j++)
+               for(j = 0; j < contextLen && contextStart + j < cssEnd && contextStart[j]; j++)
                {  context[j] = (contextStart[j] >= 32 && contextStart[j] < 127) ? contextStart[j] : '.';
                }
                context[j] = '\0';
@@ -325,20 +353,20 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
          }
       
          /* Check for @media query - skip it for now (basic support) */
-         if(*p == '@' && Strnicmp((char *)p, "@media", 6) == 0)
+         if(*p == '@' && (cssEnd - p) >= 6 && Strnicmp((char *)p, "@media", 6) == 0)
          {  css_debug_printf("ParseCSS: Found @media query at position %ld, skipping\n", p - cssStart);
             p += 6; /* Skip "@media" */
             SkipWhitespace(&p);
             /* Skip media query list until opening brace */
-            while(*p && *p != '{')
+            while(p < cssEnd && *p && *p != '{')
             {  p++;
             }
-            if(*p == '{')
+            if(p < cssEnd && *p == '{')
             {  long braceDepth = 1;
                long mediaStart = p - cssStart;
                p++; /* Skip opening brace */
                /* Skip entire @media block */
-               while(*p && braceDepth > 0)
+               while(p < cssEnd && *p && braceDepth > 0)
                {  if(*p == '{') braceDepth++;
                   else if(*p == '}') braceDepth--;
                   p++;
@@ -354,7 +382,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
          }
          
          /* Check for @import rule - process it to load external stylesheets */
-         if(*p == '@' && Strnicmp((char *)p, "@import", 7) == 0)
+         if(*p == '@' && (cssEnd - p) >= 7 && Strnicmp((char *)p, "@import", 7) == 0)
          {  UBYTE *importStart;
             UBYTE *urlStart;
             UBYTE *urlEnd;
@@ -369,7 +397,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             SkipWhitespace(&p);
             
             /* Parse @import url(...) or @import "..." format */
-            if(*p == 'u' && Strnicmp((char *)p, "url(", 4) == 0)
+            if(*p == 'u' && (cssEnd - p) >= 4 && Strnicmp((char *)p, "url(", 4) == 0)
             {  p += 4; /* Skip "url(" */
                SkipWhitespace(&p);
                urlStart = p;
@@ -378,11 +406,11 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                {  quote = *p;
                   urlStart = ++p; /* Skip opening quote */
                   urlEnd = p;
-                  while(*urlEnd && *urlEnd != quote)
-                  {  if(*urlEnd == '\\' && urlEnd[1]) urlEnd += 2; /* Skip escaped char */
+                  while(urlEnd < cssEnd && *urlEnd && *urlEnd != quote)
+                  {  if(*urlEnd == '\\' && (urlEnd + 1) < cssEnd && urlEnd[1]) urlEnd += 2; /* Skip escaped char */
                      else urlEnd++;
                   }
-                  if(*urlEnd == quote)
+                  if(urlEnd < cssEnd && *urlEnd == quote)
                   {  urlLen = urlEnd - urlStart;
                      urlEnd++; /* Skip closing quote */
                   }
@@ -394,25 +422,25 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                else
                {  /* Unquoted URL - parse until closing paren */
                   urlEnd = p;
-                  while(*urlEnd && *urlEnd != ')' && !isspace(*urlEnd))
+                  while(urlEnd < cssEnd && *urlEnd && *urlEnd != ')' && !isspace((unsigned char)*urlEnd))
                   {  urlEnd++;
                   }
                   urlLen = urlEnd - urlStart;
                   p = urlEnd;
                }
                SkipWhitespace(&p);
-               if(*p == ')') p++; /* Skip closing paren */
+               if(p < cssEnd && *p == ')') p++; /* Skip closing paren */
             }
             else if(*p == '"' || *p == '\'')
             {  /* @import "url" format */
                quote = *p;
                urlStart = ++p; /* Skip opening quote */
                urlEnd = p;
-               while(*urlEnd && *urlEnd != quote)
-               {  if(*urlEnd == '\\' && urlEnd[1]) urlEnd += 2; /* Skip escaped char */
+               while(urlEnd < cssEnd && *urlEnd && *urlEnd != quote)
+               {  if(*urlEnd == '\\' && (urlEnd + 1) < cssEnd && urlEnd[1]) urlEnd += 2; /* Skip escaped char */
                   else urlEnd++;
                }
-               if(*urlEnd == quote)
+               if(urlEnd < cssEnd && *urlEnd == quote)
                {  urlLen = urlEnd - urlStart;
                   urlEnd++; /* Skip closing quote */
                }
@@ -424,8 +452,8 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             else
             {  /* Invalid @import format - skip to semicolon */
                css_debug_printf("ParseCSS: Invalid @import format, skipping\n");
-               while(*p && *p != ';') p++;
-               if(*p == ';') p++;
+               while(p < cssEnd && *p && *p != ';') p++;
+               if(p < cssEnd && *p == ';') p++;
                position = p - cssStart;
                lastPosition = position;
                stuckCount = 0;
@@ -445,10 +473,19 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                   {  /* Try to load external CSS */
                      extcss = Finddocext(doc, url, FALSE);
                      if(extcss && extcss != (UBYTE *)~0)
-                     {  /* CSS loaded synchronously - merge it immediately */
+                     {  /* CSS loaded synchronously: splice into this ParseCSS's `sheet`.
+                         * Do not use MergeCSSStylesheet — it sets doc->cssstylesheet while
+                         * ParseCSSStylesheet still expects to assign the outer `sheet`, which
+                         * overwrote the doc pointer and corrupted rule lists (crash/illegal inst). */
                         css_debug_printf("ParseCSS: @import CSS loaded synchronously, merging\n");
-                        MergeCSSStylesheet(doc, extcss);
-                        /* Apply link colors from imported CSS */
+                        importSheet = ParseCSS(doc, extcss, -1);
+                        if(importSheet)
+                        {  while((rule = (struct CSSRule *)REMHEAD(&importSheet->rules)))
+                           {  ADDTAIL(&sheet->rules, rule);
+                           }
+                           FREE(importSheet);
+                           MarkDocCssDirty(doc);
+                        }
                         ApplyCSSToLinkColors(doc);
                      }
                      else if(extcss == NULL)
@@ -469,7 +506,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             
             /* Skip to semicolon */
             SkipWhitespace(&p);
-            if(*p == ';') p++;
+            if(p < cssEnd && *p == ';') p++;
             
             /* Update position after processing @import */
             position = p - cssStart;
@@ -484,7 +521,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             UBYTE atRuleName[32];
             long i = 0;
             /* Extract @ rule name for debugging */
-            while(*p && i < 31 && (isalpha(*p) || *p == '-' || *p == '_'))
+            while(p < cssEnd && *p && i < 31 && (isalpha((unsigned char)*p) || *p == '-' || *p == '_'))
             {  atRuleName[i++] = *p++;
             }
             atRuleName[i] = '\0';
@@ -492,10 +529,10 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                             atRuleName, atRuleStart - cssStart);
             
             /* Skip to semicolon or opening brace */
-            while(*p && *p != ';' && *p != '{')
+            while(p < cssEnd && *p && *p != ';' && *p != '{')
             {  p++;
             }
-            if(*p == ';')
+            if(p < cssEnd && *p == ';')
             {  p++;
                /* Update position after skipping @ rule */
                position = p - cssStart;
@@ -503,10 +540,10 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                stuckCount = 0;
                continue;
             }
-            else if(*p == '{')
+            else if(p < cssEnd && *p == '{')
             {  long braceDepth = 1;
                p++;
-               while(*p && braceDepth > 0)
+               while(p < cssEnd && *p && braceDepth > 0)
                {  if(*p == '{') braceDepth++;
                   else if(*p == '}') braceDepth--;
                   p++;
@@ -542,9 +579,10 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                   
                   contextStart2 = (p - cssStart > 20) ? p - 20 : cssStart;
                   contextEnd2 = p + 20;
+                  if(contextEnd2 > cssEnd) contextEnd2 = cssEnd;
                   contextLen2 = contextEnd2 - contextStart2;
                   if(contextLen2 > 40) contextLen2 = 40;
-                  for(j2 = 0; j2 < contextLen2 && contextStart2[j2]; j2++)
+                  for(j2 = 0; j2 < contextLen2 && contextStart2 + j2 < cssEnd && contextStart2[j2]; j2++)
                   {  context2[j2] = (contextStart2[j2] >= 32 && contextStart2[j2] < 127) ? contextStart2[j2] : '.';
                   }
                   context2[j2] = '\0';
@@ -552,24 +590,24 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
                                  p - cssStart, *p, (*p >= 32 && *p < 127) ? *p : '?');
                   css_debug_printf("ParseCSS: Context: '%.40s'\n", context2);
                }
-               if(*p) p++;
+               if(p < cssEnd && *p) p++;
                else break;  /* End of string */
             }
             else
             {  /* Pointer advanced but rule failed - skip to next rule */
                css_debug_printf("ParseCSS: ParseRule failed but pointer advanced, skipping to next rule (pos %ld->%ld)\n",
                               oldp - cssStart, p - cssStart);
-               while(*p && *p != '}')
+               while(p < cssEnd && *p && *p != '}')
                {  p++;
                }
-               if(*p == '}') p++;
+               if(p < cssEnd && *p == '}') p++;
             }
          }
          
          /* Final safety check: if we haven't advanced at all, force advance and break */
          if(p == oldp)
          {  css_debug_printf("ParseCSS: ERROR - Pointer stuck at position %ld, forcing advance\n", p - cssStart);
-            if(*p) p++;
+            if(p < cssEnd && *p) p++;
             else break;
             /* If we're still at the same position after forcing advance, something is wrong - break */
             if(p == oldp)
@@ -773,6 +811,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
    UBYTE *id;
    UBYTE *class;
    UBYTE *pseudoName;
+   long notDepth;
    
    if(!doc || !p || !*p) return NULL;
    
@@ -849,18 +888,28 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       }
    }
    else
-   {  /* Element name or universal */
-      name = ParseIdentifier(p);
-      if(name)
-      {  sel->type = CSS_SEL_ELEMENT;
-         sel->name = Dupstr(name,-1);
-         FREE(name);
-         sel->specificity = 1; /* Element specificity */
-      }
-      else
-      {  /* Universal selector */
+   {  /* Element name or universal * */
+      if(**p == '*')
+      {  (*p)++;
+         /* Universal selector: must consume '*' — otherwise descendant parsing
+          * calls ParseSelector again on the same '*' and blows the stack
+          * (e.g. Drupal noscript: form.antibot * :not(...)). */
          sel->type = CSS_SEL_ELEMENT;
          sel->specificity = 0;
+      }
+      else
+      {
+         name = ParseIdentifier(p);
+         if(name)
+         {  sel->type = CSS_SEL_ELEMENT;
+            sel->name = Dupstr(name,-1);
+            FREE(name);
+            sel->specificity = 1; /* Element specificity */
+         }
+         else
+         {  FREE(sel);
+            return NULL;
+         }
       }
       
       /* Check for class or ID after element name */
@@ -940,6 +989,16 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
             sel->pseudo = Dupstr(pseudoName,-1);
             FREE(pseudoName);
             sel->specificity += 10; /* Pseudo-class adds to specificity */
+            /* :not(selector-list) — we do not match :not yet; skip (...) so '{' is found. */
+            if(sel->pseudo && Stricmp((char *)sel->pseudo, "not") == 0 && **p == '(')
+            {  (*p)++;
+               notDepth = 1;
+               while(**p && notDepth > 0)
+               {  if(**p == '(') notDepth++;
+                  else if(**p == ')') notDepth--;
+                  (*p)++;
+               }
+            }
          }
       }
    }
@@ -1156,9 +1215,12 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
 
 /* Skip whitespace */
 void SkipWhitespace(UBYTE **p)
-{  if(!p || !*p) return;
-   while(**p && (isspace(**p) || **p == '\n' || **p == '\r' || **p == '\t'))
-   {  (*p)++;
+{  UBYTE c;
+   if(!p || !*p) return;
+   for(;;)
+   {  c = **p;
+      if(c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') (*p)++;
+      else break;
    }
 }
 

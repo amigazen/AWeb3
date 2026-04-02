@@ -2158,10 +2158,6 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       {  printf("[STYLE] Dolink: Found stylesheet link, href=%s, reload=%d, existing stylesheet=%p\n",
                 urlstr ? (char *)urlstr : "NULL", isReload ? 1 : 0, doc->cssstylesheet);
       }
-      /* Defer copy/layout notification until this stylesheet is resolved (sync here or
-       * via AODOC_Docextready). Prevents a fast path where the viewport lays out once
-       * without merged CSS and never refreshes when the network returns immediately. */
-      doc->pflags|=DPF_EXTCSSEXPECT;
       /* Try to load external CSS */
       extcss = Finddocext(doc,url,isReload);
       if(extcss)
@@ -2269,17 +2265,17 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                }
             }
          }
-         /* Sync resolution: data was available from Finddocext (merged, skipped, or error). */
-         doc->pflags&=~DPF_EXTCSSEXPECT;
       }
       else
       {  extern BOOL httpdebug;
          if(httpdebug)
          {  printf("[STYLE] Dolink: External CSS not yet available, suspending parsing\n");
          }
-         /* External CSS not yet available, suspend parsing */
-         doc->pflags |= DPF_SUSPEND;
-         /* Keep DPF_EXTCSSEXPECT: Srcupdatedocument must not refresh until resume/merge. */
+         /* External CSS not yet available, suspend parsing. Only then defer
+          * AOBJ_Changedchild from Srcupdatedocument: setting DPF_EXTCSSEXPECT before
+          * Finddocext could suppress refresh across sync/re-entrant completion paths
+          * and stall loading (e.g. nested AODOC_Docextready while buffer is still parsing). */
+         doc->pflags|=DPF_SUSPEND|DPF_EXTCSSEXPECT;
       }
    }
    if(url)
@@ -2520,7 +2516,8 @@ static BOOL Docssend(struct Document *doc)
                    doc->csssrc.length, doc->cssstylesheet);
          }
          /* Parse and apply CSS stylesheet */
-         ParseCSSStylesheet(doc,css);
+         /* Pass known text length (excluding the added NUL) so ParseCSS never scans past buffer. */
+         ParseCSSStylesheet(doc,css,(long)doc->csssrc.length-1);
          if(httpdebug)
          {  printf("[STYLE] Docssend: CSS parsed, stylesheet=%p, body=%p\n",
                    doc->cssstylesheet, doc->body);
