@@ -109,6 +109,8 @@ struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *cl
 void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id,UBYTE *tagname);
 void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id);
 void ReapplyCSSToAllElements(struct Document *doc);
+void MarkDocCssDirty(struct Document *doc);
+void ApplyDocCssIfReady(struct Document *doc);
 
 #endif /* AWEB_CSS_H */
 

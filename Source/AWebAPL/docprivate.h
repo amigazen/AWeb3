@@ -144,6 +144,11 @@ struct Document
    BOOL currentdivinline;     /* Current DIV is display:inline (prevents line breaks) */
    void *hoveredElement;      /* Currently hovered element (for :hover pseudo-class) */
    void *activeElement;       /* Currently active (clicked) element (for :active pseudo-class) */
+   /* Deterministic CSS application:
+    * cssserial increments whenever stylesheet content changes (external merge, inline <style>, reload/free).
+    * cssappliedserial tracks which stylesheet version has been applied to the current element tree. */
+   ULONG cssserial;
+   ULONG cssappliedserial;
    /* Marquee temporary data (while parsing) */
    void *marqueebody;         /* Body element for current marquee, or NULL */
    UBYTE *marqueedirection;   /* "left", "right", "up", "down" */
@@ -174,6 +179,7 @@ struct Document
 #define DPF_SUSPEND        0x00008000  /* waiting for extension, suspend parsing */
 #define DPF_NORLDOCEXT     0x00010000  /* don't reload the next extension */
 #define DPF_AFTERBREAK     0x00020000  /* preserve whitespace after line break or block boundary */
+#define DPF_EXTCSSEXPECT   0x00040000  /* <link rel=stylesheet>: defer Srcupdatedocument's AOBJ_Changedchild until CSS is resolved or resume */
 
 #define DPM_BODY           0        /* parsing normal body contents */
 #define DPM_TITLE          1        /* parsing <TITLE> */

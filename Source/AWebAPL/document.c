@@ -515,7 +515,12 @@ static void Srcupdatedocument(struct Document *doc)
             srcpos_before=doc->srcpos;
             Parsedocument(doc);
             if(doc->srcpos!=srcpos_before)
-            {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+            {  /* While an external stylesheet is still loading (Dolink suspended after
+                * <link rel=stylesheet>), skip notifying the copy so we do not lay out
+                * the tree without merged CSS; one refresh runs after merge or on resume. */
+               if(!(doc->pflags&DPF_EXTCSSEXPECT))
+               {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+               }
             }
          }
       }
@@ -662,19 +667,24 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                UBYTE *contenttype;
                long urllen;
                BOOL isCSS;
+               BOOL hasContentType;
                /* Check if this is a CSS file and merge it */
                url = (void *)tag->ti_Data;
                isCSS = FALSE;
+               hasContentType = FALSE;
                if(url)
                {  /* Check content-type first */
                   contenttype = (UBYTE *)Agetattr(url,AOURL_Contenttype);
                   if(contenttype)
-                  {  if(strnicmp((char *)contenttype,"text/css",8) == 0)
+                  {  hasContentType = TRUE;
+                     if(strnicmp((char *)contenttype,"text/css",8) == 0)
                      {  isCSS = TRUE;
                      }
                   }
-                  /* Also check URL extension if content-type not available */
-                  if(!isCSS)
+                  /* Only fall back to ".css" URL extension when content-type is missing.
+                   * Some servers (or error paths) return HTML for a .css URL; treating that as CSS
+                   * results in 0 parsed rules and "sometimes styled" behavior depending on timing. */
+                  if(!isCSS && !hasContentType)
                   {  UBYTE *query;
                      urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
                      if(urlstr)
@@ -703,41 +713,53 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                      /* Try to get the CSS content */
                      extcss = Finddocext(doc,url,FALSE);
                      if(extcss && extcss != (UBYTE *)~0)
-                     {  if(httpdebug)
+                     {  BOOL payloadIsCss;
+                        payloadIsCss = TRUE;
+                        if(httpdebug)
                         {  printf("[STYLE] AODOC_Docextready: CSS file loaded, calling MergeCSSStylesheet\n");
                         }
-                        /* Check if this CSS was already merged via Dolink.
-                         * If DPF_NORLDOCEXT is set AND stylesheet exists, it means Dolink already processed it.
-                         * If stylesheet is NULL, the flag might be from a previous document, so merge anyway. */
-                        if(!(doc->pflags&DPF_NORLDOCEXT) || !doc->cssstylesheet)
-                        {  /* Merge external CSS with existing stylesheet */
-                           MergeCSSStylesheet(doc,extcss);
-                           /* Set DPF_NORLDOCEXT to prevent Dolink from merging this CSS again
-                            * if it's called later (e.g., during parsing resume after suspend) */
-                           doc->pflags|=DPF_NORLDOCEXT;
-                        }
-                        else if(httpdebug)
-                        {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
-                        }
-                        /* Apply link colors from CSS (a:link, a:visited) */
-                        ApplyCSSToLinkColors(doc);
-                        /* Always re-apply CSS to body when external CSS loads */
-                        if(doc->body && doc->cssstylesheet)
+                        /* Defensive: if payload looks like HTML, don't attempt to parse as CSS.
+                         * This commonly happens when a .css URL returns an error page. */
+                        if(extcss[0] == '<')
                         {  if(httpdebug)
-                           {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
-                                    doc->body, doc->cssstylesheet);
+                           {  printf("[STYLE] AODOC_Docextready: Content looks like HTML, skipping CSS merge\n");
                            }
-                           ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
-                           /* Ensure CSS is applied to the full existing tree */
-                           ReapplyCSSToAllElements(doc);
-                           /* Re-register colors to ensure link colors are updated */
-                           if(doc->win && doc->frame)
-                           {  Registerdoccolors(doc);
-                           }
+                           payloadIsCss = FALSE;
                         }
-                        else if(httpdebug)
-                        {  printf("[STYLE] AODOC_Docextready: Cannot apply CSS - body=%p, stylesheet=%p\n",
-                                  doc->body, doc->cssstylesheet);
+                        if(payloadIsCss)
+                        {  /* Check if this CSS was already merged via Dolink.
+                            * If DPF_NORLDOCEXT is set AND stylesheet exists, it means Dolink already processed it.
+                            * If stylesheet is NULL, the flag might be from a previous document, so merge anyway. */
+                           if(!(doc->pflags&DPF_NORLDOCEXT) || !doc->cssstylesheet)
+                           {  /* Merge external CSS with existing stylesheet */
+                              MergeCSSStylesheet(doc,extcss);
+                              /* Set DPF_NORLDOCEXT to prevent Dolink from merging this CSS again
+                               * if it's called later (e.g., during parsing resume after suspend) */
+                              doc->pflags|=DPF_NORLDOCEXT;
+                           }
+                           else if(httpdebug)
+                           {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
+                           }
+                           /* Apply link colors from CSS (a:link, a:visited) */
+                           ApplyCSSToLinkColors(doc);
+                           /* Always re-apply CSS to body when external CSS loads */
+                           if(doc->body && doc->cssstylesheet)
+                           {  if(httpdebug)
+                              {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
+                                       doc->body, doc->cssstylesheet);
+                              }
+                              ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                              /* Ensure CSS is applied to the full existing tree */
+                           ApplyDocCssIfReady(doc);
+                              /* Re-register colors to ensure link colors are updated */
+                              if(doc->win && doc->frame)
+                              {  Registerdoccolors(doc);
+                              }
+                           }
+                           else if(httpdebug)
+                           {  printf("[STYLE] AODOC_Docextready: Cannot apply CSS - body=%p, stylesheet=%p\n",
+                                     doc->body, doc->cssstylesheet);
+                           }
                         }
                      }
                      else if(extcss == (UBYTE *)~0)
@@ -753,9 +775,17 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                   }
                }
                if(doc->pflags&DPF_SUSPEND)
-               {  doc->pflags&=~DPF_SUSPEND;
+               {  long srcpos_before;
+                  doc->pflags&=~(DPF_SUSPEND|DPF_EXTCSSEXPECT);
                   doc->dflags&=~DDF_DONE;
+                  srcpos_before=doc->srcpos;
                   Srcupdatedocument(doc);
+                  /* If the HTML side had nothing left to consume, srcpos does not move
+                   * and Srcupdatedocument would not notify the copy; still repaint once
+                   * now that CSS (or failure) is known. */
+                  if(doc->frame && doc->copy && doc->srcpos==srcpos_before)
+                  {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+                  }
                }
             }
             break;

@@ -2464,8 +2464,47 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
    USHORT style;
    struct Colorinfo *ci;
    short valign=-1;
+   BOOL ispre;
+   extern BOOL httpdebug;
+   short savedfonttype;
+   BOOL forcedfixed;
+   UBYTE *savedface;
+   UWORD savedflags;
+   struct Fontinfo *fi;
    if(bd->bld && ama->child)
-   {  Getcurrentfont(bd,&fp,&style,&ci);
+   {  ispre = BOOLVAL(Agetattr(ama->child,AOELT_Preformat));
+      savedfonttype = 0;
+      forcedfixed = FALSE;
+      savedface = NULL;
+      savedflags = 0;
+      fi = NULL;
+      if(ispre)
+      {  /* Ensure deterministic fixed-width font selection for preformatted text.
+          * Without this, timing/style updates can cause mixed fonts within a PRE block,
+          * making columns look "haphazard" on reload even though whitespace is preserved. */
+         savedfonttype = bd->bld->fonttype;
+         bd->bld->fonttype = 1;
+         forcedfixed = TRUE;
+         /* Also ignore any explicit face (e.g. CSS font-family on BODY/TD) while
+          * selecting the font for preformatted text. If we keep a proportional face
+          * like "Verdana,...", Matchfont() may still choose a proportional font even
+          * when fonttype is forced, breaking column alignment. */
+         fi = bd->bld->font.first;
+         if(fi)
+         {  savedface = fi->face;
+            savedflags = fi->flags;
+            fi->face = NULL;
+            fi->flags &= ~FONTF_FACE;
+         }
+      }
+      Getcurrentfont(bd,&fp,&style,&ci);
+      if(forcedfixed)
+      {  bd->bld->fonttype = savedfonttype;
+         if(fi)
+         {  fi->face = savedface;
+            fi->flags = savedflags;
+         }
+      }
       of=Addopenfont(bd,fp->font);
       if(bd->flags&BDYF_SUB) valign=VALIGN_SUB;
       else if(bd->flags&BDYF_SUP)
@@ -2476,6 +2515,16 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
       /* Use link text color if link is active and custom color is set */
       if(bd->bld->link && bd->linktextcolor)
       {  ci = bd->linktextcolor;
+      }
+      if(httpdebug && ispre)
+      {  struct Fontinfo *fi;
+         fi = bd->bld->font.first;
+         printf("[PRE_FONT] Addchild: child=%p body=%p frame=%p font=%p face=%s size=%d fixed=%d fi->type=%d\n",
+            ama->child, bd, bd->frame, of ? of->font : NULL,
+            (fi && fi->face) ? (char *)fi->face : "NULL",
+            (fi ? (int)fi->size : -1),
+            (int)bd->bld->fonttype,
+            (fi ? (int)fi->type : -1));
       }
       Asetattrs(ama->child,
          AOELT_Link,bd->bld->link,

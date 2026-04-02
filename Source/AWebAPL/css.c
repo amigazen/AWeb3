@@ -87,6 +87,28 @@ static void css_debug_printf(const char *format, ...)
    va_end(args);
 }
 
+void MarkDocCssDirty(struct Document *doc)
+{  if(!doc) return;
+   doc->cssserial++;
+}
+
+void ApplyDocCssIfReady(struct Document *doc)
+{  if(!doc) return;
+   if(!doc->cssstylesheet) return;
+   if(!doc->body) return;
+   if(!doc->frame) return;
+   if(doc->cssappliedserial == doc->cssserial) return;
+   ApplyCSSToLinkColors(doc);
+   ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+   ReapplyCSSToAllElements(doc);
+   if(doc->win && doc->frame)
+   {  Registerdoccolors(doc);
+   }
+   doc->cssappliedserial = doc->cssserial;
+   /* Layout/repaint is driven by Srcupdatedocument (or explicit resume after
+    * DPF_EXTCSSEXPECT), not here, so fast loads do not miss a single coalesced refresh. */
+}
+
 /* Parse a CSS stylesheet */
 void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
 {  struct CSSStylesheet *sheet;
@@ -115,6 +137,7 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
       struct CSSSelector *sel;
       long ruleCount = 0;
       doc->cssstylesheet = (void *)sheet;
+      MarkDocCssDirty(doc);
       /* Count rules and log selectors */
       for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
           (struct MinNode *)rule->node.mln_Succ;
@@ -182,6 +205,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    /* If no existing stylesheet, just use the new one */
    if(!doc->cssstylesheet)
    {  doc->cssstylesheet = (void *)newSheet;
+      MarkDocCssDirty(doc);
       /* debug_printf("MergeCSSStylesheet: No existing sheet, using new one\n"); */
       return;
    }
@@ -205,6 +229,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    {  ruleCount++;
    }
    css_debug_printf("MergeCSSStylesheet: Merge completed, total rules=%ld\n", ruleCount);
+   MarkDocCssDirty(doc);
 }
 
 /* Parse CSS content */
@@ -2535,6 +2560,8 @@ void FreeCSSStylesheet(struct Document *doc)
 {  if(doc && doc->cssstylesheet)
    {  FreeCSSStylesheetInternal((struct CSSStylesheet *)doc->cssstylesheet);
       doc->cssstylesheet = NULL;
+      MarkDocCssDirty(doc);
+      doc->cssappliedserial = 0;
    }
 }
 
