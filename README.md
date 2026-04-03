@@ -362,42 +362,11 @@ In this context, finishing the job means both completing support for the final v
 
 ### Which features from the various releases of AWeb 3.5 have already been cherry-picked for inclusion in AWeb 3.6?
 
-The following features from AWeb 3.5 have been reintegrated in **AWeb 3.6**:
-- Correct handling of caching or not-caching HTTP redirect (30x) responses
-- Correct use of GetBitMapAttrs() instead of direct access of private layers.library structures - this prevents graphics corruption on OS4 on pages with background images for example
-- A fix for a bug where empty JavaScript files were still cached unnecessarily
-- The image format AWebPlugins have been updated to the slightly more recent versions found in AWeb 3.5, and then in fact updated further to the latest version in the case of PNG
-- ETags support in the cache
-- Enhanced handling of 302 and 307 redirects 
-- Dynamic Garbage Collection of temporary objects in the JavaScript engine to reduce memory usage
-- Parsing of Content-Disposition headers to suggest filenames for saved downloads
-- All of the JavaScript enhancements bringing AWeb close to ECMAScript 3 compliance have been integrated and further enhanced
-- Mousewheel support for OS4
-- Copy image URL to clipboard is added to the popup menu
-- INS and DEL tags are recognised and rendered appropriately
-- INPUT and BUTTON form elements can exist outside of forms and be used with JavaScript events
-- Saved files will get a DefIcons provided icon image
-- 24-bit printing is available also with printer.device v44 or later, not just with TurboPrint
-- The enhancements to the gopher module that "finish" AWeb's implementation of the gopher protocol are all incorporated
+For a full list of new features, bug fixes and improvements cherry-picked from AWeb 3.5, see the [CHANGELOG.md]
 
 ### Are there any features from the various releases of AWeb 3.5 that are not going to be reintegrated into AWeb 3.6?
 
 The implementation of HTTP/1.1, gzip and chunked encoding, as well as new features such as HTTP Range and keep-alive support, in AWeb 3.6 is vastly more sophisticated than the simplistic version in AWeb 3.5, it is an all new implementation, so no code from the AWeb 3.5 version has been reintegrated. Similarly the AmiSSL 5 integration is all new.
-
-As of AWeb 3.6 alpha 7 
-
-The following
-<li>Toolbar layout changes</li>
-<li>Charset conversion plugin - replaced by built-in UTF-8 support in AWeb 3.6</li> 
-<li>Borderless/kiosk window mode</li>
-<li>Multiple MIME entries per type in prefs</li> 
-<li>Double-buffered page rendering - uses too much memory for little gain</li> 
-<li>FTP client rewrite from AWeb 3.5 is not used due to failed testing</li>
-<li>Arbitrary plugin/library &quot;version 35&quot; renumbering - AWeb 3.6 continues the AWeb 3.4 style instead</li> 
-<li>AmiSSL 3 support is replaced by all-new AmiSSL 5 support</li> 
-<li>gzip http stream support from AWeb 3.5 was not used - instead an all-new HTTP/1.1 implementation with keep-alive and Range (RFC 7233) is new in AWeb 3.6</li>
-</ul>
-</p>
 
 Other changes from AWeb 3.5 that have been reviewed and rejected are:
 - FTP module changes were integrated, tested, and found to be completely broken. Rather than fix the AWeb 3.5 code, which made unnecessary changes to otherwise already working code, the changes were reverted out completely. AWeb's original FTP module already worked correctly.
@@ -405,7 +374,7 @@ Other changes from AWeb 3.5 that have been reviewed and rejected are:
 - New About dialog (erroneously called splash screen in the AWeb 3.5 documentation) was overcomplicated and ugly, AWeb 3.6 keeps the original AWeb 3.4 About dialog
 - Plugin API and version numbering was changed unnecessarily in AWeb 3.5. AWeb 3.6 Plugin API remains consistent with AWeb 3.4
 - Borders around images was made a user configurable setting with additional AWebCfg settings. This is both unnecessary - images should simply not have borders unless styled as such - and rendered it necessary to localise the new settings
-- Double buffering implementation was found to cause many regressions, as well as using twice as much memory, obviously
+- Double buffering implementation was found to cause many regressions, as well as using twice as much memory
 
 As of AWeb 3.6 Alpha 7 the only significant remaining differences between AWeb 3.5 and AWeb 3.6 are the user interface layout changes and configuration settings
 
@@ -415,13 +384,13 @@ The first release 3.6 is designed to be a stable rebuild of version 3.4 updated 
 
 Later releases will then add new features missing from AWeb's standards support incrementally.
 
-The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content, though this may mean by the time the work is finished it is almost an entirely new web browser...
+The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content
 
 ### Does the new AWeb work on Workbench 3.1, 3.5 or 3.9?
 
 The new AWeb is built and tested using the NDK 3.2 but should still be compatible with Workbench 3.1 with ClassAct, or the 3.5 and 3.9 releases with ReAction. Likewise the network support is built with the Roadshow SDK but should work with any bsdsocket.library implementation, and is most heavily tested with the UAE version for obvious reasons.
 
-New features such as system settings for contextual mouse pointers are implemented in progressive upgrade way at runtime wherever possible, for example with branching code paths that check if intuition.library 47 or higher is available.
+New features such as system settings for contextual mouse pointers are implemented in using progressive upgrade techniques at runtime wherever possible, for example with branching code paths that check if intuition.library 47 or higher is available.
 
 ### Will AWeb support modern websites?
 
@@ -439,7 +408,7 @@ Ports of AWeb - version 3.5 - already exist, so at some point it should be possi
 
 The first priority however is to get a good, stable build of AWeb in the form Yvon left it in when he gave it to the community.
 
-The current AWeb 3.6 Alpha 4 runs on OS4 as a 68k binary, however as a native 68k binary it cannot utilise the PowerPC native AmiSSL library and therefore https connections will not work. Note that there are some known OS4-specific issues documented in the release notes.
+The current AWeb 3.6 runs on OS4 as a 68k binary and as of version 3.6 alpha 7 all known OS4 specific issues are fixed.
 
 ### Can I contribute to the new AWeb?
 

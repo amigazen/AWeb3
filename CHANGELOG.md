@@ -336,8 +336,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Reference: AWeb 3.5 features integrated in AWeb 3.6
 
-Cumulative list aligned with project notes `aweb35_diffs.md` (AWeb APL 3.5.00–3.5.09) and `Source/AWebAPL/REMAINING_AWEB35_ITEMS.md`. Items were merged between 3.6alpha4 and 3.6alpha7 unless noted.
-
 ### HTTP, redirects, cache, downloads
 - Improved HTTP relocation/redirect semantics (301 vs 302/307; temporary URLs not cached as permanent; better compatibility with login flows)
 - ETag storage and `If-None-Match` cache validation
@@ -353,7 +351,7 @@ Cumulative list aligned with project notes `aweb35_diffs.md` (AWeb APL 3.5.00–
 - `&reg;` entity rendering
 
 ### JavaScript
-- ECMA-262 edition 3 / JavaScript 1.5 level, including `RegExp` (PCRE-based in this tree)
+- ECMA-262 edition 3 / JavaScript 1.5 level, including `RegExp`
 - Dynamic garbage collection during script execution
 - JavaScript source cache bug fix (empty cached script files)
 - `onload` / `onunload` when a `<SCRIPT>` in `<HEAD>` precedes them
@@ -383,5 +381,20 @@ Cumulative list aligned with project notes `aweb35_diffs.md` (AWeb APL 3.5.00–
 - Enforcer-related fixes in `body.c`, `defprefs.c`, `jcomp.c`
 - Subsequent bgalign rendering fixes where regressions appeared
 
-### Not integrated from 3.5 (by design or deferred)
-- Charset plugin (codesets.library); borderless kiosk windows; multiple MIME entries per type; double-buffered rendering; 3.5 FTP client changes (reverted); lib/plugin “version 35” renumbering; AmiSSL 3-only stack. See `REMAINING_AWEB35_ITEMS.md` for the remaining iconify/plugin memory item and review list.
+### Misc new features bug fixes and improvements
+- Correct handling of caching or not-caching HTTP redirect (30x) responses
+- Correct use of GetBitMapAttrs() instead of direct access of private layers.library structures - this prevents graphics corruption on OS4 on pages with background images for example
+- A fix for a bug where empty JavaScript files were still cached unnecessarily
+- The image format AWebPlugins have been updated to the slightly more recent versions found in AWeb 3.5, and then in fact updated further to the latest version in the case of PNG
+- ETags support in the cache
+- Enhanced handling of 302 and 307 redirects 
+- Dynamic Garbage Collection of temporary objects in the JavaScript engine to reduce memory usage
+- Parsing of Content-Disposition headers to suggest filenames for saved downloads
+- All of the JavaScript enhancements bringing AWeb close to ECMAScript 3 compliance have been integrated and further enhanced
+- Mousewheel support for OS4
+- Copy image URL to clipboard is added to the popup menu
+- INS and DEL tags are recognised and rendered appropriately
+- INPUT and BUTTON form elements can exist outside of forms and be used with JavaScript events
+- Saved files will get a DefIcons provided icon image
+- 24-bit printing is available also with printer.device v44 or later, not just with TurboPrint
+- The enhancements to the gopher module that "finish" AWeb's implementation of the gopher protocol are all incorporated

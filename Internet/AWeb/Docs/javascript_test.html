@@ -187,6 +187,150 @@ function onMouseOut() {
 
 // Browser Extension Test Functions Only
 
+// XMLHttpRequest Tests
+var xhrTestResult = null;
+
+function testXHROpen() {
+    var xhr = new XMLHttpRequest();
+    if (xhr) {
+        xhr.open("GET", "https://www.amigazen.com/aweb/docs/xhr_test_data.html", true);
+        window.status = "XMLHttpRequest opened (GET xhr_test_data.html)";
+        xhrTestResult = xhr;
+    } else {
+        window.alert("XMLHttpRequest constructor not available!");
+    }
+}
+
+function testXHRSend() {
+    var xhr = new XMLHttpRequest();
+    if (!xhr) {
+        window.alert("XMLHttpRequest constructor not available!");
+        return;
+    }
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200) {
+                window.status = "XHR request completed successfully! Status: " + xhr.status;
+                var resultDiv = document.getElementById("xhrResult");
+                if (resultDiv) {
+                    resultDiv.innerHTML = "<H3>XHR Response:</H3><PRE>" + xhr.responseText + "</PRE>";
+                }
+            } else {
+                window.status = "XHR request failed. Status: " + xhr.status;
+            }
+        }
+    };
+    
+    xhr.open("GET", "http://www.amigazen.com/aweb/docs/xhr_test_data.html", true);
+    xhr.send(null);
+    window.status = "XHR request sent...";
+}
+
+function testXHRJSON() {
+    var xhr = new XMLHttpRequest();
+    if (!xhr) {
+        window.alert("XMLHttpRequest constructor not available!");
+        return;
+    }
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200) {
+                window.status = "JSON XHR request completed! Status: " + xhr.status;
+                var resultDiv = document.getElementById("xhrJSONResult");
+                if (resultDiv) {
+                    resultDiv.innerHTML = "<H3>JSON Response:</H3><PRE>" + xhr.responseText + "</PRE>";
+                }
+            } else {
+                window.status = "JSON XHR request failed. Status: " + xhr.status;
+            }
+        }
+    };
+    
+    xhr.open("GET", "https://www.amigazen.com/aweb/docs/xhr_test_data.json", true);
+    xhr.send(null);
+    window.status = "JSON XHR request sent...";
+}
+
+function testXHRProperties() {
+    var xhr = new XMLHttpRequest();
+    if (!xhr) {
+        window.alert("XMLHttpRequest constructor not available!");
+        return;
+    }
+    
+    var info = "XMLHttpRequest Properties:\n";
+    info += "readyState: " + xhr.readyState + " (0=UNSENT, 1=OPENED, 2=HEADERS_RECEIVED, 3=LOADING, 4=DONE)\n";
+    info += "status: " + xhr.status + "\n";
+    info += "statusText: " + xhr.statusText + "\n";
+    info += "responseText: " + (xhr.responseText ? xhr.responseText.substring(0, 50) + "..." : "(empty)");
+    window.alert(info);
+}
+
+function testXHRReadyState() {
+    var xhr = new XMLHttpRequest();
+    if (!xhr) {
+        window.alert("XMLHttpRequest constructor not available!");
+        return;
+    }
+    
+    var states = [];
+    xhr.onreadystatechange = function() {
+        states.push("readyState " + xhr.readyState + " reached");
+        if (xhr.readyState == 4) {
+            var info = "ReadyState Changes:\n" + states.join("\n");
+            window.alert(info);
+        }
+    };
+    
+    xhr.open("GET", "https://www.amigazen.com/aweb/docs/xhr_test_data.html", true);
+    xhr.send(null);
+    window.status = "XHR readyState test started...";
+}
+
+function testXHRHeaders() {
+    var xhr = new XMLHttpRequest();
+    if (!xhr) {
+        window.alert("XMLHttpRequest constructor not available!");
+        return;
+    }
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            var allHeaders = xhr.getAllResponseHeaders();
+            var info = "Response Headers:\n" + (allHeaders || "(no headers available)");
+            window.alert(info);
+        }
+    };
+    
+    xhr.open("GET", "https://www.amigazen.com/aweb/docs/xhr_test_data.html", true);
+    xhr.send(null);
+    window.status = "XHR headers test started...";
+}
+
+function testXHRAbort() {
+    var xhr = new XMLHttpRequest();
+    if (!xhr) {
+        window.alert("XMLHttpRequest constructor not available!");
+        return;
+    }
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+            window.status = "XHR completed (should not happen if aborted)";
+        }
+    };
+    
+    xhr.open("GET", "https://www.amigazen.com/aweb/docs/xhr_test_data.html", true);
+    xhr.send(null);
+    window.status = "XHR request sent, will abort in 1 second...";
+    
+    window.setTimeout(function() {
+        xhr.abort();
+        window.status = "XHR request aborted!";
+    }, 1000);
+}
 
 // Formless Input Tests
 function testFormlessInput() {
@@ -408,6 +552,7 @@ window.onload = function() {
 <A HREF="#forms">HTML Forms</A> |
 <A HREF="#windowmethods">Window Methods</A> |
 <A HREF="#image">Image Constructor</A> |
+<A HREF="#xhr">XMLHttpRequest</A> |
 <A HREF="#events">Event Handlers</A> |
 <A HREF="#compatibility">Compatibility Notes</A>
 </CENTER>
@@ -969,6 +1114,123 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 
 <HR>
 
+<A NAME="xhr"></A>
+<H2>XMLHttpRequest (AJAX)</H2>
+
+<P><STRONG>Note:</STRONG> XMLHttpRequest is a browser extension API that allows JavaScript to make HTTP requests without reloading the page. This enables AJAX (Asynchronous JavaScript and XML) functionality.</P>
+
+<H3>Test 1: XMLHttpRequest Constructor</H3>
+<P><STRONG>What it tests:</STRONG> The XMLHttpRequest() constructor creates a new XMLHttpRequest object.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XMLHttpRequest Constructor" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "XMLHttpRequest opened (GET xhr_test_data.html)" if the constructor works. This demonstrates that XMLHttpRequest is available as a global constructor.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHROpen()" VALUE="Test XMLHttpRequest Constructor">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: XMLHttpRequest GET Request</H3>
+<P><STRONG>What it tests:</STRONG> The XMLHttpRequest open(), send(), and onreadystatechange methods for making asynchronous GET requests.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XHR GET Request" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "XHR request sent..." immediately, then "XHR request completed successfully! Status: 200" when the request completes. The response content should appear in the result area below.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHRSend()" VALUE="Test XHR GET Request">
+<BR><BR>
+<DIV ID="xhrResult" STYLE="border: 1px solid #ccc; padding: 10px; background: #fff; min-height: 50px;">
+<SMALL>Response will appear here after clicking the button above.</SMALL>
+</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: XMLHttpRequest JSON Request</H3>
+<P><STRONG>What it tests:</STRONG> XMLHttpRequest can fetch JSON data files.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XHR JSON Request" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "JSON XHR request sent..." then "JSON XHR request completed! Status: 200" when done. The JSON content should appear in the result area below.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHRJSON()" VALUE="Test XHR JSON Request">
+<BR><BR>
+<DIV ID="xhrJSONResult" STYLE="border: 1px solid #ccc; padding: 10px; background: #fff; min-height: 50px;">
+<SMALL>JSON response will appear here after clicking the button above.</SMALL>
+</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: XMLHttpRequest Properties</H3>
+<P><STRONG>What it tests:</STRONG> The readyState, status, statusText, and responseText properties of XMLHttpRequest.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XHR Properties" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the current values of XHR properties. readyState should be 0 (UNSENT) before opening, and status/statusText may be 0/empty until a request is made.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHRProperties()" VALUE="Test XHR Properties">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 5: XMLHttpRequest readyState Changes</H3>
+<P><STRONG>What it tests:</STRONG> The onreadystatechange event handler and the readyState property transitions (0=UNSENT, 1=OPENED, 2=HEADERS_RECEIVED, 3=LOADING, 4=DONE).</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XHR readyState" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "XHR readyState test started...". When the request completes, an alert should appear showing all readyState transitions that occurred (typically 1, 2, 3, 4).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHRReadyState()" VALUE="Test XHR readyState">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: XMLHttpRequest Response Headers</H3>
+<P><STRONG>What it tests:</STRONG> The getAllResponseHeaders() method to retrieve all HTTP response headers.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XHR Headers" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "XHR headers test started...". When the request completes, an alert should appear showing all HTTP response headers (Content-Type, Content-Length, etc.).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHRHeaders()" VALUE="Test XHR Headers">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 7: XMLHttpRequest abort()</H3>
+<P><STRONG>What it tests:</STRONG> The abort() method to cancel an in-progress XMLHttpRequest.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test XHR Abort" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "XHR request sent, will abort in 1 second..." immediately, then "XHR request aborted!" after 1 second. The request should be cancelled before it completes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testXHRAbort()" VALUE="Test XHR Abort">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Yet Supported</H3>
+<UL>
+<LI>XMLHttpRequest POST requests with custom headers - Basic support may be available</LI>
+<LI>XMLHttpRequest synchronous requests (async=false) - May have limited support</LI>
+<LI>XMLHttpRequest withCredentials - Not supported</LI>
+<LI>XMLHttpRequest upload progress - Not supported</LI>
+<LI>XMLHttpRequest timeout - Not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
 <A NAME="events"></A>
 <H2>Event Handlers</H2>
 
@@ -1135,6 +1397,7 @@ window.onunload = testOnUnload;
 <LI>Select object (selectedIndex, length)</LI>
 <LI>Option object (text, value, defaultSelected, selected, index)</LI>
 <LI>Image constructor</LI>
+<LI>XMLHttpRequest (AJAX) - Basic support for GET requests, readyState, status, responseText, onreadystatechange, abort</LI>
 <LI>Event handlers (onclick, onload, onunload, onmouseover, onerror, onabort, onfocus, onblur, onchange, onselect, onreset, onsubmit)</LI>
 <LI>onclick support for buttons outside forms - Fully supported</LI>
 <LI>onclick support for IMG and OBJECT elements - Fully supported</LI>
@@ -1179,7 +1442,6 @@ window.onunload = testOnUnload;
 <LI>document.createElement() and DOM manipulation - Not supported</LI>
 <LI>Event bubbling and capturing - Not supported</LI>
 <LI>addEventListener() / removeEventListener() - Not supported</LI>
-<LI>XMLHttpRequest (AJAX) - Not supported</LI>
 </UL>
 
 <H3>Browser Extensions Compatibility Notes</H3>

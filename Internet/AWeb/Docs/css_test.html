@@ -287,8 +287,8 @@
 </TABLE>
 
 <H3>position, top, left, right, bottom - PASS (parsed and stored)</H3>
-<P><STRONG>Note:</STRONG> Position properties are parsed and stored. Full CSS positioning model rendering may need verification.</P>
-<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Right and bottom positioning are now supported.</P>
+<P><STRONG>Note:</STRONG> Position properties are parsed and stored. position: fixed is viewport-relative (uses window dimensions). Right and bottom positioning are now supported.</P>
+<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Fixed positioning should be relative to the viewport (window), not the parent container.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
@@ -368,6 +368,8 @@
 <DIV STYLE="border: 4px dotted #00ff00; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 4px dotted green border.</DIV>
 <DIV STYLE="border-width: 5px; border-style: solid; border-color: #8B7355; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV uses separate border-width, border-style, and border-color properties.</DIV>
 <DIV STYLE="border: 2px solid #000000; padding: 10px; background-color: #ffcccc; margin: 5px;">This DIV has a border with background-color. The border should be visible around the colored background.</DIV>
+<DIV STYLE="border: 0; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has border: 0 (no border). The border should be completely hidden.</DIV>
+<DIV STYLE="border: 0px; padding: 10px; background-color: #ccccff; margin: 5px;">This DIV has border: 0px (no border). The border should be completely hidden.</DIV>
 </TD>
 </TR>
 </TABLE>
@@ -569,6 +571,28 @@
 </TR>
 </TABLE>
 
+<H3>a:hover pseudo-class - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Links that change color when you hover over them. Hover styles are applied via CSS :hover pseudo-class using embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.hover-link { color: #0000ff; text-decoration: none; }
+.hover-link:hover { color: #ff0000; background-color: #ffffcc; }
+#hover-test { color: #008000; }
+#hover-test:hover { color: #ff00ff; font-weight: bold; }
+</STYLE>
+<P>Hover over these links to see the color change:</P>
+<P><A HREF="#top" CLASS="hover-link">Hover me (blue to red with yellow background)</A></P>
+<P><A HREF="#top" ID="hover-test">Hover me (green to magenta and bold)</A></P>
+<P><A HREF="#top" STYLE="color: #000000;">Normal link (no hover effect)</A></P>
+<P><STRONG>Note:</STRONG> Move your mouse over the first two links. The first link should change from blue to red with a yellow background. The second link should change from green to magenta and become bold. The third link has no hover style and should remain unchanged.</P>
+</TD>
+</TR>
+</TABLE>
+
 <P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
 
 <HR>
@@ -651,6 +675,31 @@
 <LI>No numbering (none)</LI>
 <LI>Second item with no number</LI>
 </OL>
+</TD>
+</TR>
+</TABLE>
+
+<H3>list-style-image - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Lists with custom bullet images specified via CSS list-style-image property. The image should appear as the bullet for each list item.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.custom-bullets { list-style-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'); }
+.no-image { list-style-image: none; }
+</STYLE>
+<UL CLASS="custom-bullets">
+<LI>List item with custom bullet image (1x1 transparent GIF)</LI>
+<LI>Second item with custom bullet</LI>
+<LI>Third item with custom bullet</LI>
+</UL>
+<UL CLASS="no-image" STYLE="list-style-type: disc;">
+<LI>List item with list-style-image: none (should show default disc)</LI>
+<LI>Second item</LI>
+</UL>
+<P><STRONG>Note:</STRONG> The first list uses a custom bullet image via CSS. If the image loads, it should appear as the bullet for each item. The second list uses list-style-image: none which should revert to the default disc bullet. Note that list-style-image can be set via CSS class/id selectors on UL or OL elements.</P>
 </TD>
 </TR>
 </TABLE>
