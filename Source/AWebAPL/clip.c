@@ -39,19 +39,23 @@ void Clipcopy(UBYTE *text,long length)
    for(p=text;p<text+length;p++)
    {  if(*p==0xa0) *p=' ';
    }
-   if(iff=AllocIFF())
-   {  if(iff->iff_Stream=(ULONG)OpenClipboard(PRIMARY_CLIP))
+   iff=AllocIFF();
+   if(iff)
+   {  iff->iff_Stream=(ULONG)OpenClipboard(PRIMARY_CLIP);
+      if(iff->iff_Stream)
       {  InitIFFasClip(iff);
+         /* OpenIFF may fail; CloseIFF must still run to run IFFCMD_CLEANUP on
+          * the clipboard stream (see iffparse.library/CloseIFF autodocs). */
          if(!OpenIFF(iff,IFFF_WRITE))
-         {  if(PushChunk(iff,ID_FTXT,ID_FORM,IFFSIZE_UNKNOWN)) goto err;
-            if(PushChunk(iff,ID_FTXT,ID_CHRS,length)) goto err;
-            if(WriteChunkBytes(iff,text,length)!=length) goto err;
-            if(PopChunk(iff)) goto err;
-            if(PopChunk(iff)) goto err;
-
-err:
-            CloseIFF(iff);
+         {  if(PushChunk(iff,ID_FTXT,ID_FORM,IFFSIZE_UNKNOWN)) goto clipcopy_done;
+            if(PushChunk(iff,ID_FTXT,ID_CHRS,length)) goto clipcopy_done;
+            if(WriteChunkBytes(iff,text,length)!=length) goto clipcopy_done;
+            if(PopChunk(iff)) goto clipcopy_done;
+            if(PopChunk(iff)) goto clipcopy_done;
+clipcopy_done:
+            ;
          }
+         CloseIFF(iff);
          CloseClipboard((struct ClipboardHandle *)iff->iff_Stream);
       }
       FreeIFF(iff);
@@ -61,31 +65,47 @@ err:
 
 long Clippaste(UBYTE *buf,long length)
 {  struct IFFHandle *iff;
-   long l=-1;
-#ifndef DEMOVERSION
+   long l;
    LONG e;
    struct ContextNode *cn;
-   long left=length;
-   if(iff=AllocIFF())
-   {  if(iff->iff_Stream=(ULONG)OpenClipboard(PRIMARY_CLIP))
+   long left;
+   long r;
+   long readerr;
+
+   l=0;
+   readerr=0;
+#ifndef DEMOVERSION
+   iff=AllocIFF();
+   if(iff)
+   {  iff->iff_Stream=(ULONG)OpenClipboard(PRIMARY_CLIP);
+      if(iff->iff_Stream)
       {  InitIFFasClip(iff);
          if(!OpenIFF(iff,IFFF_READ))
-         {  if(StopChunk(iff,ID_FTXT,ID_CHRS)) goto err;
-            while(left>0)
-            {  e=ParseIFF(iff,IFFPARSE_SCAN);
-               if(e==IFFERR_EOC) continue;
-               if(e) break;
-               cn=CurrentChunk(iff);
-               if(cn && cn->cn_Type==ID_FTXT && cn->cn_ID==ID_CHRS)
-               {  l=ReadChunkBytes(iff,buf+length-left,left);
-                  if(l<0) goto err;
-                  left-=l;
+         {  if(!StopChunk(iff,ID_FTXT,ID_CHRS))
+            {  left=length;
+               while(left>0 && !readerr)
+               {  e=ParseIFF(iff,IFFPARSE_SCAN);
+                  if(e==IFFERR_EOC) continue;
+                  if(e) break;
+                  cn=CurrentChunk(iff);
+                  if(cn && cn->cn_Type==ID_FTXT && cn->cn_ID==ID_CHRS)
+                  {  r=ReadChunkBytes(iff,buf+length-left,left);
+                     if(r<0)
+                     {  readerr=1;
+                        break;
+                     }
+                     /* At end of CHRS, ReadChunkBytes can return 0; without a
+                      * break, left never decreases and ParseIFF would spin. */
+                     if(r==0) break;
+                     left-=r;
+                  }
+               }
+               if(!readerr)
+               {  l=length-left;
                }
             }
-            l=length-left;
-err:
-            CloseIFF(iff);
          }
+         CloseIFF(iff);
          CloseClipboard((struct ClipboardHandle *)iff->iff_Stream);
       }
       FreeIFF(iff);
