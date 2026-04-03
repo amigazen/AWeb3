@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6alpha7] - 2026-04-03
+
+### Added
+- **HTML elements:** Experimental `<SPAN>` and `<MARQUEE>` support 
+- **XMLHttpRequest:** Experimental XMLHttpRequest API for AJAX-style pages, with matching ARexx commands for script-driven HTTP
+- **Commodity:** AWeb registers as an Amiga commodity; Exchange can show/hide the browser (mapped to iconify)
+- **TrueType via ttengine.library:** Optional native TrueType/OpenType rendering with anti-aliasing on deep screens when ttengine.library is installed
+- **FTPS:** FTP module supports FTP over TLS (implicit TLS, e.g. port 990); (not the same as SFTP)
+- **DataType transparency:** Images can use alpha when picture.datatype is v47+ and the datatype supplies alpha data
+- **HTTP Accept-Language:** Request header after fixed headers using locale.library `loc_PrefLanguages` when the first entry is a two-letter or five-character (xx-YY) tag, with fallback
+- **AWebJS:** Standalone runtime gains `require()`, `delay()`, and `print()` (plus existing ARexx-from-script support)
+- **Screen Title** Support for using the screen title bar for user message  (not enabled in the public build but do feedback at Github what you would want to see this used for)
+
+### Changed
+- **Missing images:** No placeholder image or border when `<img>` has no `src`
+- **Viewport width:** Viewport `meta` tag parsed as a width hint; frame layout checks keep top-level content width aligned with the window inner width where appropriate
+- **Modern toolbar (experimental):** Optional minimalist toolbar where Reload also acts as Stop (build-time only option not currently enabled in the public release build)
+- **CSS:** Font-related rules (`font-family`, `font-size` with keywords and px/pt/em/ex/%); `:hover` and `:active` with correct per-element hover target; `list-style-image`; `background-repeat` and related background properties; margins on all sides; `background-color: transparent`; `transform: translate`; percentage `top`/`left`; `@import` merged into the active sheet; descendant/child selectors use a DIV parse stack; stale `class`/`id` cleared when attributes are omitted; external stylesheet readiness tracked so colors and rules reapply when CSS finishes loading (fewer races with cache/late loads)
+- **Layout / repaint:** Fewer full-frame repaints when embedded images decode at unchanged dimensions; document notifies the frame only when new markup was consumed (not EOF-only noise)
+- **Build:** Binaries rebuilt with relevant SAS/C optimisations
+- **User-Agent spoof:** Emits exactly the configured string as the `User-Agent:` line (no extra “Spoofed by …” suffix)
+- **Preferences directory:** `AWeb3` under ENVARC: is created automatically if missing so prefs can save on first run
+- **Graphics:** BitMap allocations use `BMF_DISPLAYABLE` for better blit-to-card behaviour
+- **PNG AWebPlugin:** PNG write path removed from the build to shrink the plugin binary (~140KB vs prior larger size)
+
+### Fixed
+- **Tables:** `cellspacing="0"` no longer overridden by the default 2px spacing
+- **Background alignment:** Rendering bugs in bgalign reintegrated from AWeb 3.5
+- **AmiSSL / OS4:** HTTPS works again on OS4 with AmiSSL 5.25
+- **Memory corruption:** Fixed various memory leaks in clipboard/iffpare integration and ARexx
+- **String compare:** HTML/CSS matching uses utility.library `Stricmp()`/`Strnicmp()` instead of libc `stricmp()`/`strnicmp()`
+- **HTTP:** Do not treat `Content-Length` as authoritative when `chunked` encoding is used; gzip downloads compare `Content-Length` to compressed payload bytes where applicable; fixed multipart boundary storage leak in the HTTP stack
+- **MARQUEE:** Timer used for animation could ISI panic on OS4
+- **OS4 utility.library:** Text corruption from missing `Strncpy()` wrapper path
+- **JavaScript engine:** Broad stability and performance fixes (e.g. `Escape()` `%XX` uses unsigned bytes; RegExp substring end index; `instanceof` walks the prototype chain; shift operators initialized; safer try/catch binding; `\xNN` string lexer pointer advance; reserved words such as `switch`, `try`/`catch`/`finally`, `instanceof` parsed)
+- **JS/object setup:** `Amessage` dispatch uses correct nested fields; `Jallowgc()` guards setup to avoid GC during fragile init (reduces deadlocks)
+- **HTML buffers:** Expansion/insertion paths null-terminate and copy only valid lengths so uninitialized memory is not merged into parse buffers
+
+### Reintegrated from AWeb 3.5
+- **JavaScript 1.5 (ECMAScript 3):** Integrated engine including RegExp (PCRE-based in this tree)
+- **Standalone AWebJS:** ARexx commands to host ports from scripts
+- **Background images:** Correct nested bitmap/rect access so backgrounds are not corrupted on OS4 (and likely P96)
+
 ## [3.6alpha6] - 17-12-2025
 
 ### Added
@@ -288,3 +331,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **INet225 Support:** Disabled INet225 support - removed all support for socket.library, use a bsdsocket.library instead
 - **Miami Support:** Disabled MiamiSSL support - although Miami supports bsdsocket.library, miamissl.library and miami.library are no longer supported which probably stops Miami's bsdsocket.library working properly too
+
+---
+
+## Reference: AWeb 3.5 features integrated in AWeb 3.6
+
+Cumulative list aligned with project notes `aweb35_diffs.md` (AWeb APL 3.5.00–3.5.09) and `Source/AWebAPL/REMAINING_AWEB35_ITEMS.md`. Items were merged between 3.6alpha4 and 3.6alpha7 unless noted.
+
+### HTTP, redirects, cache, downloads
+- Improved HTTP relocation/redirect semantics (301 vs 302/307; temporary URLs not cached as permanent; better compatibility with login flows)
+- ETag storage and `If-None-Match` cache validation
+- Referer header correct on redirected requests
+- `Content-Disposition` parsing for suggested download filenames
+- GZIP transfer decoding via the 3.6 HTTP/1.1 implementation (replaces the need for 3.5’s separate zlib integration path)
+
+### HTML, layout, entities
+- `INS` and `DEL` elements
+- Table layout improvements; `bgalign` (table background alignment)
+- Nested tables: `HEIGHT` attribute bug fix
+- Background image redraw optimization (fewer full-document redraws)
+- `&reg;` entity rendering
+
+### JavaScript
+- ECMA-262 edition 3 / JavaScript 1.5 level, including `RegExp` (PCRE-based in this tree)
+- Dynamic garbage collection during script execution
+- JavaScript source cache bug fix (empty cached script files)
+- `onload` / `onunload` when a `<SCRIPT>` in `<HEAD>` precedes them
+- Tolerant mode: `javascript:...` in inline event handlers
+- `Image.onerror` fix; JS `Image` no longer overwrites unrelated document properties
+- `onclick` on `IMG` and `OBJECT`
+- Fastidious / Omnivorous script error modes (from 3.5)
+
+### Forms, cookies, UI
+- `INPUT` / `BUTTON` (and related) outside `<FORM>` as document GUI with script events
+- Cookie non-RFC mode: `.domain` matches `domain`
+- Image popup: copy image URL to clipboard
+- Mousewheel scrolling (OS4 and OS3.2)
+
+### Printing, saving
+- `printer.device` v44+ awareness for deep bitmap printing without TurboPrint-only path
+- DefIcons-style icons when saving (`GetDiskObjectNew()`)
+
+### Plugins, images, protocols
+- AWebPlugin `startup.c` `FreeMem` fix (all bundled plugins)
+- PNG, JFIF, GIF: 3.5-era updates merged (PNG later upgraded to libpng 1.6.x)
+- Internal GIF decoder transparency fix; transparent animated GIF background updates with page background changes
+- Gopher aweblib: 3.5 protocol/type and URL improvements
+
+### Graphics, stability
+- Background bitmap access via supported APIs (fixes OS4/P96-style background corruption)
+- Enforcer-related fixes in `body.c`, `defprefs.c`, `jcomp.c`
+- Subsequent bgalign rendering fixes where regressions appeared
+
+### Not integrated from 3.5 (by design or deferred)
+- Charset plugin (codesets.library); borderless kiosk windows; multiple MIME entries per type; double-buffered rendering; 3.5 FTP client changes (reverted); lib/plugin “version 35” renumbering; AmiSSL 3-only stack. See `REMAINING_AWEB35_ITEMS.md` for the remaining iconify/plugin memory item and review list.

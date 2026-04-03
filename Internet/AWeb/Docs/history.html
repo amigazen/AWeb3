@@ -3,7 +3,7 @@
  * 
  * This file is part of the AWeb distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -24,6 +24,61 @@ Release History
 </head>
 <body background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Release History</h1>
+
+<h2>AWeb 3.6 Alpha 7</h2>
+
+<h3>Major New Features</h3>
+<ul>
+<li>DataType images now render with transparency if picture.datatype is v47 or higher, where also supported by the DataType in question</li>
+<li>New HTML elements: <b>SPAN</b> and experimental <b>MARQUEE</b></li>
+<li>For the first time on Amiga, <b>XMLHttpRequest</b> support for AJAX-style sites, with ARexx commands to match</li>
+<li>AWeb is now a <b>commodity</b> and can be managed by Exchange (Show/Hide maps to iconify)</li>
+<li>Experimental <b>ttengine.library</b> support for native <b>TrueType/OpenType</b> fonts with anti-aliasing on full-colour screenmodes when the library is installed</li>
+<li>FTP module: <b>FTPS</b> (FTP over TLS, e.g. implicit TLS on port 990); not SFTP</li>
+</ul>
+
+<h3>Improvements</h3>
+<ul>
+<li>AWeb no longer renders a placeholder image and border if an IMG element source is missing</li>
+<li>Improved viewport width sizing: viewport <b>meta</b> tag as a width hint, plus frame layout so top-level content width tracks the window inner width where appropriate</li>
+<li>Experimental modern toolbar layout (minimal design; Reload also functions as Stop). <i>Not enabled in the public release build.</i></li>
+<li>Improved font-related CSS: <b>font-family</b> and <b>font-size</b> (size keywords, px, pt, em, ex, %)</li>
+<li>Additional CSS: <b>:hover</b> and <b>:active</b> (correct hover target per element), <b>list-style-image</b>, <b>background-repeat</b> and related background properties, margins on all sides, <b>background-color: transparent</b>, <b>transform: translate</b>, percentage <b>top</b>/<b>left</b>, and <b>@import</b> merging into the active sheet</li>
+<li>Descendant and child selectors use a DIV parse stack so nesting matches the document; stale <b>class</b>/<b>id</b> are cleared when a tag omits them</li>
+<li>External stylesheet readiness is tracked so colours and rules reapply once CSS finishes loading (reduces races with cached or late sheets)</li>
+<li>Layout: fewer unnecessary full-frame repaints when embedded images finish decoding at the same dimensions; document notifies the frame only when new markup was actually consumed</li>
+<li>All binaries rebuilt with relevant SAS/C optimisations</li>
+<li>User-Agent <b>spoof</b> mode emits exactly the string configured in preferences (standard <b>User-Agent:</b> line only, no extra &quot;Spoofed by&quot; suffix)</li>
+<li>HTTP requests send <b>Accept-Language</b> after fixed headers when locale.library provides a usable two-letter or five-character (xx-yy) preference, with a sensible fallback</li>
+<li>The AWeb3 directory is automatically created in ENVARC: if it does not already exist, so preferences save correctly</li>
+<li>BitMap allocations declare <b>BMF_DISPLAYABLE</b> for hardware-accelerated blitting with graphics cards</li>
+<li>PNG AWebPlugin: PNG write functions removed from the build; binary size reduced to about 140KB</li>
+</ul>
+
+<h3>Features Reintegrated from AWeb 3.5</h3>
+<p>All relevant features from AWeb 3.5 up to and including version 3.5.09 are now integrated into AWeb 3.6</p>
+<ul>
+<li>Upgraded AWebJS engine to JavaScript 1.5 (ECMAScript 3), including RegExp</li>
+<li>JavaScript/ARexx bridge for sending ARexx commands to host ports from scripts</li>
+<li>Background images no longer corrupted on OS4 (and likely P96) thanks to correct access to bitmap structures</li>
+<li>See <b>AWeb 3.5 lineage: features integrated into AWeb 3.6</b> below for the full checklist drawn from the porting notes</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<ul>
+<li>Table spacing: <code>cellspacing=&quot;0&quot;</code> no longer overridden by default 2-pixel spacing</li>
+<li>Rendering fixes in bgalign reintegrated from AWeb 3.5</li>
+<li>Buttons activating ARexx scripts could sometimes cause an illegal instruction guru</li>
+<li>HTML and CSS string matching uses utility.library Stricmp()/Strnicmp() instead of stricmp()/strnicmp()</li>
+<li>Content-Length: not expected when chunked encoding is used; gzip downloads compare Content-Length to compressed payload bytes where applicable</li>
+<li>Memory leak when releasing multipart boundary data in the HTTP stack</li>
+<li>MARQUEE animation timer could cause an ISI panic on OS4</li>
+<li>Numerous JavaScript engine performance and stability improvements</li>
+<li>Clipboard operations leaked memory and corrupted the memlist</li>
+<li>HTML text buffer expansion and insertion: null-terminate and copy only valid lengths</li>
+<li>JavaScript robustness: Escape() %XX uses unsigned bytes; RegExp match slicing; instanceof walks prototype chain; shift operators initialized; try/catch safe if catch binding missing; string lexer correct for \xNN escapes; reserved words (switch, try/catch/finally, instanceof) recognized</li>
+<li>Object/JavaScript setup: correct Amessage field dispatch; Jallowgc() during setup to avoid GC during fragile initialization (reduces deadlocks)</li>
+</ul>
 
 <h2>AWeb 3.6 Alpha 6</h2>
 
@@ -325,30 +380,111 @@ Release History
 <li><b>CyberGraphX support:</b> Removed (for now anyway) - this build uses P96 instead which should make it more viable under emulation and on OS4</li>
 </ul>
 
+<h2>AWeb 3.5 lineage: features integrated into AWeb 3.6</h2>
+
+<h3>HTTP, redirects, cache, and downloads</h3>
+<ul>
+<li>Improved relocation and redirect handling (301 vs 302/307; temporary moves not cached like permanent; smoother logins and &quot;continue&quot; links)</li>
+<li>ETag response storage and <code>If-None-Match</code> revalidation</li>
+<li>Referer set correctly when following redirects</li>
+<li><code>Content-Disposition</code> parsing for suggested save filenames</li>
+</ul>
+
+<h3>HTML, layout, and entities</h3>
+<ul>
+<li><b>INS</b> and <b>DEL</b> elements</li>
+<li>Table layout fixes and <b>bgalign</b> (background alignment on tables)</li>
+<li>Nested tables: <code>HEIGHT</code> attribute bug fix</li>
+<li>Background image redraw optimisation (fewer full-document redraws when backgrounds change)</li>
+<li>Registered trademark: <code>&amp;reg;</code> entity interpreted and rendered</li>
+</ul>
+
+<h3>JavaScript (engine and document integration)</h3>
+<ul>
+<li>JavaScript 1.5 / ECMA-262 3rd edition language level, including <b>RegExp</b> using the PCRE library</li>
+<li>Dynamic garbage collection during script execution (not only at script termination)</li>
+<li>JavaScript source file caching fix (empty cache entries)</li>
+<li><code>onload</code> / <code>onunload</code> after a <code>&lt;SCRIPT&gt;</code> block in <code>&lt;HEAD&gt;</code></li>
+<li>Tolerant mode: inline event handlers may use <code>javascript:...</code> URL form</li>
+<li><code>Image</code> <code>onerror</code> handling fixed</li>
+<li>JavaScript <code>Image</code> objects no longer overwrite unrelated document properties</li>
+<li>DOM-style handlers: <code>onclick</code> on <b>IMG</b> and <b>OBJECT</b></li>
+<li>Fastidious and Omnivorous script error modes</li>
+</ul>
+
+<h3>Forms, cookies, and chrome</h3>
+<ul>
+<li><b>INPUT</b> and <b>BUTTON</b> (and related controls) usable outside <code>&lt;FORM&gt;</code> as document GUI with script events</li>
+<li>Cookie non-RFC mode: leading-dot domain (<code>.host</code>) matches <code>host</code></li>
+<li>Image context menu: Copy Image URL to Clipboard</li>
+<li>Mousewheel scrolling for OS4</li>
+</ul>
+
+<h3>Printing, saving, and Workbench</h3>
+<ul>
+<li>Printing: <code>printer.device</code> v44+ deep bitmaps without requiring TurboPrint only</li>
+<li>Saved files: DefIcons-style icon via <code>GetDiskObjectNew()</code> when available</li>
+</ul>
+
+<h3>Plugins, images, and protocols</h3>
+<ul>
+<li>AWebPlugin <code>startup.c</code>: missing <code>FreeMem</code> fix (all bundled plugins)</li>
+<li>PNG, JFIF, and GIF plugins: 3.5-era engine updates incorporated (PNG subsequently upgraded further to libpng 1.6.x in 3.6)</li>
+<li>Internal GIF decoder: transparency bug fix</li>
+<li>Transparent animated GIFs: background updates when page background handling changed</li>
+<li>Gopher aweblib: 3.5 improvements (types, URL schemes, link generation)</li>
+</ul>
+
+<h3>Graphics and stability</h3>
+<ul>
+<li>Background bitmap handling uses supported APIs (e.g. <code>GetBitMapAttrs()</code> / correct bitmap access) so backgrounds are not corrupted on OS4</li>
+<li>Enforcer-related cleanups carried over from 3.5 notes in <code>body.c</code>, <code>defprefs.c</code>, <code>jcomp.c</code></li>
+<li>Rendering fixes for <b>bgalign</b> reintegrated</li>
+</ul>
+
+<p>
+Remaining items deliberately <b>not</b> taken from 3.5 in AWeb 3.6</p>
+<ul>
+<li>Toolbar layout changes</li>
+<li>Charset conversion plugin - replaced by built-in UTF-8 support in AWeb 3.6</li> 
+<li>Borderless/kiosk window mode</li>
+<li>Multiple MIME entries per type in prefs</li> 
+<li>Double-buffered page rendering - uses too much memory for little gain</li> 
+<li>FTP client rewrite from AWeb 3.5 is not used due to failed testing</li>
+<li>Arbitrary plugin/library &quot;version 35&quot; renumbering - AWeb 3.6 continues the AWeb 3.4 style instead</li> 
+<li>AmiSSL 3 support is replaced by all-new AmiSSL 5 support</li> 
+<li>gzip http stream support from AWeb 3.5 was not used - instead an all-new HTTP/1.1 implementation with keep-alive and Range (RFC 7233) is new in AWeb 3.6</li>
+</ul>
+</p>
+
 <h2>Known Issues</h2>
 
 <h3>General Issues</h3>
 <ul>
-<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.25 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
-<li>This version does not currently include most of the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later</li>
-<li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
+<li>Setting the disk cache to 0 or a very small size will prevent images from rendering - carried over from original AWeb</li>
 <li>The documentation is still being updated for release 3.6</li>
-<li>The new support for Markdown documents still has some visual glitches</li>
-<li>The AWebPlugins are deliberately not enabled by default, you will need to enable them manually in the configuration</li>
-<li>Feedback is also particularly welcome on default settings and default programs</li>
+<li>Markdown rendering still has some visual glitches</li>
+<li>AWebPlugins are not enabled by default; recent DataTypes are usually faster</li>
+<li>Feedback is welcome on default settings and programs</li>
 <li>Note that view-source: does not work as you might expect with 30x redirects</li>
+<li>With ttengine.library, text size and justification may not always be correct</li>
 </ul>
 
 <h3>OS4 Specific Issues</h3>
 <p>
-The following issues are specific to running the 3.6 Alpha 6 68K build on OS4:
+  AWeb 3.6 Alpha 7 is the first 3.6 release with no known major issues specific to OS4. 
+  <li>Mousewheel scrolling is now supported again</li>
+  <li>HTTPS via AmiSSL is now fully functional</li>
+  <li>Background scroll corruption tied to bgalign is fixed</li>
+  <li>Known DSI and ISI errors on window open are now fixed</li>
+</p>
+<p>
+The following issues are specific to running the 3.6 Alpha 7 68K build on OS4:
 </p>
 <ul>
-<li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
-<li>Attempts to access HTTPS connections will fail</li>
+<li>OS4&apos;s built-in DataTypes may not support transparency, so transparent images can look wrong</li>
 </ul>
 <p>
-Many of these issues almost certainly have been fixed before in the AWeb 3.5 codebase but they have not been integrated into AWeb 3.6, which is based on AWeb 3.4, at this time. Note that mousewheel scrolling on OS4 has been fixed in Alpha 6.
 </p>
 
 <p>

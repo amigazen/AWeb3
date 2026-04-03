@@ -1,8 +1,8 @@
 FROM     lib:c.o awebview.o locale.o memory.o versionview.o boopsi.o support.o
          requestview.o asyncio.o simplerexx.o arexxview.o clip.o tooltip.o
-         prefs.o defprefsview.o
+         prefs.o defprefsview.o 
          object.o task.o scroller.o applicationview.o file.o filereq.o editor.o timer.o
-                 windowview.o eventview.o winrexx.o winhis.o frame.o framejs.o
+         windowview.o eventview.o winrexx.o winhis.o frame.o framejs.o
          popup.o search.o print.o printwin.o info.o saveiff.o
          netstat.o hotlist.o whiswin.o cabrowse.o
          urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
@@ -10,8 +10,8 @@ FROM     lib:c.o awebview.o locale.o memory.o versionview.o boopsi.o support.o
          tcpview.o tcperr.o nameservview.o authorview.o
          awebtcpview.o awebamitcpview.o amisslview.o
          sourcedriver.o docsource.o imgsource.o extprog.o saveas.o soundsource.o
-         docext.o css.o
-         copydriver.o document.o docjs.o imgcopy.o soundcopy.o
+         docext.o css.o ttengine.o
+         copydriver.o document.o docjs.o xhrjs.o jsonparse.o imgcopy.o soundcopy.o
          parse.o markdown.o html.o body.o frameset.o link.o map.o area.o form.o
          element.o break.o text.o ruler.o bullet.o table.o name.o
          field.o input.o checkbox.o radio.o select.o textarea.o button.o

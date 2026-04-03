@@ -45,7 +45,7 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 		<li>GIF and JPEG plugins are only recommended if you need the AnimGIF or alpha channel features. Again, the DataTypes for whichever version of Amiga you use are almost certainly faster</li>
 		<li>None of the AWebPlugins are configured to be used by default due to the reasons noted above</li>
         <li>This Alpha build of AWeb saves it's disk cache in the T: location - this helps ensure it won't corrupt your hard disk, but means it uses more RAM, and prevents collision with other versions of AWeb you may have installed</li>
-        <li>AWeb needs Fast RAM, hopefully in 2025 every Amiga user has plenty of Fast RAM</li>
+        <li>AWeb needs Fast RAM, hopefully in 2026 every Amiga user has plenty of Fast RAM</li>
         <li>No need to run any installer script, just put this drawer wherever you want, and run AWeb from here, it will assign AWeb: to the current directory if it does not exist already</li>
         <li>Multiple icons including the original GlowIcons set by Oliver Tacke and Thomas Peterseim, the MasonIcons version and the MagicWB version. You can also find icons for AWeb in collections such as the AmigaOS 3.2 GlowIcons collection</li>
         <li>As with all versions of AWeb, you need ReAction to run AWeb (it may work with ClassAct but is not tested), a bsdsocket.library compatible TCP/IP stack, as well as AmiSSL 5 if you want to use HTTPS connections</li>
@@ -71,6 +71,22 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 <li><b>utf-8</b> transcoding of the most common multibyte characters to Latin-1</li>
 <li><b>AmigaOS 3.2</b> features such as contextual mouse pointers, DefIcons and window iconification are now supported, while retaining compatibility with 3.1</li>
 </ul>
+</p>
+
+<h2>What are the highlights of AWeb 3.6 Alpha 7?</h2>
+<p>
+<ul>
+<li>Improved font related CSS support: font-family and font-size (size keywords, px, pt, em, ex, %)</li>
+<li>Many more new optimisations, bug fixes, and improvements to the CSS engine and JavaScript engine</li>
+<li>Experimental XMLHttpRequest API for AJAX-style sites, with matching ARexx commands for script-driven HTTP</li>
+<li>AWeb 3.6 now works correctly on OS4, with AmiSSL, mousewheel scrolling, background image support, and no more DSI and ISI errors on window open</li>
+<li>AWeb is now a commodity, and can be managed by Exchange, with Show/Hide mapped to the Iconify feature</li>
+<li>Experimental ttengine.library support for native TrueType/OpenType fonts with anti-aliasing on full-colour screenmodes, automatically when TTEngine is installed</li>
+<li>FTP module now supports FTPS (FTP over TLS, e.g. implicit TLS on port 990); (N.B. this is not the same as SFTP support!)</li>
+<li>AWebJS now supports require(), delay(), and print()</li>
+<li>Principal AWeb 3.5 APL improvements (3.5.00 through 3.5.09) are integrated; the full cumulative checklist is under <b>What's New in 3.6 Alpha 7</b> below. Exceptions (charset plugin, kiosk windows, 3.5 FTP client rewrite, etc.) are noted in <a href="Docs/history.html">Docs/history.html</a></li>
+</ul>
+See below for even more details of what's new in AWeb 3.6 Alpha 7.
 </p>
 
 <h2>What is AWebView?</h2>
@@ -112,29 +128,44 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <h2> What's New in 3.6 Alpha 7?</h2>
 <ul>
 <li>DataType images now render with transparency if picture.datatype is v47 or higher, where also supported by the DataType in question</li>
-<li>Experimental fixes for CSS merge race conditions courtesy of contributor 'cyberman'</li>
 <li>AWeb no longer renders a placeholder image and border if an IMG element source is missing</li>
-<li>Improved viewport width sizing algorithm with parsing of viewport meta tag to use as page width hint</li>
-<li>Experimental modern toolbar layout removes the clutter of the old toolbar and replaces it with a more minimalist design. In this mode, the Reload button also functions as Stop</li>
+<li>Improved viewport width sizing: parsing of the viewport <b>meta</b> tag as a width hint, plus checks in frame layout so the top-level content width tracks the window inner width where appropriate</li>
+<li>Experimental modern toolbar layout removes the clutter of the old toolbar and replaces it with a more minimalist design. In this mode, the Reload button also functions as Stop (Not enabled in the public release build)</li>
 <li>New HTML elements added including <b>SPAN</b> and <b>MARQUEE</b></li>
-<li>New CSS styles added including...</li>
-<li>And announcing, for the first time in an Amiga web browser, support for the <b>XMLHttpRequest</b> API and AJAX websites</li>
-<li>AWeb is now a commodity, and can be managed by Exchange, with Show/Hide mapped to the Iconify feature</li>
-<li>and AWeb now utilises the screen title to display relevant information such as available memory</li>
+<li>Improved font related CSS support: font-family and font-size (size keywords, px, pt, em, ex, %)</li>
+<li>Additional CSS support for <b>:hover</b> and <b>:active</b> (with correct hover target per element), <b>list-style-image</b>, <b>background-repeat</b> and related background properties, margins on all sides, <b>background-color: transparent</b>, <b>transform: translate</b>, percentage <b>top</b>/<b>left</b>, and <b>@import</b> merging into the active sheet</li>
+<li>Descendant and child selectors use a DIV parse stack so nesting matches the document; stale <b>class</b>/<b>id</b> are cleared when a tag omits them.</li>
+<li>External stylesheet readiness is tracked so colors and rules reapply once CSS finishes loading (reduces races with cached or late sheets)</li>
+<li>And announcing, for the first time in an Amiga web browser, support for the <b>XMLHttpRequest</b> API and AJAX websites, and ARexx commands to match</li><li>AWeb is now a commodity, and can be managed by Exchange, with Show/Hide mapped to the Iconify feature</li>
 <li>Experimental <b>ttengine.library</b> support means AWeb can now natively support <b>TrueType/OpenType</b> fonts, with anti aliasing on full color screenmodes. ttengine.library is used automatically if installed on the system</li>
 <li>FTP module now supports FTPS i.e. FTP over TLS. Note this is not the same as SFTP support, which would require a separate module</li>
 <li>Removed PNG write functions from being built in to the PNG AWebPlugin, reducing the binary size back down to 140KB from over 180KB.</li>
-<li>Rebuilt binaries with all relevant SAS/C optmisations turned on</li>
+<li>Support for using the screen title to display relevant information such as network status, available memory and transient error messages (not enabled in the public release build but do feedback at Github what you would want to see this used for)</li>
+<li>Layout: fewer unnecessary full-frame repaints when embedded images finish decoding at the same dimensions; document notifies the frame for layout only when new markup was actually consumed (avoids duplicate work on EOF-only updates)</li>
+<li>Rebuilt all binaries with relevant SAS/C optimisations turned on</li>
+<li>User-Agent <b>spoof</b> mode now emits exactly the string configured in preferences (standard <b>User-Agent:</b> line only, with no extra "Spoofed by" suffix text)</li>
+<li>HTTP requests now send an <b>Accept-Language</b> header after the fixed headers when locale.library provides a usable two-letter or five-character (xx-yy) preference, with a sensible fallback</li>
+<li>The AWeb3 directory is now automatically created in ENVARC: if it does not already exist, so that preferences save correctly</li>
 <li>BitMap allocations all now declare BMF_DISPLAYABLE to allow for hardware accelerated blitting with graphics cards</li>
+<li><b>AWebJS</b> module now supports <b>require()</b>, <b>delay()</b>, and <b>print()</b></li>
 <li>AWEB 3.5: Integrated the JavaScript engine from AWeb 3.5 bringing full JavaScript 1.5 (ECMAScript 3) support, including RegExp</li>
-<li>AWEB 3.5: The standalone AWebJS JavaScript runtime now makes it possible to send ARexx commands to host ports from scripts</li>
+<li>AWEB 3.5: The standalone AWebJS JavaScript runtime now makes it possible to send ARexx commands to host ports host-port from scripts</li>
 <li>AWEB 3.5: Background images no longer get corrupted on OS4 (and probably also on P96) by applying correct access to BitMap structures</li>
 <li>FIXED: Table spacing where cellspacing was set to 0 would still be overridden by the default 2 pixel spacing</li>
 <li>FIXED: Rendering bugs in the bgalign implementation reintegrated from AWeb 3.5</li>
 <li>FIXED: AmiSSL 5.25 now works for HTTPS connections on OS4.</li>
 <li>FIXED: Buttons activating ARexx scripts could sometimes cause an illegal instruction guru</li>
-<li>FIXED: HTML and CSS string matching now uses utility.library Stricmp() directly instead of stricmp() for maximum performance</li>
-<li>FIXED: Content-Length header should not be expected when chunked encoding is used</li>
+<li>FIXED: HTML and CSS string matching now uses utility.library Stricmp()/Strnicmp() directly instead of stricmp()/strnicmp() for maximum performance</li>
+<li>FIXED: Content-Length header should not be expected when chunked encoding is used; gzip downloads compare Content-Length against compressed payload bytes where applicable</li>
+<li>FIXED: Memory leak when releasing multipart <b>boundary</b> data in the HTTP stack</li>
+<li>FIXED: Timer used to support animating the MARQUEE tag caused an ISI panic on OS4</li>
+<li>FIXED: Text display and memory corruption on OS4 caused by lack of Strncpy() in OS4 utility.library</li>
+<li>FIXED: Numerous improvements to the JavaScript engine, including performance and stability improvements</li>
+<li>FIXED: Clipboard operations leaked memory and corrupted the memlist</li>
+<li>FIXED: Rendering of PRE tags and equivalent styles now always uses fixed-width fonts to ensure consistent column alignment</li>
+<li>FIXED: HTML text buffer expansion and insertion paths null-terminate and copy only valid lengths so uninitialized memory is not exposed or merged into the parse buffer</li>
+<li>FIXED: JavaScript robustness—among other fixes: <b>Escape()</b> uses unsigned bytes for <b>%XX</b>; RegExp match slicing uses the correct end offset; <b>instanceof</b> walks the prototype chain; shift operators no longer use uninitialized values; try/catch cannot write through a missing catch binding; string lexer advances the pointer correctly for <b>\xNN</b> escapes; reserved words such as <b>switch</b>, <b>try</b>/<b>catch</b>/<b>finally</b>, and <b>instanceof</b> are recognized by the parser</li>
+<li>FIXED: Object/JavaScript setup dispatches through the correct <b>Amessage</b> fields (avoids corrupt message structs); <b>Jallowgc()</b> wraps setup so garbage collection does not run during fragile initialization (reduces deadlocks)</li>
 </ul>
 
 <h3> What's New in 3.6 Alpha 6?</h3>
@@ -188,7 +219,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>FIXED: The GIF AWebPlugin now builds a working binary again that doesn't crash on initialization</li>
 <li>FIXED: Fix Connection header parsing for comma-separated values, preventing reload failures and memory issues when servers request connection closure via comma-separated Connection headers.</li>
 <li>FIXED: Table column width distribution for unsized columns and default border rendering when border attribute is not specified</li>
-<li>FIXED: After integrating the AWeb 3.5 changes for bgalign, child elements no longer rendered their own backgrounds when there was a body background image
+<li>FIXED: After integrating the AWeb 3.5 changes for bgalign, child elements no longer rendered their own backgrounds when there was a body background image</li>
 <li>FIXED: The ARexx RUN command for running ARexx scripts from menu items and buttons no longer risks a crash if the script does not exist</li>
 <li>FIXED: Numerous stability improvements to the AmiSSL and CSS codebases, too many to list here</li>
 </li>

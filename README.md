@@ -251,8 +251,10 @@ AWeb implements the following JavaScript 1.5 enhancements beyond JavaScript 1.1:
 Features **not** currently supported:
 
 - ❌ DOM manipulation methods (`getElementById`, `getElementsByTagName`, `createElement`, etc.)
-- ❌ XMLHttpRequest (AJAX) - asynchronous HTTP requests from JavaScript
-- ❌ `finally` clause in try/catch blocks
+
+As of AWeb 3.6 alpha 7 the following previously unsupported features are now supported:
+- ✅ XMLHttpRequest (AJAX) - asynchronous HTTP requests from JavaScript
+- ✅ `finally` clause in try/catch blocks
 
 ### JavaScript Tools
 
@@ -286,6 +288,17 @@ The main changes in version 3.6 compared to version 3.4 are:
 - Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ and will be automatically created on launch if it does not already exist
 - Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.20 or later
 - Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
+
+**What's New in 3.6 Alpha 7:**
+- **Improved font related CSS support:** font-family and font-size (size keywords, px, pt, em, ex, %)
+- Many more new optimisations, bug fixes, and improvements to the CSS engine and JavaScript engine
+- **Experimental XMLHttpRequest API:** for AJAX-style sites, with matching ARexx commands for script-driven HTTP
+- **Works on OS4:** with AmiSSL 5, mousewheel scrolling, background image support, and no more DSI and ISI errors on application startup
+- **AWeb is now a commodity:** and can be managed by Exchange, with Show/Hide mapped to the Iconify feature
+- **Experimental ttengine.library support:** for native TrueType/OpenType fonts with anti-aliasing on full-colour screenmodes, automatically when TTEngine is installed
+- **FTP module now supports FTPS:** (FTP over TLS, e.g. implicit TLS on port 990)
+- **Full JavaScript 1.5:** AWebJS now supports require(), delay(), and print()
+- **AWeb 3.5 merge:** All relevant new features, bug fixes and optimisations from AWeb 3.5 up to revision 3.5.09 are now integrated into AWeb 3.6
 
 **What's New in 3.6 Alpha 6:**
 - **Enhanced CSS Support:** More CSS properties including padding, margin (with auto), position, borders, vertical-align, text-align, display: none, overflow clipping, clear for floats, and min/max width/height constraints. CSS colors can be specified in hex or by name
@@ -333,9 +346,6 @@ The main changes in version 3.6 compared to version 3.4 are:
 
 See [CHANGELOG.md](CHANGELOG.md) for complete details of all changes.
 
-
-
-
 ## Frequently Asked Questions
 
 ### What is the ultimate aim of the new AWeb project?
@@ -374,7 +384,20 @@ The following features from AWeb 3.5 have been reintegrated in **AWeb 3.6**:
 
 The implementation of HTTP/1.1, gzip and chunked encoding, as well as new features such as HTTP Range and keep-alive support, in AWeb 3.6 is vastly more sophisticated than the simplistic version in AWeb 3.5, it is an all new implementation, so no code from the AWeb 3.5 version has been reintegrated. Similarly the AmiSSL 5 integration is all new.
 
-3.5 had incomplete changes laying the groundwork for future utf-8 support, as well as the external Charset plugin that did provide a more comprehensive solution built on codesets.library. 3.6 already has more complete builtin utf-8 support in the parser that will cope with the most common 2 and 3 byte character to Latin1 encodings. 
+As of AWeb 3.6 alpha 7 
+
+The following
+<li>Toolbar layout changes</li>
+<li>Charset conversion plugin - replaced by built-in UTF-8 support in AWeb 3.6</li> 
+<li>Borderless/kiosk window mode</li>
+<li>Multiple MIME entries per type in prefs</li> 
+<li>Double-buffered page rendering - uses too much memory for little gain</li> 
+<li>FTP client rewrite from AWeb 3.5 is not used due to failed testing</li>
+<li>Arbitrary plugin/library &quot;version 35&quot; renumbering - AWeb 3.6 continues the AWeb 3.4 style instead</li> 
+<li>AmiSSL 3 support is replaced by all-new AmiSSL 5 support</li> 
+<li>gzip http stream support from AWeb 3.5 was not used - instead an all-new HTTP/1.1 implementation with keep-alive and Range (RFC 7233) is new in AWeb 3.6</li>
+</ul>
+</p>
 
 Other changes from AWeb 3.5 that have been reviewed and rejected are:
 - FTP module changes were integrated, tested, and found to be completely broken. Rather than fix the AWeb 3.5 code, which made unnecessary changes to otherwise already working code, the changes were reverted out completely. AWeb's original FTP module already worked correctly.
@@ -382,7 +405,7 @@ Other changes from AWeb 3.5 that have been reviewed and rejected are:
 - New About dialog (erroneously called splash screen in the AWeb 3.5 documentation) was overcomplicated and ugly, AWeb 3.6 keeps the original AWeb 3.4 About dialog
 - Plugin API and version numbering was changed unnecessarily in AWeb 3.5. AWeb 3.6 Plugin API remains consistent with AWeb 3.4
 - Borders around images was made a user configurable setting with additional AWebCfg settings. This is both unnecessary - images should simply not have borders unless styled as such - and rendered it necessary to localise the new settings
-- Double buffering implementation was found to cause many regressions and removed from the AWeb 3.6 code after testing. This topic will be looked at again in the future
+- Double buffering implementation was found to cause many regressions, as well as using twice as much memory, obviously
 
 As of AWeb 3.6 Alpha 7 the only significant remaining differences between AWeb 3.5 and AWeb 3.6 are the user interface layout changes and configuration settings
 
