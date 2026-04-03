@@ -851,6 +851,16 @@ static void Disposedocument(struct Document *doc)
    struct Aobject *lnk;
    struct Colorinfo *ci;
    struct Bgimage *bgi;
+   short i;
+   for(i=0;i<doc->divancsp && i<DIV_ANCESTOR_STACK_MAX;i++)
+   {  if(doc->divanc[i].tagname) FREE(doc->divanc[i].tagname);
+      if(doc->divanc[i].class) FREE(doc->divanc[i].class);
+      if(doc->divanc[i].id) FREE(doc->divanc[i].id);
+      doc->divanc[i].tagname=NULL;
+      doc->divanc[i].class=NULL;
+      doc->divanc[i].id=NULL;
+   }
+   doc->divancsp=0;
    Queuesetmsg(doc,0);
    Remwaitingdoc(doc);
    if(!doc->source || (doc->dflags&(DDF_ISSPARE|DDF_MAPDOCUMENT|DDF_NOSPARE)))
@@ -963,6 +973,9 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->srcpos=0;
       doc->pmode=0;
       doc->charcount=0;
+      doc->hoveredElement=NULL;
+      doc->activeElement=NULL;
+      doc->divancsp=0;
       Anotifyset(doc->body,AOBJ_Nobackground,FALSE,TAG_END);
       Setdocument(doc,ams);
       if(doc->bgsound && doc->win) Asetattrs(doc->win,AOWIN_Bgsound,TRUE,TAG_END);
@@ -983,6 +996,9 @@ static struct Document *Newdocument(struct Amset *ams)
       NEWLIST(&doc->infotexts);
       doc->htmlmode=prefs.htmlmode;
       doc->gotbreak=2;
+      doc->hoveredElement=NULL;
+      doc->activeElement=NULL;
+      doc->divancsp=0;
       /* Initialize parse flags for new document. Clear all flags first,
        * then set only the ones we need. This prevents garbage values
        * from uninitialized memory (if Allocobject doesn't clear memory)

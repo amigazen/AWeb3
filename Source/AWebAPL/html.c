@@ -499,6 +499,75 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
    return FALSE;
 }
 
+static BOOL CssSelCompMatchesDivAncestor(struct CSSSelector *sel, struct Divancestor *da)
+{  if(!sel || !da) return FALSE;
+   if(sel->type & CSS_SEL_ELEMENT && sel->name)
+   {  if(!da->tagname || Stricmp((char *)sel->name,(char *)da->tagname) != 0)
+      {  return FALSE;
+      }
+   }
+   if(sel->type & CSS_SEL_ID && sel->id)
+   {  if(!da->id || Stricmp((char *)sel->id,(char *)da->id) != 0)
+      {  return FALSE;
+      }
+   }
+   if(sel->type & CSS_SEL_CLASS && sel->class)
+   {  if(!MatchClassAttribute(da->class, sel->class))
+      {  return FALSE;
+      }
+   }
+   return TRUE;
+}
+
+static BOOL CssSelectorMatchesDivParseStack(struct Document *doc, struct CSSSelector *leaf,
+   UBYTE *tagname, UBYTE *class, UBYTE *id)
+{  struct Divancestor cur;
+   short curi;
+   short ai;
+   struct CSSSelector *sel;
+   struct CSSSelector *par;
+   if(!doc || !leaf) return FALSE;
+   cur.tagname = tagname;
+   cur.class = class;
+   cur.id = id;
+   if(!CssSelCompMatchesDivAncestor(leaf, &cur)) return FALSE;
+   sel = leaf;
+   curi = doc->divancsp - 1;
+   while(sel && sel->parent)
+   {  par = sel->parent;
+      if(sel->combinator == CSS_COMB_CHILD)
+      {  if(curi <= 0) return FALSE;
+         curi--;
+         if(!CssSelCompMatchesDivAncestor(par, &doc->divanc[curi])) return FALSE;
+      }
+      else if(sel->combinator == CSS_COMB_DESCENDANT)
+      {  ai = curi - 1;
+         for(; ai >= 0; ai--)
+         {  if(CssSelCompMatchesDivAncestor(par, &doc->divanc[ai]))
+            {  curi = ai;
+               break;
+            }
+         }
+         if(ai < 0) return FALSE;
+      }
+      else
+      {  return FALSE;
+      }
+      sel = par;
+   }
+   return TRUE;
+}
+
+static BOOL CssSelectorChainHasPseudo(struct CSSSelector *sel)
+{  while(sel)
+   {  if((sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+      {  return TRUE;
+      }
+      sel = sel->parent;
+   }
+   return FALSE;
+}
+
 /* Apply CSS to a Body object based on class/ID attributes */
 void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE *tagname)
 {  struct CSSRule *rule;
@@ -562,61 +631,16 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
          (struct MinNode *)sel->node.mln_Succ;
          sel = (struct CSSSelector *)sel->node.mln_Succ)
-      {  matches = TRUE;
-         
-         /* Match element name */
-         if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  /* For body selector, tagname can be "BODY" or NULL (for document body) */
-            if(Stricmp((char *)sel->name,"body") == 0)
-            {  if(tagname && Stricmp((char *)tagname,"BODY") != 0)
-               {  if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
-                  {  printf("[CSS] ApplyCSSToBody: Selector 'body' doesn't match tagname=%s\n", tagname);
-                  }
-                  matches = FALSE;
-               }
-            }
-            else if(Stricmp((char *)sel->name, "html") == 0)
-            {  /* html selector matches html element OR root element (no tagname) */
-               if(tagname && Stricmp((char *)tagname, "html") != 0)
-               {  /* Has tagname but it's not "html" - doesn't match */
-                  if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
-                  {  printf("[CSS] ApplyCSSToBody: Selector 'html' doesn't match tagname=%s\n", tagname);
-                  }
-                  matches = FALSE;
-               }
-               /* If no tagname, this is the root element - html selector matches */
-            }
-            else if(!tagname || Stricmp((char *)sel->name,(char *)tagname) != 0)
-            {  if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
-               {  printf("[CSS] ApplyCSSToBody: Selector '%s' doesn't match tagname=%s\n",
-                        sel->name ? (char *)sel->name : "NULL", tagname);
-               }
-               matches = FALSE;
-            }
-            else if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
-            {  printf("[CSS] ApplyCSSToBody: Selector '%s' element name matches tagname=%s\n",
-                     sel->name ? (char *)sel->name : "NULL", tagname);
-            }
+      {  /* Descendant/child/:hover-on-ancestor selectors require the full matcher */
+         if(tagname && Stricmp((char *)tagname,"DIV") == 0 && sel->parent && doc->divancsp > 0
+            && !CssSelectorChainHasPseudo(sel))
+         {  matches = CssSelectorMatchesDivParseStack(doc, sel, tagname, class, id);
          }
-         
-         /* Match class - use proper word-boundary matching */
-         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
-         {  if(!MatchClassAttribute(class, sel->class))
-            {  matches = FALSE;
-            }
+         else
+         {  matches = CssSelectorMatchesLayoutObject(doc, body, sel);
          }
-         
-         /* Match ID */
-         if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0)
-            {  matches = FALSE;
-            }
-         }
-         
-         /* Skip rules with pseudo-classes (e.g., :link, :visited, :hover) - these are handled
-          * by ApplyCSSToLinkColors and ApplyCSSToLink, not by ApplyCSSToBody */
-         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
-         {  matches = FALSE;
+         if(!matches)
+         {  continue;
          }
          
          /* If selector matches, apply properties */
@@ -1220,10 +1244,39 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   }
                   /* Apply display property */
                   else if(Stricmp((char *)prop->name,"display") == 0)
-                  {  UBYTE *dispStr;
-                     dispStr = Dupstr(prop->value, -1);
+                  {  UBYTE *displayValue;
+                     UBYTE *end;
+                     UBYTE *dispStr;
+                     long dispLen;
+                     displayValue = prop->value;
+                     while(*displayValue && isspace(*displayValue)) displayValue++;
+                     end = displayValue;
+                     while(*end) end++;
+                     while(end > displayValue && (isspace(*(end - 1)) || *(end - 1) == ';'))
+                     {  end--;
+                     }
+                     dispLen = end - displayValue;
+                     dispStr = NULL;
+                     if(dispLen > 0)
+                     {  dispStr = Dupstr(displayValue, dispLen);
+                     }
                      if(dispStr)
                      {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
+                        if(Stricmp((char *)dispStr,"none") == 0)
+                        {  printf("[CSS] ApplyCSSToBody display:none body=%p tag=%s class=%s id=%s\n",
+                                  body,
+                                  tagname ? (char *)tagname : "NULL",
+                                  class ? (char *)class : "NULL",
+                                  id ? (char *)id : "NULL");
+                        }
+                        else if(httpdebug)
+                        {  printf("[CSS] ApplyCSSToBody display=%s body=%p tag=%s class=%s id=%s\n",
+                                  (char *)dispStr,
+                                  body,
+                                  tagname ? (char *)tagname : "NULL",
+                                  class ? (char *)class : "NULL",
+                                  id ? (char *)id : "NULL");
+                        }
                      }
                   }
                   /* Apply vertical-align */
@@ -2945,7 +2998,6 @@ static BOOL Docenter(struct Document *doc,struct Tagattr *ta)
    Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }
-
 /*** <DIV> ***/
 static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 {  short align=-1;
@@ -2955,11 +3007,12 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    UBYTE *id=NULL;
    struct Tagattr *tap;  /* Save original ta pointer for Checkid */
    BOOL isInline;
+   short sp;
    extern BOOL httpdebug;
-   
+
    /* Save original ta pointer (sentinel) for Checkid */
    tap = ta;
-   
+
    /* Get attributes first to check for display: inline */
    /* ta is the sentinel (list head), ta->next is the first real attribute */
    /* Use exact same pattern as Dopara */
@@ -2987,26 +3040,32 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
              (class ? (char *)class : "NULL"),
              (id ? (char *)id : "NULL"));
    }
-   
+
+   /* Push DIV onto parse ancestor stack for CSS descendant/child selectors */
+   if(doc->divancsp < DIV_ANCESTOR_STACK_MAX)
+   {  sp = doc->divancsp;
+      doc->divanc[sp].tagname = Dupstr((UBYTE *)"DIV",-1);
+      doc->divanc[sp].class = class ? Dupstr(class,-1) : NULL;
+      doc->divanc[sp].id = id ? Dupstr(id,-1) : NULL;
+      doc->divancsp = sp + 1;
+   }
+
    /* Check if this DIV should be inline */
    /* Only check if we have a class, ID, or inline style - otherwise skip expensive CSS check */
    if(class || id || styleAttr)
    {  isInline = IsDivInline(doc,class,id,styleAttr);
-      if(class && strstr((char *)class,"topmenu_parent"))
-      {  /* debug_printf("Dodiv: IsDivInline returned %s for topmenu_parent\n",
-                      isInline ? "TRUE" : "FALSE"); */
-      }
+
    }
    else
    {  isInline = FALSE;
    }
    doc->currentdivinline = isInline;
-   
+
    /* Only add line break if not inline */
    if(!isInline)
    {  Wantbreak(doc,1);
    }
-   
+
    if(!Ensurebody(doc)) return FALSE;
    body = Docbodync(doc);
    Asetattrs(body,AOBDY_Divalign,align,TAG_END);
@@ -3017,7 +3076,11 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
       {  printf("[DIV] Dodiv: Set class='%s' on body=%p\n", (char *)class, body);
       }
    }
+   else
+   {  Asetattrs(body,AOBDY_Class,NULL,TAG_END);
+   }
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   else Asetattrs(body,AOBDY_Id,NULL,TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"DIV",-1),TAG_END);
    if(httpdebug)
    {  printf("[DIV] Dodiv: Set tagname='DIV' on body=%p, class=%s\n", body, (class ? (char *)class : "NULL"));
@@ -3043,12 +3106,26 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 
 /*** </DIV> ***/
 static BOOL Dodivend(struct Document *doc)
-{  /* Only add line break if DIV was not inline */
+{  void *body;
+   short sp;
+   /* Only add line break if DIV was not inline */
    if(!doc->currentdivinline)
 {  Wantbreak(doc,1);
    }
    doc->currentdivinline = FALSE; /* Reset flag */
-   Asetattrs(Docbodync(doc),AOBDY_Divalign,-1,TAG_END);
+   body=Docbodync(doc);
+   Asetattrs(body,AOBDY_Divalign,-1,TAG_END);
+   /* Pop DIV parse ancestor stack */
+   if(doc->divancsp > 0)
+   {  sp = doc->divancsp - 1;
+      if(doc->divanc[sp].tagname) FREE(doc->divanc[sp].tagname);
+      if(doc->divanc[sp].class) FREE(doc->divanc[sp].class);
+      if(doc->divanc[sp].id) FREE(doc->divanc[sp].id);
+      doc->divanc[sp].tagname = NULL;
+      doc->divanc[sp].class = NULL;
+      doc->divanc[sp].id = NULL;
+      doc->divancsp = sp;
+   }
    /* Clear paragraph background color and text transform */
    doc->parabgcolor = NULL;
    doc->texttransform = 0;
@@ -4002,7 +4079,9 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
    body = Docbodync(doc);
    /* Set class and ID on body for A tags (so ApplyCSSToLink can access them) */
    if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   else Asetattrs(body,AOBDY_Class,NULL,TAG_END);
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   else Asetattrs(body,AOBDY_Id,NULL,TAG_END);
    /* Apply CSS to anchor based on class/ID */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"A");
    if((href || onclick || onmouseover || onmouseout) && doc->doctype==DOCTP_BODY)

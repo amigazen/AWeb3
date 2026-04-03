@@ -33,6 +33,7 @@
 #include "copydriver.h"
 #include "css.h"
 #include "docprivate.h"
+#include "linkprivate.h"
 #include "frprivate.h"
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
@@ -202,12 +203,24 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
    void *frame;
    struct Document *doc;
    void *hoveredElement;
+   void *lp;
    struct Aobject *ao;
    short objtype;
+   struct Link *lnk;
+   struct Component *comp;
+   short hoverType;
    
    if(win->frame)
    {  result=Ahittest(win->frame,NULL,x,y,hitflags,win->hitobject,&amhr);
       win->nextfocus=amhr.focus;
+      if(amhr.object != win->hitobject)
+      {  short hitType;
+         hitType = -1;
+         if(amhr.object)
+         {  ao = (struct Aobject *)amhr.object;
+            hitType = ao->objecttype;
+         }
+      }
       
       /* Track hover state for CSS :hover pseudo-class */
       frame = win->frame;
@@ -219,7 +232,9 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
             {  doc = (struct Document *)fr->copy;
                hoveredElement = NULL;
                
-               /* Determine which element is hovered (body or element) */
+               /* Map hit object to a layout node for CSS :hover on ancestors (menus).
+                * Hittestlink sets object=AOTP_LINK; use the link's flow body like Goactivelink.
+                * Images/fields expose AOBJ_Layoutparent to the containing AOTP_BODY. */
                if(amhr.object)
                {  ao = (struct Aobject *)amhr.object;
                   objtype = ao->objecttype;
@@ -229,11 +244,32 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
                   else if(objtype == AOTP_ELEMENT)
                   {  hoveredElement = amhr.object;
                   }
+                  else if(objtype == AOTP_LINK)
+                  {  lnk = (struct Link *)amhr.object;
+                     comp = lnk->components.first;
+                     if(comp && comp->object)
+                     {  hoveredElement = (void *)Agetattr((void *)comp->object, AOBJ_Layoutparent);
+                     }
+                  }
+                  else
+                  {  lp = (void *)Agetattr(amhr.object, AOBJ_Layoutparent);
+                     if(lp)
+                     {  ao = (struct Aobject *)lp;
+                        if(ao->objecttype == AOTP_BODY)
+                        {  hoveredElement = lp;
+                        }
+                     }
+                  }
                }
                
                /* Update hover state and re-apply CSS if changed */
                if(doc->hoveredElement != hoveredElement)
                {  doc->hoveredElement = hoveredElement;
+                  hoverType=-1;
+                  if(hoveredElement)
+                  {  ao=(struct Aobject *)hoveredElement;
+                     hoverType=ao->objecttype;
+                  }
                   /* Re-apply CSS to all elements to update :hover styles */
                   if(doc->cssstylesheet)
                   {  ReapplyCSSToAllElements(doc);

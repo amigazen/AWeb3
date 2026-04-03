@@ -103,6 +103,7 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body);
 void ApplyCSSToLinkColors(struct Document *doc);
 void MergeCSSStylesheet(struct Document *doc,UBYTE *css);
 void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE *tagname);
+BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSSelector *sel);
 void SkipWhitespace(UBYTE **p);
 long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *tagname);

@@ -326,6 +326,8 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
    void *durl;
    void *furl=(void *)Agetattr(url,AOURL_Finalurlptr);
    UBYTE *urlstr;
+   void *refererurl;
+   void *loadframe;
    extern BOOL httpdebug;
    urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
    if(httpdebug)
@@ -486,7 +488,15 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
       printf("[FETCH] Finddocext: Calling Auload for URL=%s, loadflags=0x%04lx, found_dox=%p\n",
              urlstr ? (char *)urlstr : "NULL", loadflags, found_dox);
    }
-   Auload(url,loadflags,NULL,NULL,NULL);
+   refererurl = NULL;
+   loadframe = NULL;
+   if(doc)
+   {  loadframe = doc->frame;
+      if(doc->copy)
+      {  refererurl = (void *)Agetattr(doc->copy, AOCPY_Url);
+      }
+   }
+   Auload(url, loadflags, refererurl, NULL, loadframe);
    return NULL;
 }
 

@@ -64,6 +64,14 @@ struct Docext
 #define DOXF_LOADING    0x0004   /* Load is currently in progress */
 #define DOXF_RETRY      0x0008   /* Retry needed - load completed with invalid buffer */
 
+#define DIV_ANCESTOR_STACK_MAX 64
+
+struct Divancestor
+{  UBYTE *tagname;  /* Always "DIV" for now */
+   UBYTE *class;
+   UBYTE *id;
+};
+
 /*--- Document copy driver ---*/
 
 struct Document
@@ -158,6 +166,8 @@ struct Document
    long marqueeloop;          /* Number of loops (-1 or 0 for infinite) */
    long marqueewidth;         /* Viewport width */
    long marqueeheight;        /* Viewport height */
+   struct Divancestor divanc[DIV_ANCESTOR_STACK_MAX];
+   short divancsp;
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */

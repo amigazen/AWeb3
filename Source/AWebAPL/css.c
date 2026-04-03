@@ -1512,6 +1512,23 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
    }
 }
 
+/* CSS :hover applies when the pointer is over the element itself.
+ * Note: With AWeb's current parsing model, multiple DIVs reuse the same BODY object,
+ * so treating descendants as hovered can incorrectly make unrelated elements match
+ * :hover and override display:none (e.g. dropdown menus). */
+static BOOL HoverSelectorMatchesObject(void *selObj)
+{  void *h;
+   
+   if(!currentCSSDoc || !selObj)
+   {  return FALSE;
+   }
+   h = currentCSSDoc->hoveredElement;
+   if(!h)
+   {  return FALSE;
+   }
+   return (BOOL)(h == selObj);
+}
+
 /* Match a single selector component to an element (without checking parent) */
 static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
 {  UBYTE *elemName;
@@ -1589,11 +1606,10 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
       }
    }
    
-   /* Match :hover pseudo-class - check if element is currently hovered */
+   /* Match :hover pseudo-class */
    if(sel->type & CSS_SEL_PSEUDO && sel->pseudo)
    {  if(Stricmp((char *)sel->pseudo,"hover") == 0)
-      {  /* Check if this element is the currently hovered element */
-         if(!currentCSSDoc || currentCSSDoc->hoveredElement != element)
+      {  if(!HoverSelectorMatchesObject(element))
          {  return FALSE;
          }
       }
@@ -1775,6 +1791,15 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
       }
    }
    
+   /* :hover on ancestor in compound selectors */
+   if(sel->type & CSS_SEL_PSEUDO && sel->pseudo)
+   {  if(Stricmp((char *)sel->pseudo, "hover") == 0)
+      {  if(!HoverSelectorMatchesObject(obj))
+         {  return FALSE;
+         }
+      }
+   }
+   
    return TRUE;
 }
 
@@ -1790,8 +1815,8 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
    
    /* If selector has a parent (descendant/child selector), we need to match the chain */
    if(sel->parent)
-   {  /* Match current element against current selector */
-      if(!MatchSelectorComponent(sel, element))
+   {  /* Match subject with Generic so AOTP_BODY (nested DIV) uses AOBDY_* attrs. */
+      if(!MatchSelectorComponentGeneric(sel, element))
       {  return FALSE;
       }
       
@@ -1852,7 +1877,7 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
    }
    else
    {  /* Simple selector - no parent chain */
-      return MatchSelectorComponent(sel, element);
+      return MatchSelectorComponentGeneric(sel, element);
    }
 }
 
@@ -1861,6 +1886,22 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
 static BOOL MatchSelector(struct CSSSelector *sel,void *element)
 {  /* Limit recursion depth to 20 levels to prevent performance issues */
    return MatchSelectorInternal(sel, element, 20);
+}
+
+/* Full compound matching for nested DIV bodies (ApplyCSSToBody in html.c). Preserves
+ * currentCSSDoc across nested calls (e.g. from ApplyCSSToElement). */
+BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSSelector *sel)
+{  struct Document *prevDoc;
+   BOOL result;
+   
+   if(!doc || !obj || !sel)
+   {  return FALSE;
+   }
+   prevDoc = currentCSSDoc;
+   currentCSSDoc = doc;
+   result = MatchSelectorInternal(sel, obj, 20);
+   currentCSSDoc = prevDoc;
+   return result;
 }
 
 /* Apply a CSS property to an element */
@@ -3762,32 +3803,32 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          /* Apply display */
          else if(Stricmp((char *)prop->name,"display") == 0)
          {  UBYTE *dispStr;
+            UBYTE *rawValue;
+            UBYTE *end;
+            long dispLen;
             displayValue = prop->value;
+            rawValue = displayValue;
             /* Skip whitespace */
             while(*displayValue && isspace(*displayValue)) displayValue++;
-            /* Store display value - rendering code in body.c checks for "none" to hide elements.
-             * Asetattrs takes ownership of the Dupstr'd string. */
-            dispStr = Dupstr(displayValue, -1);
-            if(dispStr)
-            {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
+            /* Trim trailing whitespace and an optional trailing ';' */
+            end = displayValue;
+            while(*end) end++;
+            while(end > displayValue && (isspace(*(end - 1)) || *(end - 1) == ';'))
+            {  end--;
             }
-            /* Parse display values for validation */
-            if(Stricmp((char *)displayValue,"none") == 0)
-            {  /* Hide element - rendering code in body.c checks for this */
+            dispLen = end - displayValue;
+            if(dispLen > 0)
+            {  /* Store trimmed display value.
+                * body.c uses Stricmp(bd->display,"none") so trailing whitespace/';'
+                * would prevent hiding. */
+               dispStr = Dupstr(displayValue, dispLen);
+               if(dispStr)
+               {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
+               }
             }
-            else if(Stricmp((char *)displayValue,"inline") == 0)
-            {  /* Inline display - default for many elements */
-               /* Note: AWeb handles this automatically based on element type */
+            else
+            {  dispStr = NULL;
             }
-            else if(Stricmp((char *)displayValue,"block") == 0)
-            {  /* Block display - default for div, p, etc. */
-               /* Note: AWeb handles this automatically based on element type */
-            }
-            else if(Stricmp((char *)displayValue,"grid") == 0)
-            {  /* CSS Grid - not yet implemented */
-               /* Note: CSS Grid requires major architectural changes */
-            }
-            /* Other display values (flex, table, etc.) not yet supported */
          }
          /* Apply width */
          else if(Stricmp((char *)prop->name,"width") == 0)
