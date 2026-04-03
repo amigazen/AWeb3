@@ -62,6 +62,8 @@ BOOL debug_log_sema_initialized = FALSE;
 
 #ifndef LOCALONLY
 
+#include <libraries/locale.h>
+
 struct Httpinfo
 {  long status;               /* Response status */
    USHORT flags;
@@ -120,9 +122,11 @@ static UBYTE *useragent="User-Agent: Mozilla/3.0 (compatible; Amiga-AWeb/3.6; Am
 static UBYTE *useragentspoof="User-Agent: %s; (Spoofed by Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
 #endif
 
+/* Browser-like negotiation: single-wildcard Accept with q=1 only is a common bot and WAF signal; gzip kept for bandwidth. */
 static UBYTE *fixedheaders=
-   "Accept: */*;q=1\r\nAccept-Encoding: gzip\r\n";
-//   "Accept: text/html;level=3, text/html;version=3.0, */*;q=1\r\n";
+   "Accept: text/html, application/xhtml+xml, application/xml;q=0.9, image/png, image/*;q=0.8, */*;q=0.5\r\n"
+   "Accept-Charset: iso-8859-1, utf-8;q=0.8, *;q=0.7\r\n"
+   "Accept-Encoding: gzip\r\n";
 
 /* HTTP/1.1 specific headers */
 static UBYTE *connection="Connection: close\r\n";
@@ -654,6 +658,8 @@ static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
 static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **request)
 {  UBYTE *p=fd->block;
    UBYTE *cookies;
+   const UBYTE *plang;
+   int plen;
    *request=fd->block;
    if(fd->postmsg || fd->multipart)
       p+=sprintf(p,httppostrequest,hi->abspath);
@@ -669,6 +675,28 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    }
    ReleaseSemaphore(&prefssema);
    p+=sprintf(p,fixedheaders);
+   /* Accept-Language: use locale.library preferred tag when it looks like ISO 639-1 or xx-yy. */
+   plang=NULL;
+   plen=0;
+   if(locale)
+   {  if(locale->loc_PrefLanguages[0])
+      {  plang=(const UBYTE *)locale->loc_PrefLanguages[0];
+         plen=(int)strlen((const char *)plang);
+      }
+   }
+   if(plang && plen==2
+      && isalpha((int)(unsigned char)plang[0]) && isalpha((int)(unsigned char)plang[1]))
+   {  if(STRIEQUAL((UBYTE *)plang,(UBYTE *)"en"))
+         p+=sprintf(p,"Accept-Language: en-US, en;q=0.9\r\n");
+      else
+         p+=sprintf(p,"Accept-Language: %.2s, en;q=0.5\r\n",plang);
+   }
+   else if(plang && plen==5 && plang[2]=='-'
+      && isalpha((int)(unsigned char)plang[0]) && isalpha((int)(unsigned char)plang[1])
+      && isalpha((int)(unsigned char)plang[3]) && isalpha((int)(unsigned char)plang[4]))
+      p+=sprintf(p,"Accept-Language: %.5s, en;q=0.5\r\n",plang);
+   else
+      p+=sprintf(p,"Accept-Language: en-US, en;q=0.9\r\n");
    /* Add HTTP/1.1 Connection header - use keep-alive by default for HTTP/1.1 */
    /* Only use keep-alive if not using proxy (proxies may not support it well) */
    if(!fd->proxy)
