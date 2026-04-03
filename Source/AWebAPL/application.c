@@ -1551,7 +1551,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
 #ifndef DEMOVERSION
                if(*prefs.spoofid)
-               {  sprintf(buf,"%s; (Spoofed by Amiga-AWeb/%s)",prefs.spoofid,awebversion);
+               {  strcpy(buf,prefs.spoofid);
                }
                else
 #endif

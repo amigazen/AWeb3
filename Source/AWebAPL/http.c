@@ -119,7 +119,8 @@ static UBYTE *httppostrequest="POST %.7000s HTTP/1.1\r\n";
 static UBYTE *useragent="User-Agent: Mozilla/3.0 (compatible; Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
 
 #ifndef DEMOVERSION
-static UBYTE *useragentspoof="User-Agent: %s; (Spoofed by Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
+/* Full replacement User-Agent from prefs (chooser supplies a complete token, no suffix). */
+static UBYTE *useragentspoof="User-Agent: %s\r\n";
 #endif
 
 /* Browser-like negotiation: single-wildcard Accept with q=1 only is a common bot and WAF signal; gzip kept for bandwidth. */
@@ -667,7 +668,7 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    ObtainSemaphore(&prefssema);
 #ifndef DEMOVERSION
    if(*prefs.spoofid)
-   {  p+=sprintf(p,useragentspoof,prefs.spoofid,awebversion);
+   {  p+=sprintf(p,useragentspoof,prefs.spoofid);
    }
    else
 #endif

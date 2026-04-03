@@ -1262,14 +1262,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      }
                      if(dispStr)
                      {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
-                        if(Stricmp((char *)dispStr,"none") == 0)
-                        {  printf("[CSS] ApplyCSSToBody display:none body=%p tag=%s class=%s id=%s\n",
-                                  body,
-                                  tagname ? (char *)tagname : "NULL",
-                                  class ? (char *)class : "NULL",
-                                  id ? (char *)id : "NULL");
-                        }
-                        else if(httpdebug)
+                        if(httpdebug)
                         {  printf("[CSS] ApplyCSSToBody display=%s body=%p tag=%s class=%s id=%s\n",
                                   (char *)dispStr,
                                   body,
