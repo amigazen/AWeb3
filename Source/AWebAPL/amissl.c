@@ -181,6 +181,7 @@ static BOOL Assl_wait_io(struct Assl *assl, BOOL want_read, BOOL want_write, lon
    struct Library *saved;
    long nfds;
    long errno_value;
+   long intr_tries;
 
    if(!assl) return FALSE;
    if(assl->sock < 0 || !assl->socketbase) return FALSE;
@@ -194,29 +195,42 @@ static BOOL Assl_wait_io(struct Assl *assl, BOOL want_read, BOOL want_write, lon
    tv.tv_usec = 0;
    nfds = assl->sock + 1;
 
-   saved = AcquireSocketBaseSwap(assl->socketbase);
-   rc = WaitSelect((int)nfds,
-                   want_read ? &rfds : NULL,
-                   want_write ? &wfds : NULL,
-                   NULL,
-                   &tv,
-                   NULL);
-   errno_value = 0;
-   if(rc < 0)
-   {  errno_value = Errno();
-   }
-   ReleaseSocketBaseSwap(saved);
+   /* Retry on EINTR (errno 4): same rationale as Readblock — not a fatal select error. */
+   intr_tries = 0;
+   for(;;)
+   {  saved = AcquireSocketBaseSwap(assl->socketbase);
+      rc = WaitSelect((int)nfds,
+                      want_read ? &rfds : NULL,
+                      want_write ? &wfds : NULL,
+                      NULL,
+                      &tv,
+                      NULL);
+      errno_value = 0;
+      if(rc < 0)
+      {  errno_value = Errno();
+      }
+      ReleaseSocketBaseSwap(saved);
 
-   if(rc > 0) return TRUE;
-   if(rc == 0)
-   {  debug_printf("DEBUG: Assl_wait_io: WaitSelect timeout (sock=%ld, want_read=%ld, want_write=%ld, seconds=%ld)\n",
-            assl->sock, (long)want_read, (long)want_write, seconds);
-      errno = ETIMEDOUT;
+      if(rc > 0) return TRUE;
+      if(rc == 0)
+      {  debug_printf("DEBUG: Assl_wait_io: WaitSelect timeout (sock=%ld, want_read=%ld, want_write=%ld, seconds=%ld)\n",
+               assl->sock, (long)want_read, (long)want_write, seconds);
+         errno = ETIMEDOUT;
+         return FALSE;
+      }
+      if(errno_value == EINTR)
+      {  intr_tries++;
+         if(intr_tries >= 50)
+         {  debug_printf("DEBUG: Assl_wait_io: EINTR persisted (%ld tries), giving up\n", intr_tries);
+            return FALSE;
+         }
+         Delay(1);
+         continue;
+      }
+      debug_printf("DEBUG: Assl_wait_io: WaitSelect error rc=%ld errno=%ld (sock=%ld, want_read=%ld, want_write=%ld)\n",
+            rc, errno_value, assl->sock, (long)want_read, (long)want_write);
       return FALSE;
    }
-   debug_printf("DEBUG: Assl_wait_io: WaitSelect error rc=%ld errno=%ld (sock=%ld, want_read=%ld, want_write=%ld)\n",
-         rc, errno_value, assl->sock, (long)want_read, (long)want_write);
-   return FALSE;
 }
 
 /* Initialize SSL initialization semaphore - called once at startup */

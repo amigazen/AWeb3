@@ -333,8 +333,7 @@ static void FreeConnectionNode(struct KeepAliveConnection *conn)
       a_close(conn->sock, conn->socketbase);
    }
    if(conn->assl)
-   {  Assl_cleanup(conn->assl);
-      FREE(conn->assl);
+   {  Assl_dispose(&conn->assl);
    }
    if(conn->socketbase) CloseLibrary(conn->socketbase);
    if(conn->hostname) FREE(conn->hostname);
@@ -386,7 +385,17 @@ static BOOL KeepAliveReusable(struct KeepAliveConnection *conn)
       return FALSE;
    }
    
-   /* Also try a 1-byte MSG_PEEK in NONBLOCKING mode, in case the stack doesn't
+#ifndef DEMOVERSION
+   /* HTTPS: TLS bytes may live only in OpenSSL buffers while the TCP fd looks
+    * idle; recv(MSG_PEEK) on the raw socket is not a valid TLS idle check. */
+   if(conn->ssl && conn->assl)
+   {  if(!Assl_idle_for_keepalive(conn->assl))
+         return FALSE;
+      return TRUE;
+   }
+#endif
+   
+   /* Plain HTTP: try a 1-byte MSG_PEEK in NONBLOCKING mode, in case the stack doesn't
     * signal readability reliably. Any data (or EOF) means it's not cleanly reusable.
     * CRITICAL: this must never block. */
    nb = 1;
@@ -495,6 +504,7 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    long rc;
    long nfds;
    struct Library *saved_socketbase;
+   BOOL dont_pool;
    
    if(!keepalive_sema_initialized || !hi || !hi->hostname) return;
    task_id = get_task_id();
@@ -512,7 +522,7 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
       hi->sock = -1;
       /* Clean up SSL struct if needed */
 #ifndef DEMOVERSION
-      if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl = NULL; }
+      if(hi->assl) { Assl_dispose(&hi->assl); }
 #endif
       if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase = NULL; }
       return;
@@ -537,15 +547,27 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
    rc = WaitSelect((int)nfds, &rfds, NULL, &efds, &tv, NULL);
    ReleaseSocketBaseSwap(saved_socketbase);
+   dont_pool = FALSE;
    if(rc > 0)
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Not pooling - socket has pending data/exception\n");
+   {  dont_pool = TRUE;
+      debug_printf("DEBUG: ReturnKeepAliveConnection: Not pooling - socket has pending data/exception\n");
+   }
+#ifndef DEMOVERSION
+   if(!dont_pool && hi->assl && (hi->flags & HTTPIF_SSL) &&
+      !Assl_idle_for_keepalive(hi->assl))
+   {  dont_pool = TRUE;
+      debug_printf("DEBUG: ReturnKeepAliveConnection: Not pooling - SSL has pending buffered TLS data\n");
+   }
+#endif
+   if(dont_pool)
+   {
 #ifndef DEMOVERSION
       if(hi->assl) Assl_closessl(hi->assl);
 #endif
       if(hi->sock >= 0 && hi->socketbase) a_close(hi->sock, hi->socketbase);
       hi->sock = -1;
 #ifndef DEMOVERSION
-      if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl = NULL; }
+      if(hi->assl) { Assl_dispose(&hi->assl); }
 #endif
       if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase = NULL; }
       return;
@@ -1671,6 +1693,12 @@ static BOOL Readdata(struct Httpinfo *hi)
    long total_compressed_read=0; /* Track total compressed bytes READ from network (before copying to gzipbuffer) */
    long total_bytes_received=0; /* Track total bytes received for non-gzip transfers with Content-Length */
    long expected_total_size;  /* Expected total size (full file size for Range requests, partlength for regular) */
+   /* Chunked+gzip: bytes in fd->block after the gzip payload are overwritten when zlib uses block as
+    * next_out; stash them here until gzip finishes, then restore so the final-chunk parser can run. */
+   UBYTE chunked_trailer_stash[512];
+   long chunked_trailer_stash_len;
+   
+   chunked_trailer_stash_len = 0;
    
    debug_printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld, partlength=%ld\n",
           hi->blocklength, hi->flags, hi->parttype ? (char *)hi->parttype : "(null)", hi->sock, hi->partlength);
@@ -1780,6 +1808,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                   long chunk_size;
                   long total_chunk_data;
                   long initial_gzip_size;
+                  long framing_remain;
                   
                   /* Start parsing from beginning of block, not from search_start */
                   /* search_start is after the first chunk header, but we need to parse from the start */
@@ -2369,6 +2398,16 @@ static BOOL Readdata(struct Httpinfo *hi)
                      }
                      
                      debug_printf("DEBUG: Chunked+gzip: Extracted %ld bytes of chunk data (gzip_start=%ld, total_chunk_data=%ld)\n", gziplength, gzip_start, total_chunk_data);
+                     /* Stash HTTP chunk framing after the gzip bytes: zlib will write decompressed data
+                      * into fd->block from offset 0, which would destroy this tail if left only in block. */
+                     chunked_trailer_stash_len = 0;
+                     if(chunk_pos < hi->blocklength)
+                     {  framing_remain = hi->blocklength - chunk_pos;
+                        if(framing_remain > 0 && framing_remain <= (long)sizeof(chunked_trailer_stash))
+                        {  memcpy(chunked_trailer_stash, hi->fd->block + chunk_pos, framing_remain);
+                           chunked_trailer_stash_len = framing_remain;
+                        }
+                     }
                   }
                   else
                   {  debug_printf("DEBUG: Failed to allocate gzip buffer for chunked data\n");
@@ -3209,7 +3248,12 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             /* Clean up gzip after processing */
             if(gzip_end)
-            {  inflateEnd(&d_stream);
+            {  if((hi->flags & HTTPIF_CHUNKED) && chunked_trailer_stash_len > 0)
+               {  memcpy(hi->fd->block, chunked_trailer_stash, chunked_trailer_stash_len);
+                  hi->blocklength = chunked_trailer_stash_len;
+               }
+               chunked_trailer_stash_len = 0;
+               inflateEnd(&d_stream);
                if(gzipbuffer) FREE(gzipbuffer);
                gzipbuffer = NULL;
                d_stream_initialized = FALSE;
@@ -3238,6 +3282,15 @@ static BOOL Readdata(struct Httpinfo *hi)
                      chunk_p = hi->fd->block;
                      chunk_pos = 0;
                      final_chunk_found = FALSE;
+                     /* Skip leading line breaks so a lone CR/LF is not mis-handled as "continuation". */
+                     while(chunk_pos < hi->blocklength &&
+                           (chunk_p[chunk_pos] == '\r' || chunk_p[chunk_pos] == '\n'))
+                     {  chunk_pos++;
+                     }
+                     if(chunk_pos >= hi->blocklength)
+                     {  hi->blocklength = 0;
+                        continue;
+                     }
                      
                      /* Parse chunks in current block until we find final chunk or run out of data */
                      while(chunk_pos < hi->blocklength)
@@ -4886,13 +4939,9 @@ static BOOL Readdata(struct Httpinfo *hi)
          hi->sock = -1;
          
          /* Also free the library/assl references now since we won't pool */
-         /* NOTE: Assl_cleanup() will call Assl_closessl() internally, so don't call it twice */
 #ifndef DEMOVERSION
          if(hi->assl)
-         {  /* Assl_cleanup() handles SSL shutdown and cleanup internally */
-            Assl_cleanup(hi->assl);
-            FREE(hi->assl);
-            hi->assl = NULL;
+         {  Assl_dispose(&hi->assl);
          }
 #endif
          if(hi->socketbase)
@@ -5182,12 +5231,7 @@ static BOOL Openlibraries(struct Httpinfo *hi)
       /* If hi->assl already exists, clean it up first to prevent reuse */
       if(hi->assl)
       {  debug_printf("DEBUG: Openlibraries: Existing Assl object found, cleaning up first\n");
-         Assl_closessl(hi->assl);
-         Assl_cleanup(hi->assl);
-         /* Free the struct after Assl_cleanup() has cleaned it up */
-         /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
-         FREE(hi->assl);
-         hi->assl = NULL;
+         Assl_dispose(&hi->assl);
          debug_printf("DEBUG: Openlibraries: Existing Assl object cleaned up\n");
       }
       debug_printf("DEBUG: Openlibraries: Calling Tcpopenssl() to initialize SSL\n");
@@ -5198,10 +5242,7 @@ static BOOL Openlibraries(struct Httpinfo *hi)
          if(!AmiSSLMasterBase)
          {  debug_printf("DEBUG: Openlibraries: ERROR - AmiSSLMasterBase is NULL after Tcpopenssl() succeeded\n");
             Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
-            Assl_cleanup(hi->assl);
-            /* Free the struct after Assl_cleanup() has cleaned it up */
-            FREE(hi->assl);
-            hi->assl = NULL;
+            Assl_dispose(&hi->assl);
             result = FALSE;
             debug_printf("DEBUG: Openlibraries: SSL initialization failed - amisslmaster.library not initialized\n");
          }
@@ -5287,10 +5328,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
 #ifndef DEMOVERSION
             /* Clean up SSL resources that were allocated in Openlibraries() */
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
 #endif
             return -1;
@@ -5303,20 +5341,14 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
             {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, cleaning up SSL and returning -1\n");
                /* Clean up SSL resources that were allocated in Openlibraries() */
                if(hi->assl)
-               {  Assl_closessl(hi->assl);
-                  Assl_cleanup(hi->assl);
-                  FREE(hi->assl);
-                  hi->assl = NULL;
+               {  Assl_dispose(&hi->assl);
                }
                return -1;
             }
             debug_printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
             if(!Assl_openssl(hi->assl))
             {  debug_printf("DEBUG: Opensocket: Assl_openssl() failed, cleaning up SSL and returning -1\n");
-               Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+               Assl_dispose(&hi->assl);
                return -1;
             }
             debug_printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
@@ -5325,10 +5357,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
             /* Another task might have closed the library during SSL initialization */
             if(!hi->socketbase)
             {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, cleaning up SSL and returning -1\n");
-               Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+               Assl_dispose(&hi->assl);
                return -1;
             }
          }
@@ -5339,10 +5368,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
 #ifndef DEMOVERSION
             /* Clean up SSL resources that were allocated in Openlibraries() */
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
 #endif
             return -1;
@@ -5352,10 +5378,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
          if(sock<0)
          {  debug_printf("DEBUG: Opensocket: Socket creation failed, cleaning up SSL\n");
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
             return -1;
          }
@@ -5412,10 +5435,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             }
             /* Clean up SSL resources */
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
             ok=FALSE;
          }
@@ -5455,10 +5475,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                debug_printf("DEBUG: SSL connect failed: %s - failing connection (no unsecure fallback)\n", p);
                /* SSL connect failed - clean up SSL resources */
                if(hi->assl)
-               {  Assl_closessl(hi->assl);
-                  Assl_cleanup(hi->assl);
-                  FREE(hi->assl);
-                  hi->assl = NULL;
+               {  Assl_dispose(&hi->assl);
                }
             }
          }
@@ -5469,10 +5486,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             hi->flags|=HTTPIF_NOSSLREQ;
             /* Clean up SSL resources if they exist but are invalid */
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
          }
       }
@@ -5487,10 +5501,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          {  debug_printf("DEBUG: Connect: socketbase is NULL, cannot set timeouts - cleaning up SSL\n");
 #ifndef DEMOVERSION
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
 #endif
             return FALSE;
@@ -5508,10 +5519,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             ReleaseSocketBaseSwap(saved_socketbase_connect); /* Restore before returning */
 #ifndef DEMOVERSION
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
 #endif
             return FALSE;
@@ -5649,10 +5657,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                debug_printf("DEBUG: SSL connect failed after tunnel: %s - failing connection (no unsecure fallback)\n", p);
                /* SSL connect failed after tunnel - clean up SSL resources */
                if(hi->assl)
-               {  Assl_closessl(hi->assl);
-                  Assl_cleanup(hi->assl);
-                  FREE(hi->assl);
-                  hi->assl = NULL;
+               {  Assl_dispose(&hi->assl);
                }
             }
                }
@@ -5663,10 +5668,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                   hi->flags|=HTTPIF_NOSSLREQ;
                   /* Clean up SSL resources if they exist but are invalid */
                   if(hi->assl)
-                  {  Assl_closessl(hi->assl);
-                     Assl_cleanup(hi->assl);
-                     FREE(hi->assl);
-                     hi->assl = NULL;
+                  {  Assl_dispose(&hi->assl);
                   }
                }
             }
@@ -5677,10 +5679,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             debug_printf("DEBUG: TCP connect failed for SSL connection - cleaning up SSL resources\n");
             /* Clean up SSL resources that were initialized but never used */
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
-               Assl_cleanup(hi->assl);
-               FREE(hi->assl);
-               hi->assl = NULL;
+            {  Assl_dispose(&hi->assl);
             }
             ok=FALSE;
          }
@@ -5901,10 +5900,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                      /* Clean up SSL resources */
 #ifndef DEMOVERSION
                      if(hi->assl)
-                     {  Assl_closessl(hi->assl);
-                        Assl_cleanup(hi->assl);
-                        FREE(hi->assl);
-                        hi->assl = NULL;
+                     {  Assl_dispose(&hi->assl);
                      }
 #endif
                      result = FALSE;
@@ -5932,10 +5928,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                         {  /* Fresh connection failed - clean up here */
 #ifndef DEMOVERSION
                            if(hi->assl)
-                           {  Assl_closessl(hi->assl);
-                              Assl_cleanup(hi->assl);
-                              FREE(hi->assl);
-                              hi->assl = NULL;
+                           {  Assl_dispose(&hi->assl);
                            }
 #endif
                            if(hi->sock >= 0 && hi->socketbase)
@@ -5983,10 +5976,11 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                {  debug_printf("DEBUG: Keep-Alive Send failed (sent=%ld, expected=%ld). Retrying with fresh connection.\n",
                               sent, reqlen);
                   
-                  /* 1. Clean up bad connection */
+                  /* 1. Clean up bad connection (dispose before a_close so SSL_shutdown
+                   * still sees an open fd). */
 #ifndef DEMOVERSION
                   if(hi->assl)
-                  {  Assl_closessl(hi->assl);
+                  {  Assl_dispose(&hi->assl);
                   }
 #endif
                   if(hi->sock >= 0 && hi->socketbase)
@@ -6050,7 +6044,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                         a_close(hi->sock, hi->socketbase);
                         hi->sock = -1;
                      }
-                     /* SSL cleanup will happen at end of Httpretrieve() via Assl_cleanup() */
+                     /* SSL cleanup at end of Httpretrieve() via Assl_dispose() */
                      error=TRUE;
                   }
                   else
@@ -6072,10 +6066,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                         /* Cleanup current connection */
 #ifndef DEMOVERSION
                         if(hi->assl)
-                        {  Assl_closessl(hi->assl);
-                           Assl_cleanup(hi->assl);
-                           FREE(hi->assl);
-                           hi->assl = NULL;
+                        {  Assl_dispose(&hi->assl);
                         }
 #endif
                         if(hi->sock >= 0 && hi->socketbase)
@@ -6107,7 +6098,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                         /* Cleanup and Retry logic */
 #ifndef DEMOVERSION
                         if(hi->assl)
-                        {  Assl_closessl(hi->assl);
+                        {  Assl_dispose(&hi->assl);
                         }
 #endif
                         if(hi->sock >= 0 && hi->socketbase)
@@ -6218,8 +6209,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   if(hi->assl)
                   {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection\n");
                      Assl_closessl(hi->assl);
-                     /* DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
-                     /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
+                     /* Final Assl_dispose() runs after this block at Httpretrieve() exit */
                   }
 #endif
                   /* Now safe to close socket - SSL has been properly shut down */
@@ -6280,13 +6270,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
       }
       else
       {  debug_printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
-         /* Assl_closessl() should have already freed SSL resources */
-         /* Assl_cleanup() will null out library bases to mark the object as dead */
-         Assl_cleanup(hi->assl);
-         /* Free the struct after Assl_cleanup() has cleaned it up */
-         /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
-         FREE(hi->assl);
-         hi->assl=NULL;
+         Assl_dispose(&hi->assl);
          debug_printf("DEBUG: Httpretrieve: Assl structure cleaned up\n");
       }
    }
@@ -6369,10 +6353,7 @@ void Httptask(struct Fetchdriver *fd)
          /* This prevents wild free defects when redirects cause multiple connections */
          if(hi.assl)
          {  debug_printf("DEBUG: Httptask: Cleaning up existing Assl before redirect iteration\n");
-            Assl_closessl(hi.assl);
-            Assl_cleanup(hi.assl);
-            FREE(hi.assl);
-            hi.assl = NULL;
+            Assl_dispose(&hi.assl);
          }
          /* CRITICAL: Reset socket and socketbase to prevent reuse */
          hi.sock = -1;
@@ -6550,8 +6531,7 @@ void Freehttp(void)
             a_close(conn->sock, conn->socketbase);
          }
          if(conn->assl)
-         {  Assl_cleanup(conn->assl);
-            FREE(conn->assl);
+         {  Assl_dispose(&conn->assl);
          }
          if(conn->socketbase) CloseLibrary(conn->socketbase);
          if(conn->hostname) FREE(conn->hostname);
