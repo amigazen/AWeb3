@@ -33,7 +33,6 @@
 
 /* Forward declarations */
 extern struct Assl *Tcpopenssl(struct Library *socketbase);
-extern void Assl_cleanup(struct Assl *assl);
 extern void Assl_closessl(struct Assl *assl);
 
 /* Forward declarations for SSL task context functions */
@@ -237,16 +236,8 @@ void ClearTaskSSLContext(void)
       ReleaseSemaphore(&task_ssl_sema);
    }
    /* Cleanup SSL outside of semaphore to prevent deadlock */
-   /* Follow same pattern as http.c: Assl_cleanup() then FREE() */
-   /* Note: Assl_cleanup() internally calls Assl_closessl(), so we don't call it separately */
-   /* This matches the HTTP pattern where Assl_closessl() is called before socket close, */
-   /* and Assl_cleanup() is called after a_cleanup() but before CloseLibrary() */
    if(assl_to_cleanup)
-   {  /* 1. Cleanup Assl struct (calls Assl_closessl() internally, decrements task ref count, calls CleanupAmiSSL for subprocesses) */
-      Assl_cleanup(assl_to_cleanup);
-      /* 2. Free the Assl struct itself - must happen after Assl_cleanup() */
-      /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
-      FREE(assl_to_cleanup);
+   {  Assl_dispose(&assl_to_cleanup);
    }
 }
 

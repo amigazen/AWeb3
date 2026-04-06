@@ -54,7 +54,12 @@ int a_getsockname(int,struct sockaddr *,int *,struct Library *);
 
 extern struct Library *AwebSslBase;
 
-void Assl_cleanup(struct Assl *);
+/* TRUE if use_sema was acquired and SSL/task-ref cleanup completed; FALSE if
+ * aborted (do not FREE the Assl — it still embeds a live SignalSemaphore). */
+BOOL Assl_cleanup(struct Assl *);
+
+/* Assl_cleanup() plus FREE(*passl) only on success; always clears *passl. */
+void Assl_dispose(struct Assl **passl);
 
 BOOL Assl_openssl(struct Assl *);
 
@@ -73,6 +78,11 @@ long Assl_read(struct Assl *,char *,int);
 char *Assl_getcipher(struct Assl *);
 
 char *Assl_libname(struct Assl *);
+
+/* TRUE if no TLS plaintext or unread record data buffered in OpenSSL (safe to
+ * treat connection idle for keep-alive pooling). */
+
+BOOL Assl_idle_for_keepalive(struct Assl *);
 
 
 /* Management functions */

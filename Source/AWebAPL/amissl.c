@@ -1513,71 +1513,75 @@ static int __saveds __stdargs Certcallback(int ok, X509_STORE_CTX *sctx) {
   return ok;
 }
 
-__asm void Assl_cleanup(register __a0 struct Assl *assl) {
+__asm BOOL Assl_cleanup(register __a0 struct Assl *assl) {
   struct Task *task;
   BOOL should_cleanup_amissl;
   int sem_tries;
   BOOL sem_acquired;
 
-  /* Only cleanup if we have a valid Assl struct */
-  if (assl) {
-    /* Use global AmiSSLBase directly */
-
-    /* CRITICAL: Protect cleanup with semaphore to prevent race conditions */
-    /* Wait for any active operations to complete */
-    /* CRITICAL: Cleanup must never block indefinitely (exit path). */
-    sem_tries = 0;
-    sem_acquired = FALSE;
-    while(!AttemptSemaphore(&assl->use_sema))
-    {  if(Checktaskbreak()) break;
-       sem_tries++;
-       if(sem_tries >= 200)
-       {  debug_printf("DEBUG: Assl_cleanup: Timeout waiting for use_sema (%ld tries), skipping Assl_closessl\n",
-                  (long)sem_tries);
-          return;
-       }
-       Delay(1);
-    }
-    sem_acquired = TRUE;
-
-    /* 1. Ensure SSL connection is closed */
-    /* Assl_closessl will free ssl and sslctx */
-    Assl_closessl(assl);
-
-
-
-
-    /* Release semaphore */
-    if(sem_acquired) ReleaseSemaphore(&assl->use_sema);
-
-    /* 3. CRITICAL: Decrement task reference count and call CleanupAmiSSL() if needed */
-    /* Per AmiSSL developer recommendation: call CleanupAmiSSL() for ALL tasks
-     * (main and subprocesses) when the last Assl for that task is destroyed.
-     * This matches the old v3/v4 behavior and provides clearer control. */
-    task = FindTask(NULL);
-    should_cleanup_amissl = FALSE;
-    if (task) {
-      if (DecrementTaskRef(task)) {
-        /* This was the last Assl for this task - must call CleanupAmiSSL() */
-        debug_printf("DEBUG: Assl_cleanup: Last Assl for task=%p, calling CleanupAmiSSL()\n",
-                     task);
-        should_cleanup_amissl = TRUE;
-      }
-    }
-
-    /* Call CleanupAmiSSL() for all tasks when last Assl is destroyed */
-    /* CRITICAL: Do NOT call check_ssl_error() after CleanupAmiSSL() because
-     * CleanupAmiSSL() removes the task's state from AmiSSL's internal list.
-     * Calling error checking functions after this will crash because GetAmiSSLerrno()
-     * can't find the task's state. */
-    if (should_cleanup_amissl && AmiSSLBase) {
-      debug_printf("DEBUG: Assl_cleanup: Calling CleanupAmiSSL() for task=%p\n", task);
-      CleanupAmiSSL(TAG_END);
-      /* No error checking after CleanupAmiSSL() - task state is gone */
-    }
-
-    /* 4. Do NOT free assl here. http.c handles the free. */
+  if (!assl) {
+    return TRUE;
   }
+
+  /* If we cannot obtain use_sema, caller must not FREE(assl): the embedded
+   * SignalSemaphore must not be freed while wedged or still owned. */
+  sem_tries = 0;
+  sem_acquired = FALSE;
+  while (!AttemptSemaphore(&assl->use_sema)) {
+    if (Checktaskbreak()) {
+      return FALSE;
+    }
+    sem_tries++;
+    if (sem_tries >= 800) {
+      debug_printf(
+          "DEBUG: Assl_cleanup: Timeout waiting for use_sema (%ld tries), "
+          "aborting - caller must not FREE Assl\n",
+          (long)sem_tries);
+      return FALSE;
+    }
+    Delay(1);
+  }
+  sem_acquired = TRUE;
+
+  Assl_closessl(assl);
+
+  if (sem_acquired) {
+    ReleaseSemaphore(&assl->use_sema);
+  }
+
+  task = FindTask(NULL);
+  should_cleanup_amissl = FALSE;
+  if (task) {
+    if (DecrementTaskRef(task)) {
+      debug_printf(
+          "DEBUG: Assl_cleanup: Last Assl for task=%p, calling CleanupAmiSSL()\n",
+          task);
+      should_cleanup_amissl = TRUE;
+    }
+  }
+
+  if (should_cleanup_amissl && AmiSSLBase) {
+    debug_printf("DEBUG: Assl_cleanup: Calling CleanupAmiSSL() for task=%p\n",
+                 task);
+    CleanupAmiSSL(TAG_END);
+  }
+
+  return TRUE;
+}
+
+void Assl_dispose(struct Assl **passl) {
+#ifndef DEMOVERSION
+  if (passl && *passl) {
+    if (Assl_cleanup(*passl)) {
+      FREE(*passl);
+    }
+    *passl = NULL;
+  }
+#else
+  if (passl) {
+    *passl = NULL;
+  }
+#endif
 }
 
 __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
@@ -3040,6 +3044,30 @@ __asm long Assl_read(register __a0 struct Assl *assl,
   }
   debug_printf("DEBUG: Assl_read: EXIT - returning %ld\n", result);
   return result;
+}
+
+/* Used by http.c keep-alive: WaitSelect and raw recv(MSG_PEEK) do not reflect
+ * data held inside OpenSSL (e.g. after chunked or TLS 1.3 traffic). Reusing a
+ * pooled HTTPS connection in that state desynchronizes TLS and can corrupt
+ * memory. */
+BOOL Assl_idle_for_keepalive(struct Assl *assl)
+{  int pending_plain;
+   if(!assl || assl->closed)
+      return FALSE;
+   if(!assl->ssl || (ULONG)assl->ssl < 0x1000UL ||
+      (ULONG)assl->ssl >= 0xFFFFFFF0UL)
+      return FALSE;
+   if(!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000UL ||
+      (ULONG)AmiSSLBase >= 0xFFFFFFF0UL)
+      return FALSE;
+   pending_plain = (int)SSL_pending(assl->ssl);
+   if(pending_plain != 0)
+      return FALSE;
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+   if(SSL_has_pending(assl->ssl))
+      return FALSE;
+#endif
+   return TRUE;
 }
 
 __asm char *Assl_getcipher(register __a0 struct Assl *assl) {
