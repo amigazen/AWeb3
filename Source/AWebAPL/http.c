@@ -20,6 +20,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/filio.h>  /* For FIONBIO */
 #include <sys/errno.h>  /* For errno and error codes */
 #include <netdb.h>
 #include <proto/exec.h>
@@ -131,7 +132,7 @@ static UBYTE *fixedheaders=
 
 /* HTTP/1.1 specific headers */
 static UBYTE *connection="Connection: close\r\n";
-static UBYTE *connection_keepalive="Connection: close\r\n";
+static UBYTE *connection_keepalive="Connection: keep-alive\r\n";
 
 static UBYTE *host="Host: %s\r\n";
 
@@ -173,6 +174,7 @@ struct KeepAliveConnection
    UBYTE *hostname;           /* Hostname for this connection */
    long port;                 /* Port number */
    BOOL ssl;                  /* SSL enabled flag */
+   ULONG owner_task_id;       /* Task that owns this socketbase/sock */
    struct Library *socketbase; /* Socket library base */
    long sock;                 /* Socket descriptor */
    struct Assl *assl;         /* SSL context (NULL if not SSL) */
@@ -183,6 +185,10 @@ struct KeepAliveConnection
 static LIST(KeepAliveConnection) keepalive_pool;
 static struct SignalSemaphore keepalive_sema;
 static BOOL keepalive_sema_initialized = FALSE;
+/* Protect global SocketBase swaps in multi-tasking environment. */
+/* Shared across http.c and amissl.c */
+struct SignalSemaphore socketbase_swap_sema;
+BOOL socketbase_swap_sema_initialized = FALSE;
 /* LIMITS TO PREVENT CLOGGING */
 #define KEEPALIVE_TIMEOUT 15  /* Reduced to 15s to free resources faster */
 #define MAX_IDLE_CONNECTIONS 8 /* Hard limit on idle connections */
@@ -200,6 +206,44 @@ static ULONG get_task_id(void)
    return (ULONG)task;
 }
 
+/* Safely set global SocketBase for proto/bsdsocket calls that require it. */
+static struct Library *AcquireSocketBaseSwap(struct Library *newbase)
+{  struct Library *saved;
+   BOOL acquired = FALSE;
+   int tries;
+   saved = SocketBase;
+   if(socketbase_swap_sema_initialized)
+   {  tries = 0;
+      while(!AttemptSemaphore(&socketbase_swap_sema))
+      {  tries++;
+         if(tries >= 200)
+         {  /* CRITICAL: Never deadlock the browser here.
+             * If we can't get the semaphore quickly, proceed without it. */
+            break;
+         }
+         Delay(1);
+      }
+      if(tries < 200) acquired = TRUE;
+   }
+   SocketBase = newbase;
+   /* Encode whether we acquired the semaphore in the low bit of the returned
+    * pointer. Library bases are aligned so bit 0 should be 0. */
+   if(acquired)
+   {  return (struct Library *)(((ULONG)saved) | 1UL);
+   }
+   return saved;
+}
+
+static void ReleaseSocketBaseSwap(struct Library *saved)
+{  BOOL acquired;
+   acquired = BOOLVAL(((ULONG)saved) & 1UL);
+   saved = (struct Library *)(((ULONG)saved) & ~1UL);
+   SocketBase = saved;
+   if(acquired && socketbase_swap_sema_initialized)
+   {  ReleaseSemaphore(&socketbase_swap_sema);
+   }
+}
+
 /* Thread-safe debug logging wrapper with Task ID */
 static void debug_printf(const char *format, ...)
 {  va_list args;
@@ -213,7 +257,14 @@ static void debug_printf(const char *format, ...)
    task_id = get_task_id();
    
    if(debug_log_sema_initialized)
-   {  ObtainSemaphore(&debug_log_sema);
+   {  int tries = 0;
+      while(!AttemptSemaphore(&debug_log_sema))
+      {  tries++;
+         if(tries >= 200)
+         {  return; /* Don't wedge if a task died while logging */
+         }
+         Delay(1);
+      }
    }
    
    printf("[TASK:0x%08lX] ", task_id);
@@ -290,6 +341,77 @@ static void FreeConnectionNode(struct KeepAliveConnection *conn)
    FREE(conn);
 }
 
+/* Check whether a pooled connection is safe to reuse.
+ * Returns TRUE if reusable, FALSE if it should be closed/discarded. */
+static BOOL KeepAliveReusable(struct KeepAliveConnection *conn)
+{  struct timeval tv;
+   fd_set rfds;
+   fd_set efds;
+   long rc;
+   long nfds;
+   struct Library *saved_socketbase;
+   UBYTE peekbuf[1];
+   long n;
+   long nb;
+   long msgpeek;
+   long errno_value;
+   
+   if(!conn) return FALSE;
+   if(conn->sock < 0 || !conn->socketbase) return FALSE;
+   
+   /* If there is anything readable or an exception pending, do not reuse.
+    * For SSL this can include close_notify or protocol data; for plain HTTP it
+    * can mean pipelined bytes (we don't carry a read buffer across uses). */
+   FD_ZERO(&rfds);
+   FD_ZERO(&efds);
+   FD_SET((int)conn->sock, &rfds);
+   FD_SET((int)conn->sock, &efds);
+   tv.tv_sec = 0;
+   tv.tv_usec = 0;
+   nfds = conn->sock + 1;
+   
+   saved_socketbase = AcquireSocketBaseSwap(conn->socketbase);
+   rc = WaitSelect((int)nfds, &rfds, NULL, &efds, &tv, NULL);
+   errno_value = 0;
+   if(rc < 0)
+   {  errno_value = Errno();
+   }
+   ReleaseSocketBaseSwap(saved_socketbase);
+   
+   if(rc < 0)
+   {  return FALSE;
+   }
+   if(rc > 0)
+   {  /* Something is pending; don't reuse this connection. */
+      return FALSE;
+   }
+   
+   /* Also try a 1-byte MSG_PEEK in NONBLOCKING mode, in case the stack doesn't
+    * signal readability reliably. Any data (or EOF) means it's not cleanly reusable.
+    * CRITICAL: this must never block. */
+   nb = 1;
+   msgpeek = MSG_PEEK;
+   saved_socketbase = AcquireSocketBaseSwap(conn->socketbase);
+   if(IoctlSocket((int)conn->sock, FIONBIO, (char *)&nb) != 0)
+   {  debug_printf("DEBUG: KeepAliveReusable: IoctlSocket(FIONBIO=1) failed\n");
+   }
+   ReleaseSocketBaseSwap(saved_socketbase);
+   
+   n = a_recv(conn->sock, peekbuf, 1, msgpeek, conn->socketbase);
+   
+   nb = 0;
+   saved_socketbase = AcquireSocketBaseSwap(conn->socketbase);
+   if(IoctlSocket((int)conn->sock, FIONBIO, (char *)&nb) != 0)
+   {  debug_printf("DEBUG: KeepAliveReusable: IoctlSocket(FIONBIO=0) failed\n");
+   }
+   ReleaseSocketBaseSwap(saved_socketbase);
+   
+   if(n == 0) return FALSE; /* EOF */
+   if(n > 0) return FALSE;  /* pending data */
+   
+   return TRUE;
+}
+
 /* Get a connection from the keep-alive pool */
 static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long port, BOOL ssl)
 {  struct KeepAliveConnection *conn;
@@ -298,8 +420,10 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
    struct timeval current_time;
    ULONG current_sec;
    struct KeepAliveConnection *dead_list = NULL;
+   ULONG task_id;
    
    if(!keepalive_sema_initialized || !hostname) return NULL;
+   task_id = get_task_id();
    
    ObtainSemaphore(&keepalive_sema);
    GetSysTime(&current_time);
@@ -308,37 +432,27 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
    for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
       
-      if(!conn->in_use && conn->port == port && conn->ssl == ssl &&
+      /* CRITICAL: Only reuse connections created by this task.
+       * Many Amiga TCP/IP stacks treat SocketBase/library bases as task-affine.
+       * Cross-task reuse can cause blocking I/O and apparent deadlocks. */
+      if(!conn->in_use && conn->owner_task_id == task_id &&
+         conn->port == port && conn->ssl == ssl &&
          conn->hostname && HostnameMatches(conn->hostname, hostname))
       {  ULONG age = current_sec - conn->last_used;
          if(age < KEEPALIVE_TIMEOUT)
-         {  conn->in_use = TRUE;
-            conn->last_used = current_sec;
-            Remove((struct Node *)conn);
-            found_conn = conn;
-            break; /* Stop searching, found one */
-         }
-         else
-         {  /* Found a timed out connection, mark for deletion */
-            Remove((struct Node *)conn);
-            conn->next = dead_list;
-            dead_list = conn;
-         }
-      }
-   }
-   
-   /* Check the last node if we haven't found a connection yet */
-   if(!found_conn)
-   {  conn = (struct KeepAliveConnection *)keepalive_pool.last;
-      if(conn && (struct Node *)conn != (struct Node *)&keepalive_pool && 
-         !conn->in_use && conn->port == port && conn->ssl == ssl &&
-         conn->hostname && HostnameMatches(conn->hostname, hostname))
-      {  ULONG age = current_sec - conn->last_used;
-         if(age < KEEPALIVE_TIMEOUT)
-         {  conn->in_use = TRUE;
-            conn->last_used = current_sec;
-            Remove((struct Node *)conn);
-            found_conn = conn;
+         {  if(KeepAliveReusable(conn))
+            {  conn->in_use = TRUE;
+               conn->last_used = current_sec;
+               Remove((struct Node *)conn);
+               found_conn = conn;
+               break; /* Stop searching, found one */
+            }
+            else
+            {  /* Not safe to reuse; close it. */
+               Remove((struct Node *)conn);
+               conn->next = dead_list;
+               dead_list = conn;
+            }
          }
          else
          {  /* Found a timed out connection, mark for deletion */
@@ -374,8 +488,16 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    ULONG current_sec;
    ULONG age;  /* C89: Declare at start */
    int pool_count = 0;
+   ULONG task_id;
+   struct timeval tv;
+   fd_set rfds;
+   fd_set efds;
+   long rc;
+   long nfds;
+   struct Library *saved_socketbase;
    
    if(!keepalive_sema_initialized || !hi || !hi->hostname) return;
+   task_id = get_task_id();
    
    /* CRITICAL FIX: Do NOT pool if server requested close */
    /* Check flags AND explicit Connection header parsing result */
@@ -404,6 +526,31 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    
    if(hi->sock < 0 || !hi->socketbase) return;
    
+   /* CRITICAL: Do not pool if any bytes are pending on the socket. */
+   FD_ZERO(&rfds);
+   FD_ZERO(&efds);
+   FD_SET((int)hi->sock, &rfds);
+   FD_SET((int)hi->sock, &efds);
+   tv.tv_sec = 0;
+   tv.tv_usec = 0;
+   nfds = hi->sock + 1;
+   saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
+   rc = WaitSelect((int)nfds, &rfds, NULL, &efds, &tv, NULL);
+   ReleaseSocketBaseSwap(saved_socketbase);
+   if(rc > 0)
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Not pooling - socket has pending data/exception\n");
+#ifndef DEMOVERSION
+      if(hi->assl) Assl_closessl(hi->assl);
+#endif
+      if(hi->sock >= 0 && hi->socketbase) a_close(hi->sock, hi->socketbase);
+      hi->sock = -1;
+#ifndef DEMOVERSION
+      if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl = NULL; }
+#endif
+      if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase = NULL; }
+      return;
+   }
+   
    /* SSL connections can be pooled - the SSL object maintains state and can be reused */
    /* If a reused SSL connection fails, the retry logic will handle it by creating a fresh connection */
    
@@ -416,6 +563,7 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    conn->hostname = Dupstr(hi->hostname, -1);
    conn->port = (hi->port > 0) ? hi->port : (BOOLVAL(hi->flags & HTTPIF_SSL) ? 443 : 80);
    conn->ssl = BOOLVAL(hi->flags & HTTPIF_SSL);
+   conn->owner_task_id = task_id;
    conn->socketbase = hi->socketbase;
    conn->sock = hi->sock;
    conn->assl = hi->assl;
@@ -431,21 +579,6 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
       
       age = current_sec - node->last_used;
       
-      if(age >= KEEPALIVE_TIMEOUT)
-      {  /* Remove expired */
-         Remove((struct Node *)node);
-         node->next = kill_list;
-         kill_list = node;
-      }
-      else
-      {  pool_count++;
-      }
-   }
-   
-   /* Check the last node */
-   node = (struct KeepAliveConnection *)keepalive_pool.last;
-   if(node && (struct Node *)node != (struct Node *)&keepalive_pool)
-   {  age = current_sec - node->last_used;
       if(age >= KEEPALIVE_TIMEOUT)
       {  /* Remove expired */
          Remove((struct Node *)node);
@@ -515,16 +648,6 @@ static void CleanupKeepAlivePool(void)
          close_list = conn;
       }
    }
-   
-   /* Check the last node */
-   conn = (struct KeepAliveConnection *)keepalive_pool.last;
-   if(conn && (struct Node *)conn != (struct Node *)&keepalive_pool)
-   {  if(conn->in_use || ((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT))
-      {  Remove((struct Node *)conn);
-         conn->next = close_list;
-         close_list = conn;
-      }
-   }
    ReleaseSemaphore(&keepalive_sema);
    
    while(close_list)
@@ -552,14 +675,6 @@ void CloseIdleKeepAliveConnections(void)
          conn->next = close_list;
          close_list = conn;
       }
-   }
-   
-   /* Check the last node */
-   conn = (struct KeepAliveConnection *)keepalive_pool.last;
-   if(conn && (struct Node *)conn != (struct Node *)&keepalive_pool && !conn->in_use)
-   {  Remove((struct Node *)conn);
-      conn->next = close_list;
-      close_list = conn;
    }
    
    ReleaseSemaphore(&keepalive_sema);
@@ -773,7 +888,6 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
 /* SO_RCVTIMEO is per-operation, but explicitly resetting ensures fresh timeout for next operation */
 static void ResetSocketTimeout(struct Httpinfo *hi)
 {  struct timeval timeout;
-   extern struct Library *SocketBase;
    struct Library *saved_socketbase;
    
    /* Only reset if socket is valid and socketbase is available */
@@ -793,13 +907,12 @@ static void ResetSocketTimeout(struct Httpinfo *hi)
    
    /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
    /* Save and restore SocketBase to avoid race conditions */
-   saved_socketbase = SocketBase;
-   SocketBase = hi->socketbase;
+   saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
    
    /* CRITICAL: Validate SocketBase is still valid after assignment */
    if(!SocketBase)
    {  debug_printf("DEBUG: ResetSocketTimeout: SocketBase became NULL after assignment\n");
-      SocketBase = saved_socketbase; /* Restore before returning */
+      ReleaseSocketBaseSwap(saved_socketbase); /* Restore before returning */
       return;
    }
    
@@ -808,7 +921,7 @@ static void ResetSocketTimeout(struct Httpinfo *hi)
    setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
    
    /* Restore SocketBase */
-   SocketBase = saved_socketbase;
+   ReleaseSocketBaseSwap(saved_socketbase);
 }
 
 /* Receive a block through SSL or socket. */
@@ -835,6 +948,11 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 /* Read remainder of block. Returns FALSE if eof or error. */
 static BOOL Readblock(struct Httpinfo *hi)
 {  long n;
+   long errno_value;
+   struct Library *saved_socketbase;
+   UBYTE *hostname_str;
+   int tries;
+   int intr_tries;
    debug_printf("DEBUG: Readblock() called, current blocklength=%ld\n", hi->blocklength);
    
 #ifdef DEVELOPER
@@ -851,7 +969,52 @@ static BOOL Readblock(struct Httpinfo *hi)
    }
    else
 #endif
-   n=Receive(hi,hi->fd->block+hi->blocklength,hi->fd->blocksize-hi->blocklength);
+   /* Attempt receive with limited retries for EAGAIN/EWOULDBLOCK to avoid
+    * indefinite blocking or infinite loops on stale keep-alive connections. */
+   tries = 0;
+   intr_tries = 0;
+   for(;;)
+   {  n=Receive(hi,hi->fd->block+hi->blocklength,hi->fd->blocksize-hi->blocklength);
+      if(n >= 0) break;
+      if(Checktaskbreak()) break;
+#ifndef DEMOVERSION
+      /* Assl_read signals WaitSelect timeouts via C errno; Errno() may stay stale. */
+      if((hi->flags & HTTPIF_SSL) && errno == ETIMEDOUT)
+         break;
+#endif
+      errno_value = 0;
+      if(hi->socketbase)
+      {  saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
+         errno_value = Errno();
+         ReleaseSocketBaseSwap(saved_socketbase);
+      }
+      /* Interrupted system call (EINTR) should be retried, not treated as a
+       * network failure. Some stacks signal async events via EINTR during SSL. */
+      if(errno_value == EINTR)
+      {  intr_tries++;
+         if(intr_tries >= 50)
+         {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
+            debug_printf("DEBUG: Readblock: EINTR persisted (%ld tries), treating as timeout\n",
+                   (long)intr_tries);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
+            return FALSE;
+         }
+         Delay(1);
+         continue;
+      }
+      if(errno_value == EAGAIN || errno_value == EWOULDBLOCK)
+      {  tries++;
+         if(tries >= 10)
+         {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
+            debug_printf("DEBUG: Readblock: EAGAIN/EWOULDBLOCK persisted (%ld tries), treating as timeout\n", (long)tries);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
+            return FALSE;
+         }
+         Delay(1); /* Yield to other tasks before retrying */
+         continue;
+      }
+      break;
+   }
    
    debug_printf("DEBUG: Readblock: Receive returned %ld bytes\n", n);
    
@@ -861,28 +1024,16 @@ static BOOL Readblock(struct Httpinfo *hi)
       /* Use Errno() function from bsdsocket.library to get error code */
       /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
       if(n < 0 && !Checktaskbreak())
-      {  long errno_value;
-         UBYTE *hostname_str;  /* Declare at start of block for older C standards */
+      {  errno_value = 0;
          if(hi->socketbase)
-         {  struct Library *saved_socketbase = SocketBase;
-            SocketBase = hi->socketbase;
+         {  saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
             errno_value = Errno(); /* Get error code from bsdsocket.library */
-            SocketBase = saved_socketbase;
+            ReleaseSocketBaseSwap(saved_socketbase);
          }
-         else
-         {  errno_value = 0; /* No socketbase - can't get errno */
-         }
-         
-         /* EAGAIN (errno=35) means "Resource temporarily unavailable" - for blocking sockets
-          * with timeouts, this can occur when SSL needs more I/O (WANT_READ/WANT_WRITE).
-          * Treat it as a retry condition - return TRUE to stay in the read loop. */
-         if(errno_value == EAGAIN || errno_value == EWOULDBLOCK)
-         {  debug_printf("DEBUG: Readblock: EAGAIN/EWOULDBLOCK - treating as retry condition (no data yet)\n");
-            /* EAGAIN means "try again" - not an error, just no data available yet */
-            /* Return TRUE to stay in the read loop and try again */
-            /* This handles SSL_ERROR_WANT_READ cases where SSL needs more network I/O */
-            return TRUE;
-         }
+#ifndef DEMOVERSION
+         if((hi->flags & HTTPIF_SSL) && errno == ETIMEDOUT)
+            errno_value = ETIMEDOUT;
+#endif
          
          /* Report specific error type via Tcperror() for actual errors */
          hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
@@ -1504,6 +1655,8 @@ static BOOL Readdata(struct Httpinfo *hi)
 {  UBYTE *bdcopy=NULL;
    long bdlength=0,blocklength=0;
    BOOL result=FALSE,boundary,partial,eof=FALSE;
+   BOOL done_after_send=FALSE; /* True if we reached Content-Length exactly */
+   long remaining_bytes=0;
    long gzip_buffer_size=INPUTBLOCKSIZE;
    UBYTE *gzipbuffer=NULL;
    long gziplength=0;
@@ -3557,8 +3710,27 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             /* Track total bytes received for Content-Length validation (non-gzip transfers) */
             /* Only track if not processing gzip (gzip tracks compressed_bytes_consumed separately) */
+            done_after_send = FALSE;
             if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED))
-            {  total_bytes_received += blocklength;
+            {  /* If Content-Length is known, never pass more than remaining bytes.
+                * This avoids "complete by counters, corrupt by data" when we
+                * stop reading early (and it also avoids sending stray bytes
+                * that don't belong to this body). */
+               if(!(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0 && expected_total_size > 0)
+               {  remaining_bytes = expected_total_size - total_bytes_received;
+                  if(remaining_bytes < 0) remaining_bytes = 0;
+                  if(blocklength > remaining_bytes)
+                  {  debug_printf("DEBUG: Content-Length clamp: block=%ld, remaining=%ld, clamping\n",
+                           blocklength, remaining_bytes);
+                     blocklength = remaining_bytes;
+                     done_after_send = TRUE;
+                  }
+                  else if(blocklength == remaining_bytes)
+                  {  done_after_send = TRUE;
+                  }
+               }
+               
+               total_bytes_received += blocklength;
                hi->bytes_received = total_bytes_received;  /* Update persistent counter for Range retry */
                debug_printf("DEBUG: Total bytes received so far: %ld/%ld\n", total_bytes_received, expected_total_size > 0 ? expected_total_size : hi->partlength);
             }
@@ -3584,6 +3756,17 @@ static BOOL Readdata(struct Httpinfo *hi)
             debug_printf("DEBUG: Invalid data detected, skipping Updatetaskattrs to prevent memory corruption\n");
             debug_printf("DEBUG: fd=%p, block=%p, blocklength=%ld, blocksize=%ld\n", 
                    hi->fd, hi->fd ? hi->fd->block : NULL, blocklength, hi->fd ? hi->fd->blocksize : 0);
+         }
+         
+         /* If we reached Content-Length exactly, stop now and discard any extra buffered bytes.
+          * Leaving extra bytes around without a per-connection read buffer will corrupt the next
+          * transfer; and trying to read more can block. */
+         if(done_after_send)
+         {  debug_printf("DEBUG: Content-Length complete in main loop: Received %ld/%ld bytes, exiting read loop\n",
+                   total_bytes_received, expected_total_size);
+            hi->blocklength = 0;
+            result = TRUE;
+            break;
          }
          
          /* Safe memory move with bounds checking */
@@ -4594,10 +4777,10 @@ static BOOL Readdata(struct Httpinfo *hi)
                   {  long errno_value;
                      UBYTE *hostname_str;
                      if(hi->socketbase)
-                     {  struct Library *saved_socketbase = SocketBase;
-                        SocketBase = hi->socketbase;
+                     {  struct Library *saved_socketbase;
+                        saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
                         errno_value = Errno();
-                        SocketBase = saved_socketbase;
+                        ReleaseSocketBaseSwap(saved_socketbase);
                      }
                      else
                      {  errno_value = 0;
@@ -4634,10 +4817,10 @@ static BOOL Readdata(struct Httpinfo *hi)
                {  long errno_value;
                   UBYTE *hostname_str;
                   if(hi->socketbase)
-                  {  struct Library *saved_socketbase = SocketBase;
-                     SocketBase = hi->socketbase;
+                  {  struct Library *saved_socketbase;
+                     saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
                      errno_value = Errno();
-                     SocketBase = saved_socketbase;
+                     ReleaseSocketBaseSwap(saved_socketbase);
                   }
                   else
                   {  errno_value = 0;
@@ -5090,8 +5273,10 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
          }
       }
       
-      /* Clean up expired connections periodically */
-      CleanupKeepAlivePool();
+      /* NOTE: Do not synchronously clean up the keep-alive pool here.
+       * Cleanup can involve SSL shutdown/free and can block on some stacks,
+       * which would wedge unrelated fetch tasks when they start a new socket.
+       * Pool cleanup must be handled out-of-band. */
       
       /* If we didn't get a pooled connection, create a new one */
       if(!hi->connection_reused)
@@ -5315,13 +5500,12 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          timeout.tv_usec = 0;
          
          /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
-         saved_socketbase_connect = SocketBase;
-         SocketBase = hi->socketbase;
+         saved_socketbase_connect = AcquireSocketBaseSwap(hi->socketbase);
          
          /* CRITICAL: Validate SocketBase is still valid after assignment */
          if(!SocketBase)
          {  debug_printf("DEBUG: Connect: SocketBase became NULL after assignment - cleaning up SSL\n");
-            SocketBase = saved_socketbase_connect; /* Restore before returning */
+            ReleaseSocketBaseSwap(saved_socketbase_connect); /* Restore before returning */
 #ifndef DEMOVERSION
             if(hi->assl)
             {  Assl_closessl(hi->assl);
@@ -5347,7 +5531,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          }
          
          /* Restore SocketBase immediately after setsockopt() */
-         SocketBase = saved_socketbase_connect;
+         ReleaseSocketBaseSwap(saved_socketbase_connect);
          
          debug_printf("DEBUG: Connect: Applied socket timeouts after connection established\n");
       }
@@ -5358,10 +5542,9 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
       /* Use Errno() function from bsdsocket.library to get error code */
       /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
       if(hi->socketbase)
-      {  struct Library *saved_socketbase = SocketBase;
-         SocketBase = hi->socketbase;
+      {  struct Library *saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
          errno_value = Errno(); /* Get error code from bsdsocket.library */
-         SocketBase = saved_socketbase;
+         ReleaseSocketBaseSwap(saved_socketbase);
       }
       else
       {  errno_value = 0; /* No socketbase - can't get errno */
@@ -5667,13 +5850,12 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             timeout.tv_sec = 15;  /* 15 second timeout per operation */
             timeout.tv_usec = 0;
             
-            saved_socketbase = SocketBase;
-            SocketBase = hi->socketbase;
+            saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
             
             /* CRITICAL: Validate SocketBase is still valid after assignment */
             if(!SocketBase)
             {  debug_printf("DEBUG: Httpretrieve: SocketBase became NULL after assignment\n");
-               SocketBase = saved_socketbase; /* Restore before continuing */
+               ReleaseSocketBaseSwap(saved_socketbase); /* Restore before continuing */
                result = FALSE;
                error = TRUE;
                break;
@@ -5683,7 +5865,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
             setsockopt(hi->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
             
-            SocketBase = saved_socketbase;
+            ReleaseSocketBaseSwap(saved_socketbase);
             debug_printf("DEBUG: Httpretrieve: Applied timeouts to reused %s connection\n",
                         (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP");
          }
@@ -5733,7 +5915,12 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                      
                      /* CRITICAL: If Connect() failed and we haven't retried yet, retry with fresh connection */
                      /* This handles stale reused connections (SSL_connect() fails) and transient network errors */
-                     if(!result && retry_count == 0)
+                     if(!result && Checktaskbreak())
+                     {  debug_printf("DEBUG: Httpretrieve: Connect() failed due to exit signal, not retrying\n");
+                        error = TRUE;
+                        try_again = FALSE;
+                     }
+                     else if(!result && retry_count == 0)
                      {  debug_printf("DEBUG: Httpretrieve: Connect() failed - retrying with fresh connection (retry_count=%d)\n", retry_count);
                         
                         /* Ensure cleanup is complete */
@@ -6002,8 +6189,13 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             /* Only cleanup if we're not retrying */
             if(!try_again)
             {  debug_printf("DEBUG: Httpretrieve: Cleaning up connection\n");
-               /* Return connection to pool if keep-alive is supported */
-               if((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ) && !error)
+               /* Return connection to pool if keep-alive is supported.
+                * CRITICAL: Only pool the connection if there is no extra unread
+                * data buffered. If hi->blocklength > 0 here, we have bytes that
+                * belong to the next response / TLS close_notify / protocol noise.
+                * Reusing such a connection can corrupt the next transfer and can
+                * also lead to tasks blocking on exit. */
+               if((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ) && !error && hi->blocklength == 0)
                {  /* Return connection to pool for reuse */
                   debug_printf("DEBUG: Httpretrieve: Keep-alive enabled, returning connection to pool (sock=%ld)\n", hi->sock);
                   ReturnKeepAliveConnection(hi);
@@ -6013,6 +6205,10 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                }
                else
                {  /* Close connection normally */
+                  if((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ) && !error && hi->blocklength > 0)
+                  {  debug_printf("DEBUG: Httpretrieve: Not pooling keep-alive connection: %ld buffered bytes remain\n",
+                            hi->blocklength);
+                  }
                   /* Clear connection_reused flag since we're closing the connection */
                   hi->connection_reused = FALSE;
                   
@@ -6325,6 +6521,8 @@ BOOL Inithttp(void)
    InitSemaphore(&keepalive_sema);
    keepalive_sema_initialized = TRUE;
    NEWLIST(&keepalive_pool);
+   InitSemaphore(&socketbase_swap_sema);
+   socketbase_swap_sema_initialized = TRUE;
 #endif
    return TRUE;
 }

@@ -1481,15 +1481,10 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
    BOOL removenl;          /* Remove newlines from URL values */
    BOOL skipnewline;       /* Current value of the DPF_SKIPNEWLINE flag */
    long oldsrcpos;
-   if(httpdebug)
-   {  printf("[CRASH_TRACE] Parsehtml: entry doc=%p frame=%p srcpos=%ld srclen=%ld eof=%d\n",
-             doc, doc->frame, *srcpos, src->length, eof ? 1 : 0);
-   }
+   /* trace removed */
    /* Skip leading nullbytes and whitespace at document start */
    if((*srcpos)==0)
-   {  if(httpdebug)
-      {  printf("[CRASH_TRACE] Parsehtml: first chunk (srcpos==0), about to parse doc=%p\n", doc);
-      }
+   {  /* trace removed */
       while(p<end && !*p) p++;
       /* Skip all leading whitespace at document start (before first tag) */
       while(p<end && isspace(*p)) p++;
@@ -1883,10 +1878,7 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
       {  Lookforicons(doc,attrs.first);
       }
       else
-      {  if(httpdebug && tagtype!=MARKUP_TEXT)
-         {  printf("[CRASH_TRACE] Parsehtml: about to Processhtml tagtype=%u doc=%p frame=%p\n",
-                   (unsigned)tagtype, doc, doc->frame);
-         }
+      {  /* trace removed */
          Processhtml(doc,tagtype,attrs.first);
          if(doc->pflags&DPF_SUSPEND)
          {  /* Resume processing later with this same tag */

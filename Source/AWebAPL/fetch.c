@@ -350,6 +350,17 @@ static BOOL Dostartdriver(struct Fetch *fch)
             NWS_STARTED,BOOLVAL(fch->flags&FCHF_NETSLOT));
          if(fch->flags&FCHF_LOCALSLOT) nrlocal++;
          else if(fch->flags&FCHF_NETSLOT) nrnet++;
+         {  extern BOOL httpdebug;
+            if(httpdebug)
+            {  printf("[FETCH] Dostartdriver: STARTED task=%p url=%s netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld\n",
+                  fch->task,
+                  (char *)Agetattr(fch->url,AOURL_Url),
+                  (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
+                  (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
+                  (long)nrnet,(long)prefs.maxconnect,
+                  (long)nrlocal,(long)prefs.maxdiskread);
+            }
+         }
       }
       else
       {  Adisposeobject(fch->task);
@@ -423,6 +434,13 @@ static void Checkqueues(struct Fetch *tfch)
    while(nrnet<prefs.maxconnect && (fch=REMHEAD(&netqueue)))
    {  ADDTAIL(&running,fch);
       fch->flags&=~FCHF_QUEUED;
+      {  extern BOOL httpdebug;
+         if(httpdebug)
+         {  printf("[FETCH] Checkqueues: DEQUEUE-NET url=%s nrnet=%ld/%ld\n",
+               fch->name? (char *)fch->name : "(null)",
+               (long)nrnet,(long)prefs.maxconnect);
+         }
+      }
       if(!Dostartdriver(fch))
       {  Asrcupdatetags(fch->url,fch,
             AOURL_Terminate,TRUE,
@@ -433,6 +451,13 @@ static void Checkqueues(struct Fetch *tfch)
    while(nrlocal<prefs.maxdiskread && (fch=REMHEAD(&localqueue)))
    {  ADDTAIL(&running,fch);
       fch->flags&=~FCHF_QUEUED;
+      {  extern BOOL httpdebug;
+         if(httpdebug)
+         {  printf("[FETCH] Checkqueues: DEQUEUE-LOCAL url=%s nrlocal=%ld/%ld\n",
+               fch->name? (char *)fch->name : "(null)",
+               (long)nrlocal,(long)prefs.maxdiskread);
+         }
+      }
       if(!Dostartdriver(fch))
       {  Asrcupdatetags(fch->url,fch,
             AOURL_Terminate,TRUE,
@@ -770,6 +795,7 @@ static void Disposefd(struct Fetchdriver *fd)
 /* Create the fetch driver process */
 static BOOL Startdriver(struct Fetch *fch)
 {  BOOL result=FALSE;
+   extern BOOL httpdebug;
    fch->driverfun=NULL;
    if(!(fch->fd=ALLOCSTRUCT(Fetchdriver,1,MEMF_PUBLIC|MEMF_CLEAR))) return FALSE;
    fch->fd->fetch=fch;
@@ -819,6 +845,16 @@ static BOOL Startdriver(struct Fetch *fch)
    }
    Driverfunction(fch);
    ReleaseSemaphore(&prefssema);
+   if(httpdebug)
+   {  printf("[FETCH] Startdriver: url=%s flags=0x%08lX driverfun=%p netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld\n",
+         fch->name? (char *)fch->name : "(null)",
+         (ULONG)fch->flags,
+         fch->driverfun,
+         (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
+         (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
+         (long)nrnet,(long)prefs.maxconnect,
+         (long)nrlocal,(long)prefs.maxdiskread);
+   }
    if(fch->driverfun)
    {  if((fch->flags&FCHF_LOCALSLOT) && nrlocal>=prefs.maxdiskread)
       {  REMOVE(fch);
@@ -826,6 +862,11 @@ static BOOL Startdriver(struct Fetch *fch)
          fch->flags|=FCHF_QUEUED;
          if(fch->netstat) Chgnetstat(fch->netstat,NWS_QUEUED,0,0);
          else fch->netstat=Addnetstat(fch,(UBYTE *)Agetattr(fch->url,AOURL_Url),NWS_QUEUED,FALSE);
+         if(httpdebug)
+         {  printf("[FETCH] Startdriver: QUEUED-LOCAL url=%s nrlocal=%ld/%ld\n",
+               fch->name? (char *)fch->name : "(null)",
+               (long)nrlocal,(long)prefs.maxdiskread);
+         }
          result=TRUE;
       }
       else if((fch->flags&FCHF_NETSLOT) && nrnet>=prefs.maxconnect)
@@ -834,6 +875,11 @@ static BOOL Startdriver(struct Fetch *fch)
          fch->flags|=FCHF_QUEUED;
          if(fch->netstat) Chgnetstat(fch->netstat,NWS_QUEUED,0,0);
          else fch->netstat=Addnetstat(fch,(UBYTE *)Agetattr(fch->url,AOURL_Url),NWS_QUEUED,TRUE);
+         if(httpdebug)
+         {  printf("[FETCH] Startdriver: QUEUED-NET url=%s nrnet=%ld/%ld\n",
+               fch->name? (char *)fch->name : "(null)",
+               (long)nrnet,(long)prefs.maxconnect);
+         }
          result=TRUE;
       }
       else

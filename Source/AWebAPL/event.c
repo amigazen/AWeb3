@@ -474,13 +474,18 @@ static void Inputwindocref(void *win,void *url,UBYTE *fragment,UBYTE *frameid,
    BOOL noreferer,BOOL reload)
 {  struct Awindow *awin=win;
    struct Winhis *whis;
+   extern BOOL httpdebug;
+   UBYTE *urlstr;
    if(awin && url)
-   {  /* Close idle keep-alive connections when navigating to a new page */
-      /* This resets the connection pool for the new page context */
-#ifndef LOCALONLY
-      CloseIdleKeepAliveConnections();
-#endif
-      
+   {
+      if(httpdebug)
+      {  urlstr=(UBYTE *)Agetattr(url,AOURL_Url);
+         printf("[NAV] Inputwindocref: Creating history/docref, URL=%s fragment=%s frameid=%s reload=%ld noreferer=%ld\n",
+            urlstr? (char *)urlstr : "NULL",
+            fragment? (char *)fragment : "NULL",
+            frameid? (char *)frameid : "NULL",
+            (long)reload,(long)noreferer);
+      }
       if(whis=Anewobject(AOTP_WINHIS,
          AOWHS_Copyfrom,awin->whis,
          AOWHS_Key,awin->key,
@@ -494,10 +499,20 @@ static void Inputwindocref(void *win,void *url,UBYTE *fragment,UBYTE *frameid,
 /*
          Removebatch(win);
 */
+         if(httpdebug)
+         {  printf("[NAV] Inputwindocref: WINHIS created=%p, applying to frame=%p\n",
+               whis, awin->frame);
+         }
          Asetattrs(awin->frame,
             AOBJ_Winhis,whis,
             AOFRM_Noreferer,noreferer,
             TAG_END);
+         if(httpdebug)
+         {  printf("[NAV] Inputwindocref: Frame updated with new WINHIS\n");
+         }
+      }
+      else if(httpdebug)
+      {  printf("[NAV] Inputwindocref: FAILED to create WINHIS\n");
       }
    }
 }
@@ -506,8 +521,19 @@ void Followurlname(struct Awindow *win,UBYTE *name,UBYTE *id)
 {  void *url;
    UBYTE *fixedname;
    UBYTE *frag;
+   extern BOOL httpdebug;
+   if(httpdebug)
+   {  printf("[NAV] Followurlname: name=%s id=%s\n",
+         name? (char *)name : "NULL",
+         id? (char *)id : "NULL");
+   }
    if(fixedname=Fixurlname(name))
    {  frag=Fragmentpart(fixedname);
+      if(httpdebug)
+      {  printf("[NAV] Followurlname: fixed=%s frag=%s\n",
+            fixedname? (char *)fixedname : "NULL",
+            frag? (char *)frag : "NULL");
+      }
       url=Findurl(NULL,fixedname,0);
       Inputwindocref(win,url,frag,id,TRUE,FALSE);
       FREE(fixedname);

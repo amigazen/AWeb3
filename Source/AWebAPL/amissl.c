@@ -49,6 +49,9 @@
 /* SocketBase must be declared for IoctlSocket() and WaitSelect() */
 /* This is defined in http.c but we need it here too for SSL operations */
 extern struct Library *SocketBase;
+/* Shared SocketBase swap semaphore from http.c */
+extern struct SignalSemaphore socketbase_swap_sema;
+extern BOOL socketbase_swap_sema_initialized;
 
 /* Shared debug logging semaphore - defined in http.c, declared here */
 /* This ensures both http.c and amissl.c use the same semaphore for thread-safe
@@ -81,6 +84,8 @@ struct Assl {
   SSL_CTX *sslctx;
   SSL *ssl;
   UBYTE *hostname;
+  struct Library *socketbase; /* Socket library base for WaitSelect/Errno */
+  long sock;                  /* Socket descriptor associated with SSL */
   BOOL denied;
   BOOL closed; /* Flag to prevent use-after-free - set when SSL objects are
                   freed */
@@ -133,6 +138,87 @@ static void debug_printf(const char *format, ...);
 static void check_ssl_error(const char *function_name,
                             struct Library *AmiSSLBase);
 
+/* Safely set global SocketBase for bsdsocket proto calls. */
+static struct Library *AcquireSocketBaseSwap(struct Library *newbase)
+{  struct Library *saved;
+   BOOL acquired = FALSE;
+   int tries;
+   saved = SocketBase;
+   if(socketbase_swap_sema_initialized)
+   {  tries = 0;
+      while(!AttemptSemaphore(&socketbase_swap_sema))
+      {  tries++;
+         if(tries >= 200)
+         {  break; /* proceed without semaphore */
+         }
+         Delay(1);
+      }
+      if(tries < 200) acquired = TRUE;
+   }
+   SocketBase = newbase;
+   if(acquired)
+   {  return (struct Library *)(((ULONG)saved) | 1UL);
+   }
+   return saved;
+}
+
+static void ReleaseSocketBaseSwap(struct Library *saved)
+{  BOOL acquired;
+   acquired = BOOLVAL(((ULONG)saved) & 1UL);
+   saved = (struct Library *)(((ULONG)saved) & ~1UL);
+   SocketBase = saved;
+   if(acquired && socketbase_swap_sema_initialized)
+   {  ReleaseSemaphore(&socketbase_swap_sema);
+   }
+}
+
+/* Wait for socket readiness with timeout (seconds). */
+static BOOL Assl_wait_io(struct Assl *assl, BOOL want_read, BOOL want_write, long seconds)
+{  fd_set rfds;
+   fd_set wfds;
+   struct timeval tv;
+   long rc;
+   struct Library *saved;
+   long nfds;
+   long errno_value;
+
+   if(!assl) return FALSE;
+   if(assl->sock < 0 || !assl->socketbase) return FALSE;
+
+   FD_ZERO(&rfds);
+   FD_ZERO(&wfds);
+   if(want_read) FD_SET((int)assl->sock, &rfds);
+   if(want_write) FD_SET((int)assl->sock, &wfds);
+
+   tv.tv_sec = seconds;
+   tv.tv_usec = 0;
+   nfds = assl->sock + 1;
+
+   saved = AcquireSocketBaseSwap(assl->socketbase);
+   rc = WaitSelect((int)nfds,
+                   want_read ? &rfds : NULL,
+                   want_write ? &wfds : NULL,
+                   NULL,
+                   &tv,
+                   NULL);
+   errno_value = 0;
+   if(rc < 0)
+   {  errno_value = Errno();
+   }
+   ReleaseSocketBaseSwap(saved);
+
+   if(rc > 0) return TRUE;
+   if(rc == 0)
+   {  debug_printf("DEBUG: Assl_wait_io: WaitSelect timeout (sock=%ld, want_read=%ld, want_write=%ld, seconds=%ld)\n",
+            assl->sock, (long)want_read, (long)want_write, seconds);
+      errno = ETIMEDOUT;
+      return FALSE;
+   }
+   debug_printf("DEBUG: Assl_wait_io: WaitSelect error rc=%ld errno=%ld (sock=%ld, want_read=%ld, want_write=%ld)\n",
+         rc, errno_value, assl->sock, (long)want_read, (long)want_write);
+   return FALSE;
+}
+
 /* Initialize SSL initialization semaphore - called once at startup */
 static void InitSSLSemaphore(void) {
   if (!ssl_init_sema_initialized) {
@@ -151,13 +237,21 @@ static BOOL IncrementTaskRef(void) {
   struct Task *task;
   struct TaskRefCount *ref;
   BOOL is_first = FALSE;
+  int sem_tries;
 
   task = FindTask(NULL);
   if (!task) {
     return FALSE;
   }
 
-  ObtainSemaphore(&task_ref_sema);
+  /* CRITICAL: Never deadlock waiting for task_ref_sema. */
+  sem_tries = 0;
+  while(!AttemptSemaphore(&task_ref_sema))
+  {  if(Checktaskbreak()) return FALSE;
+     sem_tries++;
+     if(sem_tries >= 200) return FALSE;
+     Delay(1);
+  }
 
   /* Search for existing entry for this task */
   ref = task_ref_list;
@@ -204,12 +298,20 @@ static BOOL DecrementTaskRef(struct Task *task) {
   struct TaskRefCount *ref;
   struct TaskRefCount *prev;
   BOOL is_last = FALSE;
+  int sem_tries;
 
   if (!task) {
     return FALSE;
   }
 
-  ObtainSemaphore(&task_ref_sema);
+  /* CRITICAL: Never deadlock waiting for task_ref_sema. */
+  sem_tries = 0;
+  while(!AttemptSemaphore(&task_ref_sema))
+  {  if(Checktaskbreak()) return FALSE;
+     sem_tries++;
+     if(sem_tries >= 200) return FALSE;
+     Delay(1);
+  }
 
   /* Search for entry for this task */
   prev = NULL;
@@ -249,13 +351,21 @@ static int *GetTaskErrno(void) {
   struct Task *task;
   struct TaskRefCount *ref;
   int *task_errno = NULL;
+  int sem_tries;
 
   task = FindTask(NULL);
   if (!task) {
     return NULL;
   }
 
-  ObtainSemaphore(&task_ref_sema);
+  /* CRITICAL: Never deadlock waiting for task_ref_sema. */
+  sem_tries = 0;
+  while(!AttemptSemaphore(&task_ref_sema))
+  {  if(Checktaskbreak()) return NULL;
+     sem_tries++;
+     if(sem_tries >= 200) return NULL;
+     Delay(1);
+  }
 
   /* Search for entry for this task */
   ref = task_ref_list;
@@ -858,7 +968,14 @@ static void debug_printf(const char *format, ...) {
   task_id = get_task_id();
 
   if (debug_log_sema_initialized) {
-    ObtainSemaphore(&debug_log_sema);
+    int tries = 0;
+    while (!AttemptSemaphore(&debug_log_sema)) {
+      tries++;
+      if (tries >= 200) {
+        return;
+      }
+      Delay(1);
+    }
   }
 
   printf("[TASK:0x%08lX] ", task_id);
@@ -879,13 +996,25 @@ static void debug_printf(const char *format, ...) {
 static SSL_CTX *GetSharedSSLCTX(void) {
   SSL_CTX *ctx = NULL;
   const SSL_METHOD *method = NULL;
+  int sem_tries;
   
   if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 || (ULONG)AmiSSLBase >= 0xFFFFFFF0) {
     debug_printf("DEBUG: GetSharedSSLCTX: ERROR - AmiSSLBase is invalid (%p)\n", AmiSSLBase);
     return NULL;
   }
   
-  ObtainSemaphore(&ssl_init_sema);
+  /* CRITICAL: Never deadlock waiting for ssl_init_sema. */
+  sem_tries = 0;
+  while(!AttemptSemaphore(&ssl_init_sema))
+  {  if(Checktaskbreak()) return NULL;
+     sem_tries++;
+     if(sem_tries >= 200)
+     {  debug_printf("DEBUG: GetSharedSSLCTX: Timeout waiting for ssl_init_sema (%ld tries)\n",
+              (long)sem_tries);
+        return NULL;
+     }
+     Delay(1);
+  }
   
   /* If shared SSL_CTX already exists, increment reference count and return it */
   /* CRITICAL: Check if shared_sslctx is still valid - it might have been freed */
@@ -1182,6 +1311,8 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
     assl->ssl = NULL;
     assl->sslctx = NULL;
     assl->hostname = NULL;
+    assl->socketbase = socketbase;
+    assl->sock = -1;
     debug_printf("DEBUG: Assl_initamissl: Initialized per-object semaphore and "
                  "set closed=FALSE\n");
 
@@ -1385,6 +1516,8 @@ static int __saveds __stdargs Certcallback(int ok, X509_STORE_CTX *sctx) {
 __asm void Assl_cleanup(register __a0 struct Assl *assl) {
   struct Task *task;
   BOOL should_cleanup_amissl;
+  int sem_tries;
+  BOOL sem_acquired;
 
   /* Only cleanup if we have a valid Assl struct */
   if (assl) {
@@ -1392,7 +1525,20 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl) {
 
     /* CRITICAL: Protect cleanup with semaphore to prevent race conditions */
     /* Wait for any active operations to complete */
-    ObtainSemaphore(&assl->use_sema);
+    /* CRITICAL: Cleanup must never block indefinitely (exit path). */
+    sem_tries = 0;
+    sem_acquired = FALSE;
+    while(!AttemptSemaphore(&assl->use_sema))
+    {  if(Checktaskbreak()) break;
+       sem_tries++;
+       if(sem_tries >= 200)
+       {  debug_printf("DEBUG: Assl_cleanup: Timeout waiting for use_sema (%ld tries), skipping Assl_closessl\n",
+                  (long)sem_tries);
+          return;
+       }
+       Delay(1);
+    }
+    sem_acquired = TRUE;
 
     /* 1. Ensure SSL connection is closed */
     /* Assl_closessl will free ssl and sslctx */
@@ -1402,7 +1548,7 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl) {
 
 
     /* Release semaphore */
-    ReleaseSemaphore(&assl->use_sema);
+    if(sem_acquired) ReleaseSemaphore(&assl->use_sema);
 
     /* 3. CRITICAL: Decrement task reference count and call CleanupAmiSSL() if needed */
     /* Per AmiSSL developer recommendation: call CleanupAmiSSL() for ALL tasks
@@ -1468,7 +1614,19 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
       return FALSE;
     }
     debug_printf("DEBUG: Assl_openssl: Obtaining SSL init semaphore\n");
-    ObtainSemaphore(&ssl_init_sema);
+    {  int sem_tries;
+       sem_tries = 0;
+       while(!AttemptSemaphore(&ssl_init_sema))
+       {  if(Checktaskbreak()) return FALSE;
+          sem_tries++;
+          if(sem_tries >= 200)
+          {  debug_printf("DEBUG: Assl_openssl: Timeout waiting for ssl_init_sema (%ld tries)\n",
+                    (long)sem_tries);
+             return FALSE;
+          }
+          Delay(1);
+       }
+    }
     debug_printf("DEBUG: Assl_openssl: SSL init semaphore obtained\n");
 
     /* InitAmiSSL() handles OpenSSL initialization - no need to call
@@ -1743,7 +1901,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
       return;
     }
 
-    /* Shutdown SSL connection gracefully before freeing */
+    /* Shutdown SSL connection before freeing */
     /* This ensures SSL is properly disconnected from socket */
     /* Use global AmiSSLBase directly */
     if (AmiSSLBase && (ULONG)AmiSSLBase >= 0x1000 &&
@@ -1761,20 +1919,35 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
        * corrupted */
       if (assl->ssl && (ULONG)assl->ssl >= 0x1000 &&
           (ULONG)assl->ssl < 0xFFFFFFF0) {
-        /* Try to shutdown gracefully, but don't crash if it fails */
-        /* If socket is already closed, SSL_shutdown() may fail, which is OK */
+        long nb;
+        struct Library *saved;
+        int shut_rc;
+        int shut_err;
+
+        /* CRITICAL: Never allow cleanup to block. Put socket into non-blocking
+         * mode for shutdown attempt. */
+        nb = 1;
+        if (assl->sock >= 0 && assl->socketbase) {
+          saved = AcquireSocketBaseSwap(assl->socketbase);
+          IoctlSocket((int)assl->sock, FIONBIO, (char *)&nb);
+          ReleaseSocketBaseSwap(saved);
+        }
+
         debug_printf(
-            "DEBUG: Assl_closessl: Calling SSL_shutdown() on SSL object %p\n",
+            "DEBUG: Assl_closessl: Calling SSL_shutdown() on SSL object %p (non-blocking)\n",
             assl->ssl);
-        /* SSL_shutdown() returns:
-         *   1 = shutdown complete
-         *   0 = shutdown not yet complete (need to call again)
-         *  -1 = error (socket closed, etc.) - this is OK during cleanup */
-        SSL_shutdown(assl->ssl); /* First call - send close_notify */
-        /* No error checking in cleanup path - errors don't matter during cleanup */
-        /* Try second call if first succeeded (returned 0, not -1) */
-        /* Note: We don't wait for peer's close_notify in second call to avoid
-         * blocking - just send our close_notify and free */
+
+        shut_rc = SSL_shutdown(assl->ssl);
+        if (shut_rc == 0) {
+          /* Not finished; try once more if socket becomes readable/writable. */
+          shut_err = SSL_get_error(assl->ssl, shut_rc);
+          if (shut_err == SSL_ERROR_WANT_READ || shut_err == SSL_ERROR_WANT_WRITE) {
+            (void)Assl_wait_io(assl, BOOLVAL(shut_err == SSL_ERROR_WANT_READ),
+                               BOOLVAL(shut_err == SSL_ERROR_WANT_WRITE), 2);
+            (void)SSL_shutdown(assl->ssl);
+          }
+        }
+        /* No further waiting in cleanup path. */
       } else {
         debug_printf("DEBUG: Assl_closessl: Skipping SSL_shutdown - invalid "
                      "SSL object (%p)\n",
@@ -1792,10 +1965,26 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
             "Skipping SSL object cleanup.\n");
         return;
       }
-      debug_printf("DEBUG: Assl_closessl: Obtaining SSL init semaphore for "
-                   "object destruction\n");
-      ObtainSemaphore(&ssl_init_sema);
-      debug_printf("DEBUG: Assl_closessl: SSL init semaphore obtained\n");
+      /* CRITICAL: Cleanup must never block indefinitely on exit.
+       * If another task died while holding ssl_init_sema, ObtainSemaphore()
+       * would wedge the whole browser on exit. Use a bounded AttemptSemaphore()
+       * loop and skip cleanup if we can't acquire it. */
+      {  int sem_tries;
+         debug_printf("DEBUG: Assl_closessl: Obtaining SSL init semaphore for "
+                      "object destruction\n");
+         sem_tries = 0;
+         while(!AttemptSemaphore(&ssl_init_sema))
+         {  if(Checktaskbreak()) break;
+            sem_tries++;
+            if(sem_tries >= 200)
+            {  debug_printf("DEBUG: Assl_closessl: Timeout waiting for SSL init semaphore (%ld tries), skipping SSL_free/SSL_CTX_free\n",
+                      (long)sem_tries);
+               return;
+            }
+            Delay(1);
+         }
+         debug_printf("DEBUG: Assl_closessl: SSL init semaphore obtained\n");
+      }
 
       /* Re-validate SSL object and AmiSSLBase before SSL_free() */
       /* CRITICAL: SSL_free() can crash if SSL object is corrupted or already
@@ -1928,6 +2117,9 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   local_ssl = assl->ssl;
   ReleaseSemaphore(&assl->use_sema);
 
+  /* Store socket info for later I/O readiness waiting. */
+  assl->sock = sock;
+
   /* SocketBase is set globally and used directly */
 
   /* CRITICAL: Set SocketBase to the connection's socketbase before any socket
@@ -2017,7 +2209,24 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   /* CRITICAL: NO SEMAPHORE PROTECTION - SSL_connect() is thread-safe
    * per-connection */
   /* Use local_ssl which we validated while holding the semaphore */
+  /* Perform the Handshake.
+   * Avoid indefinite blocking: drive SSL_connect() with WaitSelect on WANT_READ/WANT_WRITE.
+   */
   ssl_result = SSL_connect(local_ssl);
+  if(ssl_result != 1)
+  {  ssl_error = SSL_get_error(local_ssl, ssl_result);
+     while(ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)
+     {  if(Checktaskbreak()) { debug_printf("DEBUG: Assl_connect: Task break during SSL_connect\n"); return ASSLCONNECT_FAIL; }
+        if(!Assl_wait_io(assl, BOOLVAL(ssl_error == SSL_ERROR_WANT_READ),
+                         BOOLVAL(ssl_error == SSL_ERROR_WANT_WRITE), 15))
+        {  debug_printf("DEBUG: Assl_connect: Timeout waiting for SSL_connect I/O\n");
+           return ASSLCONNECT_FAIL;
+        }
+        ssl_result = SSL_connect(local_ssl);
+        if(ssl_result == 1) break;
+        ssl_error = SSL_get_error(local_ssl, ssl_result);
+     }
+  }
 
   /* Re-acquire semaphore to check if object is still valid after SSL_connect() */
   ObtainSemaphore(&assl->use_sema);
@@ -2328,6 +2537,14 @@ __asm long Assl_write(register __a0 struct Assl *assl,
         /* Perform the write - NO SEMAPHORE PROTECTION during blocking I/O */
         /* SSL_write() is thread-safe per-connection and performs blocking
          * network I/O */
+        /* Avoid indefinite blocking: wait for write readiness first. */
+        if(!Assl_wait_io(assl, FALSE, TRUE, 15))
+        {  debug_printf("DEBUG: Assl_write: Timeout waiting for socket writable\n");
+           ObtainSemaphore(&assl->use_sema);
+           ReleaseSemaphore(&assl->use_sema);
+           errno = ETIMEDOUT;
+           return -1;
+        }
         result = SSL_write(local_ssl, buffer, length);
         debug_printf("DEBUG: Assl_write: SSL_write() returned %ld\n", result);
 
@@ -2550,8 +2767,10 @@ __asm long Assl_read(register __a0 struct Assl *assl,
   SSL *ssl_for_error;  /* Local copy of SSL pointer for SSL_get_error() calls */
   long ssl_error;
   long errno_value;
-  long retry_result;
-  long retry_ssl_error;
+  long io_attempts;    /* Bound SSL_read WANT_READ/WANT_WRITE retries */
+  long last_ssl_error; /* SSL_get_error from non-blocking read loop; -1 if unset */
+  long nb_val;         /* FIONBIO 0/1 */
+  struct Library *saved_sockop;
   /* CRITICAL: Shadow global AmiSSLBase */
   /* struct Library *AmiSSLBase = NULL; */ /* Removed - use global directly */
   /* struct Library *local_amisslbase = NULL; */ /* Removed */
@@ -2632,19 +2851,78 @@ __asm long Assl_read(register __a0 struct Assl *assl,
 
         debug_printf("DEBUG: Assl_read: Calling SSL_read()\n");
 
-        /* Perform the read - NO SEMAPHORE PROTECTION during blocking I/O */
-        /* SSL_read() is thread-safe per-connection and performs blocking
-         * network I/O */
-        result = SSL_read(local_ssl, buffer, length);
-        debug_printf("DEBUG: Assl_read: SSL_read() returned %ld\n", result);
+        /* Non-blocking SSL_read loop: when the socket is blocking, skipping
+         * Assl_wait_io because SSL_pending()!=0 can still leave SSL_read()
+         * blocked waiting for ciphertext. FIONBIO + WANT_READ/WANT_WRITE
+         * keeps all waits inside Assl_wait_io (15s cap). */
+        nb_val = 1;
+        if (assl->sock >= 0 && assl->socketbase) {
+          saved_sockop = AcquireSocketBaseSwap(assl->socketbase);
+          IoctlSocket((int)assl->sock, FIONBIO, (char *)&nb_val);
+          ReleaseSocketBaseSwap(saved_sockop);
+        }
 
-        /* CRITICAL: Re-acquire semaphore to check if object is still valid */
-        /* SSL object may have been freed during the blocking SSL_read() call */
+        io_attempts = 0;
+        last_ssl_error = -1;
+        result = -1;
+        for (;;) {
+          io_attempts++;
+          if (io_attempts > 200) {
+            debug_printf(
+                "DEBUG: Assl_read: SSL_read I/O loop limit exceeded\n");
+            errno = ETIMEDOUT;
+            result = -1;
+            last_ssl_error = SSL_ERROR_SSL;
+            break;
+          }
+          result = SSL_read(local_ssl, buffer, length);
+          debug_printf("DEBUG: Assl_read: SSL_read() returned %ld\n", result);
+          if (result > 0) {
+            break;
+          }
+          if (result == 0) {
+            last_ssl_error = SSL_ERROR_ZERO_RETURN;
+            break;
+          }
+          ssl_error = SSL_get_error(local_ssl, result);
+          debug_printf(
+              "DEBUG: Assl_read: SSL_read() returned -1, SSL_get_error=%ld\n",
+              ssl_error);
+          if (ssl_error == SSL_ERROR_WANT_READ) {
+            if (!Assl_wait_io(assl, TRUE, FALSE, 15)) {
+              debug_printf(
+                  "DEBUG: Assl_read: Timeout waiting for socket readable\n");
+              errno = ETIMEDOUT;
+              result = -1;
+              last_ssl_error = SSL_ERROR_WANT_READ;
+              break;
+            }
+            continue;
+          }
+          if (ssl_error == SSL_ERROR_WANT_WRITE) {
+            if (!Assl_wait_io(assl, FALSE, TRUE, 15)) {
+              debug_printf(
+                  "DEBUG: Assl_read: Timeout waiting for socket writable\n");
+              errno = ETIMEDOUT;
+              result = -1;
+              last_ssl_error = SSL_ERROR_WANT_WRITE;
+              break;
+            }
+            continue;
+          }
+          last_ssl_error = ssl_error;
+          break;
+        }
+
+        nb_val = 0;
+        if (assl->sock >= 0 && assl->socketbase) {
+          saved_sockop = AcquireSocketBaseSwap(assl->socketbase);
+          IoctlSocket((int)assl->sock, FIONBIO, (char *)&nb_val);
+          ReleaseSocketBaseSwap(saved_sockop);
+        }
+
         ObtainSemaphore(&assl->use_sema);
-        
-        /* Check if connection was closed while SSL_read() was blocking */
-        /* This prevents use-after-free crashes if Assl_closessl() was called
-         * concurrently */
+
         if (assl->closed || !assl->ssl || !assl->sslctx) {
           debug_printf("DEBUG: Assl_read: Connection was closed during "
                        "SSL_read() (closed=%d, ssl=%p, sslctx=%p)\n",
@@ -2652,133 +2930,45 @@ __asm long Assl_read(register __a0 struct Assl *assl,
           ReleaseSemaphore(&assl->use_sema);
           return -1;
         }
-        
-        /* Validate AmiSSLBase is still valid */
+
         if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 ||
             (ULONG)AmiSSLBase >= 0xFFFFFFF0) {
           debug_printf("DEBUG: Assl_read: AmiSSLBase became invalid during "
-                       "SSL_read() (%p)\n", AmiSSLBase);
+                       "SSL_read() (%p)\n",
+                       AmiSSLBase);
           ReleaseSemaphore(&assl->use_sema);
           return -1;
         }
-        
-        /* CRITICAL: If SSL_read() returns -1, we MUST check SSL_get_error() */
-        /* to determine the actual error condition */
-        /* Re-acquire semaphore to get local copy of SSL pointer for SSL_get_error() */
-        if (result < 0) {
-          ObtainSemaphore(&assl->use_sema);
-          if (assl->closed || !assl->ssl || !assl->sslctx) {
-            ReleaseSemaphore(&assl->use_sema);
-            return -1;
-          }
-          ssl_for_error = assl->ssl;
+
+        if (result > 0) {
           ReleaseSemaphore(&assl->use_sema);
+          return result;
+        }
+        if (result == 0) {
+          ReleaseSemaphore(&assl->use_sema);
+          debug_printf("DEBUG: Assl_read: SSL_read() returned 0 (EOF)\n");
+          return 0;
+        }
+        if (errno == ETIMEDOUT) {
+          ReleaseSemaphore(&assl->use_sema);
+          return -1;
+        }
 
-          ssl_error = SSL_get_error(ssl_for_error, result);
-          debug_printf(
-              "DEBUG: Assl_read: SSL_read() returned -1, SSL_get_error=%ld\n",
-              ssl_error);
+        ssl_for_error = assl->ssl;
+        ReleaseSemaphore(&assl->use_sema);
 
-          /* Check SSL error type */
-          if (ssl_error == SSL_ERROR_WANT_READ ||
-              ssl_error == SSL_ERROR_WANT_WRITE) {
-            /* SSL wants more I/O - for blocking sockets, this should be rare */
-            /* It can occur during SSL renegotiation or when OpenSSL's internal
-             * buffer is full */
-            /* For blocking sockets, retry once - the socket will block until
-             * ready or timeout */
-            debug_printf("DEBUG: Assl_read: SSL wants I/O (WANT_READ=%d, "
-                         "WANT_WRITE=%d) - retrying once on blocking socket\n",
-                         ssl_error == SSL_ERROR_WANT_READ,
-                         ssl_error == SSL_ERROR_WANT_WRITE);
-            check_ssl_error("SSL_read (WANT_IO)", AmiSSLBase);
+        ssl_error =
+            (last_ssl_error >= 0) ? last_ssl_error
+                                  : SSL_get_error(ssl_for_error, result);
+        debug_printf(
+            "DEBUG: Assl_read: SSL_read() final error branch, SSL_get_error=%ld\n",
+            ssl_error);
 
-            /* Retry the read once - on blocking socket, this will block until
-             * data arrives or timeout */
-            /* This handles cases where OpenSSL needs more network I/O before it
-             * can decrypt data */
-            {
-              /* Re-acquire semaphore to check if object is still valid before retry */
-              ObtainSemaphore(&assl->use_sema);
-              if (assl->closed || !assl->ssl || !assl->sslctx) {
-                debug_printf(
-                    "DEBUG: Assl_read: Connection closed before retry\n");
-                ReleaseSemaphore(&assl->use_sema);
-                return -1;
-              }
-              local_ssl = assl->ssl;
-              ReleaseSemaphore(&assl->use_sema);
-
-              debug_printf("DEBUG: Assl_read: Retrying SSL_read() for "
-                           "WANT_READ/WANT_WRITE\n");
-              retry_result = SSL_read(local_ssl, buffer, length);
-
-              /* Re-acquire semaphore to check if object is still valid after retry */
-              ObtainSemaphore(&assl->use_sema);
-              if (assl->closed || !assl->ssl || !assl->sslctx) {
-                debug_printf(
-                    "DEBUG: Assl_read: Connection closed during retry\n");
-                ReleaseSemaphore(&assl->use_sema);
-                return -1;
-              }
-              ReleaseSemaphore(&assl->use_sema);
-
-              if (retry_result > 0) {
-                /* Success - return the result */
-                debug_printf(
-                    "DEBUG: Assl_read: Retry succeeded, read %ld bytes\n",
-                    retry_result);
-                return retry_result;
-              } else if (retry_result == 0) {
-                /* EOF - connection closed cleanly */
-                debug_printf("DEBUG: Assl_read: Retry returned 0 (EOF)\n");
-                return 0;
-              } else {
-                /* Check error type on retry */
-                /* Re-acquire semaphore to get local copy of SSL pointer */
-                ObtainSemaphore(&assl->use_sema);
-                if (assl->closed || !assl->ssl || !assl->sslctx) {
-                  ReleaseSemaphore(&assl->use_sema);
-                  return -1;
-                }
-                ssl_for_error = assl->ssl;
-                ReleaseSemaphore(&assl->use_sema);
-                
-                retry_ssl_error = SSL_get_error(ssl_for_error, retry_result);
-                debug_printf(
-                    "DEBUG: Assl_read: Retry returned -1, SSL_get_error=%ld\n",
-                    retry_ssl_error);
-
-                if (retry_ssl_error == SSL_ERROR_ZERO_RETURN) {
-                  debug_printf(
-                      "DEBUG: Assl_read: Retry got ZERO_RETURN (EOF)\n");
-                  return 0;
-                } else if (retry_ssl_error == SSL_ERROR_WANT_READ ||
-                           retry_ssl_error == SSL_ERROR_WANT_WRITE) {
-                  /* Still WANT_READ/WANT_WRITE after retry - this is unusual
-                   * for blocking socket */
-                  debug_printf("DEBUG: Assl_read: Retry still returned "
-                               "WANT_READ/WANT_WRITE\n");
-
-                  if (httpdebug) {
-                    print_ssl_errors_bio("SSL_read (WANT_IO after retry)",
-                                         AmiSSLBase);
-                  }
-
-                  /* CRITICAL FIX: Set errno so http.c knows to wait */
-                  errno = 35; /* EWOULDBLOCK / EAGAIN */
-
-                  return -1;
-                } else {
-                  /* Different error - return it */
-                  debug_printf("DEBUG: Assl_read: Retry got different error "
-                               "(%ld), returning -1\n",
-                               retry_ssl_error);
-                  return -1;
-                }
-              }
-            }
-          } else if (ssl_error == SSL_ERROR_SYSCALL) {
+        if (ssl_error == SSL_ERROR_WANT_READ ||
+            ssl_error == SSL_ERROR_WANT_WRITE) {
+          errno = EWOULDBLOCK;
+          return -1;
+        } else if (ssl_error == SSL_ERROR_SYSCALL) {
             /* System call error - check errno */
             errno_value = errno;
             debug_printf("DEBUG: Assl_read: SSL_ERROR_SYSCALL (errno=%ld)\n",
@@ -2827,18 +3017,6 @@ __asm long Assl_read(register __a0 struct Assl *assl,
             }
             return -1;
           }
-        } else if (result == 0) {
-          /* SSL_read() returned 0 - this means EOF (connection closed) */
-          /* Note: We already released the semaphore above, so no need to release again */
-          debug_printf("DEBUG: Assl_read: SSL_read() returned 0 (EOF)\n");
-          return 0;
-        } else {
-          /* Success - return number of bytes read */
-          /* check_ssl_error("SSL_read", AmiSSLBase); */ /* Don't check error on
-                                                            success to avoid log
-                                                            spam */
-          return result;
-        }
       } else {
         debug_printf(
             "DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n",

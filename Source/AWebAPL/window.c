@@ -784,9 +784,7 @@ static BOOL Openwindow(struct Awindow *win)
    void *buttonrow;
    ULONG bgrgb[3];
    short i;
-   if(httpdebug)
-   {  printf("[CRASH_TRACE] Openwindow: entry win=%p frame=%p\n", win, win->frame);
-   }
+   /* trace removed */
    url=(void *)Agetattr(win->frame,AOFRM_Url);
    urlname=(UBYTE *)Agetattr(url,AOURL_Url);
    if(ISEMPTY(&win->urlpoplist))
@@ -1266,10 +1264,7 @@ static BOOL Openwindow(struct Awindow *win)
    {
       win->appwindow=AddAppWindow(win->key,0,win->window,appwindowport,TAG_END);
    }
-   if(httpdebug)
-   {  printf("[CRASH_TRACE] Openwindow: layout complete, toolbar and HTML view frame ready, win=%p frame=%p\n",
-             win, win->frame);
-   }
+   /* trace removed */
    return TRUE;
 }
 
