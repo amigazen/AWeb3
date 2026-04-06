@@ -160,8 +160,9 @@
 #define AOWIN_LayoutStyle   (AOWIN_Dummy+51)  /* NEW */
    /* (short) Layout style: 0=classic, 1=modern */
 
-#define AOWIN_    (AOWIN_Dummy+)
-#define AOWIN_    (AOWIN_Dummy+)
+#define AOWIN_Left         (AOWIN_Dummy+52)  /* NEW */
+#define AOWIN_Top          (AOWIN_Dummy+53)  /* NEW */
+   /* (long) Initial outer window position. */
 
 /*--- window relationships ---*/
 

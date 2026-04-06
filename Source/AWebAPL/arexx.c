@@ -78,7 +78,7 @@ static struct Arexxtemplate templates[]=
    ARX_LOADSETTINGS,    "LOADSETTINGS",      "PATH,REQUEST/S",
    ARX_MIMETYPE,        "MIMETYPE",          "NAME/A",
 #ifndef DEMOVERSION
-   ARX_NEW,             "NEW",               "URL/A,NAME/K,RELOAD/S,POST/K,SMART/S",
+   ARX_NEW,             "NEW",               "URL/A,NAME/K,SCREEN/K,LEFT/K/N,TOP/K/N,WIDTH/K/N,HEIGHT/K/N,NONAV/S,RELOAD/S,POST/K,SMART/S",
 #endif
    ARX_OPEN,            "OPEN",              "URL/A,TARGET/K,RELOAD/S,POST/K,SMART/S",
    ARX_OPENREQ,         "OPENREQ",           "FILE/S,PAT=PATTERN/K",

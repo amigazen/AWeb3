@@ -867,11 +867,24 @@ static BOOL Domimetype(struct Arexxcmd *ac,struct Awindow *win,UBYTE *name)
 }
 
 static BOOL Donew(struct Arexxcmd *ac,struct Awindow *oldwin,
-   UBYTE *url,UBYTE *name,BOOL reload,UBYTE *post,BOOL smart)
+   UBYTE *url,UBYTE *name,UBYTE *screenname,long *left,long *top,long *width,long *height,
+   BOOL nonav,BOOL reload,UBYTE *post,BOOL smart)
 {  struct Awindow *win;
+   UBYTE *curscreenname;
+   curscreenname=(UBYTE *)Agetattr(Aweb(),AOAPP_Screenname);
+   if(screenname && *screenname && curscreenname && !STRIEQUAL(screenname,curscreenname))
+   {  /* AppWindows only work on Workbench and the application runs on a single screen.
+       * Ignore requests for other screens. */
+      ac->errorlevel=RXERR_WARNING;
+   }
    win=Anewobject(AOTP_WINDOW,
       AOWIN_Name,name,
+      (left)?AOWIN_Left:TAG_IGNORE,(left)?*left:0,
+      (top)?AOWIN_Top:TAG_IGNORE,(top)?*top:0,
+      (width)?AOWIN_Innerwidth:TAG_IGNORE,(width)?*width:0,
+      (height)?AOWIN_Innerheight:TAG_IGNORE,(height)?*height:0,
       AOWIN_Noproxy,Agetattr(oldwin,AOWIN_Noproxy),
+      (nonav)?AOWIN_Navigation:TAG_IGNORE,(nonav)?FALSE:0,
       TAG_END);
    if(win)
    {  ac->result=Dupstr(win->portname,-1);
@@ -1805,7 +1818,9 @@ BOOL Doarexxcmd(struct Arexxcmd *ac)
          break;
       case ARX_NEW:
          done=Donew(ac,win,(UBYTE *)ac->parameter[0],(UBYTE *)ac->parameter[1],
-            ac->parameter[2],(UBYTE *)ac->parameter[3],ac->parameter[4]);
+            (UBYTE *)ac->parameter[2],(long *)ac->parameter[3],(long *)ac->parameter[4],
+            (long *)ac->parameter[5],(long *)ac->parameter[6],
+            ac->parameter[7],ac->parameter[8],(UBYTE *)ac->parameter[9],ac->parameter[10]);
          break;
       case ARX_OPEN:
          done=Doopen(ac,win,(UBYTE *)ac->parameter[0],(UBYTE *)ac->parameter[1],

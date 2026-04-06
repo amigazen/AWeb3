@@ -1008,7 +1008,13 @@ static BOOL Appopenscreen(struct Application *app,BOOL loadreq)
       }
       UnlockPubScreenList();
       if(!app->screenname) app->screenname=Dupstr("Workbench",-1);
-      if(app->appport=CreateMsgPort())
+   }
+
+   /* AppWindows only work on Workbench, but Workbench can be selected either as
+    * the default public screen or explicitly as a named public screen.
+    * Create the AppWindow port whenever we're actually running on Workbench. */
+   if(!app->appport && app->screenname && STRIEQUAL(app->screenname,"Workbench"))
+   {  if(app->appport=CreateMsgPort())
       {  Setprocessfun(app->appport->mp_SigBit,Processappwindow);
       }
    }

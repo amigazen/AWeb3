@@ -783,6 +783,8 @@ static BOOL Openwindow(struct Awindow *win)
    struct Node *node;
    void *buttonrow;
    ULONG bgrgb[3];
+   long desired_outer_w=0,desired_outer_h=0;
+   long delta_w=0,delta_h=0;
    short i;
    /* trace removed */
    url=(void *)Agetattr(win->frame,AOFRM_Url);
@@ -866,16 +868,18 @@ static BOOL Openwindow(struct Awindow *win)
          }
       }
       
-      if(nextx<0)
-      {  nextx=prefs.winx;
-         nexty=prefs.winy;
+      if(!(win->flags&WINF_USERPOS))
+      {  if(nextx<0)
+         {  nextx=prefs.winx;
+            nexty=prefs.winy;
+         }
+         win->box.Left=nextx;
+         win->box.Top=nexty;
+         nextx+=20;
+         nexty+=8;
+         if(nextx+calc_width>screen_width) nextx=0;
+         if(nexty+calc_height>screen_height) nexty=0;
       }
-      win->box.Left=nextx;
-      win->box.Top=nexty;
-      nextx+=20;
-      nexty+=8;
-      if(nextx+calc_width>screen_width) nextx=0;
-      if(nexty+calc_height>screen_height) nexty=0;
       win->box.Width=calc_width;
       win->box.Height=calc_height;
       if(win->newwidth || win->newheight)
@@ -1241,6 +1245,29 @@ static BOOL Openwindow(struct Awindow *win)
       AddGList(win->window,win->layoutgad,-1,-1,NULL);
    }
    RefreshGList(win->downarrow,win->window,NULL,-1);
+
+   /* If inner dimensions were requested (e.g. window.open), adjust the outer
+    * window size using this window's actual chrome/layout, not another window's. */
+   if((win->newwidth || win->newheight) && win->spacegad)
+   {  delta_w=win->window->Width-win->spacegad->Width;
+      delta_h=win->window->Height-win->spacegad->Height;
+      if(win->newwidth)
+      {  desired_outer_w=win->newwidth+delta_w;
+      }
+      if(win->newheight)
+      {  desired_outer_h=win->newheight+delta_h;
+      }
+      if((desired_outer_w && desired_outer_w!=win->window->Width)
+      || (desired_outer_h && desired_outer_h!=win->window->Height))
+      {  if(!desired_outer_w) desired_outer_w=win->window->Width;
+         if(!desired_outer_h) desired_outer_h=win->window->Height;
+         ChangeWindowBox(win->window,win->window->LeftEdge,win->window->TopEdge,
+            desired_outer_w,desired_outer_h);
+         RefreshGList(win->downarrow,win->window,NULL,-1);
+      }
+      win->newwidth=0;
+      win->newheight=0;
+   }
    Asetattrs(win->frame,
       AOBJ_Width,win->window->Width,
       AOBJ_Height,win->window->Height,
@@ -1508,6 +1535,16 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
             break;
          case AOWIN_Innerheight:
             win->newheight=tag->ti_Data;
+            break;
+         case AOWIN_Left:
+            win->newleft=tag->ti_Data;
+            win->box.Left=win->newleft;
+            win->flags|=WINF_USERPOS;
+            break;
+         case AOWIN_Top:
+            win->newtop=tag->ti_Data;
+            win->box.Top=win->newtop;
+            win->flags|=WINF_USERPOS;
             break;
          case AOBJ_Pointertype:
             Setawinpointer(win,tag->ti_Data);
@@ -2042,6 +2079,7 @@ void *Jopenwindow(struct Jcontext *jc,struct Jobject *opener,
    UBYTE *frag,*basename;
    UBYTE *p;
    short width=0,height=0;
+   short left=-1,top=-1;
    BOOL navs=TRUE,buttons=TRUE;
    if(spec && *spec)
    {  navs=FALSE;
@@ -2052,6 +2090,12 @@ void *Jopenwindow(struct Jcontext *jc,struct Jobject *opener,
          }
          if(STRNIEQUAL(p,"height=",7))
          {  height=atoi(p+7);
+         }
+         if(STRNIEQUAL(p,"left=",5))
+         {  left=atoi(p+5);
+         }
+         if(STRNIEQUAL(p,"top=",4))
+         {  top=atoi(p+4);
          }
          if(STRNIEQUAL(p,"toolbar",7))
          {  navs|=Parsefeature(p+7);
@@ -2071,6 +2115,8 @@ void *Jopenwindow(struct Jcontext *jc,struct Jobject *opener,
          AOWIN_Name,name,
          AOWIN_Innerwidth,width,
          AOWIN_Innerheight,height,
+         (left>=0)?AOWIN_Left:TAG_IGNORE,left,
+         (top>=0)?AOWIN_Top:TAG_IGNORE,top,
          AOWIN_Noproxy,Agetattr(oldwin,AOWIN_Noproxy),
          AOWIN_Navigation,navs,
          AOWIN_Buttonbar,buttons,

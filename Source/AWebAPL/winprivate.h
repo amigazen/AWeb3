@@ -74,6 +74,7 @@ struct Awindow
    struct List urlpoplist;    /* Chooser list */
    struct List userbutlist;   /* User button speedbar list */
    short newwidth,newheight;  /* Inner dimensions set with OM_NEW */
+   short newleft,newtop;      /* Outer position set with OM_NEW */
    USHORT ptrtype;            /* Current pointer type */
    struct AppWindow *appwindow; /* The AppWindow for this window or NULL */
    UBYTE *statustext;         /* Copy of status text */
@@ -95,6 +96,7 @@ struct Awindow
 #define WINF_ANIMON        0x0200   /* Ledgad is on */
 #define WINF_NAVS          0x0400   /* Window wants navigation gadgets */
 #define WINF_BUTTONS       0x0800   /* Window wants userbuttons */
+#define WINF_USERPOS       0x1000   /* Window position set explicitly */
 
 enum GADGET_IDS
 {  GID_HSLIDER=1,GID_VSLIDER,GID_LEFT,GID_RIGHT,GID_UP,GID_DOWN,
