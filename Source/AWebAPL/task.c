@@ -104,6 +104,10 @@ static void __saveds Subtask(void)
    task=process->tc_UserData;
    ObtainSemaphore(&task->runsema);
    ReleaseSemaphore(&startsema);
+   /* Ensure a newly spawned subtask does not inherit a stale Ctrl-C break bit.
+    * Stopping old fetches uses SIGBREAKF_CTRL_C to interrupt blocking I/O; if that
+    * bit leaks into new subtasks, new user-initiated loads can be aborted too. */
+   SetSignal(0, SIGBREAKF_CTRL_C);
    process->pr_WindowPtr=task->windowptr;
    if(task->subport=CreateMsgPort())
    {  task->updport=CreateMsgPort();
@@ -133,6 +137,9 @@ static void __saveds Subtask(void)
 ULONG Waittask(ULONG signals)
 {  ULONG got=0;
    struct Atask *task=FindTask(NULL)->tc_UserData;
+#ifdef DEVELOPER
+   struct Task *thistask;
+#endif
    if(!task->subport->lh_Head->ln_Succ)
    {  
 //KPrintF("%08lx - Wait for %08lx\n",task,signals);
@@ -140,6 +147,11 @@ ULONG Waittask(ULONG signals)
 //KPrintF("%08lx - Wait for %08lx got %08lx\n",task,signals,got);
       if(got&SIGBREAKF_CTRL_C)
       {  /* Reset Ctrl-C flag after Wait() has cleared it... */
+#ifdef DEVELOPER
+         thistask = FindTask(NULL);
+         Printf("DEBUG: Waittask: SIGBREAKF_CTRL_C observed, reasserting (task=%08lx got=%08lx)\n",
+                (ULONG)thistask, got);
+#endif
          SetSignal(SIGBREAKF_CTRL_C,SIGBREAKF_CTRL_C);
       }
       got&=signals;
@@ -174,9 +186,17 @@ struct Taskmsg *Gettaskmsg(void)
    struct Atask *task=FindTask(NULL)->tc_UserData;
    BOOL suspend=FALSE;
    ULONG mask=SetSignal(0,0);
+#ifdef DEVELOPER
+   struct Task *thistask;
+#endif
    for(;;)
    {  if(mask&SIGBREAKF_CTRL_C)
       {  SetSignal(SIGBREAKF_CTRL_C,SIGBREAKF_CTRL_C);
+#ifdef DEVELOPER
+         thistask = FindTask(NULL);
+         Printf("DEBUG: Gettaskmsg: SIGBREAKF_CTRL_C set, returning stopmsg (task=%08lx mask=%08lx)\n",
+                (ULONG)thistask, mask);
+#endif
          return Stopmsg(task);
       }
       ObtainSemaphore(&task->sema);
@@ -258,7 +278,21 @@ void Replytaskmsg(struct Taskmsg *tsm)
 }
 
 BOOL Checktaskbreak(void)
-{  return (BOOL)(SetSignal(0,0)&SIGBREAKF_CTRL_C);
+{  ULONG mask;
+#ifdef DEVELOPER
+   struct Task *thistask;
+#endif
+   mask = SetSignal(0,0);
+   if(mask & SIGBREAKF_CTRL_C)
+   {
+#ifdef DEVELOPER
+      thistask = FindTask(NULL);
+      Printf("DEBUG: Checktaskbreak: SIGBREAKF_CTRL_C set (task=%08lx mask=%08lx)\n",
+             (ULONG)thistask, mask);
+#endif
+      return TRUE;
+   }
+   return FALSE;
 }
 
 long Updatetask(struct Amessage *amsg)
