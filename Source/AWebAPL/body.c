@@ -2074,6 +2074,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             if(bd->marqueedirection)
             {  long dx=0,dy=0;
                long contentw,contenth;
+               void *parent;
                
                /* Get content dimensions */
                Agetattrs(bd,
@@ -2158,8 +2159,14 @@ static long Setbody(struct Body *bd,struct Amset *ams)
                }
                
                /* Trigger render with new scroll position */
-               if(bd->frame)
-               {  Arender(bd,NULL,0,0,AMRMAX,AMRMAX,AMRF_CHANGED,NULL);
+               parent=bd->parent;
+               if(parent)
+               {  /* Don't call Arender() directly from the app timer tick.
+                   * Schedule the normal incremental update path instead.
+                   *
+                   * Important: avoid forcing a full layout pass from a periodic
+                   * timer tick. Marquees should only request a redraw/update. */
+                  Asetattrs(parent,AOBJ_Changedchild,bd,TAG_END);
                }
             }
             break;
@@ -2465,7 +2472,6 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
    struct Colorinfo *ci;
    short valign=-1;
    BOOL ispre;
-   extern BOOL httpdebug;
    short savedfonttype;
    BOOL forcedfixed;
    UBYTE *savedface;
@@ -2515,16 +2521,6 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
       /* Use link text color if link is active and custom color is set */
       if(bd->bld->link && bd->linktextcolor)
       {  ci = bd->linktextcolor;
-      }
-      if(httpdebug && ispre)
-      {  struct Fontinfo *fi;
-         fi = bd->bld->font.first;
-         printf("[PRE_FONT] Addchild: child=%p body=%p frame=%p font=%p face=%s size=%d fixed=%d fi->type=%d\n",
-            ama->child, bd, bd->frame, of ? of->font : NULL,
-            (fi && fi->face) ? (char *)fi->face : "NULL",
-            (fi ? (int)fi->size : -1),
-            (int)bd->bld->fonttype,
-            (fi ? (int)fi->type : -1));
       }
       Asetattrs(ama->child,
          AOELT_Link,bd->bld->link,

@@ -310,9 +310,8 @@ void Dataurltask(struct Fetchdriver *fd)
       /* Set content type first */
       Updatetaskattrs(AOURL_Contenttype, content_type, TAG_END);
       
-      /* Register decoded data in unified registry for persistence
-       * This keeps the data in RAM for the document lifetime
-       * For data: URLs, referer_url is NULL and part_id is the full data: URL string (with "data:" prefix) */
+      /* Register decoded data in unified registry for persistence.
+       * Tie data: URLs to the owning document referer so they are released on document close. */
       if(data && datalen > 0 && data_uri)
       {  UBYTE *full_data_url;
          long full_url_len;
@@ -323,7 +322,7 @@ void Dataurltask(struct Fetchdriver *fd)
          if(full_data_url)
          {  strcpy(full_data_url, "data:");
             strcat(full_data_url, data_uri);
-            Registercidpart(NULL, full_data_url, content_type, data, datalen);
+            Registercidpart(fd->referer, full_data_url, content_type, data, datalen);
             FREE(full_data_url); /* Registry owns the data, not the URL string */
          }
          else

@@ -50,29 +50,53 @@ BOOL Initcidregistry(void)
 
 /* Register a part for cid: or data: URL lookup
  * For cid: URLs: referer_url is required, part_id is the Content-ID
- * For data: URLs: referer_url can be NULL, part_id is the full data: URL string */
+ * For data: URLs: referer_url should be the owning document URL, part_id is the full data: URL string */
 void Registercidpart(UBYTE *referer_url, UBYTE *part_id,
                      UBYTE *content_type, UBYTE *data, long datalen)
 {
    struct CidPart *part;
+   struct CidPart *existing;
+   BOOL is_data_url;
    
    if(!part_id || !data || datalen <= 0) return;
-   /* For cid: URLs, referer_url is required; for data: URLs, it can be NULL */
-   if(!referer_url && part_id && strnicmp(part_id, "data:", 5) != 0) return;
+   is_data_url = (strnicmp(part_id, "data:", 5) == 0);
+   /* For cid: URLs, referer_url is required. For data: URLs, we also require referer_url
+    * so that document close can release the decoded buffers. */
+   if(!referer_url) return;
    
    ObtainSemaphore(&cid_sema);
+
+   /* Avoid duplicates: if this referer+part_id already exists, keep the first and
+    * free the incoming data buffer (caller transferred ownership). */
+   for(existing = cid_parts.first; existing->next; existing = existing->next)
+   {
+      if(existing->part_id && STRIEQUAL(existing->part_id, part_id))
+      {
+         if(is_data_url)
+         {
+            if(existing->referer_url && STRIEQUAL(existing->referer_url, referer_url))
+            {
+               FREE(data);
+               ReleaseSemaphore(&cid_sema);
+               return;
+            }
+         }
+         else
+         {
+            if(existing->referer_url && STRIEQUAL(existing->referer_url, referer_url))
+            {
+               FREE(data);
+               ReleaseSemaphore(&cid_sema);
+               return;
+            }
+         }
+      }
+   }
    
    part = (struct CidPart *)AllocVec(sizeof(struct CidPart), MEMF_CLEAR);
    if(part)
    {
-      if(referer_url)
-      {
-         part->referer_url = Dupstr(referer_url, -1);
-      }
-      else
-      {
-         part->referer_url = NULL;
-      }
+      part->referer_url = Dupstr(referer_url, -1);
       part->part_id = Dupstr(part_id, -1);
       if(content_type)
       {
@@ -92,7 +116,7 @@ void Registercidpart(UBYTE *referer_url, UBYTE *part_id,
 
 /* Find a part by referer and part ID (Content-ID for cid:, or data: URL string for data:)
  * For cid: URLs: referer_url is required, part_id is the Content-ID
- * For data: URLs: referer_url can be NULL, part_id is the full data: URL string */
+ * For data: URLs: referer_url should be the owning document URL, part_id is the full data: URL string */
 BOOL Findcidpart(UBYTE *referer_url, UBYTE *part_id,
                  UBYTE **content_type, UBYTE **data, long *datalen)
 {
@@ -109,8 +133,8 @@ BOOL Findcidpart(UBYTE *referer_url, UBYTE *part_id,
    /* Check if this is a data: URL (starts with "data:") */
    is_data_url = (strnicmp(part_id, "data:", 5) == 0);
    
-   /* For cid: URLs, referer_url is required */
-   if(!is_data_url && !referer_url) return FALSE;
+   /* referer_url is required for cleanup and to avoid cross-document collisions. */
+   if(!referer_url) return FALSE;
    
    ObtainSemaphore(&cid_sema);
    
@@ -119,8 +143,10 @@ BOOL Findcidpart(UBYTE *referer_url, UBYTE *part_id,
       if(part->part_id)
       {
          if(is_data_url)
-         {  /* For data: URLs, match by part_id only (full data: URL string) */
-            if(STRIEQUAL(part_id, part->part_id))
+         {  /* For data: URLs, match by referer + full data: URL string */
+            if(part->referer_url
+            && STRIEQUAL(referer_url, part->referer_url)
+            && STRIEQUAL(part_id, part->part_id))
             {
                if(content_type) *content_type = part->content_type;
                if(data) *data = part->data;
@@ -170,7 +196,8 @@ BOOL Findcidpart(UBYTE *referer_url, UBYTE *part_id,
 
 /* Unregister all parts for a referer URL (cleanup)
  * For cid: URLs: unregisters all parts for this referer
- * For data: URLs: pass NULL as referer_url and use part_id as the data: URL string */
+ * For data: URLs: data parts are registered under their owning document's referer URL and
+ * are cleaned up here the same way. */
 void Unregistercidparts(UBYTE *referer_url)
 {
    struct CidPart *part, *next;

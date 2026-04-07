@@ -28,19 +28,6 @@
 #include "docprivate.h"
 #include "jslib.h"
 
-/* External debug flag */
-extern BOOL httpdebug;
-
-/* PRE tag debug printf - only output if httpdebug is enabled */
-static void pre_debug_printf(const char *format, ...)
-{  va_list args;
-   if(!httpdebug) return;
-   va_start(args, format);
-   printf("[PRE-PARSE] ");
-   vprintf(format, args);
-   va_end(args);
-}
-
 #define MAXATTRS 40
 static struct Tagattr tagattr[MAXATTRS];
 
@@ -308,6 +295,7 @@ static struct Chardes chars[]=
    "aelig", 230,
    "agrave",224,
    "amp",   38,
+   "apos",  39,
    "aring", 229,
    "atilde",227,
    "auml",  228,
@@ -1481,6 +1469,13 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
    BOOL removenl;          /* Remove newlines from URL values */
    BOOL skipnewline;       /* Current value of the DPF_SKIPNEWLINE flag */
    long oldsrcpos;
+   BOOL tracetag;
+   USHORT ttype;
+   UBYTE *tname;
+   UBYTE *loopstart;
+   long loopsrcpos;
+   UBYTE *attrloop_lastp;
+   long attrloop_guard;
    /* trace removed */
    /* Skip leading nullbytes and whitespace at document start */
    if((*srcpos)==0)
@@ -1492,12 +1487,34 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
    }
    while(p<end && !(doc->pflags&DPF_SUSPEND))
    {  NEWLIST(&attrs);
+      loopstart=p;
+      loopsrcpos=*srcpos;
       nextattr=0;
       doc->args.length=0;
       skipnewline=BOOLVAL(doc->pflags&DPF_SKIPNEWLINE);
       if(p==end-1 && *p=='<' && !thisisdata) return Eofandexit(doc,eof);
       if(p<end-1 && *p=='<' && (isalpha(p[1]) || p[1]=='/' || p[1]=='!' || p[1]=='?') && !thisisdata)
       {  BOOL endtag=FALSE;
+         /* If we don't yet have the full tag in the current buffer (no closing '>'),
+          * stop parsing and wait for more data. This avoids pathological stalls when
+          * the input buffer ends mid-tag. */
+         if(!eof)
+         {  UBYTE *gt=p;
+            UBYTE q=0;
+            while(gt<end)
+            {  if(q)
+               {  if(*gt==q) q=0;
+               }
+               else
+               {  if(*gt=='\'' || *gt=='"') q=*gt;
+                  else if(*gt=='>') break;
+               }
+               gt++;
+            }
+            if(gt>=end) return TRUE;
+         }
+         attrloop_lastp=NULL;
+         attrloop_guard=0;
          if(++p>=end) return Eofandexit(doc,eof);
          if(*p=='?' && !(doc->pflags&(DPF_XMP|DPF_LISTING|DPF_JSCRIPT)))
          {  /* XML processing instruction: <?target ... ?> */
@@ -1600,12 +1617,27 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                }
             }
             for(;;)
-            {  while(p<end && isspace(*p)) p++;
+            {  while(p<end && Isspace(*p)) p++;
                if(p>=end) return Eofandexit(doc,eof);
                if(*p=='>') break;
                if(doc->htmlmode!=HTML_STRICT && *p=='<')
                {  p--;  /* Don't skip over '<' yet */
                   break;
+               }
+               /* Guard against pathological/non-advancing attribute scans. */
+               if(p==attrloop_lastp)
+               {  attrloop_guard++;
+                  if(attrloop_guard>20000)
+                  {
+                     /* Skip forward to end of tag to recover. */
+                     while(p<end && *p!='>') p++;
+                     if(p>=end) return Eofandexit(doc,eof);
+                     break;
+                  }
+               }
+               else
+               {  attrloop_lastp=p;
+                  attrloop_guard=0;
                }
                ta=Nextattr(doc);
                i=0;q=buf;
@@ -1634,11 +1666,11 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                   }
                }
                else if(tattr) ta->attr=tattr->type;
-               while(p<end && isspace(*p)) p++;
+               while(p<end && Isspace(*p)) p++;
                if(p>=end) return Eofandexit(doc,eof);
                if(*p=='=')
                {  p++;
-                  while(p<end && isspace(*p)) p++;
+                  while(p<end && Isspace(*p)) p++;
                   if(p>=end) return Eofandexit(doc,eof);
                   if(*p=='"' || *p=='\'')
                   {  quote=*p;
@@ -1662,7 +1694,7 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                         {  /* terminate quoted attribute on '>' */
                            if(*q=='>') break;
                            /* terminate URL on whitespace */
-                           if(isspace(*q)
+                           if(Isspace(*q)
                            && (ta->attr==TAGATTR_HREF 
                               || ta->attr==TAGATTR_SRC
                               || ta->attr==TAGATTR_ACTION)) break;
@@ -1671,7 +1703,10 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                         {  if(!Addtobuffer(&doc->args,p,q-p)) return FALSE;
                            ta->length+=(q-p);
                            if(*q=='\r')
-                           {  if(q>=end-1) return Eofandexit(doc,eof);
+                        {  if(q>=end-1)
+                           {  if(!eof) return TRUE;
+                              return Eofandexit(doc,eof);
+                           }
                               if(q[1]=='\n') q++;
                            }
                            if(!Addtobuffer(&doc->args,removenl?"\n":" ",1)) return FALSE;
@@ -1680,14 +1715,22 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                         }
                         else q++;
                      }
-                     if(q>=end) return Eofandexit(doc,eof);
+                     if(q>=end)
+                     {  /* Attribute value continues in next input chunk. */
+                        if(!eof) return TRUE;
+                        return Eofandexit(doc,eof);
+                     }
                      if(!Addtobuffer(&doc->args,p,q-p)) return FALSE;
                      ta->length+=(q-p);
                      p=q;if(*p==quote) p++;
                   }
                   else
                   {  q=p;
-                     while(q<end && !isspace(*q) && *q!='>') q++;
+                     while(q<end && !Isspace(*q) && *q!='>') q++;
+                     if(q>=end)
+                     {  /* Unquoted attribute value continues in next chunk. */
+                        if(!eof) return TRUE;
+                     }
                      if(!Addtobuffer(&doc->args,p,q-p)) return FALSE;
                      ta->length+=(q-p);
                      p=q;
@@ -1720,7 +1763,7 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
          ta->attr=TAGATTR_TEXT;
          tagtype=MARKUP_TEXT;
          while(p<end)
-         {  if(isspace(*p))
+         {  if(Isspace(*p))
             {  if((doc->pflags&(DPF_PREFORMAT|DPF_JSCRIPT))
                && doc->pmode!=DPM_OPTION && doc->pmode!=DPM_TEXTAREA)
                {  if(doc->pflags&DPF_PREFORMAT)
@@ -1887,6 +1930,11 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
             return TRUE;
          }
       }
+      /* Guard against infinite loops: if we didn't advance, force progress. */
+      if(! (doc->pflags&DPF_SUSPEND) && p==loopstart)
+      {  p++;
+         (*srcpos)=p-src->buffer;
+      }
    }
    return Eofandexit(doc,eof);
 }
@@ -1919,7 +1967,7 @@ BOOL Parseplain(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
             doc->charcount+=i;
          }
          else
-         {  if(isspace(*p)) ch=(UBYTE)'\xa0';
+         {  if(Isspace(*p)) ch=(UBYTE)'\xa0';
             else ch=*p;
             if(!Addtobuffer(&doc->args,&ch,1)) return FALSE;
             ta->length++;

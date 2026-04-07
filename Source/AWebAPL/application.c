@@ -1430,7 +1430,7 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
          case AOAPP_Marqueetimer:
             /* Update all marquee elements (timer is only created when needed) */
             if(app->marqueetimer && !ISEMPTY(&app->wantmarquee))
-            {  Broadcast(app,AOREL_APP_WANT_MARQUEE,
+            {  Broadcastsafe(app,AOREL_APP_WANT_MARQUEE,
                   AOAPP_Marquee,TRUE,
                   TAG_END);
                /* Re-arm one-shot timer */
