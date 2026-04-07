@@ -166,7 +166,7 @@ static UBYTE *Getbaseurl(struct Document *doc)
       {  urlname=p+1;
       }
    }
-   return Dupstr(urlname,-1);
+   return Dupstrp(urlname,-1,doc->pool);
 }
 
 /*------------------------------------------------------------------------*/
@@ -250,7 +250,7 @@ static void Reloaddocument(struct Document *doc)
    if(doc->jdomain) FREE(doc->jdomain);
    url=(void *)Agetattr(doc->source->source,AOSRC_Url);
    Getjspart(url,UJP_HOST,&start,&length);
-   doc->jdomain=Dupstr(start,length);
+   doc->jdomain=Dupstrp(start,length,doc->pool);
    Addtobuffer(&doc->text," ",1);
    doc->srcpos=0;
    doc->htmlmode=prefs.htmlmode;

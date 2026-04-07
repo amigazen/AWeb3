@@ -259,11 +259,6 @@ static BOOL Addelement(struct Document *doc,void *elt)
                ApplyCSSToElement(doc, elt);
             }
          }
-         else if(httpdebug && elt)
-         {  ao = (struct Aobject *)elt;
-            printf("[CSS] Addelement: Skipping CSS application - stylesheet=%p, element=%p, type=%d\n",
-                  doc->cssstylesheet, elt, ao->objecttype);
-         }
       }
       else
       {  Adisposeobject(elt);
@@ -1040,7 +1035,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply text-transform */
                   else if(Stricmp((char *)prop->name,"text-transform") == 0)
                   {  UBYTE *transformStr;
-                     transformStr = Dupstr(prop->value, -1);
+                     transformStr = Dupstrp(prop->value, -1, doc->pool);
                      if(transformStr)
                      {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
                         /* Also set document-level text-transform for compatibility */
@@ -1184,7 +1179,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply position */
                   else if(Stricmp((char *)prop->name,"position") == 0)
                   {  UBYTE *posStr;
-                     posStr = Dupstr(prop->value, -1);
+                     posStr = Dupstrp(prop->value, -1, doc->pool);
                      if(posStr)
                      {  Asetattrs(body, AOBDY_Position, posStr, TAG_END);
                      }
@@ -1300,7 +1295,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply clear */
                   else if(Stricmp((char *)prop->name,"clear") == 0)
                   {  UBYTE *clearStr;
-                     clearStr = Dupstr(prop->value, -1);
+                     clearStr = Dupstrp(prop->value, -1, doc->pool);
                      if(clearStr)
                      {  Asetattrs(body, AOBDY_Clear, clearStr, TAG_END);
                      }
@@ -1308,7 +1303,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply overflow */
                   else if(Stricmp((char *)prop->name,"overflow") == 0)
                   {  UBYTE *overflowStr;
-                     overflowStr = Dupstr(prop->value, -1);
+                     overflowStr = Dupstrp(prop->value, -1, doc->pool);
                      if(overflowStr)
                      {  Asetattrs(body, AOBDY_Overflow, overflowStr, TAG_END);
                      }
@@ -1316,7 +1311,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply list-style */
                   else if(Stricmp((char *)prop->name,"list-style") == 0)
                   {  UBYTE *listStyleStr;
-                     listStyleStr = Dupstr(prop->value, -1);
+                     listStyleStr = Dupstrp(prop->value, -1, doc->pool);
                      if(listStyleStr)
                      {  Asetattrs(body, AOBDY_ListStyle, listStyleStr, TAG_END);
                      }
@@ -1356,7 +1351,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply cursor */
                   else if(Stricmp((char *)prop->name,"cursor") == 0)
                   {  UBYTE *cursorStr;
-                     cursorStr = Dupstr(prop->value, -1);
+                     cursorStr = Dupstrp(prop->value, -1, doc->pool);
                      if(cursorStr)
                      {  Asetattrs(body, AOBDY_Cursor, cursorStr, TAG_END);
                      }
@@ -1364,7 +1359,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply text-transform */
                   else if(Stricmp((char *)prop->name,"text-transform") == 0)
                   {  UBYTE *transformStr;
-                     transformStr = Dupstr(prop->value, -1);
+                     transformStr = Dupstrp(prop->value, -1, doc->pool);
                      if(transformStr)
                      {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
                         /* Also set document-level text-transform for compatibility */
@@ -1385,7 +1380,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply white-space */
                   else if(Stricmp((char *)prop->name,"white-space") == 0)
                   {  UBYTE *whitespaceStr;
-                     whitespaceStr = Dupstr(prop->value, -1);
+                     whitespaceStr = Dupstrp(prop->value, -1, doc->pool);
                      if(whitespaceStr)
                      {  Asetattrs(body, AOBDY_WhiteSpace, whitespaceStr, TAG_END);
                         /* Also apply to AOBDY_Nobr for nowrap */
@@ -1542,7 +1537,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   /* Apply border-style */
                   else if(Stricmp((char *)prop->name,"border-style") == 0)
                   {  UBYTE *styleStr;
-                     styleStr = Dupstr(prop->value, -1);
+                     styleStr = Dupstrp(prop->value, -1, doc->pool);
                      if(styleStr)
                      {  Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
                      }
@@ -1683,7 +1678,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      
                      /* Store transform value as-is - will be parsed during layout */
                      /* Supported formats: translate(x, y), translateX(x), translateY(y) */
-                     transformStr = Dupstr(pval, -1);
+                     transformStr = Dupstrp(pval, -1, doc->pool);
                      if(transformStr)
                      {  Asetattrs(body, AOBDY_Transform, transformStr, TAG_END);
                      }
@@ -1745,7 +1740,7 @@ static void Checkid(struct Document *doc,struct Tagattr *tap)
             TAG_END))
          {  Addelement(doc,elt);
             if(frag=PALLOCSTRUCT(Fragment,1,MEMF_PUBLIC,doc->pool))
-            {  frag->name=Dupstr(name,-1);
+            {  frag->name=Dupstrp(name,-1,doc->pool);
                frag->elt=elt;
                ADDTAIL(&doc->fragments,frag);
             }
@@ -2085,7 +2080,7 @@ static void Addinfotext(struct Document *doc,UBYTE *name,UBYTE *content,void *li
    if(name) len+=strlen(name)+2;
    if(content) len+=strlen(content);
    if(it=ALLOCSTRUCT(Infotext,1,0))
-   {  if(it->text=ALLOCTYPE(UBYTE,len+1,MEMF_CLEAR))
+   {  if(it->text=(UBYTE *)Pallocmem(len+1,MEMF_PUBLIC|MEMF_CLEAR,doc->pool))
       {  if(name)
          {  strcpy(it->text,name);
             strcat(it->text,": ");
@@ -2164,7 +2159,7 @@ static BOOL Dobase(struct Document *doc,struct Tagattr *ta)
             }
             break;
          case TAGATTR_TARGET:
-            if(target=Dupstr(ATTR(doc,ta),-1))
+            if(target=Dupstrp(ATTR(doc,ta),-1,doc->pool))
             {  if(doc->target) FREE(doc->target);
                doc->target=target;
             }
@@ -2350,7 +2345,7 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
    if((httpequiv && content && STRIEQUAL(httpequiv,"REFRESH"))
    || (name && content && STRIEQUAL(name,"REFRESH")))
    {  if(doc->clientpull) FREE(doc->clientpull);
-      doc->clientpull=Dupstr(content,-1);
+      doc->clientpull=Dupstrp(content,-1,doc->pool);
       Asetattrs(doc->copy,AOURL_Clientpull,content,TAG_END);
    }
    if(httpequiv && content && STRIEQUAL(httpequiv,"CONTENT-SCRIPT-TYPE"))
@@ -2700,7 +2695,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_ONLOAD:
             if(doc->onload) FREE(doc->onload);
-            doc->onload=Dupstr(ATTR(doc,ta),-1);
+            doc->onload=Dupstrp(ATTR(doc,ta),-1,doc->pool);
             if(doc->jobject && doc->frame)
             {  /* Jobject already exists so we must add our handler to
                  * it belatedly.
@@ -2720,7 +2715,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_ONUNLOAD:
             if(doc->onunload) FREE(doc->onunload);
-            doc->onunload=Dupstr(ATTR(doc,ta),-1);
+            doc->onunload=Dupstrp(ATTR(doc,ta),-1,doc->pool);
             if(doc->jobject && doc->frame)
             {  /* Jobject already exists so we must add our handler to
                  * it belatedly.
@@ -2740,12 +2735,12 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_ONFOCUS:
             if(doc->onfocus) FREE(doc->onfocus);
-            doc->onfocus=Dupstr(ATTR(doc,ta),-1);
+            doc->onfocus=Dupstrp(ATTR(doc,ta),-1,doc->pool);
             if(doc->frame) Asetattrs(doc->frame,AOFRM_Onfocus,doc->onfocus,TAG_END);
             break;
          case TAGATTR_ONBLUR:
             if(doc->onblur) FREE(doc->onblur);
-            doc->onblur=Dupstr(ATTR(doc,ta),-1);
+            doc->onblur=Dupstrp(ATTR(doc,ta),-1,doc->pool);
             if(doc->frame) Asetattrs(doc->frame,AOFRM_Onblur,doc->onblur,TAG_END);
             break;
       }
@@ -2839,7 +2834,7 @@ static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
          case TAGATTR_DIRECTION:
             p=ATTR(doc,ta);
             if(p)
-            {  direction=Dupstr(p,-1);
+            {  direction=Dupstrp(p,-1,doc->pool);
                /* Normalize to lowercase */
                for(p=direction;*p;p++)
                {  if(*p>='A' && *p<='Z') *p=*p+('a'-'A');
@@ -2849,7 +2844,7 @@ static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
          case TAGATTR_BEHAVIOR:
             p=ATTR(doc,ta);
             if(p)
-            {  behavior=Dupstr(p,-1);
+            {  behavior=Dupstrp(p,-1,doc->pool);
                /* Normalize to lowercase */
                for(p=behavior;*p;p++)
                {  if(*p>='A' && *p<='Z') *p=*p+('a'-'A');
@@ -2872,9 +2867,9 @@ static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
    }
    
    /* Default direction is left if not specified */
-   if(!direction) direction=Dupstr((UBYTE *)"left",-1);
+   if(!direction) direction=Dupstrp((UBYTE *)"left",-1,doc->pool);
    /* Default behavior is scroll if not specified */
-   if(!behavior) behavior=Dupstr((UBYTE *)"scroll",-1);
+   if(!behavior) behavior=Dupstrp((UBYTE *)"scroll",-1,doc->pool);
    
    /* Create NEW body element for marquee container */
    Wantbreak(doc,1);
@@ -2891,8 +2886,8 @@ static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
       AOBJ_Cframe,Agetattr(body,AOBJ_Cframe),
       AOBJ_Window,Agetattr(body,AOBJ_Window),
       AOBJ_Layoutparent,body,
-      AOBDY_TagName,Dupstr((UBYTE *)"MARQUEE",-1),
-      AOBDY_Overflow,Dupstr((UBYTE *)"hidden",-1),
+      AOBDY_TagName,Dupstrp((UBYTE *)"MARQUEE",-1,doc->pool),
+      AOBDY_Overflow,Dupstrp((UBYTE *)"hidden",-1,doc->pool),
       CONDTAG(wtag,width),
       CONDTAG(htag,height),
       AOBDY_MarqueeDirection,direction,
@@ -2983,9 +2978,9 @@ static BOOL Docenter(struct Document *doc,struct Tagattr *ta)
    }
    Asetattrs(body,AOBDY_Divalign,HALIGN_CENTER,TAG_END);
    /* Store class/id/tagname on body for CSS matching */
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"CENTER",-1),TAG_END);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"CENTER",-1,doc->pool),TAG_END);
    /* Apply CSS to CENTER element based on its class/id/tagname */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"CENTER");
    Checkid(doc,tap);  /* Use original ta pointer */
@@ -3037,9 +3032,9 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    /* Push DIV onto parse ancestor stack for CSS descendant/child selectors */
    if(doc->divancsp < DIV_ANCESTOR_STACK_MAX)
    {  sp = doc->divancsp;
-      doc->divanc[sp].tagname = Dupstr((UBYTE *)"DIV",-1);
-      doc->divanc[sp].class = class ? Dupstr(class,-1) : NULL;
-      doc->divanc[sp].id = id ? Dupstr(id,-1) : NULL;
+      doc->divanc[sp].tagname = Dupstrp((UBYTE *)"DIV",-1,doc->pool);
+      doc->divanc[sp].class = class ? Dupstrp(class,-1,doc->pool) : NULL;
+      doc->divanc[sp].id = id ? Dupstrp(id,-1,doc->pool) : NULL;
       doc->divancsp = sp + 1;
    }
 
@@ -3064,7 +3059,7 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    Asetattrs(body,AOBDY_Divalign,align,TAG_END);
    /* Store class/id/tagname on body for CSS matching */
    if(class)
-   {  Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   {  Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
       if(httpdebug)
       {  printf("[DIV] Dodiv: Set class='%s' on body=%p\n", (char *)class, body);
       }
@@ -3072,9 +3067,9 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    else
    {  Asetattrs(body,AOBDY_Class,NULL,TAG_END);
    }
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
    else Asetattrs(body,AOBDY_Id,NULL,TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"DIV",-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"DIV",-1,doc->pool),TAG_END);
    if(httpdebug)
    {  printf("[DIV] Dodiv: Set tagname='DIV' on body=%p, class=%s\n", body, (class ? (char *)class : "NULL"));
    }
@@ -3176,9 +3171,9 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
    body = Docbodync(doc);
    Asetattrs(body,AOBDY_Align,align,TAG_END);
    /* Store class/id/tagname on body for CSS matching */
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"P",-1),TAG_END);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"P",-1,doc->pool),TAG_END);
    if(!Ensuresp(doc)) return FALSE;
    Checkid(doc,sentinel);
    /* Apply CSS to body based on class/ID */
@@ -3383,13 +3378,13 @@ static BOOL Dopre(struct Document *doc,struct Tagattr *ta)
    }
    
    /* Set tag name, class, and id on body for CSS matching */
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
    Asetattrs(body,
-      AOBDY_TagName,Dupstr((UBYTE *)"PRE",-1),
+      AOBDY_TagName,Dupstrp((UBYTE *)"PRE",-1,doc->pool),
       AOBDY_Style,STYLE_PRE,
       AOBDY_Fixedfont,TRUE,
-      AOBDY_WhiteSpace,Dupstr((UBYTE *)"pre",-1),  /* Set white-space: pre by default for PRE elements */
+      AOBDY_WhiteSpace,Dupstrp((UBYTE *)"pre",-1,doc->pool),  /* Set white-space: pre by default for PRE elements */
       AOBDY_Nobr,FALSE,  /* PRE elements should not use no-break (allows line breaks in preformatted text) */
       TAG_END);
    
@@ -3541,9 +3536,9 @@ static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
    if((class || id) && doc->doctype==DOCTP_BODY && doc->cssstylesheet)
    {  void *body = Docbody(doc);
       /* Store class/id/tagname on body for CSS matching */
-      if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-      if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
-      Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"SPAN",-1),TAG_END);
+      if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+      if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+      Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"SPAN",-1,doc->pool),TAG_END);
       /* Apply CSS to body based on class/ID */
       if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"SPAN");
    }
@@ -3641,9 +3636,9 @@ static BOOL Doaddress(struct Document *doc,struct Tagattr *ta)
          TAG_END);
    }
    /* Store class/id/tagname on body for CSS matching */
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"ADDRESS",-1),TAG_END);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"ADDRESS",-1,doc->pool),TAG_END);
    /* Apply CSS to ADDRESS element based on its class/id/tagname */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"ADDRESS");
    Checkid(doc,tap);  /* Use original ta pointer */
@@ -3694,9 +3689,9 @@ static BOOL Doblockquote(struct Document *doc,struct Tagattr *ta)
          AOBDY_Blockquote,TRUE,
          TAG_END);
       /* Store class/id/tagname on body for CSS matching */
-      if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-      if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
-      Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"BLOCKQUOTE",-1),TAG_END);
+      if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+      if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+      Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"BLOCKQUOTE",-1,doc->pool),TAG_END);
       /* Apply CSS to body based on class/ID */
       if(doc->cssstylesheet)
       {  if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"BLOCKQUOTE");
@@ -3758,8 +3753,8 @@ static BOOL Doheading(struct Document *doc,short level,struct Tagattr *ta)
          AOBDY_Align,align,
          TAG_END);
       /* Store class/id/tagname on body for CSS matching */
-      if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-      if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+      if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+      if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
       /* Create tagname like "H1", "H2", etc. */
       tagnamebuf[0] = 'H';
       tagnamebuf[1] = '1' + level;
@@ -3917,9 +3912,9 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
    }
    if(!Ensurebody(doc)) return FALSE;
    body = Docbodync(doc);
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"FONT",-1),TAG_END);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"FONT",-1,doc->pool),TAG_END);
    /* Apply CSS to body based on class/ID (before applying FONT attributes) */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"FONT");
    if(sizetag!=TAG_IGNORE || colorrgb!=(ULONG)~0 || face)
@@ -4071,9 +4066,9 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
    if(!Ensurebody(doc)) return FALSE;
    body = Docbodync(doc);
    /* Set class and ID on body for A tags (so ApplyCSSToLink can access them) */
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstrp(class,-1,doc->pool),TAG_END);
    else Asetattrs(body,AOBDY_Class,NULL,TAG_END);
-   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstrp(id,-1,doc->pool),TAG_END);
    else Asetattrs(body,AOBDY_Id,NULL,TAG_END);
    /* Apply CSS to anchor based on class/ID */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"A");
@@ -4128,7 +4123,7 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
          TAG_END))) return FALSE;
       if(!Addelement(doc,elt)) return FALSE;
       if(!(frag=PALLOCSTRUCT(Fragment,1,MEMF_PUBLIC,doc->pool))) return FALSE;
-      frag->name=Dupstr(name,-1);
+      frag->name=Dupstrp(name,-1,doc->pool);
       frag->elt=elt;
       ADDTAIL(&doc->fragments,frag);
    }   
@@ -4885,7 +4880,7 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
    }
    /* Store list class for descendant selector support */
    if(classAttr)
-   {  doc->currentlistclass = Dupstr(classAttr,-1);
+   {  doc->currentlistclass = Dupstrp(classAttr,-1,doc->pool);
    }
    /* Check CSS stylesheet for list-style-type and display:inline */
    if(doc->cssstylesheet && classAttr)
@@ -4989,9 +4984,9 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
    if(!Ensurebody(doc)) return FALSE;
    body = Docbody(doc);
    /* Store class/id/tagname on body for CSS matching */
-   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
-   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"OL",-1),TAG_END);
+   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstrp(classAttr,-1,doc->pool),TAG_END);
+   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstrp(idAttr,-1,doc->pool),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"OL",-1,doc->pool),TAG_END);
    /* Apply CSS to OL element based on its class/id/tagname */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,idAttr,"OL");
    
@@ -5128,7 +5123,7 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    }
    /* Store list class for descendant selector support */
    if(classAttr)
-   {  doc->currentlistclass = Dupstr(classAttr,-1);
+   {  doc->currentlistclass = Dupstrp(classAttr,-1,doc->pool);
    }
    /* Check CSS stylesheet for list-style-type and display:inline */
    if(doc->cssstylesheet && classAttr)
@@ -5216,9 +5211,9 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    body = Docbody(doc);
    /* Store class/id/tagname on body for CSS matching */
    /* Note: UL, DIR, and MENU all use this handler - using "UL" as tag name for CSS */
-   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
-   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"UL",-1),TAG_END);
+   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstrp(classAttr,-1,doc->pool),TAG_END);
+   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstrp(idAttr,-1,doc->pool),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"UL",-1,doc->pool),TAG_END);
    /* Apply CSS to UL element based on its class/id/tagname */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,idAttr,"UL");
    
@@ -5294,10 +5289,10 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
       }
       body = Docbody(doc);
       /* Store tagname on body for CSS matching (needed for element selectors like "li") */
-      Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"LI",-1),TAG_END);
+      Asetattrs(body,AOBDY_TagName,Dupstrp((UBYTE *)"LI",-1,doc->pool),TAG_END);
       /* Store class/id on body for CSS matching */
-      if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
-      if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
+      if(classAttr) Asetattrs(body,AOBDY_Class,Dupstrp(classAttr,-1,doc->pool),TAG_END);
+      if(idAttr) Asetattrs(body,AOBDY_Id,Dupstrp(idAttr,-1,doc->pool),TAG_END);
       /* Apply CSS to LI element based on its own class/id/tagname */
       if(doc->cssstylesheet) ApplyCSSToBody(doc,body,classAttr,idAttr,"LI");
    }
