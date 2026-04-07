@@ -570,7 +570,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "<br clear=\"all\">"
             "<hr>"
             "<p align=\"center\"><strong>%s</strong> %s<br>"
-            "3.6 Alpha 7" __AMIGADATE__ "</p>"
+            "3.6 Beta 8" __AMIGADATE__ "</p>"
             "<hr>"
             "<h2>Web Standards</h2>"
             "<ul>"
