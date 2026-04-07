@@ -1426,6 +1426,12 @@ UBYTE *Fixurlname(UBYTE *name)
 {  UBYTE *p,*begin=NULL,*end=NULL,*fixname;
    short scheme=0;   /* 0=unknown, 1=found, 2=not found */
    long len;
+   UBYTE *colon=NULL;
+   UBYTE *firstnonalnum=NULL;
+   long schemelen=0;
+   BOOL knownscheme=FALSE;
+   BOOL requires_slashslash=FALSE;
+   BOOL allows_noslashslash=FALSE;
    if(!name || !*name) return NULL;
 #ifdef LOCALONLY
    /* In LOCALONLY builds, only treat "file:///" as a scheme */
@@ -1463,11 +1469,85 @@ UBYTE *Fixurlname(UBYTE *name)
       }
    }
    if(!begin || !end) return NULL;
-   len=end-begin;
-   if(scheme!=1) len+=7;  /* "http://" is 7 characters */
+   /* Determine if this looks like a "scheme:" or an Amiga volume path. */
+   for(p=begin;p<end;p++)
+   {  if(*p==':')
+      {  colon=p;
+         break;
+      }
+      if(!isalnum((unsigned char)*p))
+      {  firstnonalnum=p;
+         break;
+      }
+   }
+   if(colon && !firstnonalnum) firstnonalnum=colon;
+
+   if(colon)
+   {  schemelen=colon-begin;
+      /* Identify known schemes. We must not misinterpret "ftp:host" as a volume. */
+      if(STRNIEQUAL(begin,"http",4) && schemelen==4) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"https",5) && schemelen==5) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"ftp",3) && schemelen==3) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"gopher",6) && schemelen==6) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"gemini",6) && schemelen==6) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"spartan",7) && schemelen==7) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"nntp",4) && schemelen==4) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"telnet",6) && schemelen==6) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"file",4) && schemelen==4) { knownscheme=TRUE; /* special validation below */ }
+      else if(STRNIEQUAL(begin,"mailto",6) && schemelen==6) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"news",4) && schemelen==4) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"x-aweb",6) && schemelen==6) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"about",5) && schemelen==5) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"cid",3) && schemelen==3) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"data",4) && schemelen==4) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+
+      if(knownscheme)
+      {  /* Validate syntax for schemes that require '//' (and for file:///) */
+         if(requires_slashslash)
+         {  if(colon+2 >= end) return NULL;
+            if(colon[1]!='/' || colon[2]!='/') return NULL;
+         }
+         else if(!allows_noslashslash)
+         {  /* file: scheme - accept only file:/// and file://localhost/ forms */
+            if(STRNIEQUAL(begin,"file:///",8))
+            {  /* file:/// is valid, including the root volumes view */
+            }
+            else if(STRNIEQUAL(begin,"file://localhost/",17))
+            {  /* ok */
+            }
+            else
+            {  return NULL;
+            }
+         }
+         /* Known scheme that passes validation: return the trimmed string as-is. */
+         len=end-begin;
+         if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+         {  *fixname='\0';
+            strncat(fixname,begin,end-begin);
+         }
+         return fixname;
+      }
+
+      /* Unknown scheme vs. Amiga volume:
+       * If the first non-alphanumeric is ':' and it is NOT immediately followed by '/',
+       * assume this is an Amiga volume path and normalize to file:///VOLUME:... */
+      if(firstnonalnum==colon && (colon+1)<end && colon[1]!='/')
+      {  len=end-begin+8; /* "file:///" (8) + path */
+         if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+         {  strcpy(fixname,"file:///");
+            strncat(fixname,begin,end-begin);
+         }
+         return fixname;
+      }
+
+      /* Otherwise it's an unknown/unsupported scheme. */
+      return NULL;
+   }
+
+   /* No ':' at all: assume http:// */
+   len=end-begin+7;  /* "http://" is 7 characters */
    if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
-   {  *fixname='\0';
-      if(scheme!=1) strcat(fixname,"http://");
+   {  strcpy(fixname,"http://");
       strncat(fixname,begin,end-begin);
    }
    return fixname;
