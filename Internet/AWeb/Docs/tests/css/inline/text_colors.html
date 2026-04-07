@@ -1,0 +1,231 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>CSS Inline Tests - Text + Colors</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<H1>CSS Inline Tests: Text + Colors</H1>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="text"></A>
+<H2>Text Properties</H2>
+
+<H3>text-align - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Three paragraphs with different text alignment - left, center, and right.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-align: left; background-color: #e8e8e8; padding: 10px;">This paragraph should be left-aligned. The text should start at the left edge of the container.</P>
+<P STYLE="text-align: center; background-color: #e8e8e8; padding: 10px;">This paragraph should be center-aligned. The text should be centered within the container.</P>
+<P STYLE="text-align: right; background-color: #e8e8e8; padding: 10px;">This paragraph should be right-aligned. The text should end at the right edge of the container.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-family - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text rendered in different font families. If the specified font is not available, AWeb should fall back to a default font.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-family: Georgia, Times, serif; padding: 10px; background-color: #e8e8e8;">This text should use Georgia font (or Times, or a serif font if neither is available). The font-family property supports comma-separated font lists.</P>
+<P STYLE="font-family: Arial, Helvetica, sans-serif; padding: 10px; background-color: #e8e8e8;">This text should use Arial font (or Helvetica, or a sans-serif font if neither is available).</P>
+<P STYLE="font-family: Courier, monospace; padding: 10px; background-color: #e8e8e8;">This text should use Courier font (or a monospace font if Courier is not available).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-size - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text in various sizes using both absolute and relative font size keywords.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-size: xx-small; padding: 10px; background-color: #e8e8e8;">This text should be extra extra small (xx-small).</P>
+<P STYLE="font-size: x-small; padding: 10px; background-color: #e8e8e8;">This text should be extra small (x-small).</P>
+<P STYLE="font-size: small; padding: 10px; background-color: #e8e8e8;">This text should be small.</P>
+<P STYLE="font-size: medium; padding: 10px; background-color: #e8e8e8;">This text should be medium (default size).</P>
+<P STYLE="font-size: large; padding: 10px; background-color: #e8e8e8;">This text should be large.</P>
+<P STYLE="font-size: x-large; padding: 10px; background-color: #e8e8e8;">This text should be extra large (x-large).</P>
+<P STYLE="font-size: xx-large; padding: 10px; background-color: #e8e8e8;">This text should be extra extra large (xx-large).</P>
+<P STYLE="font-size: smaller; padding: 10px; background-color: #e8e8e8;">This text should be smaller than the base font size (relative).</P>
+<P STYLE="font-size: larger; padding: 10px; background-color: #e8e8e8;">This text should be larger than the base font size (relative).</P>
+<P STYLE="font-size: 12px; padding: 10px; background-color: #e8e8e8;">This text uses font-size: 12px (pixel value for body elements).</P>
+<P STYLE="font-size: 16px; padding: 10px; background-color: #e8e8e8;">This text uses font-size: 16px (pixel value for body elements).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-style - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Normal and italic text styles.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-style: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal (non-italic) style.</P>
+<P STYLE="font-style: italic; padding: 10px; background-color: #e8e8e8;">This text should be in italic style. The font should appear slanted.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-weight - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Normal and bold text weights.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-weight: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal weight (not bold).</P>
+<P STYLE="font-weight: bold; padding: 10px; background-color: #e8e8e8;">This text should be in bold weight. The text should appear thicker.</P>
+<P STYLE="font-weight: 700; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 700 (equivalent to bold).</P>
+<P STYLE="font-weight: 400; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 400 (equivalent to normal).</P>
+<P STYLE="font-weight: 600; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 600 (should be bold, >= 600).</P>
+<P STYLE="font-weight: 500; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 500 (should be normal, < 600).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-decoration - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text with line-through decoration.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-decoration: line-through; padding: 10px; background-color: #e8e8e8;">This text should have a line through it (strikethrough).</P>
+<P STYLE="text-decoration: none; padding: 10px; background-color: #e8e8e8;">This text should have no decoration.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-transform - PASS</H3>
+<P><STRONG>Note:</STRONG> text-transform is parsed and stored, but full rendering support may be limited. The property is applied to document-level text transformation.</P>
+<P><STRONG>What you should see:</STRONG> Text transformed to uppercase, lowercase, and capitalize.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-transform: uppercase; padding: 10px; background-color: #e8e8e8;">this text should be in uppercase</P>
+<P STYLE="text-transform: lowercase; padding: 10px; background-color: #e8e8e8;">THIS TEXT SHOULD BE IN LOWERCASE</P>
+<P STYLE="text-transform: capitalize; padding: 10px; background-color: #e8e8e8;">this text should have the first letter of each word capitalized</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>white-space - PASS</H3>
+<P><STRONG>Note:</STRONG> white-space: nowrap is fully supported via the AOBDY_Nobr attribute.</P>
+<P><STRONG>What you should see:</STRONG> Text with nowrap preventing line breaks.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="white-space: nowrap; padding: 10px; background-color: #e8e8e8;">This is a very long line of text that should not wrap to multiple lines even if it extends beyond the container width because white-space is set to nowrap.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>line-height - PASS</H3>
+<P><STRONG>Note:</STRONG> line-height is parsed and stored. Rendering behavior may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Text with different line heights. Higher line-height values create more space between lines.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="line-height: 1.0; padding: 10px; background-color: #e8e8e8;">This paragraph has line-height: 1.0 (tight spacing).<BR>This is the second line.<BR>This is the third line.</P>
+<P STYLE="line-height: 1.5; padding: 10px; background-color: #e8e8e8;">This paragraph has line-height: 1.5 (normal spacing).<BR>This is the second line.<BR>This is the third line.</P>
+<P STYLE="line-height: 2.0; padding: 10px; background-color: #e8e8e8;">This paragraph has line-height: 2.0 (loose spacing).<BR>This is the second line.<BR>This is the third line.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+<HR>
+
+<A NAME="colors"></A>
+<H2>Color Properties</H2>
+
+<H3>color - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text in various colors specified using hex color codes.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="color: #ff0000; padding: 10px; background-color: #ffffff;">This text should be red (#ff0000).</P>
+<P STYLE="color: #00ff00; padding: 10px; background-color: #ffffff;">This text should be green (#00ff00).</P>
+<P STYLE="color: #0000ff; padding: 10px; background-color: #ffffff;">This text should be blue (#0000ff).</P>
+<P STYLE="color: #8B7355; padding: 10px; background-color: #ffffff;">This text should be a brown/tan color (#8B7355).</P>
+<P STYLE="color: #666666; padding: 10px; background-color: #ffffff;">This text should be gray (#666666).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-color - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text with different background colors. Each paragraph should have a distinct background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-color: #ffcccc; padding: 10px;">This paragraph should have a light red background (#ffcccc).</P>
+<P STYLE="background-color: #ccffcc; padding: 10px;">This paragraph should have a light green background (#ccffcc).</P>
+<P STYLE="background-color: #ccccff; padding: 10px;">This paragraph should have a light blue background (#ccccff).</P>
+<P STYLE="background-color: #F0EDEA; padding: 10px;">This paragraph should have a beige/cream background (#F0EDEA).</P>
+<P STYLE="background-color: #E8E0D8; padding: 10px;">This paragraph should have a tan background (#E8E0D8).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>color (hex vs names) - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text colors using both hex values and CSS color names. Each pair should show the same color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="color: #ff0000; padding: 10px; background-color: #ffffff;">Hex: This text should be red (#ff0000).</P>
+<P STYLE="color: red; padding: 10px; background-color: #ffffff;">Name: This text should be red (color name).</P>
+<P STYLE="color: #0000ff; padding: 10px; background-color: #ffffff;">Hex: This text should be blue (#0000ff).</P>
+<P STYLE="color: blue; padding: 10px; background-color: #ffffff;">Name: This text should be blue (color name).</P>
+<P STYLE="color: #008000; padding: 10px; background-color: #ffffff;">Hex: This text should be green (#008000).</P>
+<P STYLE="color: green; padding: 10px; background-color: #ffffff;">Name: This text should be green (color name).</P>
+<P STYLE="color: #000000; padding: 10px; background-color: #ffffff;">Hex: This text should be black (#000000).</P>
+<P STYLE="color: black; padding: 10px; background-color: #ffffff;">Name: This text should be black (color name).</P>
+<P STYLE="color: #A52A2A; padding: 10px; background-color: #ffffff;">Hex: This text should be brown (#A52A2A).</P>
+<P STYLE="color: brown; padding: 10px; background-color: #ffffff;">Name: This text should be brown (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-color (hex vs names) - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Background colors using both hex values and CSS color names. Each pair should show the same background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-color: #ffcccc; padding: 10px;">Hex: This paragraph should have a light red background (#ffcccc).</P>
+<P STYLE="background-color: #ffcccc; color: red; padding: 10px;">Name: This paragraph should have a light red background with red text (color name).</P>
+<P STYLE="background-color: #ccccff; padding: 10px;">Hex: This paragraph should have a light blue background (#ccccff).</P>
+<P STYLE="background-color: #ccccff; color: blue; padding: 10px;">Name: This paragraph should have a light blue background with blue text (color name).</P>
+<P STYLE="background-color: #ccffcc; padding: 10px;">Hex: This paragraph should have a light green background (#ccffcc).</P>
+<P STYLE="background-color: #ccffcc; color: green; padding: 10px;">Name: This paragraph should have a light green background with green text (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="tests/css/inline/layout_tables.html">Next: Layout + Tables</A></P>
+</BODY>
+</HTML>

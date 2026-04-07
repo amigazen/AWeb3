@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>HTML 3.2 Tests - Text Formatting</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<H1>HTML 3.2 Tests - Text Formatting</H1>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<H2>Text Formatting</H2>
+
+<H3>Fully Supported</H3>
+
+<H4>Headings</H4>
+<P><STRONG>What you should see:</STRONG> Six levels of headings, each progressively smaller.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<H1>Heading Level 1 (H1)</H1>
+<H2>Heading Level 2 (H2)</H2>
+<H3>Heading Level 3 (H3)</H3>
+<H4>Heading Level 4 (H4)</H4>
+<H5>Heading Level 5 (H5)</H5>
+<H6>Heading Level 6 (H6)</H6>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Paragraphs and Line Breaks</H4>
+<P><STRONG>What you should see:</STRONG> Paragraphs with automatic spacing and line breaks creating vertical spacing.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P>This is a paragraph element. Paragraphs group text into logical blocks with automatic spacing.</P>
+<P>This is another paragraph, separated from the previous one.</P>
+<BR>
+This line has a line break before it using the BR element.
+<BR><BR>
+Multiple line breaks create vertical spacing.
+</TD>
+</TR>
+</TABLE>
+
+<H4>Horizontal Rules</H4>
+<P><STRONG>What you should see:</STRONG> Horizontal lines with different widths, sizes, and styles.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<HR>
+<HR WIDTH="50%">
+<HR WIDTH="300" SIZE="5">
+<HR NOSHADE>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Preformatted Text</H4>
+<P><STRONG>What you should see:</STRONG> Text that preserves spacing and line breaks exactly as written.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<PRE>
+This is PRE (preformatted) text.
+It preserves    spacing   and
+line breaks exactly as written.
+</PRE>
+
+<LISTING>
+This is LISTING format.
+Similar to PRE but with monospace font.
+</LISTING>
+
+<XMP>
+This is XMP format.
+Also preserves formatting.
+&lt;HTML&gt; tags shown literally.
+</XMP>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Text Alignment</H4>
+<P><STRONG>What you should see:</STRONG> Text aligned left, center, and right using different methods.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<CENTER>This text is centered using the CENTER tag (HTML 3.2 standard).</CENTER>
+
+<P ALIGN="left">This paragraph is left-aligned (default).</P>
+<P ALIGN="center">This paragraph is center-aligned.</P>
+<P ALIGN="right">This paragraph is right-aligned.</P>
+
+<DIV ALIGN="left">DIV left-aligned</DIV>
+<DIV ALIGN="center">DIV center-aligned</DIV>
+<DIV ALIGN="right">DIV right-aligned</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Block Quotes</H4>
+<P><STRONG>What you should see:</STRONG> Indented block quote text.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<BLOCKQUOTE>
+This is a block quote. It is typically indented to distinguish quoted text from regular paragraphs. Block quotes can contain multiple paragraphs and other elements.
+</BLOCKQUOTE>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Address</H4>
+<P><STRONG>What you should see:</STRONG> Address text typically rendered in italics and indented.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<ADDRESS>
+This is an ADDRESS element, typically used for contact information.<BR>
+It is usually rendered in italics and may be indented.
+</ADDRESS>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Partially Supported (Tolerant Mode Only)</H3>
+<P><STRONG>What you should see:</STRONG> Text that doesn't break (NOBR) and word break opportunities (WBR). Note: These require tolerant mode.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P><NOBR>This text will not break across lines (NOBR tag - requires tolerant mode)</NOBR></P>
+<P>Here is a word<WBR>break opportunity (WBR tag - requires tolerant mode)</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

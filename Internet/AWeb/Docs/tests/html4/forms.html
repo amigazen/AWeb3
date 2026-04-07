@@ -1,0 +1,264 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>HTML 4.0 Tests - Advanced Forms</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="forms"></A>
+<H2>Advanced Forms (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>FORM with METHOD, ACTION, TARGET, ENCTYPE attributes - Fully supported (see html-ej.html#FORM)</LI>
+<LI>INPUT types: text, password, hidden, checkbox, radio, submit, reset, button, file - All supported (see html-ej.html#INPUT)</LI>
+<LI>SELECT with NAME, MULTIPLE, SIZE attributes - Fully supported (see html-ks.html#SELECT)</LI>
+<LI>OPTION with VALUE, SELECTED attributes - Fully supported (see html-ks.html#OPTION)</LI>
+<LI>TEXTAREA with NAME, ROWS, COLS attributes - Fully supported (see html-tz.html#TEXTAREA)</LI>
+<LI>BUTTON element with TYPE attribute - Fully supported in strict mode (see html-ad.html#BUTTON)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+
+<H4>Test 1: Form with TARGET Attribute</H4>
+<P><STRONG>What it tests:</STRONG> FORM element with TARGET attribute to submit form results to a specific frame or window.</P>
+<P><STRONG>How to run:</STRONG> Fill out the form below and click Submit. The result should open in a new window or the specified target frame.</P>
+<P><STRONG>Expected results:</STRONG> The form should submit to test.cgi and display results in a new window (TARGET="_blank") or the specified frame.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" TARGET="_blank" NAME="targetform">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Submit to New Window">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 2: Form with NAME Attribute</H4>
+<P><STRONG>What it tests:</STRONG> FORM element with NAME attribute for JavaScript access.</P>
+<P><STRONG>How to run:</STRONG> This form has a NAME attribute that allows JavaScript to access it via document.forms['namedform'].</P>
+<P><STRONG>Expected results:</STRONG> The form should be accessible via JavaScript using document.forms['namedform'] or document.forms[0].</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="namedform">
+<P>Email: <INPUT TYPE="text" NAME="email" VALUE="" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 3: BUTTON Element (HTML 4.0)</H4>
+<P><STRONG>What it tests:</STRONG> BUTTON element with TYPE="submit", TYPE="reset", and TYPE="button" attributes. This is an HTML 4.0 feature that provides more flexibility than INPUT buttons.</P>
+<P><STRONG>How to run:</STRONG> Click each button below to test their functionality.</P>
+<P><STRONG>Expected results:</STRONG> Submit button should submit the form. Reset button should clear form fields. Button element should trigger any ONCLICK handler but not submit the form.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="buttonform">
+<P>Test field: <INPUT TYPE="text" NAME="testfield" VALUE="" SIZE="20"></P>
+<BUTTON TYPE="submit" NAME="buttonsubmit" VALUE="submit">Submit</BUTTON>
+<BUTTON TYPE="reset">Reset</BUTTON>
+<BUTTON TYPE="button" ONCLICK="alert('Button clicked!')">Click</BUTTON>
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 4: All INPUT Types</H4>
+<P><STRONG>What it tests:</STRONG> All supported INPUT types: text, password, hidden, checkbox, radio, submit, reset, button, and file.</P>
+<P><STRONG>How to run:</STRONG> Interact with each input type below. Try typing in text fields, selecting checkboxes/radios, clicking buttons, and selecting a file.</P>
+<P><STRONG>Expected results:</STRONG> All input types should display and function correctly. Text fields should accept input, checkboxes/radios should toggle, buttons should work, and file input should open a file requester.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" ENCTYPE="multipart/form-data" NAME="inputtypes">
+<P><STRONG>Text Input:</STRONG><BR>
+<INPUT TYPE="text" NAME="textfield" VALUE="" SIZE="25" MAXLENGTH="50">
+</P>
+<P><STRONG>Password Input:</STRONG><BR>
+<INPUT TYPE="password" NAME="passfield" SIZE="25" MAXLENGTH="20">
+</P>
+<P><STRONG>Checkbox:</STRONG><BR>
+<INPUT TYPE="checkbox" NAME="check1" VALUE="1" CHECKED> Option 1<BR>
+<INPUT TYPE="checkbox" NAME="check2" VALUE="2"> Option 2
+</P>
+<P><STRONG>Radio Buttons:</STRONG><BR>
+<INPUT TYPE="radio" NAME="radio1" VALUE="A" CHECKED> Choice A<BR>
+<INPUT TYPE="radio" NAME="radio1" VALUE="B"> Choice B
+</P>
+<P><STRONG>File Upload:</STRONG><BR>
+<INPUT TYPE="file" NAME="filefield" SIZE="30">
+</P>
+<P>
+<INPUT TYPE="submit" VALUE="Submit">
+<INPUT TYPE="reset" VALUE="Reset">
+<INPUT TYPE="button" VALUE="Button" ONCLICK="alert('Button clicked')">
+</P>
+<INPUT TYPE="hidden" NAME="hiddenfield" VALUE="hidden_value">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 5: SELECT with SIZE Attribute</H4>
+<P><STRONG>What it tests:</STRONG> SELECT element with SIZE attribute to control whether it displays as a dropdown (SIZE=1 or omitted) or a list box (SIZE>1).</P>
+<P><STRONG>How to run:</STRONG> Compare the two select elements below - one is a dropdown, the other is a list box.</P>
+<P><STRONG>Expected results:</STRONG> The first SELECT should display as a dropdown menu. The second SELECT with SIZE="3" should display as a list box showing 3 options at once.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="selectform">
+<P><STRONG>Dropdown (SIZE=1 or omitted):</STRONG><BR>
+<SELECT NAME="dropdown">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3">Option 3</OPTION>
+<OPTION VALUE="4">Option 4</OPTION>
+</SELECT>
+</P>
+<P><STRONG>List Box (SIZE=3):</STRONG><BR>
+<SELECT NAME="listbox" SIZE="3">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3">Option 3</OPTION>
+<OPTION VALUE="4">Option 4</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 6: SELECT with MULTIPLE Attribute</H4>
+<P><STRONG>What it tests:</STRONG> SELECT element with MULTIPLE attribute for selecting multiple options simultaneously.</P>
+<P><STRONG>How to run:</STRONG> Hold Ctrl (or Cmd on Mac) and click multiple options in the list below.</P>
+<P><STRONG>Expected results:</STRONG> You should be able to select multiple options by holding Ctrl/Cmd while clicking. Selected options should be highlighted.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="multiselectform">
+<P>Select multiple options (hold Ctrl/Cmd and click):</P>
+<SELECT NAME="multiselect" MULTIPLE SIZE="4">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3" SELECTED>Option 3</OPTION>
+<OPTION VALUE="4">Option 4</OPTION>
+<OPTION VALUE="5">Option 5</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 7: TEXTAREA with ROWS and COLS</H4>
+<P><STRONG>What it tests:</STRONG> TEXTAREA element with ROWS and COLS attributes to control the visible size of the text area.</P>
+<P><STRONG>How to run:</STRONG> Type multiple lines of text in the textarea below. Try pressing Enter to create new lines.</P>
+<P><STRONG>Expected results:</STRONG> The textarea should display with the specified number of rows and columns. It should be scrollable if content exceeds the visible area. Line breaks should be preserved.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="textareaform">
+<P>Comments (5 rows, 40 columns):</P>
+<TEXTAREA NAME="comments" ROWS="5" COLS="40">Enter your comments here...
+This is a multi-line textarea.
+You can type multiple lines of text.</TEXTAREA>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 8: Comprehensive HTML 4.0 Form</H4>
+<P><STRONG>What it tests:</STRONG> A complete HTML 4.0 form with all supported elements and attributes working together, including FORM TARGET, NAME, BUTTON elements, and all input types.</P>
+<P><STRONG>How to run:</STRONG> Fill out all fields in the comprehensive form below, then test Submit, Reset, and Button elements.</P>
+<P><STRONG>Expected results:</STRONG> All form elements should work correctly. Submit should send all form data. Reset should clear all fields. The form demonstrates all HTML 4.0 form capabilities supported by AWeb.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="comprehensive_form" TARGET="_self" ENCTYPE="application/x-www-form-urlencoded">
+<P><STRONG>Personal Information:</STRONG><BR>
+Name: <INPUT TYPE="text" NAME="fullname" VALUE="" SIZE="30" MAXLENGTH="50"><BR>
+Email: <INPUT TYPE="text" NAME="email" VALUE="" SIZE="30"><BR>
+Password: <INPUT TYPE="password" NAME="password" SIZE="20" MAXLENGTH="20">
+</P>
+<P><STRONG>Preferences:</STRONG><BR>
+<INPUT TYPE="checkbox" NAME="newsletter" VALUE="yes" CHECKED> Subscribe to newsletter<BR>
+<INPUT TYPE="checkbox" NAME="updates" VALUE="yes"> Receive email updates<BR>
+<INPUT TYPE="checkbox" NAME="notifications" VALUE="yes"> Browser notifications
+</P>
+<P><STRONG>Gender:</STRONG><BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="male" CHECKED> Male<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="female"> Female<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="other"> Other
+</P>
+<P><STRONG>Country:</STRONG><BR>
+<SELECT NAME="country">
+<OPTION VALUE="us" SELECTED>United States</OPTION>
+<OPTION VALUE="uk">United Kingdom</OPTION>
+<OPTION VALUE="ca">Canada</OPTION>
+<OPTION VALUE="au">Australia</OPTION>
+<OPTION VALUE="de">Germany</OPTION>
+</SELECT>
+</P>
+<P><STRONG>Interests (select multiple):</STRONG><BR>
+<SELECT NAME="interests" MULTIPLE SIZE="4">
+<OPTION VALUE="tech" SELECTED>Technology</OPTION>
+<OPTION VALUE="sports">Sports</OPTION>
+<OPTION VALUE="music">Music</OPTION>
+<OPTION VALUE="travel">Travel</OPTION>
+<OPTION VALUE="books">Books</OPTION>
+</SELECT>
+</P>
+<P><STRONG>Comments:</STRONG><BR>
+<TEXTAREA NAME="comments" ROWS="4" COLS="40">Enter your comments here...</TEXTAREA>
+</P>
+<P><STRONG>File Upload:</STRONG><BR>
+<INPUT TYPE="file" NAME="uploadfile" SIZE="30">
+</P>
+<P>
+<BUTTON TYPE="submit" NAME="submitbtn">Submit\nForm</BUTTON>
+<BUTTON TYPE="reset">Reset Form</BUTTON>
+<BUTTON TYPE="button" ONCLICK="alert('HTML 4.0 Button clicked!')">Click-Me</BUTTON>
+</P>
+<INPUT TYPE="hidden" NAME="formid" VALUE="html4_test">
+<INPUT TYPE="hidden" NAME="timestamp" VALUE="">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>INPUT TYPE="image" - Not documented in AWeb HTML reference</LI>
+<LI>LABEL element - Not documented in AWeb HTML reference</LI>
+<LI>FIELDSET and LEGEND - Not documented in AWeb HTML reference</LI>
+<LI>OPTGROUP element - Not documented in AWeb HTML reference</LI>
+<LI>Form accessibility attributes - Not documented</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

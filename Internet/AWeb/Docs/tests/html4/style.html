@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>HTML 4.0 Tests - Style Sheets</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="style"></A>
+<H2>Style Sheets (HTML 4.0)</H2>
+
+<H3>Partially Supported</H3>
+<UL>
+<LI>STYLE element in HEAD - Supported (see html-ks.html#STYLE), though CSS rendering is limited</LI>
+<LI>Basic CSS1 selectors - Limited support</LI>
+<LI>Basic CSS1 properties - Limited support</LI>
+<LI>STYLE attribute on elements - Limited support</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<P>This paragraph would use inline STYLE attribute, but CSS support is limited in AWeb.</P>
+
+<H4>Color Tests: Hex vs Names</H4>
+<P><STRONG>What you should see:</STRONG> Text colors using both hex values and CSS color names. Each pair should show the same color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="color: #ff0000; padding: 10px; background-color: #ffffff;">Hex: This text should be red (#ff0000).</P>
+<P STYLE="color: red; padding: 10px; background-color: #ffffff;">Name: This text should be red (color name).</P>
+<P STYLE="color: #0000ff; padding: 10px; background-color: #ffffff;">Hex: This text should be blue (#0000ff).</P>
+<P STYLE="color: blue; padding: 10px; background-color: #ffffff;">Name: This text should be blue (color name).</P>
+<P STYLE="color: #008000; padding: 10px; background-color: #ffffff;">Hex: This text should be green (#008000).</P>
+<P STYLE="color: green; padding: 10px; background-color: #ffffff;">Name: This text should be green (color name).</P>
+<P STYLE="color: #000000; padding: 10px; background-color: #ffffff;">Hex: This text should be black (#000000).</P>
+<P STYLE="color: black; padding: 10px; background-color: #ffffff;">Name: This text should be black (color name).</P>
+<P STYLE="color: #A52A2A; padding: 10px; background-color: #ffffff;">Hex: This text should be brown (#A52A2A).</P>
+<P STYLE="color: brown; padding: 10px; background-color: #ffffff;">Name: This text should be brown (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Background Color Tests: Hex vs Names</H4>
+<P><STRONG>What you should see:</STRONG> Background colors using both hex values and CSS color names. Each pair should show the same background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-color: #ffcccc; color: #ff0000; padding: 10px;">Hex: This paragraph should have a light red background with red text (swatch).</P>
+<P STYLE="background-color: #ffcccc; color: red; padding: 10px;">Name: This paragraph should have a light red background with red text (color name).</P>
+<P STYLE="background-color: #ccccff; color: #0000ff; padding: 10px;">Hex: This paragraph should have a light blue background with blue text (swatch).</P>
+<P STYLE="background-color: #ccccff; color: blue; padding: 10px;">Name: This paragraph should have a light blue background with blue text (color name).</P>
+<P STYLE="background-color: #ccffcc; color: #00aa00; padding: 10px;">Hex: This paragraph should have a light green background with green text (swatch).</P>
+<P STYLE="background-color: #ccffcc; color: green; padding: 10px;">Name: This paragraph should have a light green background with green text (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Full CSS1 implementation - Many properties not supported</LI>
+<LI>CSS2 features - Not supported</LI>
+<LI>External stylesheets via LINK - Limited support</LI>
+<LI>@import rules - Not supported</LI>
+<LI>Media types and media queries - Not supported</LI>
+<LI>Advanced selectors (pseudo-classes, pseudo-elements) - Limited support</LI>
+<LI>CSS positioning and layout - Not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

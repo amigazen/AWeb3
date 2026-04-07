@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>HTML 4.0 Tests - Embedded Content</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="embedded"></A>
+<H2>Embedded Content (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>OBJECT element - Fully supported in strict mode (see html-ks.html#OBJECT)</LI>
+<LI>PARAM element - Fully supported (see html-ks.html#PARAM)</LI>
+</UL>
+
+<H3>Partially Supported (Tolerant Mode Only)</H3>
+<UL>
+<LI>EMBED element - Tolerant mode only (Netscape extension, see html-ej.html#EMBED)</LI>
+<LI>BGSOUND element - Tolerant mode only (Internet Explorer extension, see html-ad.html#BGSOUND)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+
+<H4>Object Element</H4>
+<P><STRONG>What you should see:</STRONG> An OBJECT element with PARAM elements. If the object type is not supported, the fallback text should appear.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<OBJECT DATA="test.swf" TYPE="application/x-shockwave-flash" WIDTH="300" HEIGHT="200">
+<PARAM NAME="movie" VALUE="test.swf">
+<PARAM NAME="autoplay" VALUE="true">
+Your browser does not support OBJECT tags.
+</OBJECT>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Embed Element (Tolerant Mode Only)</H4>
+<P><STRONG>What you should see:</STRONG> An EMBED element. Note: This requires tolerant mode (Netscape extension).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<EMBED SRC="test.swf" TYPE="application/x-shockwave-flash" WIDTH="300" HEIGHT="200"></EMBED>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>APPLET element - Not documented (deprecated in HTML 4.0, use OBJECT instead)</LI>
+<LI>Most plugin types (Flash, Java applets, etc.) - Plugin support depends on external plugins</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

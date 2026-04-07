@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>HTML 3.2 Tests - Forms</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<H1>HTML 3.2 Tests - Forms</H1>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<H2>Forms</H2>
+
+<H3>Test 1: Form Container with METHOD and ACTION</H3>
+<P><STRONG>What it tests:</STRONG> The FORM element with METHOD (GET/POST) and ACTION attributes.</P>
+<P><STRONG>How to run:</STRONG> This is a demonstration form. The form below uses METHOD="GET" which appends form data to the URL.</P>
+<P><STRONG>Expected results:</STRONG> The form should be displayed. When submitted, it should send data using the GET method to test.cgi.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="GET" ACTION="test.cgi" NAME="testform1" ENCTYPE="application/x-www-form-urlencoded">
+<P>This form uses METHOD="GET" and ACTION="test.cgi"</P>
+<INPUT TYPE="text" NAME="testfield" VALUE="test" SIZE="20">
+<INPUT TYPE="submit" VALUE="Submit (GET)">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 2: Form with METHOD="POST"</H3>
+<P><STRONG>What it tests:</STRONG> The FORM element with METHOD="POST" which sends data in the HTTP request body.</P>
+<P><STRONG>How to run:</STRONG> Fill out the form below and click Submit.</P>
+<P><STRONG>Expected results:</STRONG> The form should send data using POST method. The data is sent in the request body, not in the URL.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="testform2">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Submit (POST)">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 3: Text Input Fields</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="text", TYPE="password", and TYPE="hidden" with SIZE, MAXLENGTH, and VALUE attributes.</P>
+<P><STRONG>How to run:</STRONG> Type in the text field, try typing in the password field (characters should be masked), and note the hidden field is not visible.</P>
+<P><STRONG>Expected results:</STRONG> Text field should accept input up to MAXLENGTH characters. Password field should mask characters. Hidden field should not be visible but will be submitted with the form.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30" MAXLENGTH="50"></P>
+<P>Password: <INPUT TYPE="password" NAME="passwd" SIZE="20" MAXLENGTH="20"></P>
+<P>Hidden field: <INPUT TYPE="hidden" NAME="hidden" VALUE="hidden_value"></P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 4: Checkboxes</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="checkbox" with CHECKED attribute. Multiple checkboxes can be selected.</P>
+<P><STRONG>How to run:</STRONG> Click the checkboxes below. You should be able to select multiple options.</P>
+<P><STRONG>Expected results:</STRONG> Checkboxes should toggle on/off when clicked. Option 1 should be checked by default. Multiple checkboxes can be selected simultaneously.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Checkboxes (multiple selection allowed):</P>
+<INPUT TYPE="checkbox" NAME="option1" VALUE="1" CHECKED> Option 1<BR>
+<INPUT TYPE="checkbox" NAME="option2" VALUE="2"> Option 2<BR>
+<INPUT TYPE="checkbox" NAME="option3" VALUE="3"> Option 3<BR>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 5: Radio Buttons</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="radio" with CHECKED attribute. Only one radio button in a group can be selected.</P>
+<P><STRONG>How to run:</STRONG> Click different radio buttons below. Only one should be selected at a time.</P>
+<P><STRONG>Expected results:</STRONG> Radio buttons should allow only one selection per group (same NAME). Choice A should be selected by default. Clicking another radio button should deselect the previous one.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Radio Buttons (single selection only):</P>
+<INPUT TYPE="radio" NAME="choice" VALUE="A" CHECKED> Choice A<BR>
+<INPUT TYPE="radio" NAME="choice" VALUE="B"> Choice B<BR>
+<INPUT TYPE="radio" NAME="choice" VALUE="C"> Choice C<BR>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 6: File Upload</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="file" with ENCTYPE="multipart/form-data" for file uploads.</P>
+<P><STRONG>How to run:</STRONG> Click the file input field below. A file requester should open to select a file.</P>
+<P><STRONG>Expected results:</STRONG> The file input should display a field and button. Clicking it should open a file requester. The form must use ENCTYPE="multipart/form-data" for file uploads to work.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" ENCTYPE="multipart/form-data">
+<P>File: <INPUT TYPE="file" NAME="uploadfile" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 7: Select Dropdown (Single Selection)</H3>
+<P><STRONG>What it tests:</STRONG> SELECT element with OPTION elements and SELECTED attribute for single selection dropdowns.</P>
+<P><STRONG>How to run:</STRONG> Click the dropdown below and select different options.</P>
+<P><STRONG>Expected results:</STRONG> The dropdown should show a list of options. Option 1 should be selected by default. Only one option can be selected at a time.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Select an option:
+<SELECT NAME="dropdown">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3">Option 3</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 8: Select Multiple</H3>
+<P><STRONG>What it tests:</STRONG> SELECT element with MULTIPLE attribute and SIZE attribute for multiple selection lists.</P>
+<P><STRONG>How to run:</STRONG> Click on options in the list below. Hold Ctrl (or Cmd on Mac) and click to select multiple options.</P>
+<P><STRONG>Expected results:</STRONG> The list should display multiple options. Option 1 and Option 3 should be selected by default. You should be able to select multiple options by holding Ctrl/Cmd while clicking.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Select multiple options (hold Ctrl/Cmd and click):
+<SELECT NAME="multiselect" MULTIPLE SIZE="3">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3" SELECTED>Option 3</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 9: Textarea</H3>
+<P><STRONG>What it tests:</STRONG> TEXTAREA element with ROWS and COLS attributes for multi-line text input.</P>
+<P><STRONG>How to run:</STRONG> Type multiple lines of text in the textarea below. Try pressing Enter to create new lines.</P>
+<P><STRONG>Expected results:</STRONG> The textarea should display a multi-line text input field. You should be able to type multiple lines and press Enter to create line breaks. The field should be scrollable if content exceeds the visible area.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Comments:<BR>
+<TEXTAREA NAME="comments" ROWS="5" COLS="40">Enter your comments here...</TEXTAREA>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 10: Submit and Reset Buttons</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="submit", TYPE="reset", and TYPE="button" elements.</P>
+<P><STRONG>How to run:</STRONG> Fill out the form below, then try the Submit button (sends form data), Reset button (clears form), and Button (no default action).</P>
+<P><STRONG>Expected results:</STRONG> Submit button should send the form data to the ACTION URL. Reset button should clear all form fields to their initial values. Button element has no default action (typically used with ONCLICK handlers).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="testform10">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="20"></P>
+<P>
+<INPUT TYPE="submit" NAME="submit" VALUE="Submit Form">
+<INPUT TYPE="reset" NAME="reset" VALUE="Reset Form">
+<INPUT TYPE="button" NAME="button" VALUE="Click Me" ONCLICK="alert('Button clicked!')">
+</P>
+</FORM>
+</TD></TR>
+</TABLE>
+
+<H3>Test 11: Comprehensive Form Test</H3>
+<P><STRONG>What it tests:</STRONG> A complete form with all HTML 3.2 form elements and attributes working together.</P>
+<P><STRONG>How to run:</STRONG> Fill out all fields in the form below, then click Submit to test form submission, or Reset to clear all fields.</P>
+<P><STRONG>Expected results:</STRONG> All form elements should work correctly. Submit should send all form data. Reset should clear all fields to their initial state. The form should demonstrate all HTML 3.2 form capabilities.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="comprehensive_form" ENCTYPE="application/x-www-form-urlencoded">
+<P><STRONG>Text Fields:</STRONG><BR>
+Name: <INPUT TYPE="text" NAME="fullname" VALUE="" SIZE="30" MAXLENGTH="50"><BR>
+Email: <INPUT TYPE="text" NAME="email" VALUE="" SIZE="30"><BR>
+Password: <INPUT TYPE="password" NAME="password" SIZE="20" MAXLENGTH="20">
+</P>
+<P><STRONG>Checkboxes:</STRONG><BR>
+<INPUT TYPE="checkbox" NAME="newsletter" VALUE="yes" CHECKED> Subscribe to newsletter<BR>
+<INPUT TYPE="checkbox" NAME="updates" VALUE="yes"> Receive updates
+</P>
+<P><STRONG>Radio Buttons:</STRONG><BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="male" CHECKED> Male<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="female"> Female<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="other"> Other
+</P>
+<P><STRONG>Select Dropdown:</STRONG><BR>
+Country:
+<SELECT NAME="country">
+<OPTION VALUE="us" SELECTED>United States</OPTION>
+<OPTION VALUE="uk">United Kingdom</OPTION>
+<OPTION VALUE="ca">Canada</OPTION>
+<OPTION VALUE="au">Australia</OPTION>
+</SELECT>
+</P>
+<P><STRONG>Textarea:</STRONG><BR>
+Comments:<BR>
+<TEXTAREA NAME="comments" ROWS="4" COLS="40">Enter your comments...</TEXTAREA>
+</P>
+<P>
+<INPUT TYPE="submit" VALUE="Submit Form">
+<INPUT TYPE="reset" VALUE="Reset Form">
+</P>
+<INPUT TYPE="hidden" NAME="formid" VALUE="html3_test">
+</FORM>
+</TD></TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

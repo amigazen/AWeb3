@@ -1,0 +1,245 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>CSS External Tests - Layout + Tables + Links + Lists + Grid</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../../">
+<LINK REL="stylesheet" TYPE="text/css" HREF="css_test.css">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<H1>CSS External Tests: Layout + Tables + Links + Lists + Grid</H1>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="layout"></A>
+<H2>Layout & Positioning Properties</H2>
+
+<H3>padding - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different padding amounts via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<P CLASS="padding-5">This paragraph has 5 pixels of padding. There should be a small amount of space around the text.</P>
+<P CLASS="padding-15">This paragraph has 15 pixels of padding. There should be more space around the text.</P>
+<P CLASS="padding-30">This paragraph has 30 pixels of padding. There should be a large amount of space around the text.</P>
+</TD></TR>
+</TABLE>
+
+<H3>margin shorthand - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<P CLASS="margin-10">This paragraph has margin: 10px (all sides).</P>
+<P CLASS="margin-10-20">This paragraph has margin: 10px 20px (top/bottom: 10px, left/right: 20px).</P>
+<P CLASS="margin-10-20-30">This paragraph has margin: 10px 20px 30px (top: 10px, left/right: 20px, bottom: 30px).</P>
+<P CLASS="margin-10-20-30-40">This paragraph has margin: 10px 20px 30px 40px (top: 10px, right: 20px, bottom: 30px, left: 40px).</P>
+<P CLASS="margin-0">This paragraph has margin: 0 (no margins).</P>
+</TD></TR>
+</TABLE>
+
+<H3>margin-right, margin-left, margin-top, margin-bottom - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different margin values via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<P CLASS="margin-right-50">This paragraph has margin-right: 50px. There should be extra space on the right side.</P>
+<P CLASS="margin-left-50">This paragraph has margin-left: 50px. There should be extra space on the left side.</P>
+<P CLASS="margin-top-30">This paragraph has margin-top: 30px. There should be extra space above.</P>
+<P CLASS="margin-bottom-30">This paragraph has margin-bottom: 30px. There should be extra space below.</P>
+<P CLASS="margin-left-1em">This paragraph has margin-left: 1em and margin-right: 1em (using em units).</P>
+</TD></TR>
+</TABLE>
+
+<H3>position, top, left, right, bottom - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning via external CSS classes. Right and bottom positioning are now supported.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<DIV CLASS="position-static">This DIV uses position: static (default positioning).</DIV>
+<DIV CLASS="position-relative-offset">This DIV uses position: relative with top: 10px and left: 20px offset.</DIV>
+<DIV CLASS="position-absolute">This DIV uses position: absolute with top: 0px and left: 0px.</DIV>
+<DIV CLASS="position-fixed-right">This DIV uses position: fixed with top: 0px and right: 0px.</DIV>
+<DIV CLASS="position-absolute-bottom-right">This DIV uses position: absolute with bottom: 0px and right: 0px (positioned at bottom-right).</DIV>
+</TD></TR>
+</TABLE>
+
+<H3>border - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<DIV CLASS="border-solid-black">This DIV has a 1px solid black border.</DIV>
+<DIV CLASS="border-solid-red">This DIV has a 3px solid red border.</DIV>
+<DIV CLASS="border-dashed-blue">This DIV has a 2px dashed blue border.</DIV>
+<DIV CLASS="border-dotted-green">This DIV has a 4px dotted green border.</DIV>
+<DIV CLASS="border-separate">This DIV uses separate border-width, border-style, and border-color properties.</DIV>
+</TD></TR>
+</TABLE>
+
+<HR>
+<A NAME="tables"></A>
+<H2>Table Cell Styles</H2>
+
+<H3>vertical-align in table cells - FAIL</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different vertical alignment via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="5" HEIGHT="200">
+<TR>
+<TD CLASS="table-cell-valign-top">Top-aligned cell</TD>
+<TD CLASS="table-cell-valign-middle">Middle-aligned cell</TD>
+<TD CLASS="table-cell-valign-bottom">Bottom-aligned cell</TD>
+<TD CLASS="table-cell-valign-baseline">Baseline-aligned cell</TD>
+</TR>
+</TABLE>
+</TD></TR>
+</TABLE>
+
+<H3>text-align in table cells - FAIL</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different text alignment via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="10" WIDTH="400">
+<TR><TD CLASS="table-cell-align-left">Left-aligned text in table cell</TD></TR>
+<TR><TD CLASS="table-cell-align-center">Center-aligned text in table cell</TD></TR>
+<TR><TD CLASS="table-cell-align-right">Right-aligned text in table cell</TD></TR>
+</TABLE>
+</TD></TR>
+</TABLE>
+
+<H3>background-color in table cells - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different background colors via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="10">
+<TR>
+<TD CLASS="table-cell-bg-tan">Cell with tan background (#E8E0D8)</TD>
+<TD CLASS="table-cell-bg-beige">Cell with beige background (#F0EDEA)</TD>
+</TR>
+<TR>
+<TD CLASS="table-cell-bg-red">Cell with light red background (#ffcccc)</TD>
+<TD CLASS="table-cell-bg-green">Cell with light green background (#ccffcc)</TD>
+</TR>
+</TABLE>
+</TD></TR>
+</TABLE>
+
+<H3>Combined table cell styles - FAIL</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with multiple CSS properties applied simultaneously via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="5">
+<TR><TD CLASS="table-cell-combined">Combined styles: width, height, center alignment, middle vertical alignment, background color, padding, and text color.</TD></TR>
+</TABLE>
+</TD></TR>
+</TABLE>
+
+<H3>border-color - PASS</H3>
+<P><STRONG>Note:</STRONG> Border properties (border-width, border-style, border-color, and border shorthand) are now fully supported.</P>
+<P><STRONG>What you should see:</STRONG> Tables with different border colors specified via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CLASS="table-border-red" CELLPADDING="5"><TR><TD>Table with thin red border color</TD></TR></TABLE>
+<BR>
+<TABLE BORDER="4" CLASS="table-border-green" CELLPADDING="5"><TR><TD>Table with thick green border color</TD></TR></TABLE>
+</TD></TR>
+</TABLE>
+
+<HR>
+<A NAME="links"></A>
+<H2>Link Styles</H2>
+
+<H3>text-decoration: - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Links without underlines via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<P>Normal link (underline depends on user setting): <A HREF="#top">Click me (default underline)</A></P>
+<P>Link without underline: <A HREF="#top" CLASS="link-no-underline">Click me (no underline)</A></P>
+<P>Link without underline and custom color: <A HREF="#top" CLASS="link-no-underline-brown">Click me (no underline, brown color)</A></P>
+</TD></TR>
+</TABLE>
+
+<H3>color on links - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Links with custom text colors via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<P><A HREF="#top" CLASS="link-red">Red link</A></P>
+<P><A HREF="#top" CLASS="link-green">Green link</A></P>
+<P><A HREF="#top" CLASS="link-blue">Blue link</A></P>
+<P><A HREF="#top" CLASS="link-brown">Brown link (#8B7355)</A></P>
+</TD></TR>
+</TABLE>
+
+<HR>
+<A NAME="lists"></A>
+<H2>List Styles</H2>
+
+<H3>list-style-type for unordered lists - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<UL CLASS="list-disc"><LI>Disc bullet (default for UL)</LI><LI>Second item with disc</LI></UL>
+<UL CLASS="list-circle"><LI>Circle bullet</LI><LI>Second item with circle</LI></UL>
+<UL CLASS="list-square"><LI>Square bullet</LI><LI>Second item with square</LI></UL>
+<UL CLASS="list-none"><LI>No bullet (none)</LI><LI>Second item with no bullet</LI></UL>
+</TD></TR>
+</TABLE>
+
+<H3>display: inline for horizontal lists - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Unordered lists displayed horizontally via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<UL CLASS="list-inline">
+<LI CLASS="list-item-margin">Home</LI>
+<LI CLASS="list-item-margin">About</LI>
+<LI CLASS="list-item-margin">Contact</LI>
+</UL>
+<P><STRONG>Note:</STRONG> The list items should appear horizontally on one line, with spacing between them. No bullets should be visible.</P>
+</TD></TR>
+</TABLE>
+
+<H3>list-style-type for ordered lists - PASS except for the no numbering style which still shows numbering</H3>
+<P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<OL CLASS="list-decimal"><LI>Decimal numbering (1, 2, 3...)</LI><LI>Second item</LI></OL>
+<OL CLASS="list-lower-alpha"><LI>Lower alpha (a, b, c...)</LI><LI>Second item</LI></OL>
+<OL CLASS="list-upper-alpha"><LI>Upper alpha (A, B, C...)</LI><LI>Second item</LI></OL>
+<OL CLASS="list-lower-roman"><LI>Lower roman (i, ii, iii...)</LI><LI>Second item</LI></OL>
+<OL CLASS="list-upper-roman"><LI>Upper roman (I, II, III...)</LI><LI>Second item</LI></OL>
+<OL CLASS="list-none"><LI>No numbering (none)</LI><LI>Second item with no number</LI></OL>
+</TD></TR>
+</TABLE>
+
+<HR>
+<A NAME="grid"></A>
+<H2>Grid Layout Properties</H2>
+
+<H3>display: grid - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Definition lists displayed as a grid layout via external CSS classes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<DL CLASS="grid-layout">
+<DT CLASS="grid-term">Term 1</DT><DD CLASS="grid-description">Description for term 1. This should appear in the second column, aligned with the term.</DD>
+<DT CLASS="grid-term">Term 2</DT><DD CLASS="grid-description">Description for term 2. This should also appear in the second column.</DD>
+<DT CLASS="grid-term">Longer Term Name</DT><DD CLASS="grid-description">Description for the longer term. The grid layout should handle varying term lengths.</DD>
+</DL>
+</TD></TR>
+</TABLE>
+
+<P><A HREF="tests/css/external/text_colors.html">Back: Text + Colors</A></P>
+</BODY>
+</HTML>

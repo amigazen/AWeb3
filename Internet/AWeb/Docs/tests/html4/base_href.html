@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD>
+<TITLE>BASE HREF Test</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<H1>BASE HREF Test</H1>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<H2>What this tests</H2>
+<P>This page uses <CODE>&lt;BASE HREF="../../"&gt;</CODE> and then uses relative URLs that only resolve correctly if BASE HREF is applied.</P>
+
+<H2>Expected results</H2>
+<UL>
+<LI>The AWeb logo image below should load.</LI>
+<LI>The link to the tests index below should open <CODE>Docs/tests/index.html</CODE>.</LI>
+</UL>
+
+<H2>Tests</H2>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR><TD>
+<STRONG>Test:</STRONG><BR>
+<P>Image loaded via relative SRC (expects BASE HREF to work):<BR>
+<IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)" BORDER="1"></P>
+<P>Link resolved via relative HREF (expects BASE HREF to work):<BR>
+<A HREF="tests/index.html">Open tests index</A></P>
+</TD></TR>
+</TABLE>
+
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

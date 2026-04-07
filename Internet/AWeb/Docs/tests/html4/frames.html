@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>HTML 4.0 Tests - Frames</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="frames"></A>
+<H2>Frames (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>FRAMESET element with COLS and ROWS attributes - Fully supported (see html-ej.html#FRAMESET)</LI>
+<LI>FRAME element with SRC, NAME, FRAMEBORDER, MARGINWIDTH, MARGINHEIGHT, SCROLLING, NORESIZE - Fully supported (see html-ej.html#FRAME)</LI>
+<LI>NOFRAMES element for non-frame browsers - Fully supported (see html-ks.html#NOFRAMES)</LI>
+<LI>Frame targeting with TARGET attribute - Fully supported (see html-ad.html#A and html-ad.html#BASE)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<P>Frames require a separate frameset document. Here's an example structure:</P>
+<PRE>
+&lt;FRAMESET COLS="25%,75%"&gt;
+  &lt;FRAME SRC="nav.html" NAME="navigation" FRAMEBORDER="1" SCROLLING="yes"&gt;
+  &lt;FRAME SRC="content.html" NAME="main" FRAMEBORDER="1" SCROLLING="auto"&gt;
+  &lt;NOFRAMES&gt;
+    &lt;BODY&gt;Your browser does not support frames.&lt;/BODY&gt;
+  &lt;/NOFRAMES&gt;
+&lt;/FRAMESET&gt;
+</PRE>
+
+<H3>Fully Supported - IFRAME</H3>
+<UL>
+<LI>IFRAME (inline frames) - Fully supported in strict mode (see html-ej.html#IFRAME)</LI>
+<LI>IFRAME attributes: SRC, NAME, WIDTH, HEIGHT, FRAMEBORDER, SCROLLING, MARGINWIDTH, MARGINHEIGHT, ALIGN, HSPACE, VSPACE - All supported</LI>
+</UL>
+
+<H3>IFRAME Test</H3>
+<P><STRONG>What you should see:</STRONG> An inline frame displaying the specified document. If frames are not supported, the fallback text should appear.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<IFRAME SRC="html.html" WIDTH="400" HEIGHT="200" NAME="iframe1" FRAMEBORDER="1" SCROLLING="yes">
+Your browser does not support inline frames.
+</IFRAME>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+

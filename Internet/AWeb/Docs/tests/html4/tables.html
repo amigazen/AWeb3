@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>HTML 4.0 Tests - Advanced Tables</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<BASE HREF="../../">
+</HEAD>
+<BODY BGCOLOR="#AAAAAA" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<A NAME="top"></A>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+<HR>
+
+<A NAME="tables"></A>
+<H2>Advanced Tables (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>TABLE with all HTML 4.0 attributes (BORDER, WIDTH, CELLPADDING, CELLSPACING, ALIGN, BGCOLOR, FRAME, RULES) - Fully supported (see html-tz.html#TABLE)</LI>
+<LI>CAPTION with ALIGN attribute - Fully supported (see html-ad.html#CAPTION)</LI>
+<LI>TR, TD, TH with all alignment and styling attributes - Fully supported (see html-tz.html#TR, html-tz.html#TD, html-tz.html#TH)</LI>
+<LI>COLSPAN and ROWSPAN attributes - Fully supported</LI>
+<LI>THEAD, TBODY, TFOOT - Fully supported in strict mode (see html-tz.html#THEAD, html-tz.html#TBODY, html-tz.html#TFOOT)</LI>
+<LI>COLGROUP and COL - Fully supported in strict mode (see html-ad.html#COLGROUP, html-ad.html#COL)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+
+<H4>Table with Sections</H4>
+<P><STRONG>What you should see:</STRONG> A table with THEAD, TBODY, and TFOOT sections demonstrating HTML 4.0 table structure.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1">
+<THEAD>
+<TR>
+<TH>Header 1</TH>
+<TH>Header 2</TH>
+</TR>
+</THEAD>
+<TBODY>
+<TR>
+<TD>Body Cell 1,1</TD>
+<TD>Body Cell 1,2</TD>
+</TR>
+<TR>
+<TD>Body Cell 2,1</TD>
+<TD>Body Cell 2,2</TD>
+</TR>
+</TBODY>
+<TFOOT>
+<TR>
+<TD>Footer Cell 1</TD>
+<TD>Footer Cell 2</TD>
+</TR>
+</TFOOT>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Table with Column Groups</H4>
+<P><STRONG>What you should see:</STRONG> A table with COLGROUP and COL elements defining column properties.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1">
+<COLGROUP SPAN="2" WIDTH="100"></COLGROUP>
+<COL WIDTH="150"></COL>
+<TR>
+<TH>Col 1-2</TH>
+<TH>Col 1-2</TH>
+<TH>Col 3</TH>
+</TR>
+<TR>
+<TD>Data 1</TD>
+<TD>Data 2</TD>
+<TD>Data 3</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Background Image Alignment (bgalign)</H3>
+<P><STRONG>What you should see:</STRONG> Tables with background images that are properly aligned relative to their containing elements (table, row, or cell) rather than the document origin. Background images should tile correctly within each element's boundaries. This demonstrates the bgalign mechanism that ensures proper background image positioning in table layouts.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P><STRONG>Table with background image:</STRONG> The background image should be aligned to the table itself and tile within the table boundaries.</P>
+<TABLE BORDER="1" BACKGROUND="../../awebbg.iff" WIDTH="400" CELLPADDING="10">
+<TR>
+<TD>Cell 1,1 with table background</TD>
+<TD>Cell 1,2 with table background</TD>
+</TR>
+<TR>
+<TD>Cell 2,1 with table background</TD>
+<TD>Cell 2,2 with table background</TD>
+</TR>
+</TABLE>
+
+<P><STRONG>Table with row background image:</STRONG> The background image should be aligned to each row and tile within the row boundaries.</P>
+<TABLE BORDER="1" WIDTH="400" CELLPADDING="10">
+<TR BACKGROUND="../../awebbg.iff">
+<TD>Cell 1,1 with row background</TD>
+<TD>Cell 1,2 with row background</TD>
+</TR>
+<TR>
+<TD>Cell 2,1 (no background)</TD>
+<TD>Cell 2,2 (no background)</TD>
+</TR>
+</TABLE>
+
+<P><STRONG>Table with cell background images:</STRONG> Each cell's background image should be aligned to that specific cell and tile within the cell boundaries.</P>
+<TABLE BORDER="1" WIDTH="400" CELLPADDING="10">
+<TR>
+<TD BACKGROUND="../../awebbg.iff">Cell 1,1 with cell background</TD>
+<TD>Cell 1,2 (no background)</TD>
+</TR>
+<TR>
+<TD>Cell 2,1 (no background)</TD>
+<TD BACKGROUND="../../awebbg.iff">Cell 2,2 with cell background</TD>
+</TR>
+</TABLE>
+
+<P><STRONG>Note:</STRONG> The bgalign mechanism ensures that background images are correctly positioned relative to their containing element (table, row, or cell), not the document origin. This is especially important for nested tables, scrolling, and proper background image tiling.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Table accessibility attributes (SUMMARY, SCOPE, HEADERS, ABBR) - Not documented in AWeb HTML reference</LI>
+<LI>Advanced table styling via CSS - Limited CSS support overall</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+<HR>
+<P><A HREF="tests/index.html">Back to tests index</A></P>
+</BODY>
+</HTML>
+
