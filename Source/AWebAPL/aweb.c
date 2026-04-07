@@ -353,6 +353,23 @@ UBYTE *Dupstr(UBYTE *str,long length)
    return dup;
 }
 
+UBYTE *Dupstrp(UBYTE *str,long length,void *pool)
+{  UBYTE *dup;
+   if(!str) return NULL;
+   if(length<0) length=strlen(str);
+   if(pool)
+   {  dup=(UBYTE *)Pallocmem(length+1,MEMF_PUBLIC|MEMF_CLEAR,pool);
+   }
+   else
+   {  dup=(UBYTE *)Allocmem(length+1,MEMF_PUBLIC|MEMF_CLEAR);
+   }
+   if(dup)
+   {  memmove(dup,str,length);
+      dup[length]='\0';
+   }
+   return dup;
+}
+
 void AddtagstrA(struct Buffer *buf,UBYTE *keywd,USHORT f,ULONG value)
 {  UBYTE *p;
    UBYTE b[16];

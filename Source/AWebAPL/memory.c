@@ -65,11 +65,9 @@ void *Pallocmem(long size,ULONG flags,void *pool)
 
 void *Allocmem(long size,ULONG flags)
 {  void *pool,*mem;
-   ObtainSemaphore(&memsema);
    if(flags&MEMF_CHIP) pool=chippool;
    else pool=fastpool;
    mem=Pallocmem(size,flags,pool);
-   ReleaseSemaphore(&memsema);
    return mem;
 }
 

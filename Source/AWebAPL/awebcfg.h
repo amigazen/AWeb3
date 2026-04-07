@@ -171,6 +171,7 @@ extern struct Settingsprefs setprefs;
 /* awebcfg */
 
 extern UBYTE *Dupstr(UBYTE *str,long length);
+extern UBYTE *Dupstrp(UBYTE *str,long length,void *pool);
 extern void Makechooserlist(struct List *list,UBYTE **labels,BOOL readonly);
 extern void Freechooserlist(struct List *list);
 extern void Makeclicktablist(struct List *list,UBYTE **labels);

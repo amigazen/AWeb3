@@ -204,6 +204,9 @@ extern void Deleteinbuffer(struct Buffer *buf,long pos,long length);
    /* duplicate string (dynamic). If (length)<0, strlen(str) is taken */
 extern UBYTE *Dupstr(UBYTE *str,long length);
 
+   /* duplicate string in (pool) if provided. If (pool)==NULL, uses Allocmem(). */
+extern UBYTE *Dupstrp(UBYTE *str,long length,void *pool);
+
    /* build a HTML tag string from components */
 extern void AddtagstrA(struct Buffer *buf,UBYTE *keywd,USHORT f,ULONG value);
 #define Addtagstr(b,k,f,v) AddtagstrA(b,k,f,(ULONG)(v))
