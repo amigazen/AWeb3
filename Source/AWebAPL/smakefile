@@ -95,7 +95,7 @@ awebtcp.o:  awebtcp.c awebtcp.h
 
 amissl.o:   amissl.c aweb.h task.h awebssl.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
+    @sc idir=netinclude: idir=sslinclude: MemorySize=h ppbuf=32768 IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
 
 framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h url.h winhis.h timer.h
     @echo "        Compiling $*.c..."
@@ -360,7 +360,7 @@ aweblib/about.aweblib: about.o about.lnk
 
 about.o:   about.c aweblib.h fetchdriver.h task.h
    @echo "        Compiling $*..."
-   @sc idir=sslinclude: MemorySize=h IdentifierLength=100 $*
+   @sc idir=sslinclude: MemorySize=h IdentifierLength=100 
 
 #- gopher --------
 
