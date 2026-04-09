@@ -22,6 +22,7 @@
 #define AWEB_FETCHDRIVER_H
 
 #include "url.h"
+#include "httpcch.h"
 
 /*--- Communications structure ---*/
 
@@ -45,6 +46,9 @@ struct Fetchdriver
    /* Temporary storage fields */
    ULONG serverdate;          /* Date as reported by server */
    UBYTE *etag;               /* ETag value from HTTP response for caching */
+   struct Http_cc_accum channel_cc;   /* merged Cache-Control (channel task) */
+   BOOL channel_got_expires;          /* Expires: seen on this channel response */
+   BOOL channel_cc_applied;           /* deferred Expires from max-age already sent */
 };
 
 #define FDVF_NOCACHE       0x0001   /* Don't use any cache */

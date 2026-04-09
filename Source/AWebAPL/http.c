@@ -36,6 +36,7 @@
 #include "application.h"
 #include "task.h"
 #include "form.h"
+#include "httpcch.h"
 #include "awebtcp.h"
 #include "awebssl.h"
 #include <dos/dosextens.h>
@@ -95,6 +96,8 @@ struct Httpinfo
    long bytes_received;      /* Bytes received so far (for Range request retry) */
    BOOL server_supports_range; /* TRUE if server supports Range requests (Accept-Ranges: bytes) */
    long full_file_size;      /* Full file size from Content-Range header (for 206 responses) */
+   struct Http_cc_accum cc_accum; /* merged Cache-Control for this response */
+   BOOL http_got_expires;    /* Expires: header was present */
 };
 
 #define HTTPIF_AUTH        0x0001   /* Tried with a known to be valid auth */
@@ -1218,6 +1221,8 @@ static struct Authorize *Parseauth(UBYTE *buf,UBYTE *server)
 static BOOL Readheaders(struct Httpinfo *hi)
 {     /* Reset encoding flags at start of headers - this is crucial! */
    hi->flags &= ~(HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING | HTTPIF_CHUNKED);
+   Http_cc_reset_accum(&hi->cc_accum);
+   hi->http_got_expires=FALSE;
    
    /* Default assumption based on protocol version */
    /* For HTTP/1.1, Keep-Alive is default. For 1.0, it's not. */
@@ -1235,7 +1240,18 @@ static BOOL Readheaders(struct Httpinfo *hi)
       if(hi->linelength==0)
       {  if(hi->status) return FALSE;
          else 
-         {  debug_printf("DEBUG: Headers complete, starting data processing\n");
+         {  ULONG exp;
+            ULONG nowtoday;
+            debug_printf("DEBUG: Headers complete, starting data processing\n");
+            /* max-age overrides Expires (RFC 9111); must-revalidate alone -> expire now */
+            nowtoday=Today();
+            if(hi->cc_accum.saw_positive_max_age && hi->cc_accum.min_max_age>0)
+            {  exp=nowtoday+(ULONG)hi->cc_accum.min_max_age;
+               Updatetaskattrs(AOURL_Expires,exp,TAG_END);
+            }
+            else if(hi->cc_accum.must_revalidate && !hi->http_got_expires && hi->fd->serverdate)
+            {  Updatetaskattrs(AOURL_Expires,nowtoday,TAG_END);
+            }
             /* Allow gzip with chunked encoding - we now handle it properly */
             return TRUE;
          }
@@ -1259,6 +1275,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
       }
       else if(STRNIEQUAL(hi->fd->block,"Expires:",8))
       {  long expires=Scandate(hi->fd->block+8);
+         hi->http_got_expires=TRUE;
          Updatetaskattrs(
             AOURL_Expires,expires,
             TAG_END);
@@ -1503,24 +1520,24 @@ static BOOL Readheaders(struct Httpinfo *hi)
          }
       }
       else if(STRNIEQUAL(hi->fd->block,"Cache-Control:",14))
-      {  UBYTE *p,*q;
-         for(p=hi->fd->block+14;*p && isspace(*p);p++);
-         for(q=p;*q && !isspace(*q) && *q!='\r' && *q!='\n';q++);
-         *q='\0';
-         if(STRIEQUAL(p,"no-cache") || STRIEQUAL(p,"no-store"))
+      {  UBYTE *p;
+         UBYTE *term;
+         UBYTE termsave;
+         struct Http_cc_accum line;
+         p=hi->fd->block+14;
+         while(*p && (*p==' ' || *p=='\t')) p++;
+         term=p;
+         while(*term && *term!='\r' && *term!='\n') term++;
+         termsave=*term;
+         *term='\0';
+         Http_cc_parse(p,&line);
+         Http_cc_merge(&hi->cc_accum,&line);
+         if(line.forbid_disk)
          {  Updatetaskattrs(
                AOURL_Nocache,TRUE,
                TAG_END);
          }
-         else if(STRIEQUAL(p,"max-age"))
-         {  /* Parse max-age value for caching */
-            long maxage;
-            maxage = 0;
-            if(q=strchr(p,'='))
-            {  sscanf(q+1,"%ld",&maxage);
-               Updatetaskattrs(AOURL_Maxage,maxage,TAG_END);
-            }
-         }
+         *term=termsave;
       }
       else if(hi->movedto && STRNIEQUAL(hi->fd->block,"Location:",9))
       {  UBYTE *p;

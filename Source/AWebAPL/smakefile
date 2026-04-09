@@ -50,7 +50,7 @@ aweb:       popup.o search.o print.o printwin.o info.o saveiff.o
 aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
 aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
-aweb:       local.o http.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
+aweb:       local.o httpcch.o http.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
 #  TCP/SSL drivers
 aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
 #  zlib compression library
@@ -107,7 +107,11 @@ xhrjs.o:    xhrjs.c aweb.h frame.h frprivate.h fetch.h url.h jslib.h xhrjs.h
 
 jsonparse.o: jsonparse.c aweb.h arexx.h jsonparse.h
 
-http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h /zlib/zlib.h
+httpcch.o:  httpcch.c aweb.h httpcch.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h httpcch.h /zlib/zlib.h
     @echo "        Compiling $*.c..."
     @sc idir=netinclude: idir=sslinclude: $*.c to $*.o
 
@@ -175,7 +179,7 @@ awebview:       popup.o search.o print.o printwin.o info.o saveiff.o
 #  Secondary window objects
 awebview:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
-awebview:       urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
+awebview:       urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o httpcch.o fetchview.o mime.o
 awebview:       local.o httpview.o xawebview.o ciddataurls.o cidregistry.o
 #  TCP/SSL drivers (compiled with LOCALONLY)
 awebview:       tcpview.o tcperr.o nameservview.o authorview.o
@@ -204,7 +208,7 @@ awebview.o:     awebview.c aweb.h url.h application.h window.h profile.h source.
     @sc $(DEBUG) DEF=LOCALONLY awebview.c OBJNAME=awebview.o
 
 # Compile fetch.c with LOCALONLY (network code excluded)
-fetchview.o:    fetch.c aweb.h url.h source.h cache.h fetchdriver.h application.h task.h
+fetchview.o:    fetch.c aweb.h url.h source.h cache.h fetchdriver.h httpcch.h application.h task.h
     @echo "        Compiling fetch.c (LOCALONLY)..."
     @sc DEF=LOCALONLY fetch.c OBJNAME=fetchview.o
 

@@ -58,6 +58,7 @@ struct Url
 #define URLF_DEXFETCH   0x0020   /* Current fetch is for docext, don't pass to source */
 #define URLF_WASDUP     0x0040   /* Url was moved because it was duplicate */
 #define URLF_VIEWSOURCE 0x0080   /* view-source: URL - render as plain text */
+#define URLF_FETCHERROR 0x0100   /* Fetch failed: do not write body to url->cache (see Srcupdatefetch) */
 
 struct Child
 {  NODE(Child);
@@ -492,6 +493,7 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
       else ansrc=TRUE;
       url->movedto=NULL;
       url->flags&=~URLF_TEMPMOVED;
+      url->flags&=~URLF_FETCHERROR;
    }
    else /* No reload */
    {  /* If we are temporarily moved, reset our movedto url now.
@@ -641,7 +643,11 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
          {  Notifychilds(url,AOREL_URL_WINDOW,AOWIN_Activeurl,NULL,TAG_END);
             Inputallwindows(FALSE);
          }
-         if(url->fetch && (url->flags&URLF_CACHEABLE) && !assrc)
+         if(url->fetch)
+         {  url->flags&=~URLF_FETCHERROR;
+         }
+         /* POST (postnr!=0): do not create a disk cache; responses are not safe to reuse. */
+         if(url->fetch && (url->flags&URLF_CACHEABLE) && !assrc && !url->postnr)
          {  url->cache=Anewobject(AOTP_CACHE,
                AOCAC_Url,url,
                TAG_END);
@@ -678,7 +684,8 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
          AOFCH_Formwarn,BOOLVAL(auml->flags&AUMLF_FORMWARN),
          TAG_END);
       if(url->vfetch)
-      {  if(url->flags&URLF_CACHEABLE)
+      {  url->flags&=~URLF_FETCHERROR;
+         if(url->flags&URLF_CACHEABLE)
          {  url->vcache=Anewobject(AOTP_CACHE,
                AOCAC_Url,url,
                TAG_END);
@@ -843,15 +850,18 @@ static void Srcupdatevfetch(struct Url *url,struct Amsrcupdate *ams)
             url->vcache=NULL;
             url->vsource=NULL;
             url->flags|=URLF_VERIFIED;
+            url->flags&=~URLF_FETCHERROR;
             break;
          case AOURL_Error:
             /* Don't use an error validation response. */
             if(!tag->ti_Data) break;
+            url->flags|=URLF_FETCHERROR;
             Adisposeobject(url->vfetch);
             /* Will NOT return to us with AOURL_Terminate set
              * so fall through: */
          case AOURL_Terminate:
-            /* Not modified. Dispose vcache, start reload if slow verify. */
+            /* Not modified. Dispose vcache, start reload if slow verify.
+             * On verify error we fall through from AOURL_Error: keep URLF_FETCHERROR set. */
             url->vfetch=NULL;
             url->flags|=URLF_VERIFIED;
             Clearobject(&url->vcache);
@@ -891,7 +901,7 @@ static void Srcupdatevfetch(struct Url *url,struct Amsrcupdate *ams)
          FreeTagItems(wtags);
       }
    }
-   if(url->vcache)
+   if(url->vcache && !(url->flags&URLF_FETCHERROR))
    {  AmethodA(url->vcache,ams);
    }
    if(header)
@@ -933,17 +943,25 @@ static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
             break;
          case AOURL_Error:
             if(tag->ti_Data && cache)
-            {  /* Don't cache error response */
+            {  /* Don't cache error response body: later Data/Eof srcupdates must not
+                * touch url->cache (e.g. restored ocache after reload, or combined
+                * Error+Data in one task message). */
+               url->flags|=URLF_FETCHERROR;
                Clearobject(&url->cache);
                /* Restore old cache if it exists */
                url->cache=url->ocache;
                url->ocache=NULL;
+            }
+            else if(!tag->ti_Data)
+            {  /* HTTP retry clears error (e.g. fresh connection after keep-alive fail) */
+               url->flags&=~URLF_FETCHERROR;
             }
             break;
          case AOURL_Data:
             Urlvisited(url);
             break;
          case AOURL_Reload:
+            url->flags&=~URLF_FETCHERROR;
             Clearobject(&url->cache);
             if(url->ssource)
             {  Adisposeobject(url->ssource);
@@ -987,7 +1005,7 @@ static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
    }
    if(!url->ssource && !(url->flags&URLF_DEXFETCH))
    {  /* Update our cache too */
-      if(cache && url->cache)
+      if(cache && url->cache && !(url->flags&URLF_FETCHERROR))
       {  AmethodA(url->cache,ams);
       }
       if(url->source || !url->movedto)
@@ -996,7 +1014,8 @@ static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
       Changedlayout();
    }
    if(terminate)
-   {  url->fetch=NULL;
+   {  url->flags&=~URLF_FETCHERROR;
+      url->fetch=NULL;
       url->rfetch=NULL;
       if(!url->vfetch)
       {  Notifychilds(url,AOREL_URL_WINDOW,AOWIN_Activeurl,NULL,TAG_END);

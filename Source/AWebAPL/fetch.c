@@ -179,6 +179,23 @@ void Jsgeneratedtask(struct Fetchdriver *fd)
 /*------------------------------------------------------------------------*/
 /* Channel task. */
 
+/* After headers, apply Cache-Control max-age / must-revalidate (once per response). */
+static void Channel_apply_cc_accum(struct Fetchdriver *fd)
+{  ULONG exp;
+   ULONG nowtoday;
+   if(fd->channel_cc_applied)
+      return;
+   fd->channel_cc_applied=TRUE;
+   nowtoday=Today();
+   if(fd->channel_cc.saw_positive_max_age && fd->channel_cc.min_max_age>0)
+   {  exp=nowtoday+(ULONG)fd->channel_cc.min_max_age;
+      Updatetaskattrs(AOURL_Expires,exp,TAG_END);
+   }
+   else if(fd->channel_cc.must_revalidate && !fd->channel_got_expires && fd->serverdate)
+   {  Updatetaskattrs(AOURL_Expires,nowtoday,TAG_END);
+   }
+}
+
 /* Process headers (shouldn't this be shared with http.c?) */
 static void Channelheader(struct Fetchdriver *fd,UBYTE *header)
 {  Updatetaskattrs(
@@ -198,6 +215,7 @@ static void Channelheader(struct Fetchdriver *fd,UBYTE *header)
    }
    else if(STRNIEQUAL(header,"Expires:",8))
    {  ULONG expires=Scandate(header+8);
+      fd->channel_got_expires=TRUE;
       Updatetaskattrs(
          AOURL_Expires,expires,
          TAG_END);
@@ -210,6 +228,26 @@ static void Channelheader(struct Fetchdriver *fd,UBYTE *header)
             AOURL_Nocache,TRUE,
             TAG_END);
       }
+   }
+   else if(STRNIEQUAL(header,"Cache-Control:",14))
+   {  UBYTE *p;
+      UBYTE *term;
+      UBYTE termsave;
+      struct Http_cc_accum line;
+      p=header+14;
+      while(*p && (*p==' ' || *p=='\t')) p++;
+      term=p;
+      while(*term && *term!='\r' && *term!='\n') term++;
+      termsave=*term;
+      *term='\0';
+      Http_cc_parse(p,&line);
+      Http_cc_merge(&fd->channel_cc,&line);
+      if(line.forbid_disk)
+      {  Updatetaskattrs(
+            AOURL_Nocache,TRUE,
+            TAG_END);
+      }
+      *term=termsave;
    }
    else if(STRNIEQUAL(header,"Content-Length:",15))
    {  long i=0;
@@ -248,6 +286,9 @@ void Channeltask(struct Fetchdriver *fd)
    struct Amset *ams;
    struct TagItem *tstate,*tag;
    BOOL done=FALSE;
+   Http_cc_reset_accum(&fd->channel_cc);
+   fd->channel_got_expires=FALSE;
+   fd->channel_cc_applied=FALSE;
    while(!done)
    {  Waittask(0);
       while(!done && (msg=Gettaskmsg()))
@@ -263,6 +304,7 @@ void Channeltask(struct Fetchdriver *fd)
                         Channelheader(fd,(UBYTE *)tag->ti_Data);
                         break;
                      case AOFCC_Data:
+                        Channel_apply_cc_accum(fd);
                         Updatetaskattrs(
                            AOURL_Data,tag->ti_Data,
                            AOURL_Datalength,strlen((UBYTE *)tag->ti_Data),
