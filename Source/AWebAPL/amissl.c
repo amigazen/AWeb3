@@ -16,9 +16,9 @@
  *
  **********************************************************************/
 
-/* amissl.c - AWeb SSL function library. Updated for AmiSSL 5.20+ */
+/* amissl.c - AWeb SSL function library. Updated for AmiSSL 5.27+ */
 /*
- * AmiSSL 5.20+ compatibility updates:
+ * AmiSSL 5.27+ compatibility updates:
  * - Updated to use new OpenAmiSSLTags() API instead of deprecated InitAmiSSL()
  * - Added proper AmiSSLMaster library handling
  * - Updated to use modern OpenSSL 3.x API functions
@@ -396,7 +396,7 @@ static int *GetTaskErrno(void) {
 }
 
 /*
- * MULTITHREADING SAFETY REQUIREMENTS (per AmiSSL 5.20+ documentation):
+ * MULTITHREADING SAFETY REQUIREMENTS (per AmiSSL documentation):
  *
  * 1. Each subprocess/task MUST call InitAmiSSL() before using any
  * amissl.library calls.
@@ -1206,7 +1206,7 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
             "DEBUG: Assl_initamissl: Opened amisslmaster.library at %p\n",
             AmiSSLMasterBase);
 
-        /* Use new OpenAmiSSLTags API for AmiSSL 5.20+ */
+        /* Use new OpenAmiSSLTags API for AmiSSL 5.27+ */
         /* This sets the global AmiSSLBase and AmiSSLExtBase for the application
          */
         /* After this call, all tasks can use the global bases safely thanks to
@@ -1234,7 +1234,7 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
         } else {
           debug_printf("DEBUG: Assl_initamissl: OpenAmiSSLTags() failed\n");
           PutStr("ERROR: OpenAmiSSLTags() failed.\n");
-          Lowlevelreq("AWeb could not initialize AmiSSL 5.20+.\nPlease check "
+          Lowlevelreq("AWeb could not initialize AmiSSL 5.27+.\nPlease check "
                       "your AmiSSL installation and try again.");
           CloseLibrary(AmiSSLMasterBase);
           AmiSSLMasterBase = NULL;
@@ -1243,7 +1243,7 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
         debug_printf(
             "DEBUG: Assl_initamissl: Failed to open amisslmaster.library\n");
         PutStr("ERROR: Could not open amisslmaster.library.\n");
-        Lowlevelreq("AWeb requires amisslmaster.library version 5.20 or newer "
+        Lowlevelreq("AWeb requires amisslmaster.library version 5.27 or newer "
                     "for SSL/TLS connections.\nPlease install or update AmiSSL "
                     "and try again.");
       }
