@@ -999,7 +999,6 @@ static void Cleanup(void)
    Freeamissl();  /* after Freehttp() bcz all SSL connections must be closed first */
 #endif
    Freesupport();
-   Freememory();  /* MUST be the very last! */
    if(locale) CloseLocale(locale);
    if(localeinfo.li_Catalog) CloseCatalog(localeinfo.li_Catalog);
    if(AWebJSBase) CloseLibrary(AWebJSBase);
@@ -1045,6 +1044,8 @@ static void Cleanup(void)
       Permit();
       DeleteMsgPort(awebcontrolport);
    }
+   /* Keep our pooled memory alive until all libraries/classes are closed. */
+   Freememory();
    report();
 }
 

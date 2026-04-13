@@ -349,6 +349,7 @@ static void Disposebullet(struct Bullet *bul)
 
 static long Dispatch(struct Bullet *bul,struct Amessage *amsg)
 {  long result=0;
+   short i;
    switch(amsg->method)
    {  case AOM_NEW:
          result=(long)Newbullet((struct Amset *)amsg);
@@ -372,6 +373,15 @@ static long Dispatch(struct Bullet *bul,struct Amessage *amsg)
          Disposebullet(bul);
          break;
       case AOM_DEINSTALL:
+         /* Ensure shared Reaction images are released at shutdown.
+          * These are cached per-screen, so they must not survive beyond the app. */
+         for(i=0;i<6;i++)
+         {  if(bullet[i])
+            {  DisposeObject(bullet[i]);
+               bullet[i]=NULL;
+            }
+            usecnt[i]=0;
+         }
          break;
       default:
          AmethodasA(AOTP_ELEMENT,bul,amsg);

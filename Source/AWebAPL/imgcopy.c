@@ -40,6 +40,7 @@ struct Imgcopy
 };
 
 #define IMGF_OURBITMAP  0x0001   /* Bitmap is ours */
+#define IMGF_OURMASK    0x0002   /* Mask is ours */
 
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
@@ -49,7 +50,11 @@ static void Newbitmap(struct Imgcopy *img)
 {  if(img->flags&IMGF_OURBITMAP)
    {  if(img->bitmap) FreeBitMap(img->bitmap);
    }
+   if(img->flags&IMGF_OURMASK)
+   {  if(img->mask) FreeVec(img->mask);
+   }
    img->flags&=~IMGF_OURBITMAP;
+   img->flags&=~IMGF_OURMASK;
 
    if(img->source->bitmap)
    {  if(img->swidth && !img->sheight)
@@ -120,6 +125,7 @@ static void Newbitmap(struct Imgcopy *img)
                   bsa.bsa_DestBitMap=&dbm;
                   bsa.bsa_Flags=0;
                   BitMapScale(&bsa);
+                  img->flags|=IMGF_OURMASK;
                }
             }
          }
@@ -240,6 +246,9 @@ break;
 static void Disposeimgcopy(struct Imgcopy *img)
 {  if(img->flags&IMGF_OURBITMAP)
    {  if(img->bitmap) FreeBitMap(img->bitmap);
+   }
+   if(img->flags&IMGF_OURMASK)
+   {  if(img->mask) FreeVec(img->mask);
    }
    Amethodas(AOTP_COPYDRIVER,img,AOM_DISPOSE);
 }

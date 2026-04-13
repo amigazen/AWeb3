@@ -1097,7 +1097,6 @@ static void Cleanup(void)
    Freeamissl();  /* after Freehttp() because all SSL connections must be closed first */
    FreeTTEngine(); /* Cleanup ttengine.library support */
    Freesupport();
-   Freememory();  /* MUST be the very last! */
    if(locale) CloseLocale(locale);
    if(localeinfo.li_Catalog) CloseCatalog(localeinfo.li_Catalog);
    if(AWebJSBase) CloseLibrary(AWebJSBase);
@@ -1160,6 +1159,8 @@ static void Cleanup(void)
    {  CloseLibrary(CxBase);
       CxBase=NULL;
    }
+   /* Keep our pooled memory alive until all libraries/classes are closed. */
+   Freememory();
    report();
 }
 
