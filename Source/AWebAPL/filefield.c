@@ -448,8 +448,14 @@ static long Jsetupfilefield(struct Filefield *fuf,struct Amjsetup *amj)
 }
 
 static void Deinstallfilefield(void)
-{  if(glyph) DisposeObject(glyph);
-   if(bevel) DisposeObject(bevel);
+{  if(glyph)
+   {  DisposeObject(glyph);
+      glyph=NULL;
+   }
+   if(bevel)
+   {  DisposeObject(bevel);
+      bevel=NULL;
+   }
 }
 
 static long Dispatch(struct Filefield *fuf,struct Amessage *amsg)
@@ -513,14 +519,28 @@ static long Dispatch(struct Filefield *fuf,struct Amessage *amsg)
 
 BOOL Installfilefield(void)
 {  if(!Amethod(NULL,AOM_INSTALL,AOTP_FILEFIELD,Dispatch)) return FALSE;
+   /* Allow safe re-entry (e.g. failed init then retry) without leaking objects. */
+   if(glyph)
+   {  DisposeObject(glyph);
+      glyph=NULL;
+   }
+   if(bevel)
+   {  DisposeObject(bevel);
+      bevel=NULL;
+   }
    if(!(bevel=BevelObject,
       BEVEL_Style,BVS_BUTTON,
       End)) return FALSE;
    GetAttr(BEVEL_VertSize,bevel,(ULONG *)&bevelw);
    GetAttr(BEVEL_HorizSize,bevel,(ULONG *)&bevelh);
+   /* If glyph creation fails, dispose bevel so Installfilefield retry does not leak. */
    if(!(glyph=GlyphObject,
       GLYPH_Glyph,GLYPH_POPFILE,
-      End)) return FALSE;
+      End))
+   {  DisposeObject(bevel);
+      bevel=NULL;
+      return FALSE;
+   }
    return TRUE;
 }
 
