@@ -727,6 +727,10 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
    if(pool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE))
    {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
       {  jc->pool=pool;
+         /* Objects and variables must use this pool: Pallocmem(NULL,...) uses AllocMem
+          * and those blocks are not reclaimed by DeletePool(jc->pool). */
+         jc->objpool=pool;
+         jc->varpool=pool;
          NEWLIST(&jc->objects);
          NEWLIST(&jc->tmp);
          Newexecute(jc);
@@ -843,6 +847,14 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
          jc->protkey=oldprotkey;
          while(jo=REMHEAD(&temps))
          {  ADDTAIL(&jc->objects,jo);
+         }
+      }
+      else
+      {  /* Compile failed: partial AST and any nodes would otherwise stay in jc->program
+          * and the next Runjprogram would append to a broken tree, leaking compile memory. */
+         if(jc->program)
+         {  Jdispose((struct Element *)jc->program);
+            jc->program=NULL;
          }
       }
    }

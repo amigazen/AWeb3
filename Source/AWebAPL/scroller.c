@@ -593,11 +593,30 @@ static void Disposescroller(struct Scroller *scr)
 }
 
 static void Deinstall(void)
-{  if(upimage) DisposeObject(upimage);
-   if(downimage) DisposeObject(downimage);
-   if(leftimage) DisposeObject(leftimage);
-   if(rightimage) DisposeObject(rightimage);
-   if(bevel) DisposeObject(bevel);
+{  if(upimage)
+   {  DisposeObject(upimage);
+      upimage=NULL;
+   }
+   if(downimage)
+   {  DisposeObject(downimage);
+      downimage=NULL;
+   }
+   if(leftimage)
+   {  DisposeObject(leftimage);
+      leftimage=NULL;
+   }
+   if(rightimage)
+   {  DisposeObject(rightimage);
+      rightimage=NULL;
+   }
+   if(knob)
+   {  DisposeObject(knob);
+      knob=NULL;
+   }
+   if(bevel)
+   {  DisposeObject(bevel);
+      bevel=NULL;
+   }
 }
 
 static long Dispatch(struct Scroller *scr,struct Amessage *amsg)
@@ -647,6 +666,8 @@ static long Dispatch(struct Scroller *scr,struct Amessage *amsg)
 
 BOOL Installscroller(void)
 {  if(!Amethod(NULL,AOM_INSTALL,AOTP_SCROLLER,Dispatch)) return FALSE;
+   /* Safe re-entry and failed-init retry: drop any prior shared Reaction objects. */
+   Deinstall();
    if(!(bevel=BevelObject,
       BEVEL_Style,BVS_STANDARD,
       End)) return FALSE;
@@ -654,21 +675,36 @@ BOOL Installscroller(void)
    GetAttr(BEVEL_HorizSize,bevel,(ULONG *)&bevelh);
    if(!(knob=BevelObject,
       BEVEL_Style,BVS_BUTTON,
-      End)) return FALSE;
+      End))
+   {  Deinstall();
+      return FALSE;
+   }
    GetAttr(BEVEL_VertSize,knob,(ULONG *)&knobw);
    GetAttr(BEVEL_HorizSize,knob,(ULONG *)&knobh);
    if(!(upimage=GlyphObject,
       GLYPH_Glyph,GLYPH_UPARROW,
-      End)) return FALSE;
+      End))
+   {  Deinstall();
+      return FALSE;
+   }
    if(!(downimage=GlyphObject,
       GLYPH_Glyph,GLYPH_DOWNARROW,
-      End)) return FALSE;
+      End))
+   {  Deinstall();
+      return FALSE;
+   }
    if(!(leftimage=GlyphObject,
       GLYPH_Glyph,GLYPH_LEFTARROW,
-      End)) return FALSE;
+      End))
+   {  Deinstall();
+      return FALSE;
+   }
    if(!(rightimage=GlyphObject,
       GLYPH_Glyph,GLYPH_RIGHTARROW,
-      End)) return FALSE;
+      End))
+   {  Deinstall();
+      return FALSE;
+   }
    return TRUE;
 }
 

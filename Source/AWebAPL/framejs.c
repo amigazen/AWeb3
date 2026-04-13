@@ -42,8 +42,6 @@ static BOOL nobanners=FALSE;
 
 static ULONG maptimeout[]={ AOTIM_Ready,AOFRM_Timertoready,TAG_END };
 
-static long garbagetime=0;
-
 /*-----------------------------------------------------------------------*/
 
 /* Timeout stuff */
@@ -1108,7 +1106,6 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
    struct Jobject *jgscope[4];
    short i;
    long jerr;
-   unsigned int clock[2]={ 0,0 };
    if(fr && script && prefs.dojs && Openjslib())
    {  fr=Bodyframe(fr);
       if(!fr)
@@ -1162,11 +1159,9 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
          Jdebug(jc,Agetattr(fr->win,AOWIN_Jsdebug));
 #endif
          result=Runjprogram(jc,fr->jobject,script,jthis,jgscope,fr->jprotect,(ULONG)fr);
-         timer(clock);
-         if(clock[0]>garbagetime)
-         {  Jgarbagecollect(jc);
-            garbagetime=clock[0]+1;
-         }
+         /* Original AWeb 3.4 code only GC'd when timer seconds advanced; many short scripts never
+          * collected and awebjs allocations showed up as leaks. Fix by collecting after each run. */
+         if(AWebJSBase) Jgarbagecollect(jc);
          if(!animon) Setanimgads(FALSE);
       }
    }

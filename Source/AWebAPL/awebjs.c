@@ -106,6 +106,8 @@ static __saveds __asm void require(register __a0 struct Jcontext *jc)
               fread(source, length, 1, fh);
               Jerrors(jc, TRUE, 1, FALSE);
               Runjprogram(jc, globalscope, source, jthis, jgscope, 0, 0);
+              /* Match browser: engine may not collect temp objects each program */
+              Jgarbagecollect(jc);
               FreeVec(source);
           }
           fclose(fh);     
@@ -196,6 +198,7 @@ dtbase=OpenLibrary("datatypes.library",0);
                      {  fread(source,l,1,f);
                         Jerrors(jc,TRUE,1,FALSE);
                         Runjprogram(jc,jo,source,jo,jgscope,0,0);
+                        Jgarbagecollect(jc);
                         FreeVec(source);
                      }
                      fclose(f);

@@ -512,6 +512,7 @@ void Docjexecute(struct Document *doc,UBYTE *source)
    if(jc)
    {  Jsetlinenumber(jc,doc->jsrcline+1);
       Runjsnobanners(doc->frame,source,NULL);
+      /* GC after each Runjprogram is done in Runjavascriptwith (framejs.c). */
    }
 
 /*** OR: show JS instead of execute

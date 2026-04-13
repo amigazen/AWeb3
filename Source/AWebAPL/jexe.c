@@ -2857,16 +2857,48 @@ BOOL Newexecute(struct Jcontext *jc)
 
 void Freeexecute(struct Jcontext *jc)
 {  struct Function *f;
+   struct Jobject *jo;
+   struct This *th;
+   short i;
+   /* Full teardown for Freejcontext and failed Newexecute: compiled program, vars,
+    * call stack, leftover This nodes, then every Jobject on jc->objects. Objects are
+    * not unlinked by Disposeobject(), so RemHead here avoids orphan list nodes and
+    * pool leaks. Cached jc->* handles are cleared after the drain. */
    if(jc)
-   {  if(jc->val)
-      {  if(jc->valvar) Disposevar(jc->valvar);
-         if(jc->result) Disposevar(jc->result);
-         if(jc->throw) Disposevar(jc->throw);
-         while(f=REMHEAD(&jc->functions)) Disposefunction(f);
-         REMOVE(jc->jthis);
-         Disposeobject(jc->jthis);
-         REMOVE(jc->tostring);
-         Disposeobject(jc->tostring);
+   {  if(jc->program)
+      {  Jdispose((struct Element *)jc->program);
+         jc->program=NULL;
       }
+      if(jc->valvar)
+      {  Disposevar(jc->valvar);
+         jc->valvar=NULL;
+         jc->val=NULL;
+      }
+      if(jc->result)
+      {  Disposevar(jc->result);
+         jc->result=NULL;
+      }
+      if(jc->throw)
+      {  Disposevar(jc->throw);
+         jc->throw=NULL;
+      }
+      jc->throwval=NULL;
+      while(f=REMHEAD(&jc->functions)) Disposefunction(f);
+      while(th=(struct This *)REMHEAD(&jc->thislist)) FREE(th);
+      while(jo=(struct Jobject *)REMHEAD(&jc->objects)) Disposeobject(jo);
+      jc->fscope=NULL;
+      jc->jthis=NULL;
+      jc->tostring=NULL;
+      jc->eval=NULL;
+      jc->o=NULL;
+      jc->object=NULL;
+      jc->boolean=NULL;
+      jc->function=NULL;
+      jc->number=NULL;
+      jc->string=NULL;
+      jc->array=NULL;
+      jc->regexp=NULL;
+      jc->error=NULL;
+      for(i=0;i<NUM_ERRORTYPES;i++) jc->nativeErrors[i]=NULL;
    }
 }

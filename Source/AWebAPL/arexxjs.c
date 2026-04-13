@@ -371,7 +371,10 @@ __saveds void SendCommand(struct Jcontext *jc)
             return;
         }
         else
-        {
+        {  /* GetMsg() removed a packet from our port; must not drop it */
+            if(rm)
+            {  DeleteRexxMsg(rm);
+            }
             printf("WARNING! Unexpected packet! SendCommand %ld\n", __LINE__);
         }
     }
