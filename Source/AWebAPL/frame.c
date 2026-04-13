@@ -229,7 +229,7 @@ static void Uninstallbg(struct Backfillinfo *bf)
 
 static void Rendercontents(struct Frame *fr,struct Coords *coo,
    long minx,long miny,long maxx,long maxy,USHORT flags)
-{  ULONG clipkey;
+{  ULONG clipkey=0;
    struct Coords coords={0};
    if(!coo)
    {  Framecoords(fr,&coords);

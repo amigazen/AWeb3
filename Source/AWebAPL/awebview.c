@@ -162,6 +162,10 @@ struct Clipcoords
    ULONG clipkey;
 };
 
+#define CLIPSTACKMAX 48
+static ULONG clip_stack[CLIPSTACKMAX];
+static short clip_stack_n;
+
 static UBYTE days[7][4]=
 {  "Sun","Mon","Tue","Wed","Thu","Fri","Sat"
 };
@@ -642,11 +646,15 @@ ULONG Clipto(struct RastPort *rp,short minx,short miny,short maxx,short maxy)
    LockLayer(0,ci->layer);
    ci->oldregion=InstallClipRegion(ci->layer,ci->region);
    if(ci->window) BeginRefresh(ci->window);
+   if(clip_stack_n < CLIPSTACKMAX)
+      clip_stack[clip_stack_n++] = (ULONG)ci;
    return (ULONG)ci;
 }
 
 void Unclipto(ULONG p)
 {  struct Clipinfo *ci=(struct Clipinfo *)p;
+   if(p && clip_stack_n > 0 && clip_stack[clip_stack_n-1] == p)
+      clip_stack_n--;
    if(ci)
    {  if(ci->region)
       {  if(ci->layer)
@@ -660,6 +668,11 @@ void Unclipto(ULONG p)
       }
       FREE(ci);
    }
+}
+
+static void Drainallclips(void)
+{  while(clip_stack_n > 0)
+      Unclipto(clip_stack[clip_stack_n-1]);
 }
 
 struct Coords *Clipcoords(void *cframe,struct Coords *coo)
@@ -981,7 +994,8 @@ void Setloadreqlevel(long ready,long total)
 /*-----------------------------------------------------------------------*/
 
 static void Cleanup(void)
-{  Exitcache();
+{  Drainallclips();
+   Exitcache();
    Freetooltip();
    Freemime();
    Freeboopsi();
