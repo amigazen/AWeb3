@@ -652,8 +652,24 @@ static Class *InitLedgadcls(void)
 
 BOOL Initboopsi(void)
 {  if(!(gadimgcls=InitGadimgcls())) return FALSE;
-   if(!(stagadcls=InitStagadcls())) return FALSE;
-   if(!(ledgadcls=InitLedgadcls())) return FALSE;
+   if(!(stagadcls=InitStagadcls()))
+   {  if(gadimgcls)
+      {  FreeClass(gadimgcls);
+         gadimgcls=NULL;
+      }
+      return FALSE;
+   }
+   if(!(ledgadcls=InitLedgadcls()))
+   {  if(stagadcls)
+      {  FreeClass(stagadcls);
+         stagadcls=NULL;
+      }
+      if(gadimgcls)
+      {  FreeClass(gadimgcls);
+         gadimgcls=NULL;
+      }
+      return FALSE;
+   }
    return TRUE;
 }
 
