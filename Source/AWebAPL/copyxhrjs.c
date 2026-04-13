@@ -984,11 +984,12 @@ void Initxhrjs(void)
 }
 
 void Exitxhrjs(void)
-{  struct Xhrsourcemap *map,*next;
-   for(map=xhrsourcemaps.first;map;map=next)
-   {  next=map->next;
-      REMOVE(map);
-      FREE(map);
+{  struct Xhrsourcemap *map;
+   /* LIST() is an Exec list: when empty, lh_Head points at the tail sentinel,
+    * not NULL. Never walk with map->next from first; use REMHEAD/ISEMPTY. */
+   while(!ISEMPTY(&xhrsourcemaps))
+   {  map=(struct Xhrsourcemap *)REMHEAD(&xhrsourcemaps);
+      if(map) FREE(map);
    }
    NEWLIST(&xhrsourcemaps);
 }
