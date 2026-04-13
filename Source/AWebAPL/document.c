@@ -342,7 +342,7 @@ static long Layoutdocument(struct Document *doc,struct Amlayout *aml)
 
 static long Renderdocument(struct Document *doc,struct Amrender *amr)
 {  BOOL clip=FALSE;
-   ULONG clipkey;
+   ULONG clipkey=0;
    struct Coords coords={0},*coo=NULL;
    ULONG frameid=0;
    void *whis=NULL;

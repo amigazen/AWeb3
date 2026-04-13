@@ -614,28 +614,34 @@ void __saveds __asm Awebbackfillhook(register __a0 struct Hook *hook,
 }
 
 ULONG Clipto(struct RastPort *rp,short minx,short miny,short maxx,short maxy)
-{  struct Clipinfo *ci=ALLOCSTRUCT(Clipinfo,1,MEMF_CLEAR);
+{  struct Clipinfo *ci;
    struct Rectangle rect;
+   if(!rp || !rp->Layer) return 0;
+   ci=ALLOCSTRUCT(Clipinfo,1,MEMF_CLEAR);
+   if(!ci) return 0;
    rect.MinX=minx;
    rect.MinY=miny;
    rect.MaxX=maxx;
    rect.MaxY=maxy;
-   if(ci)
-   {  if(ci->region=NewRegion())
-      {  if(OrRectRegion(ci->region,&rect))
-         {  ci->layer=rp->Layer;
-            if((ci->window=rp->Layer->Window)
-             && Agetattr((void *)ci->window->UserData,AOWIN_Refreshing))
-            {  EndRefresh(ci->window,FALSE);
-            }
-            else ci->window=NULL;
-            LockLayerInfo(ci->layer->LayerInfo);
-            LockLayer(0,ci->layer);
-            ci->oldregion=InstallClipRegion(ci->layer,ci->region);
-            if(ci->window) BeginRefresh(ci->window);
-         }
-      }
+   if(!(ci->region=NewRegion()))
+   {  FREE(ci);
+      return 0;
    }
+   if(!OrRectRegion(ci->region,&rect))
+   {  DisposeRegion(ci->region);
+      FREE(ci);
+      return 0;
+   }
+   ci->layer=rp->Layer;
+   if((ci->window=rp->Layer->Window)
+    && Agetattr((void *)ci->window->UserData,AOWIN_Refreshing))
+   {  EndRefresh(ci->window,FALSE);
+   }
+   else ci->window=NULL;
+   LockLayerInfo(ci->layer->LayerInfo);
+   LockLayer(0,ci->layer);
+   ci->oldregion=InstallClipRegion(ci->layer,ci->region);
+   if(ci->window) BeginRefresh(ci->window);
    return (ULONG)ci;
 }
 
@@ -673,12 +679,13 @@ struct Coords *Clipcoords(void *cframe,struct Coords *coo)
 
 void Unclipcoords(struct Coords *coo)
 {  struct Clipcoords *clc=(struct Clipcoords *)coo;
-   if(coo)
-   {  coo->nestcount--;
-      if(coo->nestcount==1)
-      {  if(clc->clipkey) Unclipto(clc->clipkey);
-         FREE(clc);
-      }
+   if(!coo) return;
+   /* Match aweb.c: stack Coords use nestcount 0; do not decrement. */
+   if(coo->nestcount<=0) return;
+   coo->nestcount--;
+   if(coo->nestcount==1)
+   {  if(clc->clipkey) Unclipto(clc->clipkey);
+      FREE(clc);
    }
 }
 

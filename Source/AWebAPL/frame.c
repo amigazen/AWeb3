@@ -1320,7 +1320,7 @@ static long Renderframe(struct Frame *fr,struct Amrender *amr)
    long scrw,scrh,x,y;
    short i;
    struct RastPort *rp;
-   ULONG clipkey;
+   ULONG clipkey=0;
    if(!(amr->flags&(AMRF_UPDATESELECTED|AMRF_UPDATENORMAL)))
    {  coo=amr->coords;
       if(!coo)
@@ -2343,7 +2343,7 @@ static long Dragrenderframe(struct Frame *fr,struct Amdragrender *amdp)
 {  struct Coords coords={0},co2,*coo;
    struct RastPort *rp;
    struct Amdragrender amd;
-   ULONG clipkey;
+   ULONG clipkey=0;
    coo=amdp->coords;
    if(!coo)
    {  if(fr->frame)
