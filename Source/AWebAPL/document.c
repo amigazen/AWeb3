@@ -1255,7 +1255,8 @@ static long Dragcopydocument(struct Document *doc,struct Amdragcopy *amd)
 }
 
 static void Deinstalldocument(void)
-{  Exitdocjs();
+{  Exitxhrjs();
+   Exitdocjs();
 }
 
 static long Dispatch(struct Document *doc,struct Amessage *amsg)

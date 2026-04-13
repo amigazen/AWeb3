@@ -983,6 +983,16 @@ void Initxhrjs(void)
 {  NEWLIST(&xhrsourcemaps);
 }
 
+void Exitxhrjs(void)
+{  struct Xhrsourcemap *map,*next;
+   for(map=xhrsourcemaps.first;map;map=next)
+   {  next=map->next;
+      REMOVE(map);
+      FREE(map);
+   }
+   NEWLIST(&xhrsourcemaps);
+}
+
 void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent)
 {  struct Jobject *jo,*proto;
    struct Jvar *jv;

@@ -26,6 +26,9 @@
 /* Initialize XHR JavaScript support */
 extern void Initxhrjs(void);
 
+/* Cleanup XHR JavaScript support */
+extern void Exitxhrjs(void);
+
 /* Add the JS XMLHttpRequest() constructor to this object */
 extern void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent);
 
