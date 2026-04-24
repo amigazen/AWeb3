@@ -1466,6 +1466,63 @@ BOOL Windowtransferring(ULONG windowkey)
    return FALSE;
 }
 
+void Windowfetchstats(ULONG windowkey,long *netrunning,long *netqueued,
+   long *localqueued,long *imgrunning,long *imgqueued)
+{  struct Fetch *fch;
+   long nrun=0,nq=0,lq=0,irun=0,iq=0;
+   if(!windowkey)
+   {  if(netrunning) *netrunning=0;
+      if(netqueued) *netqueued=0;
+      if(localqueued) *localqueued=0;
+      if(imgrunning) *imgrunning=0;
+      if(imgqueued) *imgqueued=0;
+      return;
+   }
+   for(fch=running.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey
+      && (fch->flags&FCHF_RUNNING)
+      && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  if(fch->flags&FCHF_NETSLOT) nrun++;
+         if(fch->flags&FCHF_IMAGE) irun++;
+      }
+   }
+   for(fch=netqueue.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey
+      && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  nq++;
+         if(fch->flags&FCHF_IMAGE) iq++;
+      }
+   }
+   for(fch=localqueue.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey
+      && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  lq++;
+         if(fch->flags&FCHF_IMAGE) iq++;
+      }
+   }
+   for(fch=channels.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey
+      && (fch->flags&FCHF_RUNNING)
+      && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  if(fch->flags&FCHF_NETSLOT) nrun++;
+         if(fch->flags&FCHF_IMAGE) irun++;
+      }
+   }
+   if(netrunning) *netrunning=nrun;
+   if(netqueued) *netqueued=nq;
+   if(localqueued) *localqueued=lq;
+   if(imgrunning) *imgrunning=irun;
+   if(imgqueued) *imgqueued=iq;
+}
+
+/* Snapshot of global fetch scheduler capacity (see Checkqueues / Dostartdriver). */
+void Fetchslotfills(long *netused,long *netmax,long *localused,long *localmax)
+{  if(netused) *netused=nrnet;
+   if(netmax) *netmax=prefs.maxconnect;
+   if(localused) *localused=nrlocal;
+   if(localmax) *localmax=prefs.maxdiskread;
+}
+
 void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *url)
 {  struct Waitrequest *wr;
    if(wr=ALLOCSTRUCT(Waitrequest,1,MEMF_CLEAR))

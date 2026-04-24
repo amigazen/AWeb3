@@ -41,6 +41,7 @@ struct Imgsource
 #define IMSF_OURMASK    0x0002   /* Transparent mask is our own */
 #define IMSF_CACHEFILE  0x0004   /* Use cache file as input */
 #define IMSF_ERROR      0x0008   /* Error, don't process */
+#define IMSF_DECODEWAIT  0x0010   /* Decode requested, waiting for EOF */
 
 /*--- Private tags: ---*/
 
@@ -48,4 +49,13 @@ struct Imgsource
 
 #define AOIMP_Srcupdate    (AOIMP_Dummy+101)
    /* (BOOL) Bitmap is available or disappeared */
+
+/*--- Imgsource private control tags (set on AOTP_IMGSOURCE objects) ---*/
+
+#ifndef AOIMS_Dummy
+#define AOIMS_Dummy           AOBJ_DUMMYTAG(AOTP_IMGSOURCE)
+#endif
+
+#define AOIMS_Requestdecode   (AOIMS_Dummy+100)
+   /* (BOOL) Request starting decode now (experimental lazy decode). */
 

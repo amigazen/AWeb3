@@ -2364,6 +2364,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    struct CSSProperty *prop;
    struct MinList matches;
    struct RuleWithSpecificity *ruleSpec;
+   struct RuleWithSpecificity *nextRuleSpec;
    struct RuleWithSpecificity *current;
    struct RuleWithSpecificity *insertAfter;
    struct CSSStylesheet *sheet;
@@ -2485,10 +2486,12 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    /* Apply properties from matching rules sorted by specificity */
    /* Rules with same specificity maintain document order (last wins) */
    matchCount = 0;
+   /* Advance via next pointer before FREE: iterator was use-after-free and leaked nodes */
    for(ruleSpec = (struct RuleWithSpecificity *)matches.mlh_Head;
        (struct MinNode *)ruleSpec->node.mln_Succ;
-       ruleSpec = (struct RuleWithSpecificity *)ruleSpec->node.mln_Succ)
-   {  matchCount++;
+       ruleSpec = nextRuleSpec)
+   {  nextRuleSpec = (struct RuleWithSpecificity *)ruleSpec->node.mln_Succ;
+      matchCount++;
       rule = ruleSpec->rule;
       for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
          (struct MinNode *)prop->node.mln_Succ;

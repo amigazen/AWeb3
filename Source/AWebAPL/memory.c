@@ -30,6 +30,13 @@ void *fastpool,*chippool;
 extern BOOL nopool;
 #endif
 
+static ULONG awebmem_used=0;
+static ULONG awebmem_peak=0;
+static ULONG awebmem_used_chip=0;
+static ULONG awebmem_used_fast=0;
+static ULONG awebmem_peak_chip=0;
+static ULONG awebmem_peak_fast=0;
+
 /*-----------------------------------------------------------------------*/
 
 BOOL Initmemory(void)
@@ -48,16 +55,32 @@ void Freememory(void)
 
 void *Pallocmem(long size,ULONG flags,void *pool)
 {  void *mem;
+   ULONG asize;
+   BOOL ischip;
 #ifdef BETAKEYFILE
    if(nopool) pool=NULL;
 #endif
    ObtainSemaphore(&memsema);
-   if(pool) mem=AllocPooled(pool,size+8);
-   else mem=AllocMem(size+8,flags|MEMF_PUBLIC|MEMF_CLEAR);
+   asize=(ULONG)(size+8);
+   ischip=BOOLVAL(flags&MEMF_CHIP);
+   if(pool) mem=AllocPooled(pool,asize);
+   else mem=AllocMem(asize,flags|MEMF_PUBLIC|MEMF_CLEAR);
    ReleaseSemaphore(&memsema);
    if(mem)
    {  *(void **)mem=pool;
       *(long *)((ULONG)mem+4)=size+8;
+      ObtainSemaphore(&memsema);
+      awebmem_used+=asize;
+      if(awebmem_used>awebmem_peak) awebmem_peak=awebmem_used;
+      if(ischip)
+      {  awebmem_used_chip+=asize;
+         if(awebmem_used_chip>awebmem_peak_chip) awebmem_peak_chip=awebmem_used_chip;
+      }
+      else
+      {  awebmem_used_fast+=asize;
+         if(awebmem_used_fast>awebmem_peak_fast) awebmem_peak_fast=awebmem_used_fast;
+      }
+      ReleaseSemaphore(&memsema);
       return (void *)((ULONG)mem+8);
    }
    else return NULL;
@@ -74,13 +97,72 @@ void *Allocmem(long size,ULONG flags)
 void Freemem(void *mem)
 {  void *pool;
    long size;
+   BOOL ischip;
    if(mem)
    {  pool=*(void **)((ULONG)mem-8);
       size=*(long *)((ULONG)mem-4);
+      ischip=BOOLVAL(TypeOfMem((void *)((ULONG)mem-8))&MEMF_CHIP);
       ObtainSemaphore(&memsema);
+      if(size>0 && awebmem_used>=(ULONG)size) awebmem_used-=(ULONG)size;
+      if(size>0)
+      {  if(ischip)
+         {  if(awebmem_used_chip>=(ULONG)size) awebmem_used_chip-=(ULONG)size;
+         }
+         else
+         {  if(awebmem_used_fast>=(ULONG)size) awebmem_used_fast-=(ULONG)size;
+         }
+      }
       if(pool) FreePooled(pool,(void *)((ULONG)mem-8),size);
       else FreeMem((void *)((ULONG)mem-8),size);
       ReleaseSemaphore(&memsema);
    }
+}
+
+ULONG Awebmemused(void)
+{  ULONG used;
+   ObtainSemaphore(&memsema);
+   used=awebmem_used;
+   ReleaseSemaphore(&memsema);
+   return used;
+}
+
+ULONG Awebmempeak(void)
+{  ULONG peak;
+   ObtainSemaphore(&memsema);
+   peak=awebmem_peak;
+   ReleaseSemaphore(&memsema);
+   return peak;
+}
+
+ULONG Awebmemusedchip(void)
+{  ULONG used;
+   ObtainSemaphore(&memsema);
+   used=awebmem_used_chip;
+   ReleaseSemaphore(&memsema);
+   return used;
+}
+
+ULONG Awebmemusedfast(void)
+{  ULONG used;
+   ObtainSemaphore(&memsema);
+   used=awebmem_used_fast;
+   ReleaseSemaphore(&memsema);
+   return used;
+}
+
+ULONG Awebmempeakchip(void)
+{  ULONG peak;
+   ObtainSemaphore(&memsema);
+   peak=awebmem_peak_chip;
+   ReleaseSemaphore(&memsema);
+   return peak;
+}
+
+ULONG Awebmempeakfast(void)
+{  ULONG peak;
+   ObtainSemaphore(&memsema);
+   peak=awebmem_peak_fast;
+   ReleaseSemaphore(&memsema);
+   return peak;
 }
 

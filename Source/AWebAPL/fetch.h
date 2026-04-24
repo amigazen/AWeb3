@@ -102,6 +102,13 @@ extern BOOL Transferring(void);
 extern BOOL Windowtransferring(ULONG windowkey);
    /* Returns TRUE if there are active network transfers for the specified window. */
 
+extern void Windowfetchstats(ULONG windowkey,long *netrunning,long *netqueued,
+   long *localqueued,long *imgrunning,long *imgqueued);
+   /* Return simple per-window fetch counts. All output pointers are optional. */
+
+extern void Fetchslotfills(long *netactive,long *netqueued,long *localactive,long *localqueued);
+   /* Global scheduler: nrnet/nrlocal active slots and net/local queue depths (waiting fetches). */
+
 extern void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *url);
    /* Reply this ARexx command when selected transfers are ready */
 

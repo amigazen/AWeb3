@@ -634,6 +634,17 @@ extern void *Allocmem(long size,ULONG flags);
    /* free memory, works for all pools and unpooled memory */
 extern void Freemem(void *mem);
 
+extern ULONG Awebmemused(void);
+   /* Return total bytes currently allocated via Allocmem/Pallocmem (includes overhead). */
+
+extern ULONG Awebmempeak(void);
+   /* Return peak of Awebmemused(). */
+
+extern ULONG Awebmemusedchip(void);
+extern ULONG Awebmemusedfast(void);
+extern ULONG Awebmempeakchip(void);
+extern ULONG Awebmempeakfast(void);
+
 /*-----------------------------------------------------------------------*/
 /*-- mime ---------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/

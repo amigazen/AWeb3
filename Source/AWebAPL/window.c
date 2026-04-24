@@ -65,6 +65,7 @@
 #include <proto/layout.h>
 #include <proto/space.h>
 #include <proto/timer.h>
+#include <ctype.h>
 
 LIST(Awindow) windows;
 
@@ -75,6 +76,19 @@ static struct Awindow *lastscreentitlewin=NULL;  /* Track which window's title i
 static long windowkey=0;
 
 struct Awindow *activewindow;
+
+static void Appendscreentitle(UBYTE *text)
+{  size_t cur;
+   size_t add;
+   if(!text || !*text) return;
+   cur=strlen(screentitlebuf);
+   if(cur>=sizeof(screentitlebuf)-1) return;
+   add=strlen(text);
+   if(add>sizeof(screentitlebuf)-1-cur)
+   {  add=sizeof(screentitlebuf)-1-cur;
+   }
+   if(add) strncat(screentitlebuf,text,add);
+}
 
 static ULONG idcmpflags=IDCMP_CHANGEWINDOW|IDCMP_INTUITICKS|IDCMP_REFRESHWINDOW|
    IDCMP_CLOSEWINDOW|IDCMP_MOUSEBUTTONS|
@@ -217,9 +231,94 @@ static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
       Checkmenu(nm,prefs.dobgsound);
 }
 
+/* Screen title memory lines: chip = free CHIP, other = free FAST, used = AWeb pool
+ * (Allocmem chip+fast). Sizes use MB/KB. Fetch slot line prefixes with the document
+ * URI scheme from the top-frame URL or URL gadget, then global net slots active/queued.
+ */
+static void Appendmemtoken(UBYTE *label,ULONG bytes)
+{  UBYTE s[40];
+   if(bytes>=1048576UL)
+   {  sprintf(s," %s %luMB",label,(unsigned long)(bytes/1048576UL));
+   }
+   else if(bytes>=1024UL)
+   {  sprintf(s," %s %luKB",label,(unsigned long)(bytes/1024UL));
+   }
+   else
+   {  sprintf(s," %s %lu",label,(unsigned long)bytes);
+   }
+   Appendscreentitle(s);
+}
+
+/* Full URI string -> scheme (no colon), or buf empty. Strips x-jsgenerated: like url.c. */
+static void Schemetobuf(UBYTE *raw,UBYTE *buf,long bufsize)
+{  UBYTE *p;
+   UBYTE *start;
+   long sl;
+   long i;
+
+   buf[0]='\0';
+   if(!raw || !raw[0] || bufsize<2) return;
+   p=raw;
+   if(STRNIEQUAL(p,"x-jsgenerated:",14))
+   {  for(p+=14;*p && *p!='/';p++);
+      if(*p) p++;
+   }
+   start=p;
+   if(*start==':') return;
+   sl=0;
+   while(*p && (isalnum((int)((UBYTE)*p)) || *p=='+' || *p=='.' || *p=='-'))
+   {  sl++;
+      p++;
+   }
+   if(*p!=':' || sl<1) return;
+   if(sl>bufsize-1) sl=bufsize-1;
+   for(i=0;i<sl;i++) buf[i]=start[i];
+   buf[sl]='\0';
+}
+
+/* Scheme from top-frame URL object (Getjspart matches url.c); else AOURL_Url / gadget. */
+static void Docurlprotocol(struct Awindow *win,UBYTE *buf,long bufsize)
+{  void *urlobj;
+   UBYTE *start;
+   UBYTE *u;
+   long len;
+   long i;
+
+   buf[0]='\0';
+   if(bufsize<2) return;
+   urlobj=NULL;
+   if(win->frame) urlobj=(void *)Agetattr(win->frame,AOFRM_Url);
+   if(urlobj)
+   {  Getjspart(urlobj,UJP_PROTOCOL,&start,&len);
+      if(start && len>0)
+      {  if(len>bufsize-1) len=bufsize-1;
+         for(i=0;i<len;i++) buf[i]=start[i];
+         buf[len]='\0';
+         return;
+      }
+      u=(UBYTE *)Agetattr(urlobj,AOURL_Url);
+      if(u && u[0]) Schemetobuf(u,buf,bufsize);
+      if(buf[0]) return;
+   }
+   if(win->urlbuf[0]) Schemetobuf(win->urlbuf,buf,bufsize);
+}
+
+static void Appendslotprototoken(struct Awindow *win,long active,long queued)
+{  UBYTE proto[40];
+   UBYTE s[80];
+
+   Docurlprotocol(win,proto,(long)sizeof(proto));
+   if(!proto[0]) strcpy(proto,"-");
+   sprintf(s," %s %ld/%ld",proto,active,queued);
+   Appendscreentitle(s);
+}
+
 /* Build screen title with version, portname, and available memory */
 static UBYTE *Makescreentitle(struct Awindow *win)
-{  ULONG availmem;
+{  ULONG freechip,freefast;
+   long netactive=0;
+   long netqueued=0;
+   ULONG awebtotal;
    
    /* Guard against NULL win - must not dereference when intuition refreshes title */
    if(!win) return NULL;
@@ -240,25 +339,18 @@ static UBYTE *Makescreentitle(struct Awindow *win)
       strcat(screentitlebuf, keybuf);
    }
    
-   /* Add available memory */
-   availmem = AvailMem(MEMF_TOTAL);
-   if(availmem >= 1048576)
-   {  /* Show in MB */
-      UBYTE membuf[32];
-      sprintf(membuf, "   %ldMB free", availmem / 1048576);
-      strcat(screentitlebuf, membuf);
-   }
-   else if(availmem >= 1024)
-   {  /* Show in KB */
-      UBYTE membuf[32];
-      sprintf(membuf, "   %ldKB free", availmem / 1024);
-      strcat(screentitlebuf, membuf);
-   }
-   else
-   {  /* Show in bytes */
-      UBYTE membuf[32];
-      sprintf(membuf, "   %ld bytes free", availmem);
-      strcat(screentitlebuf, membuf);
+   /* Compact stats: chip / other / used memory, then scheme + net active / net queued */
+   Appendscreentitle("   ");
+   freechip=AvailMem(MEMF_CHIP);
+   freefast=AvailMem(MEMF_FAST);
+   Appendmemtoken((UBYTE *)"chip",freechip);
+   Appendmemtoken((UBYTE *)"other",freefast);
+   awebtotal=Awebmemused();
+   Appendmemtoken((UBYTE *)"used",awebtotal);
+
+   Fetchslotfills(&netactive,&netqueued,NULL,NULL);
+   if(netqueued>0 || netactive>0 || Transferring())
+   {  Appendslotprototoken(win,netactive,netqueued);
    }
    return screentitlebuf;
 }
@@ -293,6 +385,7 @@ static void Settitle(struct Awindow *win,UBYTE *title)
       }
       if(win->wintitle) FREE(win->wintitle);
       win->wintitle=newtitle;
+      Updatescreentitle(win);
    }
 }
 
@@ -1605,6 +1698,9 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
       } */
       /* Screen title is updated when window becomes active, not on every status change
        * to avoid corruption from frequent updates */
+      if(win==activewindow)
+      {  Updatescreentitle(win);
+      }
    }
    if(hpstatus!=(UBYTE *)~0)
    {  if(win->statushptext) FREE(win->statushptext);
@@ -1650,6 +1746,7 @@ static struct Awindow *Newwindow(struct Amset *ams)
       win->flags|=WINF_NAVS|WINF_BUTTONS;
       win->layoutstyle=0;  /* 0 = Original layout, 1 = Modern layout */
       win->statustime=0;    /* No status shown initially */
+      win->screentitletime=0;
       SETFLAG(win->flags,WINF_CLIPDRAG,prefs.clipdrag);
       if(portname=Openarexxport(win->key))
       {  win->portname=Dupstr(portname,-1);
@@ -1978,9 +2075,6 @@ void Updatescreentitle(struct Awindow *win)
    ULONG currenttime;
    BOOL showstatus;
    
-   /* COMMENTED OUT: Screen title feature temporarily disabled */
-   return;
-   
    if(win && win->window)
    {  /* Check if we should show status message (modern layout only, within timeout) */
       showstatus = FALSE;
@@ -2004,6 +2098,13 @@ void Updatescreentitle(struct Awindow *win)
          }
       }
       
+      /* Throttle refresh to at most once per second unless status is showing */
+      if(!showstatus)
+      {  GetSysTime(&tv);
+         currenttime = tv.tv_secs;
+         if(win->screentitletime == currenttime) return;
+      }
+
       if(showstatus)
       {  /* Show status message in screen title */
          screentitle = Makestatusscreentitle(win, win->statustext);
@@ -2021,6 +2122,9 @@ void Updatescreentitle(struct Awindow *win)
             if(win->screentitle) FREE(win->screentitle);
             win->screentitle = Dupstr(screentitle, -1);
             lastscreentitlewin = win;  /* Track that this window's title is now displayed */
+            if(!showstatus)
+            {  win->screentitletime = currenttime;
+            }
          }
       }
    }

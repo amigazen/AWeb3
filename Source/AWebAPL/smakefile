@@ -151,6 +151,10 @@ whiswin.o:  whiswin.c aweb.h winhis.h whisprivate.h application.h window.h task.
 window.h:   object.h
 window.o:   window.c aweb.h winprivate.h frame.h winhis.h application.h url.h window.h 
 
+imgsource.o: imgsource.c aweb.h source.h sourcedriver.h copy.h url.h file.h imgprivate.h application.h task.h cache.h fetch.h
+
+imgcopy.o:   imgcopy.c aweb.h imgprivate.h copydriver.h copy.h
+
 winhis.h:   object.h
 winhis.o:   winhis.c aweb.h winhis.h url.h whisprivate.h 
 

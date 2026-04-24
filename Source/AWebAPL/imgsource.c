@@ -62,6 +62,12 @@ struct Imagetask
 
 static struct Imagetask imagetask;
 
+#define LAZY_IMAGE_DECODE  1
+/* Experimental: if enabled, only start decode when the source is "displayed"
+ * (i.e. has at least one active Copy in a window / JS image). EOF marks that
+ * the bytes are available, but does not automatically kick off bitmap decode.
+ * This reduces initial CPU/memory spikes on image-heavy pages. */
+
 #define AOIMS_Dummy        AOBJ_DUMMYTAG(AOTP_IMGSOURCE)
 
 #define AOIMS_Dtobject     (AOIMS_Dummy+1)
@@ -1066,6 +1072,16 @@ static void Startprocessimg(struct Imgsource *ims)
    }
 }
 
+static void Trydecodeimg(struct Imgsource *ims)
+{  if(!ims) return;
+   if(ims->bitmap) return;
+   if(ims->task) return;
+   if(!(ims->flags&IMSF_EOF)) return;
+   if(ims->flags&IMSF_ERROR) return;
+   if(!Agetattr(Aweb(),AOAPP_Screenvalid)) return;
+   Startprocessimg(ims);
+}
+
 /*------------------------------------------------------------------------*/
 
 static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
@@ -1089,7 +1105,10 @@ static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
             {  /* Start processing if we have got all data and are displayed */
                if((ims->flags&IMSF_EOF) && !ims->task
                && Agetattr(ims->source,AOSRC_Displayed))
-               {  Startprocessimg(ims);
+               {
+#if !LAZY_IMAGE_DECODE
+                  Startprocessimg(ims);
+#endif
                }
             }
             else
@@ -1108,7 +1127,16 @@ static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
             /* If becoming displayed and no bitmap and screen valid, process. */
             if(tag->ti_Data && (ims->flags&IMSF_EOF) && !ims->task
             && Agetattr(Aweb(),AOAPP_Screenvalid))
-            {  Startprocessimg(ims);
+            {
+#if !LAZY_IMAGE_DECODE
+               Startprocessimg(ims);
+#endif
+            }
+            break;
+         case AOIMS_Requestdecode:
+            if(tag->ti_Data)
+            {  ims->flags|=IMSF_DECODEWAIT;
+               Trydecodeimg(ims);
             }
             break;
       }
@@ -1194,12 +1222,13 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
             length=tag->ti_Data;
             break;
          case AOURL_Reload:
-            ims->flags&=~(IMSF_EOF|IMSF_ERROR);
+            ims->flags&=~(IMSF_EOF|IMSF_ERROR|IMSF_DECODEWAIT);
             if(ims->task)
             {  Adisposeobject(ims->task);
                ims->task=NULL;
                ims->flags&=~IMSF_CACHEFILE;
             }
+            Disposedto(ims);
             break;
          case AOURL_Eof:
             if(tag->ti_Data) eof=TRUE;
@@ -1224,6 +1253,7 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
    }
    if(eof && ims->filename && !(ims->flags&IMSF_ERROR))
    {  ims->flags|=IMSF_EOF;
+#if !LAZY_IMAGE_DECODE
       if(!ims->task && Agetattr(Aweb(),AOAPP_Screenvalid))
       {  ObtainSemaphore(&imagetask.screensema);
          if(!imagetask.screen)
@@ -1232,6 +1262,12 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
          ReleaseSemaphore(&imagetask.screensema);
          Startprocessimg(ims);
       }
+#endif
+#if LAZY_IMAGE_DECODE
+      if(ims->flags&IMSF_DECODEWAIT)
+      {  Trydecodeimg(ims);
+      }
+#endif
    }
    return 0;
 }

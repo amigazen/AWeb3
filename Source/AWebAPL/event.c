@@ -1096,10 +1096,17 @@ void Processwindow(void)
             case IDCMP_REFRESHWINDOW:
                Refreshwindow(win);
                break;
+            case IDCMP_INTUITICKS:
+               /* Refresh screen title periodically even without input.
+                * Updatescreentitle() throttles itself to once per second. */
+               if(win==activewindow)
+               {  Updatescreentitle(win);
+               }
+               break;
             case IDCMP_ACTIVEWINDOW:
                Setactiveport(win->portname);
                activewindow=win;
-               /* Updatescreentitle(win); */  /* COMMENTED OUT: Screen title feature temporarily disabled */
+               Updatescreentitle(win);
                break;
             case IDCMP_INACTIVEWINDOW:
                Tooltip(NULL,0,0);
