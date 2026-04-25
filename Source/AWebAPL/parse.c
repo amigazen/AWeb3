@@ -1492,13 +1492,103 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
       nextattr=0;
       doc->args.length=0;
       skipnewline=BOOLVAL(doc->pflags&DPF_SKIPNEWLINE);
+
+      /* In JavaScript <SCRIPT> element contents, treat everything as raw text
+       * except the one end marker </SCRIPT>. Do not try to parse arbitrary tags
+       * or apply incremental split-tag heuristics here: the JS source can contain
+       * quote characters and '<' sequences that are not HTML markup. */
+      if(doc->pflags&DPF_JSCRIPT)
+      {  UBYTE *scan;
+         UBYTE *endscan;
+         UBYTE *gt;
+         BOOL foundend=FALSE;
+         BOOL havefullend=FALSE;
+         scan=p;
+         endscan=end;
+         gt=NULL;
+         /* Search for "</SCRIPT" (case-insensitive). */
+         while(scan<endscan-1)
+         {  if(scan[0]=='<' && scan[1]=='/')
+            {  if(scan+8<=endscan && STRNIEQUAL(scan+2,"SCRIPT",6))
+               {  foundend=TRUE;
+                  /* Find closing '>' of the end tag (allow whitespace before '>'). */
+                  gt=scan+8;
+                  while(gt<endscan && *gt!='>') gt++;
+                  if(gt<endscan)
+                  {  havefullend=TRUE;
+                  }
+                  break;
+               }
+            }
+            scan++;
+         }
+
+         /* Emit JS text up to the end tag (or to end of buffer). */
+         if((foundend && scan>p) || (!foundend && p<endscan))
+         {  struct Tagattr *jsta;
+            long txtlen;
+            txtlen=(foundend)? (long)(scan-p) : (long)(endscan-p);
+            /* Add sentinel and build one TAGATTR_TEXT. */
+            if(!Addtobuffer(&doc->args,doc->text.buffer+doc->text.length-1,1)) return FALSE;
+            jsta=Nextattr(doc);
+            jsta->attr=TAGATTR_TEXT;
+            if(txtlen>0)
+            {  if(!Addtobuffer(&doc->args,p,txtlen)) return FALSE;
+               jsta->length=txtlen;
+            }
+            if(!Addtobuffer(&doc->args,"",1)) return FALSE;
+            oldsrcpos=*srcpos;
+            p+=txtlen;
+            (*srcpos)=p-src->buffer;
+            Processhtml(doc,MARKUP_TEXT,attrs.first);
+            if(doc->pflags&DPF_SUSPEND)
+            {  (*srcpos)=oldsrcpos;
+               return TRUE;
+            }
+            /* Continue parsing at the end tag (or end of buffer). */
+            continue;
+         }
+
+         /* If we found a potential end tag but it is split across chunks, wait. */
+         if(foundend && !havefullend)
+         {  if(!eof) return TRUE;
+            /* At EOF, fall through: treat as plain text and let EOF handling close. */
+         }
+
+         /* Consume the </SCRIPT> end tag when complete. */
+         if(foundend && havefullend)
+         {  oldsrcpos=*srcpos;
+            /* Re-init attrs list for this synthetic tag. */
+            nextattr=0;
+            doc->args.length=0;
+            NEWLIST(&attrs);
+            Nextattr(doc); /* create a dummy first attr node */
+            /* Skip past the whole end tag (including '>'). */
+            p=gt+1;
+            (*srcpos)=p-src->buffer;
+            Processhtml(doc,MARKUP_SCRIPT|MARKUP_END,attrs.first);
+            if(doc->pflags&DPF_SUSPEND)
+            {  (*srcpos)=oldsrcpos;
+               return TRUE;
+            }
+            continue;
+         }
+      }
+
       if(p==end-1 && *p=='<' && !thisisdata) return Eofandexit(doc,eof);
       if(p<end-1 && *p=='<' && (isalpha(p[1]) || p[1]=='/' || p[1]=='!' || p[1]=='?') && !thisisdata)
       {  BOOL endtag=FALSE;
          /* If we don't yet have the full tag in the current buffer (no closing '>'),
           * stop parsing and wait for more data. This avoids pathological stalls when
-          * the input buffer ends mid-tag. */
-         if(!eof)
+          * the input buffer ends mid-tag.
+          * Do not apply this quote-aware wait while DPF_JSCRIPT is set: the segment
+          * is JavaScript source, not HTML attributes. Treating JS ' and " like HTML
+          * attribute quotes can make the scan miss the real '>' of </SCRIPT> (or
+          * skip it across chunk boundaries), so srcpos never advances, script bytes
+          * are re-fed into jsrc, and the document stays in DPF_JSCRIPT until EOF.
+          * Opening <SCRIPT ...> is always parsed before Doscript sets DPF_JSCRIPT,
+          * so incremental protection for split opening tags is unchanged. */
+         if(!eof && !(doc->pflags&DPF_JSCRIPT))
          {  UBYTE *gt=p;
             UBYTE q=0;
             while(gt<end)
@@ -1604,13 +1694,6 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
             }
             if(doc->pflags&DPF_LISTING)
             {  if(!(endtag && td && td->type==MARKUP_LISTING))
-               {  thisisdata=TRUE;
-                  p=src->buffer+(*srcpos);
-                  continue;   /* try again */
-               }
-            }
-            if(doc->pflags&DPF_JSCRIPT)
-            {  if(!(endtag && td && td->type==MARKUP_SCRIPT))
                {  thisisdata=TRUE;
                   p=src->buffer+(*srcpos);
                   continue;   /* try again */
@@ -1893,7 +1976,9 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
             p++;
             if(p<end && *p=='<') break;
          }
-         if(p>=end && !eof) return Eofandexit(doc,eof);
+         /* Do not return here: flush MARKUP_TEXT and update *srcpos below. Otherwise
+          * incremental HTML re-feeds the same script bytes into jsrc and </SCRIPT>
+          * is never matched as a tag (DPF_JSCRIPT stuck through EOF). */
          if(!Addtobuffer(&doc->args,"",1)) return FALSE;
       }
       /* Store this flag only here in case it was reset but text not yet processed. */

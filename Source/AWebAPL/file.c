@@ -239,7 +239,6 @@ static long Setfile(struct File *fil,struct Amset *ams)
       }
       else if(fil->flags&FILF_PIPE)
       {  fil->fh=Open(fil->name,MODE_NEWFILE);
-printf("fh=%x\n",fil->fh);
       }
       else
       {  fil->fh=Open(fil->name,MODE_NEWFILE);

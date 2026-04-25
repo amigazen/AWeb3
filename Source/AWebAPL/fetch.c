@@ -723,10 +723,24 @@ static void Driverfunction(struct Fetch *fch)
    }
    else
 #endif /* !LOCALONLY */
+   /* file:///... and file://localhost/... are local. Host-only file://localhost
+    * (no slash after host) is valid file-root and must not fall through: the
+    * FILE:/// eight-char probe fails at name[7] ('l' vs '/'). */
    if(STRNIEQUAL(fch->name,"FILE://localhost/",17)
-        || STRNIEQUAL(fch->name,"FILE:///",8))
-   {  fch->driverfun=Localfiletask;
-      fch->fd->name=strchr(Unescape(fch->name+7),'/')+1;
+        || STRNIEQUAL(fch->name,"FILE:///",8)
+        || ((fch->name && strlen((const char *)fch->name)>=16)
+            && STRNIEQUAL(fch->name,"FILE://LOCALHOST",16)
+            && (!fch->name[16] || fch->name[16]=='/')))
+   {  UBYTE *upath;
+      UBYTE *slash;
+      fch->driverfun=Localfiletask;
+      /* After "file://" (7), path is "/Volume:..." or "localhost/..."; strchr must not run past missing '/'. */
+      upath=Unescape(fch->name+7);
+      slash=strchr(upath,'/');
+      if(slash) fch->fd->name=slash+1;
+      else if(STRNIEQUAL(upath,"LOCALHOST",9) && !upath[9])
+         fch->fd->name=upath+9;
+      else fch->fd->name=upath;
       fch->flags|=FCHF_LOCALSLOT;
       if(!prefs.cachelocalhost)
       {  Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
@@ -1515,12 +1529,30 @@ void Windowfetchstats(ULONG windowkey,long *netrunning,long *netqueued,
    if(imgqueued) *imgqueued=iq;
 }
 
-/* Snapshot of global fetch scheduler capacity (see Checkqueues / Dostartdriver). */
-void Fetchslotfills(long *netused,long *netmax,long *localused,long *localmax)
-{  if(netused) *netused=nrnet;
-   if(netmax) *netmax=prefs.maxconnect;
-   if(localused) *localused=nrlocal;
-   if(localmax) *localmax=prefs.maxdiskread;
+/* Global scheduler: active slot counts (nrnet/nrlocal) plus fetches waiting in each queue
+ * (same lists Checkqueues drains); not the prefs maxconnect/maxdiskread caps.
+ */
+void Fetchslotfills(long *netactive,long *netqueued,long *localactive,long *localqueued)
+{  struct Fetch *fch;
+   long nq;
+   long lq;
+
+   if(netactive) *netactive=nrnet;
+   if(localactive) *localactive=nrlocal;
+   if(netqueued)
+   {  nq=0;
+      for(fch=netqueue.first;fch->next;fch=fch->next)
+      {  if(!(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED)) nq++;
+      }
+      *netqueued=nq;
+   }
+   if(localqueued)
+   {  lq=0;
+      for(fch=localqueue.first;fch->next;fch=fch->next)
+      {  if(!(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED)) lq++;
+      }
+      *localqueued=lq;
+   }
 }
 
 void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *url)

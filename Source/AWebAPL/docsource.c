@@ -28,6 +28,7 @@
 #include "editor.h"
 #include "docprivate.h"
 #include <proto/utility.h>
+#include <stdio.h>
 
 #define DQID_RELOAD2    1  /* Queue-id: reload 2nd phase: srcupdate */
 
@@ -268,6 +269,7 @@ static long Srcupdatedocsource(struct Docsource *dos,struct Amsrcupdate *ams)
    long length=0;
    UBYTE *data=NULL;
    BOOL eof=FALSE;
+   BOOL saw_reload=FALSE;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Contenttype:
@@ -283,6 +285,7 @@ static long Srcupdatedocsource(struct Docsource *dos,struct Amsrcupdate *ams)
             length=tag->ti_Data;
             break;
          case AOURL_Reload:
+            saw_reload=TRUE;
             if(dos->spare)
             {  Adisposeobject(dos->spare);
                dos->spare=NULL;

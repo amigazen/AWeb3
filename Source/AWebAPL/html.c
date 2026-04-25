@@ -63,24 +63,6 @@
 /* External debug flag */
 extern BOOL httpdebug;
 
-/* Simple debug printf - can be enabled/disabled */
-static void debug_printf(const char *format, ...)
-{  va_list args;
-   va_start(args, format);
-   vprintf(format, args);
-   va_end(args);
-}
-
-/* PRE tag debug printf - only output if httpdebug is enabled */
-static void pre_debug_printf(const char *format, ...)
-{  va_list args;
-   if(!httpdebug) return;
-   va_start(args, format);
-   printf("[PRE] ");
-   vprintf(format, args);
-   va_end(args);
-}
-
 #define ATTR(doc,ta)          ((doc)->args.buffer+(ta)->valuepos)
 #define ATTREQUAL(doc,ta,v)   STRIEQUAL(ATTR(doc,ta),v)
 #define CONDTAG(tag,v)        (((v)>=0)?(tag):TAG_IGNORE),(v)
@@ -3266,14 +3248,7 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
       
       isPreformat = (BOOL)(doc->pflags & DPF_PREFORMAT);
       if(isPreformat)
-      {  pre_debug_printf("Dotext: Creating text element with PRE format, length=%ld, textpos=%ld\n",
-                         ta->length, doc->text.length);
-         if(ta->length > 0 && ta->length <= 100)
-         {  previewLen = (ta->length < 100) ? ta->length : 100;
-            memmove(preview, text, previewLen);
-            preview[previewLen] = '\0';
-            pre_debug_printf("Dotext: Text preview: '%.100s'\n", preview);
-         }
+      {  /* no debug output */
       }
       
       if(!(elt=Anewobject(AOTP_TEXT,
@@ -3285,34 +3260,24 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
          AOTXT_Text,&doc->text,
          (doc->parabgcolor ? AOTXT_Bgcolor : TAG_IGNORE),doc->parabgcolor,
          TAG_END))) 
-      {  if(isPreformat)
-         {  pre_debug_printf("Dotext: ERROR - Anewobject failed for PRE text\n");
-         }
+      {
          if(transformed) FREE(transformed);
          return FALSE;
       }
       
       if(isPreformat)
       {  eltPreformat = (BOOL)Agetattr(elt, AOELT_Preformat);
-         pre_debug_printf("Dotext: Text element created, AOELT_Preformat=%d (expected 1)\n", eltPreformat);
       }
       
       if(!Addelement(doc,elt)) 
-      {  if(isPreformat)
-         {  pre_debug_printf("Dotext: ERROR - Addelement failed for PRE text\n");
-         }
+      {
          if(transformed) FREE(transformed);
          return FALSE;
       }
       if(!Addtotextbuf(doc,text,ta->length)) 
-      {  if(isPreformat)
-         {  pre_debug_printf("Dotext: ERROR - Addtotextbuf failed for PRE text\n");
-         }
+      {
          if(transformed) FREE(transformed);
          return FALSE;
-      }
-      if(isPreformat)
-      {  pre_debug_printf("Dotext: PRE text element added successfully, text.length=%ld\n", doc->text.length);
       }
       if(transformed) FREE(transformed);
    }
@@ -3351,16 +3316,12 @@ static BOOL Dopre(struct Document *doc,struct Tagattr *ta)
    UBYTE *id=NULL;
    struct Tagattr *sentinel;
    
-   pre_debug_printf("Dopre: Opening <PRE> tag, pflags=0x%lx\n", (ULONG)doc->pflags);
-   
    if(!Ensurebody(doc))
-   {  pre_debug_printf("Dopre: ERROR - Ensurebody failed\n");
-      return FALSE;
+   {  return FALSE;
    }
    Wantbreak(doc,1);
    doc->pflags|=DPF_PREFORMAT;
-   pre_debug_printf("Dopre: Set DPF_PREFORMAT flag, pflags=0x%lx\n", (ULONG)doc->pflags);
-   
+
    body = Docbody(doc);
    
    /* Extract class and id attributes for CSS matching */
@@ -3391,17 +3352,14 @@ static BOOL Dopre(struct Document *doc,struct Tagattr *ta)
    /* Verify attributes were set */
    style = (short)Agetattr(body, AOBDY_Style);
    fixedfont = (BOOL)Agetattr(body, AOBDY_Fixedfont);
-   pre_debug_printf("Dopre: Body style=%d fixedfont=%d\n", style, fixedfont);
    
    doc->charcount=0;
-   pre_debug_printf("Dopre: Reset charcount=0\n");
    
    Checkid(doc,sentinel);
    
    /* Apply CSS to PRE body based on class/ID */
    if(doc->cssstylesheet) ApplyCSSToBody(doc,body,class,id,"PRE");
    
-   pre_debug_printf("Dopre: <PRE> tag opened successfully\n");
    return TRUE;
 }
 
@@ -3410,12 +3368,8 @@ static BOOL Dopreend(struct Document *doc)
 {  void *body;
    BOOL fixedfont;
    
-   pre_debug_printf("Dopreend: Closing </PRE> tag, pflags=0x%lx charcount=%ld\n",
-                   (ULONG)doc->pflags, doc->charcount);
-   
    doc->pflags&=~(DPF_PREFORMAT|DPF_LISTING|DPF_XMP);
-   pre_debug_printf("Dopreend: Cleared DPF_PREFORMAT flag, pflags=0x%lx\n", (ULONG)doc->pflags);
-   
+
    body = Docbody(doc);
    Asetattrs(body,
       AOBDY_Fixedfont,FALSE,
@@ -3424,17 +3378,13 @@ static BOOL Dopreend(struct Document *doc)
    
    /* Verify attributes were set */
    fixedfont = (BOOL)Agetattr(body, AOBDY_Fixedfont);
-   pre_debug_printf("Dopreend: Body fixedfont=%d (should be 0)\n", fixedfont);
-   
+
    if(doc->charcount)
-   {  pre_debug_printf("Dopreend: charcount=%ld, calling Wantbreak\n", doc->charcount);
-      Wantbreak(doc,1);
+   {  Wantbreak(doc,1);
    }
    if(!Ensuresp(doc))
-   {  pre_debug_printf("Dopreend: ERROR - Ensuresp failed\n");
-      return FALSE;
+   {  return FALSE;
    }
-   pre_debug_printf("Dopreend: </PRE> tag closed successfully\n");
    return TRUE;
 }
 
@@ -7205,7 +7155,18 @@ static void Doeof(struct Document *doc)
 
 BOOL Processhtml(struct Document *doc,USHORT tagtype,struct Tagattr *ta)
 {  BOOL result=TRUE;
-   if(tagtype==MARKUP_EOF && !(doc->pflags&DPF_JPARSE)) Doeof(doc);
+   if(tagtype==MARKUP_EOF && !(doc->pflags&DPF_JPARSE))
+   {  if(doc->pflags&DPF_JSCRIPT)
+      {  /* Parser may reach EOF without a </SCRIPT> token (e.g. truncated source);
+         * still run Doscriptend so BODY and the rest of the document can finish. */
+         Doscriptend(doc);
+      }
+      if(doc->pmode==DPM_SCRIPT)
+      {  /* Non-JS <SCRIPT> raw mode: leave script context at EOF. */
+         doc->pmode=DPM_BODY;
+      }
+      Doeof(doc);
+   }
 
    if(doc->dflags&DDF_MAPDOCUMENT)
    {  tagtype=Mapdoctag(tagtype);

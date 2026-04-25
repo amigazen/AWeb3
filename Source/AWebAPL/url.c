@@ -1534,6 +1534,11 @@ UBYTE *Fixurlname(UBYTE *name)
             else if(STRNIEQUAL(begin,"file://localhost/",17))
             {  /* ok */
             }
+            /* Host with empty path: "file://localhost" (16 chars) = file root like file:///. */
+            else if((end-begin)>=16 && STRNIEQUAL(begin,"file://localhost",16)
+               && ((end-begin)==16 || begin[16]=='/'))
+            {  /* ok */
+            }
             else
             {  return NULL;
             }

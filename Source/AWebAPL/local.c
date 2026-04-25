@@ -19,6 +19,7 @@
 /* local.c aweb localfile */
 
 #include "aweb.h"
+#include "fetch.h"
 #include "fetchdriver.h"
 #include "tcperr.h"
 #include "window.h"
@@ -34,6 +35,7 @@
 #include <dos/dosextens.h>
 
 #include <string.h>
+#include <stdio.h>
 
 #ifdef DEVELOPER
 extern long localblocksize;
@@ -41,6 +43,8 @@ extern long localblocksize;
 
 /* Maximum directory entries to display */
 #define MAX_DIR_ENTRIES 256
+/* GetFileIcon: max .info URL length (fits url_copy[] and icon_buf+200..511 build zone). */
+#define GETFILEICON_URLLIMIT 255
 
 /*-----------------------------------------------------------------------*/
 
@@ -140,7 +144,8 @@ static UBYTE *GetFileIcon(UBYTE *filename,LONG entrytype,UBYTE *url_base,UBYTE *
    {  /* Build .info file URL */
       info_url_len=strlen(url_base)+strlen(filename)*3+20; /* *3 for URL encoding, +20 for ".info" and img tag */
       if(is_volume) info_url_len+=10; /* Extra space for ":Disk.info" */
-      if(info_url_len<sizeof(icon_buf))
+      /* Must fit icon_buf+200 tail and url_copy[]; long file:/// paths used to pass the old sizeof check and overflow. */
+      if(info_url_len>0 && info_url_len<GETFILEICON_URLLIMIT)
       {  info_url=icon_buf+200; /* Use later part of buffer for URL construction */
          /* Clear the URL buffer area first to remove any leftover data */
          memset(info_url,0,256);
@@ -162,7 +167,7 @@ static UBYTE *GetFileIcon(UBYTE *filename,LONG entrytype,UBYTE *url_base,UBYTE *
          }
          
          /* Copy the URL string before clearing icon_buf (since info_url points into icon_buf) */
-         {  UBYTE url_copy[256];
+         {  UBYTE url_copy[GETFILEICON_URLLIMIT+1];
             strcpy(url_copy,info_url);
             /* Clear icon_buf before building img tag to remove any leftover data */
             memset(icon_buf,0,sizeof(icon_buf));
@@ -455,8 +460,13 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
             if(len>0 && html_len+len<max_len) html_len+=len;
          }
          
-         /* Send header */
+         /* Send header. Prepend AOURL_Reload like network fetches do via Srcupdatefetch:
+          * docsource clears its buffer and notifies AODOC_Reload so Reloaddocument runs
+          * before this HTML is appended. Without it, navigating from another page (e.g.
+          * about:home with PRE open) can leave stale parse flags or an inconsistent body
+          * so the listing title updates but the generated table never lays out. */
          Updatetaskattrs(
+            AOURL_Reload,TRUE,
             AOURL_Contenttype,"text/html",
             AOURL_Data,html_buf,
             AOURL_Datalength,html_len,
@@ -619,7 +629,7 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
             TAG_END);
       }
    }
-   
+
    /* Cleanup - free in reverse order of allocation */
    if(html_buf) FreeMem(html_buf,html_buf_size);
    if(url_base) FreeMem(url_base,url_base_len);
@@ -655,14 +665,16 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
    html_buf_size=4096;
    html_buf=AllocMem(html_buf_size,MEMF_PUBLIC);
    if(!html_buf)
-   {  UnLockDosList(LDF_VOLUMES|LDF_READ);
+   {
+      UnLockDosList(LDF_VOLUMES|LDF_READ);
       return;
    }
    
    /* Build base URL for links */
    url_base=AllocMem(9,MEMF_PUBLIC); /* "file:///" + null */
    if(!url_base)
-   {  FreeMem(html_buf,html_buf_size);
+   {
+      FreeMem(html_buf,html_buf_size);
       UnLockDosList(LDF_VOLUMES|LDF_READ);
       return;
    }
@@ -747,8 +759,13 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
          if(len>0 && html_len+len<max_len) html_len+=len;
       }
       
-      /* Send header */
+      /* Send header. Prepend AOURL_Reload like network fetches do via Srcupdatefetch:
+       * docsource clears its buffer and notifies AODOC_Reload so Reloaddocument runs
+       * before this HTML is appended. Without it, navigating from another page (e.g.
+       * about:home with PRE open) can leave stale parse flags or an inconsistent body
+       * so the listing title updates but the generated table never lays out. */
       Updatetaskattrs(
+         AOURL_Reload,TRUE,
          AOURL_Contenttype,"text/html",
          AOURL_Data,html_buf,
          AOURL_Datalength,html_len,
@@ -943,7 +960,7 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
             TAG_END);
       }
    }
-   
+
    /* Cleanup */
    if(html_buf) FreeMem(html_buf,html_buf_size);
    if(url_base) FreeMem(url_base,9);

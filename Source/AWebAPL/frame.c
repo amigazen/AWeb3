@@ -1083,13 +1083,6 @@ static void Resizeframe(struct Frame *fr,long newaow,long newaoh)
 static void Reloadframe(struct Frame *fr,void *url)
 {  ULONG loadflags=AUMLF_RELOAD;
    long isleading;
-   extern BOOL httpdebug;
-   UBYTE *urlstr;
-   if(httpdebug)
-   {  urlstr = url ? (UBYTE *)Agetattr(url,AOURL_Url) : NULL;
-      if(!urlstr && fr->orgurl) urlstr = (UBYTE *)Agetattr(fr->orgurl,AOURL_Url);
-      printf("[RELOAD] Reloadframe: Starting reload, URL=%s\n", urlstr ? (char *)urlstr : "NULL");
-   }
    fr->jgenerated=NULL;
    Agetattrs(fr->whis,
       AOWHS_Frameid,fr->id,

@@ -38,6 +38,7 @@
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
+#include <stdio.h>
 
 #define DQID_ONLOAD     1     /* Queueid: run onLoad JavaScript */
 
@@ -176,15 +177,6 @@ static void Reloaddocument(struct Document *doc)
 {  void *p,*url;
    UBYTE *newbase,*start;
    long length;
-   extern BOOL httpdebug;
-   if(httpdebug)
-   {  void *docurl;
-      UBYTE *urlstr;
-      docurl = (void *)Agetattr(doc->source->source,AOSRC_Url);
-      urlstr = docurl ? (UBYTE *)Agetattr(docurl,AOURL_Url) : NULL;
-      printf("[RELOAD] Reloaddocument: Starting reload for document, URL=%s, stylesheet=%p, body=%p\n",
-             urlstr ? (char *)urlstr : "NULL", doc->cssstylesheet, doc->body);
-   }
    Asetattrs(doc->frame,
       AOFRM_Bgcolor,-1,
       AOFRM_Textcolor,-1,
@@ -282,10 +274,6 @@ static void Reloaddocument(struct Document *doc)
    Freejdoc(doc);
    if(doc->frame) doc->dflags|=DDF_DISPTITLE;
    SETFLAG(doc->pflags,DPF_SCRIPTJS,(doc->source->flags&DOSF_SCRIPTJS));
-   if(httpdebug)
-   {  printf("[RELOAD] Reloaddocument: Reload complete, stylesheet=%p (should be NULL), body=%p (should be NULL), pflags=0x%lx (reloadverify=%d)\n",
-             doc->cssstylesheet, doc->body, (ULONG)doc->pflags, (doc->pflags & DPF_RELOADVERIFY) ? 1 : 0);
-   }
 }
 
 static void Forwardtomap(struct Document *doc,UBYTE *name,struct Amset *ams)
@@ -496,36 +484,26 @@ static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
 }
 
 static void Srcupdatedocument(struct Document *doc)
-{  if(!(doc->pflags&DPF_SUSPEND))
+{
+   if(doc->pflags&DPF_SUSPEND)
+   {  }
+   else
    {  if(doc->frame)
-      {  /* Only parse if we have data AND (content type is determined OR EOF reached).
-           * This prevents Parseplain() from being called prematurely for HTML content
-           * (e.g., about:blank) before DOSF_HTML flag is set. Wait for content type
-           * to be determined before parsing to avoid incorrect plain text parsing. */
-         BOOL eof;
-         BOOL hasContentType;
-         long srcpos_before;
-
-         eof=(doc->source->flags&DOSF_EOF) && !(doc->source->flags&DOSF_JSOPEN);
-         hasContentType=(doc->source->flags&(DOSF_HTML|DOSF_MD))!=0;
-         if(doc->source->buf.length>0 && (eof || hasContentType))
-         {  /* Only ask the frame for measure/layout/render when new input was actually
-             * consumed. A separate EOF Srcupdate after the last data chunk does not move
-             * srcpos; notifying AOBJ_Changedchild then repainted the whole viewport twice. */
-            srcpos_before=doc->srcpos;
-            Parsedocument(doc);
-            if(doc->srcpos!=srcpos_before)
-            {  /* While an external stylesheet is still loading (Dolink suspended after
-                * <link rel=stylesheet>), skip notifying the copy so we do not lay out
-                * the tree without merged CSS; one refresh runs after merge or on resume. */
-               if(!(doc->pflags&DPF_EXTCSSEXPECT))
-               {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
-               }
-            }
+      {  Parsedocument(doc);
+         if(!(doc->pflags&DPF_EXTCSSEXPECT))
+         {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
          }
       }
       else if(doc->dflags&DDF_MAPDOCUMENT)
       {  Parsedocument(doc);
+      }
+      else
+      {  /* AOCDV_Copy gets AOBJ_Frame in frame.c Newdisplay() when inputcopy is promoted.
+          * Fast file:// listings can deliver AODOC_Srcupdate while doc->frame is still
+          * NULL; skipping Parsedocument() then leaves buffered HTML with no body tree,
+          * and wiring the frame later does not re-run Srcupdate, so the folder HTML
+          * never renders. */
+         Parsedocument(doc);
       }
    }
 }
@@ -535,10 +513,12 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
    struct Colorinfo *ci;
    struct Aobject *link,*form,*map;
    BOOL setwin=FALSE,setframe=FALSE,setwhis=FALSE,setjscancel=FALSE;
+   BOOL prom_frame;
    void *whis;
    struct Bgimage *bgi;
    UBYTE *start;
    long length;
+   prom_frame=FALSE;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOCDV_Copy:
@@ -571,7 +551,8 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
             break;
          case AOBJ_Frame:
             if(!doc->frame && tag->ti_Data)  /* set new frame from NULL */
-            {  doc->dflags|=DDF_DISPTITLE;
+            {  prom_frame=TRUE;
+               doc->dflags|=DDF_DISPTITLE;
                SETFLAG(doc->dflags,DDF_PLAYBGSOUND,prefs.dobgsound);
                if(doc->clientpull)
                {  Asetattrs(doc->copy,AOURL_Clientpull,doc->clientpull,TAG_END);
@@ -795,6 +776,17 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
    /* If window was set or reset, or frame was set, register our pens with our frame. */
    if(doc->frame && (setwin || setframe))
    {  Registerdoccolors(doc);
+   }
+   /* Newdisplay() attaches AOBJ_Frame after inputcopy buffered data: srcupdates ran
+    * with doc->frame NULL so Srcupdatedocument only parsed (no AOBJ_Changedchild on
+    * doc->copy). Title/window can update from partial parse; force layout once the
+    * frame exists so file:/// volume and folder listings paint. */
+   if(prom_frame && doc->copy && doc->frame)
+   {
+      if(!(doc->pflags&DPF_SUSPEND) && !(doc->dflags&DDF_DONE))
+      {  Srcupdatedocument(doc);
+      }
+      Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
    }
    /* If window or frame was set or reset, pass to child */
    if(doc->body && (setwin || setframe || setwhis || setjscancel))
