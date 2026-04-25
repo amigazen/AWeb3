@@ -2531,6 +2531,18 @@ void Erasebg(struct Frame *fr,struct Coords *coo,long xmin,long ymin,long xmax,l
             AOCDV_Imagewidth,&bmw,
             AOCDV_Imageheight,&bmh,
             TAG_END);
+         /* Lazy image decode: background images are not "displayed copies", but they are
+          * used during painting. Request decode on first use so any overlap is enough. */
+         if(!bfinfo.bitmap)
+         {  Asetattrs(coo->bgimage,AOCDV_Displayed,TRUE,TAG_END);
+            Agetattrs(coo->bgimage,
+               AOCDV_Imagebitmap,&bfinfo.bitmap,
+               AOCDV_Imagemask,&bfinfo.mask,
+               AOCDV_Alpha,&bfinfo.alpha,
+               AOCDV_Imagewidth,&bmw,
+               AOCDV_Imageheight,&bmh,
+               TAG_END);
+         }
          if(coo->bgalign)   /* If we got alignment info */
          {  void *tc;
             /* If bgalign is a body and is owned by table cell */
@@ -2618,6 +2630,17 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
                AOCDV_Imagewidth,&bmw,
                AOCDV_Imageheight,&bmh,
                TAG_END);
+            /* Lazy image decode: request decode on first use in background paint path. */
+            if(!bfinfo.bitmap)
+            {  Asetattrs(coo->bgimage,AOCDV_Displayed,TRUE,TAG_END);
+               Agetattrs(coo->bgimage,
+                  AOCDV_Imagebitmap,&bfinfo.bitmap,
+                  AOCDV_Imagemask,&bfinfo.mask,
+                  AOCDV_Alpha,&bfinfo.alpha,
+                  AOCDV_Imagewidth,&bmw,
+                  AOCDV_Imageheight,&bmh,
+                  TAG_END);
+            }
             if(coo->bgalign)   /* If we got alignment info */
             {  void *tc;
                /* If bgalign is a body and is owned by table cell */
