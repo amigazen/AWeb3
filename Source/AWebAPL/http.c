@@ -1606,6 +1606,10 @@ static BOOL Readresponse(struct Httpinfo *hi)
             Updatetaskattrs(
                AOURL_Notmodified,TRUE,
                TAG_END);
+            /* Treat 304 as a "real" status to prevent the keep-alive retry logic
+             * from misclassifying this as a connection failure (status==0),
+             * and to avoid dropping into Readdata() which can race with a new fetch. */
+            hi->status=304;
          }
          else if(stat==206)
          {  /* 206 Partial Content - Range request successful */
@@ -5028,6 +5032,13 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
       if(Readheaders(hi))
       {  debug_printf("DEBUG: Readheaders returned TRUE, processing response\n");
          debug_printf("DEBUG: movedto=%lu, movedtourl=%p\n", hi->movedto, hi->movedtourl);
+         /* 304 has no response body. The cache layer will supply the entity body.
+          * Do not enter Readdata() because it can block/recv on a keep-alive socket
+          * and be interrupted by the scheduler, causing nondeterministic results. */
+         if(hi->status==304)
+         {  debug_printf("DEBUG: Httpresponse: 304 Not Modified - skipping body read\n");
+            return;
+         }
          if(hi->movedto && hi->movedtourl)
          {  redirect_count++; /* Increment redirect counter for loop protection */
             debug_printf("DEBUG: Processing redirect to: %s (redirect_count=%d)\n", hi->movedtourl, redirect_count);
@@ -5842,52 +5853,53 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 #endif
       
       if(result)
-   {  /* If connection was reused from pool, skip DNS lookup, Opensocket(), and Connect() */
-      /* The connection is already established and ready to use */
-      if(hi->connection_reused)
-      {  debug_printf("DEBUG: Httpretrieve: Using pooled %s connection - skipping DNS, Opensocket(), and Connect()\n",
-                     (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP");
-         result = TRUE; /* Connection already established */
-         
-         /* Apply timeouts to reused connection (refresh them) */
-         /* This ensures reused connections have fresh timeouts */
-         if(hi->sock >= 0 && hi->socketbase)
-         {  struct timeval timeout;
-            struct Library *saved_socketbase;
-            
-            /* CRITICAL: Validate SocketBase before using socket functions */
-            if(!hi->socketbase)
-            {  debug_printf("DEBUG: Httpretrieve: socketbase is NULL, cannot set timeouts on reused connection\n");
-               result = FALSE;
-               error = TRUE;
-               break;
-            }
-            
-            timeout.tv_sec = 15;  /* 15 second timeout per operation */
-            timeout.tv_usec = 0;
-            
-            saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
-            
-            /* CRITICAL: Validate SocketBase is still valid after assignment */
-            if(!SocketBase)
-            {  debug_printf("DEBUG: Httpretrieve: SocketBase became NULL after assignment\n");
-               ReleaseSocketBaseSwap(saved_socketbase); /* Restore before continuing */
-               result = FALSE;
-               error = TRUE;
-               break;
-            }
-            
-            /* Set receive and send timeouts */
-            setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
-            setsockopt(hi->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
-            
-            ReleaseSocketBaseSwap(saved_socketbase);
-            debug_printf("DEBUG: Httpretrieve: Applied timeouts to reused %s connection\n",
+      {  /* Establish a connection (either reused or newly opened). */
+         if(hi->connection_reused)
+         {  debug_printf("DEBUG: Httpretrieve: Using pooled %s connection - skipping DNS, Opensocket(), and Connect()\n",
                         (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP");
+            result = TRUE; /* Connection already established */
+            
+            /* Apply timeouts to reused connection (refresh them) */
+            if(hi->sock >= 0 && hi->socketbase)
+            {  struct timeval timeout;
+               struct Library *saved_socketbase;
+               
+               /* CRITICAL: Validate SocketBase before using socket functions */
+               if(!hi->socketbase)
+               {  debug_printf("DEBUG: Httpretrieve: socketbase is NULL, cannot set timeouts on reused connection\n");
+                  result = FALSE;
+                  error = TRUE;
+                  break;
+               }
+               
+               timeout.tv_sec = 15;  /* 15 second timeout per operation */
+               timeout.tv_usec = 0;
+               
+               saved_socketbase = AcquireSocketBaseSwap(hi->socketbase);
+               
+               /* CRITICAL: Validate SocketBase is still valid after assignment */
+               if(!SocketBase)
+               {  debug_printf("DEBUG: Httpretrieve: SocketBase became NULL after assignment\n");
+                  ReleaseSocketBaseSwap(saved_socketbase); /* Restore before continuing */
+                  result = FALSE;
+                  error = TRUE;
+                  break;
+               }
+               
+               /* Set receive and send timeouts */
+               setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+               setsockopt(hi->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+               
+               ReleaseSocketBaseSwap(saved_socketbase);
+               debug_printf("DEBUG: Httpretrieve: Applied timeouts to reused %s connection\n",
+                           (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP");
+            }
+            
+            /* Connection is ready: proceed to request/response path */
+            goto send_request;
          }
-      }
-      else
-      {  /* New connection - need DNS lookup, Opensocket(), and Connect() */
+         else
+         {  /* New connection - need DNS lookup, Opensocket(), and Connect() */
          debug_printf("DEBUG: Httpretrieve: Libraries opened, starting DNS lookup for '%s'\n",
                      hi->connect ? (char *)hi->connect : "(null)");
          Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
@@ -5981,163 +5993,8 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                }
 #endif
                
-               debug_printf("DEBUG: Httpretrieve: Building HTTP request\n");
-               reqlen=Buildrequest(fd,hi,&request);
-               debug_printf("DEBUG: Httpretrieve: Request built, length=%ld, calling Send()\n", reqlen);
-               
-               /* Send Request */
-               sent = Send(hi,request,reqlen);
-               
-               /* FIX: Detect Stale Connection on Send */
-               if(sent != reqlen && hi->connection_reused && retry_count == 0)
-               {  debug_printf("DEBUG: Keep-Alive Send failed (sent=%ld, expected=%ld). Retrying with fresh connection.\n",
-                              sent, reqlen);
-                  
-                  /* 1. Clean up bad connection (dispose before a_close so SSL_shutdown
-                   * still sees an open fd). */
-#ifndef DEMOVERSION
-                  if(hi->assl)
-                  {  Assl_dispose(&hi->assl);
-                  }
-#endif
-                  if(hi->sock >= 0 && hi->socketbase)
-                  {  a_close(hi->sock, hi->socketbase);
-                  }
-                  hi->sock = -1;
-                  
-                  /* 2. Mark as not reused so Openlibraries creates fresh */
-                  hi->connection_reused = FALSE;
-                  
-                  /* 3. Free request buffer if allocated */
-                  if(request != fd->block) FREE(request);
-                  
-                  /* 4. Trigger retry loop */
-                  retry_count++;
-                  try_again = TRUE;
-                  continue; /* Jump to start of do-while */
-               }
-               
-               result = (sent == reqlen);
-               debug_printf("DEBUG: Httpretrieve: Send() returned, result=%ld (expected %ld)\n", result, reqlen);
-#ifdef BETAKEYFILE
-               if(httpdebug)
-               {  Write(Output(),"\n",1);
-                  Write(Output(),request,reqlen);
-               }
-#endif
-               if(result)
-               {  if(fd->multipart)
-                  {  debug_printf("DEBUG: Httpretrieve: Sending multipart data\n");
-                     result=Sendmultipartdata(hi,fd,NULL);
-                     debug_printf("DEBUG: Httpretrieve: Sendmultipartdata() returned %ld\n", result);
-                  }
-                  else if(fd->postmsg)
-                  {  msglen=strlen(fd->postmsg);
-                     debug_printf("DEBUG: Httpretrieve: Sending POST message, length=%ld\n", msglen);
-                     result=(Send(hi,fd->postmsg,msglen)==msglen);
-                     debug_printf("DEBUG: Httpretrieve: POST Send() returned, result=%ld (expected %ld)\n",
-                            result, msglen);
-#ifdef BETAKEYFILE
-                     if(httpdebug)
-                     {  Write(Output(),fd->postmsg,msglen);
-                        Write(Output(),"\n\n",2);
-                     }
-#endif
-                  }
-               }
-               if(request!=fd->block) FREE(request);
-               
-               if(result)
-               {  debug_printf("DEBUG: Httpretrieve: Request sent successfully, calling Httpresponse()\n");
-                  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
-                  Tcpmessage(fd,TCPMSG_WAITING,hi->flags&HTTPIF_SSL?"HTTPS":"HTTP");
-                  
-                  /* Check for exit signal before starting blocking HTTP response */
-                  if(Checktaskbreak())
-                  {  debug_printf("DEBUG: Httpretrieve: Exit signal detected, aborting HTTP response\n");
-                     /* Close socket first to interrupt any blocking operations */
-                     if(hi->sock >= 0 && hi->socketbase)
-                     {  debug_printf("DEBUG: Httpretrieve: Closing socket due to exit\n");
-                        a_close(hi->sock, hi->socketbase);
-                        hi->sock = -1;
-                     }
-                     /* SSL cleanup at end of Httpretrieve() via Assl_dispose() */
-                     error=TRUE;
-                  }
-                  else
-                  {  debug_printf("DEBUG: Httpretrieve: About to call Httpresponse() - this may take a while\n");
-                     
-                     /* FIX: Detect Stale Connection on Immediate Receive */
-                     /* Reset status before reading to detect connection failures */
-                     hi->status = 0;
-                     Httpresponse(hi,TRUE);
-                     debug_printf("DEBUG: Httpretrieve: Httpresponse() returned - status=%ld, blocklength=%ld\n",
-                                 hi->status, hi->blocklength);
-                     
-                     /* Check for incomplete transfer and retry with Range request if supported */
-                     if(hi->status == 0 && hi->bytes_received > 0 && hi->server_supports_range && 
-                        hi->partlength > 0 && hi->bytes_received < hi->partlength && retry_count == 0)
-                     {  debug_printf("DEBUG: Incomplete transfer detected (%ld/%ld bytes). Retrying with Range request.\n",
-                                   hi->bytes_received, hi->partlength);
-                        
-                        /* Cleanup current connection */
-#ifndef DEMOVERSION
-                        if(hi->assl)
-                        {  Assl_dispose(&hi->assl);
-                        }
-#endif
-                        if(hi->sock >= 0 && hi->socketbase)
-                        {  a_close(hi->sock, hi->socketbase);
-                        }
-                        hi->sock = -1;
-                        hi->connection_reused = FALSE;
-                        
-                        /* Set Range request flag for retry */
-                        hi->flags |= HTTPIF_RANGE_REQUEST;
-                        
-                        /* Clear error flag to allow retry */
-                        Updatetaskattrs(AOURL_Error, FALSE, TAG_END);
-                        
-                        /* Free request buffer if allocated */
-                        if(request != fd->block) FREE(request);
-                        
-                        /* Trigger retry loop */
-                        retry_count++;
-                        try_again = TRUE;
-                        continue; /* Jump to start of do-while */
-                     }
-                     
-                     /* If status is 0 (no headers read) or specific socket error */
-                     /* AND we reused a connection AND we haven't retried yet... */
-                     if(hi->status <= 0 && hi->connection_reused && retry_count == 0)
-                     {  debug_printf("DEBUG: Keep-Alive Receive failed (Server closed). Retrying fresh.\n");
-                        
-                        /* Cleanup and Retry logic */
-#ifndef DEMOVERSION
-                        if(hi->assl)
-                        {  Assl_dispose(&hi->assl);
-                        }
-#endif
-                        if(hi->sock >= 0 && hi->socketbase)
-                        {  a_close(hi->sock, hi->socketbase);
-                        }
-                        hi->sock = -1;
-                        hi->connection_reused = FALSE;
-                        
-                        /* Clear any error flags set by the failed attempt */
-                        Updatetaskattrs(AOURL_Error, FALSE, TAG_END);
-                        
-                        retry_count++;
-                        try_again = TRUE;
-                        continue; /* Jump to start of do-while */
-                     }
-                  }
-               }
-               else
-               {  /* Send failed on a NON-reused connection */
-                  debug_printf("DEBUG: Httpretrieve: Request send failed, setting error\n");
-                  error=TRUE;
-               }
+               /* Connection established: proceed to request/response path */
+               goto send_request;
             }
             else
             {  debug_printf("DEBUG: Httpretrieve: Connect() failed, status=%ld\n", hi->status);
@@ -6247,6 +6104,121 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
          {  debug_printf("DEBUG: Httpretrieve: Lookup() failed for '%s', reporting no host error\n",
                    hi->connect ? (char *)hi->connect : "(null)");
             Tcperror(fd,TCPERR_NOHOST,hi->hostname);
+         }
+      }
+      
+send_request:
+      /* Common request/response path for both new and pooled connections. */
+      if(result)
+      {  debug_printf("DEBUG: Httpretrieve: Building HTTP request\n");
+         reqlen=Buildrequest(fd,hi,&request);
+         debug_printf("DEBUG: Httpretrieve: Request built, length=%ld, calling Send()\n", reqlen);
+         
+         /* Send Request */
+         sent = Send(hi,request,reqlen);
+         
+         /* Detect stale keep-alive connection on send and retry once with a fresh connection. */
+         if(sent != reqlen && hi->connection_reused && retry_count == 0)
+         {  debug_printf("DEBUG: Keep-Alive Send failed (sent=%ld, expected=%ld). Retrying with fresh connection.\n",
+                        sent, reqlen);
+            
+#ifndef DEMOVERSION
+            if(hi->assl)
+            {  Assl_dispose(&hi->assl);
+            }
+#endif
+            if(hi->sock >= 0 && hi->socketbase)
+            {  a_close(hi->sock, hi->socketbase);
+            }
+            hi->sock = -1;
+            hi->connection_reused = FALSE;
+            
+            if(request != fd->block) FREE(request);
+            
+            retry_count++;
+            try_again = TRUE;
+            continue; /* Retry loop */
+         }
+         
+         result = (sent == reqlen);
+         debug_printf("DEBUG: Httpretrieve: Send() returned, result=%ld (expected %ld)\n", result, reqlen);
+#ifdef BETAKEYFILE
+         if(httpdebug)
+         {  Write(Output(),"\n",1);
+            Write(Output(),request,reqlen);
+         }
+#endif
+         if(result)
+         {  if(fd->multipart)
+            {  debug_printf("DEBUG: Httpretrieve: Sending multipart data\n");
+               result=Sendmultipartdata(hi,fd,NULL);
+               debug_printf("DEBUG: Httpretrieve: Sendmultipartdata() returned %ld\n", result);
+            }
+            else if(fd->postmsg)
+            {  msglen=strlen(fd->postmsg);
+               debug_printf("DEBUG: Httpretrieve: Sending POST message, length=%ld\n", msglen);
+               result=(Send(hi,fd->postmsg,msglen)==msglen);
+               debug_printf("DEBUG: Httpretrieve: POST Send() returned, result=%ld (expected %ld)\n",
+                      result, msglen);
+#ifdef BETAKEYFILE
+               if(httpdebug)
+               {  Write(Output(),fd->postmsg,msglen);
+                  Write(Output(),"\n\n",2);
+               }
+#endif
+            }
+         }
+         if(request!=fd->block) FREE(request);
+         
+         if(result)
+         {  debug_printf("DEBUG: Httpretrieve: Request sent successfully, calling Httpresponse()\n");
+            Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
+            Tcpmessage(fd,TCPMSG_WAITING,hi->flags&HTTPIF_SSL?"HTTPS":"HTTP");
+            
+            /* Check for exit signal before starting blocking HTTP response */
+            if(Checktaskbreak())
+            {  debug_printf("DEBUG: Httpretrieve: Exit signal detected, aborting HTTP response\n");
+               if(hi->sock >= 0 && hi->socketbase)
+               {  debug_printf("DEBUG: Httpretrieve: Closing socket due to exit\n");
+                  a_close(hi->sock, hi->socketbase);
+                  hi->sock = -1;
+               }
+               error=TRUE;
+            }
+            else
+            {  debug_printf("DEBUG: Httpretrieve: About to call Httpresponse() - this may take a while\n");
+               
+               hi->status = 0;
+               Httpresponse(hi,TRUE);
+               debug_printf("DEBUG: Httpretrieve: Httpresponse() returned - status=%ld, blocklength=%ld\n",
+                           hi->status, hi->blocklength);
+               
+               /* If we reused a keep-alive connection and got no status, retry once fresh. */
+               if(hi->status <= 0 && hi->connection_reused && retry_count == 0)
+               {  debug_printf("DEBUG: Keep-Alive Receive failed (Server closed). Retrying fresh.\n");
+                  
+#ifndef DEMOVERSION
+                  if(hi->assl)
+                  {  Assl_dispose(&hi->assl);
+                  }
+#endif
+                  if(hi->sock >= 0 && hi->socketbase)
+                  {  a_close(hi->sock, hi->socketbase);
+                  }
+                  hi->sock = -1;
+                  hi->connection_reused = FALSE;
+                  
+                  Updatetaskattrs(AOURL_Error, FALSE, TAG_END);
+                  
+                  retry_count++;
+                  try_again = TRUE;
+                  continue; /* Retry loop */
+               }
+            }
+         }
+         else
+         {  debug_printf("DEBUG: Httpretrieve: Request send failed, setting error\n");
+            error=TRUE;
          }
       }
       
