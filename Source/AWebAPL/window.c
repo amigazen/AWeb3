@@ -905,7 +905,11 @@ static BOOL Openwindow(struct Awindow *win)
    {  short calc_width,calc_height;
       short screen_width,screen_height;
       short max_width,max_height;
+      short barheight;
       struct Screen screendata;
+      BOOL got_screendata;
+      BOOL smallscreen;
+      BOOL want_fullscreen;
       
       /* Calculate window size from preferences */
       calc_width=prefs.winw;
@@ -914,21 +918,31 @@ static BOOL Openwindow(struct Awindow *win)
       /* If preferences indicate maximum size (9999), calculate sensible default */
       if(calc_width==9999 || calc_height==9999)
       {  /* Get screen dimensions using GetScreenData() instead of accessing private members */
-         if(GetScreenData(&screendata,sizeof(struct Screen),CUSTOMSCREEN,screen))
+         got_screendata=BOOLVAL(GetScreenData(&screendata,sizeof(struct Screen),CUSTOMSCREEN,screen));
+         if(got_screendata)
          {  screen_width=screendata.Width;
             screen_height=screendata.Height;
+            /* Note: Screen.BarHeight is defined as "one less than actual" */
+            barheight=(short)screendata.BarHeight+1;
          }
          else
          {  /* Fallback: use screen pointer if GetScreenData fails */
             screen_width=screen->Width;
             screen_height=screen->Height;
+            barheight=(short)screen->BarHeight+1;
          }
+         if(barheight<0) barheight=0;
          
          /* For small screens (640x512 or smaller), use existing logic (let Intuition clamp) */
-         if(screen_width<=640 && screen_height<=512)
-         {  /* Keep 9999, Intuition will clamp to screen size */
-            if(calc_width==9999) calc_width=9999;
-            if(calc_height==9999) calc_height=9999;
+         smallscreen=BOOLVAL(screen_width<=640 && screen_height<=512);
+         want_fullscreen=BOOLVAL(smallscreen && (calc_width==9999 || calc_height==9999));
+         if(want_fullscreen)
+         {  /* Full screen on small displays, but keep clear of the screen title bar. */
+            if(calc_width==9999) calc_width=screen_width;
+            if(calc_height==9999)
+            {  calc_height=screen_height-barheight;
+               if(calc_height<1) calc_height=1;
+            }
          }
          /* For larger screens (1024x768 or above), use 75% of screen size */
          else if(screen_width>=1024 && screen_height>=768)
@@ -951,14 +965,21 @@ static BOOL Openwindow(struct Awindow *win)
       }
       else
       {  /* Still need screen dimensions for position calculation */
-         if(GetScreenData(&screendata,sizeof(struct Screen),CUSTOMSCREEN,screen))
+         got_screendata=BOOLVAL(GetScreenData(&screendata,sizeof(struct Screen),CUSTOMSCREEN,screen));
+         if(got_screendata)
          {  screen_width=screendata.Width;
             screen_height=screendata.Height;
+            /* Note: Screen.BarHeight is defined as "one less than actual" */
+            barheight=(short)screendata.BarHeight+1;
          }
          else
          {  screen_width=screen->Width;
             screen_height=screen->Height;
+            barheight=(short)screen->BarHeight+1;
          }
+         if(barheight<0) barheight=0;
+         smallscreen=BOOLVAL(screen_width<=640 && screen_height<=512);
+         want_fullscreen=FALSE;
       }
       
       if(!(win->flags&WINF_USERPOS))
@@ -966,8 +987,14 @@ static BOOL Openwindow(struct Awindow *win)
          {  nextx=prefs.winx;
             nexty=prefs.winy;
          }
-         win->box.Left=nextx;
-         win->box.Top=nexty;
+         if(want_fullscreen)
+         {  win->box.Left=0;
+            win->box.Top=barheight;
+         }
+         else
+         {  win->box.Left=nextx;
+            win->box.Top=nexty;
+         }
          nextx+=20;
          nexty+=8;
          if(nextx+calc_width>screen_width) nextx=0;
