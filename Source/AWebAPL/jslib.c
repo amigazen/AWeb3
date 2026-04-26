@@ -1127,6 +1127,19 @@ __asm __saveds void Clearjobject(
 __asm __saveds void Freejobject(
    register __a0 struct Jobject *jo)
 {
+   /* Newjobject() creates a full Jobject via Newobject(), which links it into
+    * jc->objects. Callers (e.g. prefs.c) use Freejobject() to discard temporary
+    * objects after copying their properties into a longer-lived object.
+    *
+    * If this is left empty, those temporaries stay linked and leak. */
+   if(jo)
+   {  /* NODE(Jobject) comes from ezlists.h (next/prev), not Exec's struct Node.
+       * Use the matching list macros to unlink. */
+      if(jo->next && jo->prev)
+      {  REMOVE(jo);
+      }
+      Disposeobject(jo);
+   }
 }
 
 __asm __saveds void Jdumpobjects(
