@@ -548,6 +548,19 @@ markdown.o: markdown.c aweb.h html.h application.h docprivate.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
+# Ensure docprivate.h changes rebuild all dependent objects
+parse.o:     parse.c docprivate.h
+document.o:  document.c docprivate.h
+html.o:      html.c docprivate.h
+css.o:       css.c docprivate.h
+body.o:      body.c docprivate.h
+docext.o:    docext.c docprivate.h
+docsource.o: docsource.c docprivate.h
+event.o:     event.c docprivate.h
+docjs.o:     docjs.c docprivate.h
+table.o:     table.c docprivate.h
+link.o:      link.c docprivate.h
+
 jslib.o:    jslib.c awebjs.h keyfile.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c

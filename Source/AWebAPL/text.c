@@ -27,9 +27,12 @@
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
+#include <proto/diskfont.h>
 #include <graphics/gfxmacros.h>
 
 /*------------------------------------------------------------------------*/
+
+extern struct Library *DiskfontBase;
 
 struct Text
 {  struct Element elt;
@@ -63,6 +66,71 @@ struct Tsection
 #define SHY             0xad     /* Soft hyphen */
 
 /*------------------------------------------------------------------------*/
+
+/* Minimal Shift_JIS detection for mixed-content pages.
+ * We use it to switch to JKFF for text runs containing SJIS lead bytes. */
+static BOOL Hassjisbytes(UBYTE *s,long len)
+{  UBYTE b0,b1;
+   long i;
+   if(!s || len<=0) return FALSE;
+   for(i=0;i<len;i++)
+   {  b0=s[i];
+      /* Avoid false positives on UTF-8: many UTF-8 multibyte sequences start with
+       * bytes in the 0xE0.. range which overlap Shift_JIS lead bytes. */
+      if(b0>=0xC2 && b0<=0xDF)
+      {  if(i+1<len)
+         {  b1=s[i+1];
+            if((b1 & 0xC0)==0x80)
+            {  i+=1;
+               continue;
+            }
+         }
+      }
+      if(b0>=0xE0 && b0<=0xEF)
+      {  if(i+2<len)
+         {  if(((s[i+1] & 0xC0)==0x80) && ((s[i+2] & 0xC0)==0x80))
+            {  i+=2;
+               continue;
+            }
+         }
+      }
+      if(b0>=0xF0 && b0<=0xF4)
+      {  if(i+3<len)
+         {  if(((s[i+1] & 0xC0)==0x80) && ((s[i+2] & 0xC0)==0x80) && ((s[i+3] & 0xC0)==0x80))
+            {  i+=3;
+               continue;
+            }
+         }
+      }
+      if((b0>=0x81 && b0<=0x9F) || (b0>=0xE0 && b0<=0xFC))
+      {  if(i+1>=len) return TRUE;
+         b1=s[i+1];
+         if((b1>=0x40 && b1<=0x7E) || (b1>=0x80 && b1<=0xFC))
+         {  if(b1!=0x7F) return TRUE;
+         }
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+
+/* Cache JKFF fonts by y-size. We deliberately keep these open for the duration
+ * of the process to avoid per-element open/close churn. */
+static struct TextFont *Getjkfffont(short ysize)
+{  static struct TextFont *cache[65];
+   struct TextAttr ta;
+   struct TextFont *font;
+   if(ysize<1) ysize=1;
+   if(ysize>64) ysize=64;
+   if(cache[ysize]) return cache[ysize];
+   if(!DiskfontBase) return NULL;
+   memset(&ta,0,sizeof(ta));
+   ta.ta_Name=(STRPTR)"JKFF.font";
+   ta.ta_YSize=ysize;
+   font=OpenDiskFont(&ta);
+   cache[ysize]=font;
+   return font;
+}
 
 /* Clear all sections, or only non-aligned sections */
 static void Clearsections(struct Text *tx,BOOL all)
@@ -221,6 +289,16 @@ static UBYTE *GetFontfaceFromBody(struct Text *tx)
 static long Measuretext(struct Text *tx,struct Ammeasure *amm)
 {  long w,width,realw;
    UBYTE *p,*q,*end;
+   /* Auto-switch to JKFF when this text contains Shift_JIS byte sequences. */
+   if(tx && tx->text && tx->text->buffer && tx->length>0)
+   {  if(Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
+      {  struct TextFont *jkff;
+         jkff=Getjkfffont((short)tx->font->tf_YSize);
+         if(jkff)
+         {  tx->font=jkff;
+         }
+      }
+   }
    TTEngineSetFont(mrp,tx->font,NULL,tx->style);
    if(!IsTTEngineFontActive(mrp))
    {
@@ -530,6 +608,16 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
    if(coo->rp)
    {  rp=coo->rp;
       if(clip) clipkey=Clipto(rp,coo->minx,coo->miny,coo->maxx,coo->maxy);
+      /* Auto-switch to JKFF when this text contains Shift_JIS byte sequences. */
+      if(tx && tx->text && tx->text->buffer && tx->length>0)
+      {  if(Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
+         {  struct TextFont *jkff;
+            jkff=Getjkfffont((short)tx->font->tf_YSize);
+            if(jkff)
+            {  tx->font=jkff;
+            }
+         }
+      }
       /* Get fontface from body context for ttengine CSS font-family support */
       /* Pass tx->style (text element style flags) to TTEngineSetFont for bold/italic detection */
       TTEngineSetFont(rp,tx->font,GetFontfaceFromBody(tx),tx->style);

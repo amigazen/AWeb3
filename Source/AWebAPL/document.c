@@ -265,6 +265,7 @@ static void Reloaddocument(struct Document *doc)
    doc->wantbreak=0;
    doc->doctype=DOCTP_NONE;
    doc->dflags=0;
+   doc->japanesemode=0;
    doc->viewportwidth=0;  /* Reset viewport width to default (use window inner width) */
    doc->bgcolor=NULL;
    doc->textcolor=NULL;
@@ -965,6 +966,7 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->srcpos=0;
       doc->pmode=0;
       doc->charcount=0;
+      doc->charset=DOCCHARSET_LATIN1;
       doc->hoveredElement=NULL;
       doc->activeElement=NULL;
       doc->divancsp=0;
@@ -1002,6 +1004,7 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->srcpos=0;
       doc->pmode=0;
       doc->charcount=0;
+      doc->charset=DOCCHARSET_LATIN1;
       Setdocument(doc,ams);
       if(!doc->source) goto err;
       if(!(doc->base=Getbaseurl(doc))) goto err;

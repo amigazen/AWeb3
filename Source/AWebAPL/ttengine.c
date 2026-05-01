@@ -22,6 +22,7 @@
 #include "application.h"
 #include "awebprefs.h"
 #include <proto/exec.h>
+#include <proto/dos.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
 #include <graphics/text.h>
@@ -39,6 +40,343 @@ extern struct Library *TTEngineBase = NULL;
 
 /* Flag to track if ttengine is available */
 static BOOL ttengine_available = FALSE;
+
+/*------------------------------------------------------------------------*/
+
+/* Minimal built-in JKFF Shift_JIS renderer (no system patches).
+ * JKFFDisp normally patches graphics.library; we instead load the JKFF font
+ * data and render Shift_JIS bytes ourselves when the active font name is jkff.
+ *
+ * This supports fixed 8x16 ASCII and 16x16 kanji bitmaps from kanji.font.all.
+ */
+
+/* JKFF bitmap data file. JKFFDisp archives typically include kanji.font.all,
+ * but install layouts vary. We try a small list of likely locations. */
+#define JKFF_FONTFILE1  "FONTS:jkff/kanji.font.all"
+#define JKFF_FONTFILE2  "FONTS:jkff/16/kanji.font.all"
+#define JKFF_FONTFILE3  "FONTS:kanji.font.all"
+
+#define JKFF_ASCII_W    8
+#define JKFF_KANJI_W    16
+#define JKFF_SCAN       16
+#define JKFF_CNUM       (1L * 0x100 + 2L * 94 * 94)  /* bytes per scanline in expanded buffer */
+#define JKFF_BUFSIZE    (JKFF_CNUM * JKFF_SCAN)
+
+static UBYTE *jkff_buf = NULL;     /* expanded font buffer */
+static BOOL jkff_tried = FALSE;    /* tried loading */
+static UBYTE *jkff_templ8 = NULL;   /* chip template buffer (16 bytes) */
+static UBYTE *jkff_templ16 = NULL;  /* chip template buffer (32 bytes) */
+
+static void JkffFree(void)
+{
+   if(jkff_templ16)
+   {
+      FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2));
+      jkff_templ16=NULL;
+   }
+   if(jkff_templ8)
+   {
+      FreeMem(jkff_templ8,(ULONG)JKFF_SCAN);
+      jkff_templ8=NULL;
+   }
+   if(jkff_buf)
+   {
+      FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+      jkff_buf=NULL;
+   }
+   jkff_tried=FALSE;
+}
+
+static BOOL IsJkffFontActive(struct RastPort *rp)
+{
+   struct TextFont *fnt;
+   UBYTE *name;
+
+   if(!rp) return FALSE;
+   fnt=rp->Font;
+   if(!fnt) return FALSE;
+   name=(UBYTE *)fnt->tf_Message.mn_Node.ln_Name;
+   if(!name) return FALSE;
+   /* Accept "jkff", "jkff.font", "jkff/16", etc. */
+   if(STRNIEQUAL(name,"jkff",4)) return TRUE;
+   return FALSE;
+}
+
+/* Compute offset into expanded buffer for a Shift_JIS 2-byte code. */
+static long JkffKanjiLocate(UWORD kCode)
+{
+   long lFont;
+
+   if(kCode>=0x8140 && kCode<=0x9ffc)
+   {
+      lFont=(long)kCode - (long)(((kCode & 0x1f00) / 4)) - 0x8100;
+   }
+   else if(kCode>=0xe040 && kCode<=0xeffc)
+   {
+      lFont=(long)kCode - (long)(((kCode & 0x1f00) / 4)) - 0xe040
+         + 192 * ((15 + 32 + 15) / 2);
+   }
+   else
+   {
+      return 0;
+   }
+
+   if(62 < (lFont % 192))
+   {
+      lFont -= ((lFont / 192) * 4) + 1;
+   }
+   else
+   {
+      lFont -= ((lFont / 192) * 4);
+   }
+
+   return 0x100 + 2 * lFont;
+}
+
+static void JkffEnsureLoaded(void)
+{
+   BPTR fh;
+   UBYTE kbuff[2];
+   long scanline;
+   UWORD code;
+   long koff;
+   long got;
+   long expect;
+   const char *fname;
+   ULONG memflags;
+
+   if(jkff_buf || jkff_tried) return;
+   jkff_tried=TRUE;
+
+   /* Blitter source must be in CHIP memory for BltTemplate/BltBitMap*.
+    * Allocate font data in CHIP to keep rendering correct on classic systems. */
+   memflags=(ULONG)(MEMF_CHIP|MEMF_CLEAR);
+   jkff_buf=(UBYTE *)AllocMem((ULONG)JKFF_BUFSIZE,memflags);
+   if(!jkff_buf) return;
+
+   jkff_templ8=(UBYTE *)AllocMem((ULONG)JKFF_SCAN,(ULONG)(MEMF_CHIP|MEMF_CLEAR));
+   jkff_templ16=(UBYTE *)AllocMem((ULONG)(JKFF_SCAN*2),(ULONG)(MEMF_CHIP|MEMF_CLEAR));
+   if(!jkff_templ8 || !jkff_templ16)
+   {
+      if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
+      if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
+      FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+      jkff_buf=NULL;
+      return;
+   }
+
+   fh=0;
+   fname=JKFF_FONTFILE1;
+   fh=Open((STRPTR)fname,MODE_OLDFILE);
+   if(!fh)
+   {  fname=JKFF_FONTFILE2;
+      fh=Open((STRPTR)fname,MODE_OLDFILE);
+   }
+   if(!fh)
+   {  fname=JKFF_FONTFILE3;
+      fh=Open((STRPTR)fname,MODE_OLDFILE);
+   }
+   if(!fh)
+   {
+      if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
+      if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
+      FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+      jkff_buf=NULL;
+      return;
+   }
+
+   /* File format: for each scanline (0..15): 256 bytes ASCII then 2 bytes per SJIS code in a fixed scan order. */
+   for(scanline=0; scanline<JKFF_SCAN; scanline++)
+   {
+      expect=0x100;
+      got=Read(fh,jkff_buf + (JKFF_CNUM * scanline), (LONG)expect);
+      if(got != expect)
+      {
+         Close(fh);
+         if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
+         if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
+         FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+         jkff_buf=NULL;
+         return;
+      }
+
+      code=0x8140;
+      while(code<=0xeafc)
+      {
+         if(code==0x9ffd) code=0xe040;
+         else if((code & 0x00ff) == 0x007f) code++;
+         else if((code & 0x00ff) == 0x00fd) code = (UWORD)(code + 3 + 0x40);
+         else if(code==0x849f) code=0x889f;
+
+         got=Read(fh,kbuff,2);
+         if(got != 2)
+         {
+            Close(fh);
+            if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
+            if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
+            FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+            jkff_buf=NULL;
+            return;
+         }
+
+         koff=JkffKanjiLocate(code);
+         jkff_buf[(JKFF_CNUM * scanline) + koff + 0] = kbuff[0];
+         jkff_buf[(JKFF_CNUM * scanline) + koff + 1] = kbuff[1];
+
+         code++;
+      }
+   }
+
+   Close(fh);
+}
+
+static BOOL IsSjisLead(UBYTE b)
+{
+   if((b>=0x81 && b<=0x9f) || (b>=0xe0 && b<=0xfc)) return TRUE;
+   return FALSE;
+}
+
+static BOOL IsSjisTrail(UBYTE b)
+{
+   if(b==0x7f) return FALSE;
+   if(b>=0x40 && b<=0xfc) return TRUE;
+   return FALSE;
+}
+
+static void JkffDrawGlyph8(struct RastPort *rp, UBYTE code)
+{
+   long i;
+   long x,y;
+
+   if(!jkff_buf) return;
+   if(!jkff_templ8) return;
+   for(i=0;i<JKFF_SCAN;i++)
+   {
+      jkff_templ8[i]=jkff_buf[(JKFF_CNUM * i) + (long)code];
+   }
+   x=(long)rp->cp_x;
+   y=(long)rp->cp_y;
+   WaitBlit();
+   BltTemplate(jkff_templ8,0,1,rp,(LONG)x,(LONG)(y - (JKFF_SCAN - 1)),(LONG)JKFF_ASCII_W,(LONG)JKFF_SCAN);
+   Move(rp,(LONG)(x + JKFF_ASCII_W),(LONG)y);
+}
+
+static void JkffDrawGlyph16(struct RastPort *rp, UWORD sjis)
+{
+   long off;
+   long i;
+   long x,y;
+
+   if(!jkff_buf) return;
+   if(!jkff_templ16) return;
+   off=JkffKanjiLocate(sjis);
+   for(i=0;i<JKFF_SCAN;i++)
+   {
+      jkff_templ16[i*2+0]=jkff_buf[(JKFF_CNUM * i) + off + 0];
+      jkff_templ16[i*2+1]=jkff_buf[(JKFF_CNUM * i) + off + 1];
+   }
+   x=(long)rp->cp_x;
+   y=(long)rp->cp_y;
+   WaitBlit();
+   BltTemplate(jkff_templ16,0,2,rp,(LONG)x,(LONG)(y - (JKFF_SCAN - 1)),(LONG)JKFF_KANJI_W,(LONG)JKFF_SCAN);
+   Move(rp,(LONG)(x + JKFF_KANJI_W),(LONG)y);
+}
+
+static void JkffText(struct RastPort *rp, UBYTE *string, ULONG count)
+{
+   ULONG i;
+   UBYTE b0,b1;
+   UWORD sj;
+
+   if(!rp || !string || count==0) return;
+   JkffEnsureLoaded();
+   if(!jkff_buf)
+   {  /* If the JKFF bitmap file isn't available, fall back to standard Text()
+       * so the page remains readable (ASCII/Latin-1). */
+      Text(rp,string,count);
+      return;
+   }
+
+   i=0;
+   while(i<count)
+   {
+      b0=string[i];
+      if(IsSjisLead(b0) && (i+1<count))
+      {
+         b1=string[i+1];
+         if(IsSjisTrail(b1))
+         {
+            sj=(UWORD)(((UWORD)b0<<8) | (UWORD)b1);
+            JkffDrawGlyph16(rp,sj);
+            i+=2;
+            continue;
+         }
+      }
+      JkffDrawGlyph8(rp,b0);
+      i++;
+   }
+}
+
+static ULONG JkffTextLength(struct RastPort *rp, UBYTE *string, ULONG count)
+{
+   ULONG i;
+   ULONG w;
+   UBYTE b0,b1;
+
+   (void)rp;
+   i=0;
+   w=0;
+   while(i<count)
+   {
+      b0=string[i];
+      if(IsSjisLead(b0) && (i+1<count))
+      {
+         b1=string[i+1];
+         if(IsSjisTrail(b1))
+         {
+            w += JKFF_KANJI_W;
+            i += 2;
+            continue;
+         }
+      }
+      w += JKFF_ASCII_W;
+      i++;
+   }
+   return w;
+}
+
+static ULONG JkffTextFit(struct RastPort *rp, UBYTE *string, UWORD count, UWORD cwidth)
+{
+   UWORD i;
+   ULONG w;
+   UBYTE b0,b1;
+   UWORD step;
+
+   (void)rp;
+   i=0;
+   w=0;
+   while(i<count)
+   {
+      b0=string[i];
+      step=1;
+      if(IsSjisLead(b0) && (i+1<count))
+      {
+         b1=string[i+1];
+         if(IsSjisTrail(b1))
+         {
+            step=2;
+            if(w + JKFF_KANJI_W > cwidth) break;
+            w += JKFF_KANJI_W;
+            i = (UWORD)(i + 2);
+            continue;
+         }
+      }
+      if(w + JKFF_ASCII_W > cwidth) break;
+      w += JKFF_ASCII_W;
+      i = (UWORD)(i + step);
+   }
+   return i;
+}
 
 /*------------------------------------------------------------------------*/
 
@@ -71,6 +409,7 @@ BOOL InitTTEngine(void)
 /* Cleanup ttengine.library support */
 void FreeTTEngine(void)
 {
+   JkffFree();
    if(TTEngineBase)
    {
       CloseLibrary(TTEngineBase);
@@ -687,6 +1026,11 @@ void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
    {
       return;
    }
+   if(IsJkffFontActive(rp))
+   {
+      JkffText(rp,string,count);
+      return;
+   }
    /* When library not open, use standard Text only - never call TT_* */
    if(!TTEngineBase)
    {
@@ -714,6 +1058,10 @@ ULONG TTEngineTextLength(struct RastPort *rp, UBYTE *string, ULONG count)
    if(!rp || !string || count == 0)
    {
       return 0;
+   }
+   if(IsJkffFontActive(rp))
+   {
+      return JkffTextLength(rp,string,count);
    }
    /* When library not open, use standard TextLength only - never call TT_* */
    if(!TTEngineBase)
@@ -770,6 +1118,14 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
    if(!rp || !string || count == 0)
    {
       return 0;
+   }
+   if(IsJkffFontActive(rp))
+   {
+      (void)te;
+      (void)tec;
+      (void)dir;
+      (void)cheight;
+      return JkffTextFit(rp,string,count,cwidth);
    }
    /* When library not open, use standard TextFit only - never call TT_* */
    if(!TTEngineBase)

@@ -61,4 +61,7 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
 /* Check if ttengine font is currently active on a rastport */
 BOOL IsTTEngineFontActive(struct RastPort *rp);
 
+/* Enable built-in JKFF mixed Shift_JIS rendering (no system patches). */
+void SetJkffEnable(BOOL on);
+
 #endif

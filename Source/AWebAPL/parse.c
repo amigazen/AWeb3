@@ -186,6 +186,7 @@ static struct Attrdes tagattrs[]=
    "HTTP-EQUIV",        TAGATTR_HTTP_EQUIV,
    "ID",                TAGATTR_ID,
    "ISMAP",             TAGATTR_ISMAP,
+   "CHARSET",           TAGATTR_CHARSET,
    "LANGUAGE",          TAGATTR_LANGUAGE,
    "LEFTMARGIN",        TAGATTR_LEFTMARGIN,
    "LINK",              TAGATTR_LINK,
@@ -567,6 +568,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL valid;
    BOOL strict=(doc->htmlmode==HTML_STRICT),lf=(doc->pmode==DPM_TEXTAREA);
    short l;
+   BOOL sjis;
    
    /* Lookup tables for Latin Extended-A (U+0100-U+017F) and Latin Extended-B (U+0180-U+024F) */
    /* These map UTF-8 sequences 0xC4 and 0xC5 (Latin Extended-A) and 0xC6 and 0xC7 (Latin Extended-B) */
@@ -579,6 +581,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    static const UBYTE latin_ext_b_c7[] =
       "||||DDdLLlNNnAaIiOoUuUuUuUuUueAaAaAaGgGgKkOoOoEejDDdGgHWNnAaAaOo";
    
+   sjis=(BOOL)(doc->charset==DOCCHARSET_SHIFT_JIS || doc->japanesemode);
    while(p<end)
    {  /* Detect and decode UTF-8 sequences.
        * 2-byte UTF-8: 0xC0-0xDF followed by 0x80-0xBF (range 0x80-0x7FF)
@@ -594,6 +597,39 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       UBYTE replacement = 0;
       UBYTE *replacement_str = NULL;
       BOOL skip_char = FALSE;
+      UBYTE b0;
+      UBYTE t;
+      
+      b0=*p;
+      t=0;
+      
+      /* Minimal Shift_JIS preservation (core): do not apply Latin-1/UTF-8 translations to raw SJIS bytes.
+       * Keep entity handling (&...;) working, but otherwise pass-through byte pairs unchanged.
+       * If we encounter plausible SJIS bytes, enable Japanese mode so font selection can switch to JKFF. */
+      if(sjis && b0!='&')
+      {
+         /* Shift_JIS lead byte: 0x81-0x9F, 0xE0-0xFC */
+         if(((b0>=0x81 && b0<=0x9F) || (b0>=0xE0 && b0<=0xFC)) && (p+1<end))
+         {
+            t=p[1];
+            if((t>=0x40 && t<=0xFC) && t!=0x7F)
+            {
+               doc->japanesemode=1;
+               doc->charset=DOCCHARSET_SHIFT_JIS;
+            }
+            /* Preserve both bytes regardless of trail validity. */
+            p+=2;
+            continue;
+         }
+         /* Single-byte kana range (0xA1-0xDF) and any other byte: preserve as-is. */
+         if(b0>=0xA1 && b0<=0xDF)
+         {
+            doc->japanesemode=1;
+            doc->charset=DOCCHARSET_SHIFT_JIS;
+         }
+         p++;
+         continue;
+      }
       
       /* Check for 4-byte UTF-8 sequence (0xF0-0xF7) */
       if((*p & 0xF8) == 0xF0 && p+3 < end && 
@@ -926,7 +962,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       /* Translate win '95 characters if not strict and no foreign character set.
        * (n) contains character (possibly Unicode) */
       r=NULL;
-      if(!strict && !(doc->dflags&DDF_FOREIGN) && n>=128 && n<=159)
+      if(!strict && !sjis && !(doc->dflags&DDF_FOREIGN) && n>=128 && n<=159)
       {  switch(n)
          {  case 130:n=(UBYTE)',';break;
             case 131:n=(UBYTE)'f';break;
@@ -1014,7 +1050,12 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          p=p+l-1;
       }
       /* replace invalid number by space if compatible */
-      valid=(n>=32 && n<=126) || (n>=160 && n<=255) || (lf && n==10);
+      if(sjis)
+      {  valid=(n>=32 && n<=255) || (lf && n==10);
+      }
+      else
+      {  valid=(n>=32 && n<=126) || (n>=160 && n<=255) || (lf && n==10);
+      }
       if((valid || doc->htmlmode==HTML_COMPATIBLE) && !r)
       {  if(!valid) n=32;
          *p=n;

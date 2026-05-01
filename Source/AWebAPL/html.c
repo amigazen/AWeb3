@@ -124,6 +124,13 @@ static BOOL Ensurebody(struct Document *doc)
       {  return FALSE;
       }
       doc->doctype=DOCTP_BODY;
+      /* Hardcoded minimal Japanese support: prefer JKFF font on Shift_JIS pages.
+       * This keeps the change local to core and does not require system patches. */
+      if(doc->charset==DOCCHARSET_SHIFT_JIS)
+      {  Asetattrs(doc->body,
+            AOBDY_Fontface,(UBYTE *)"JKFF",
+            TAG_END);
+      }
       /* If stylesheet was merged before BODY existed, apply deterministically now. */
       ApplyDocCssIfReady(doc);
    }
@@ -2310,7 +2317,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
 
 /*** <META> ***/
 static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
-{  UBYTE *httpequiv=NULL,*content=NULL,*name=NULL;
+{  UBYTE *httpequiv=NULL,*content=NULL,*name=NULL,*charset=NULL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_HTTP_EQUIV:
@@ -2321,6 +2328,9 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_CONTENT:
             content=ATTR(doc,ta);
+            break;
+         case TAGATTR_CHARSET:
+            charset=ATTR(doc,ta);
             break;
       }
    }
@@ -2333,12 +2343,33 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
    if(httpequiv && content && STRIEQUAL(httpequiv,"CONTENT-SCRIPT-TYPE"))
    {  SETFLAG(doc->pflags,DPF_SCRIPTJS,STRIEQUAL(content,"TEXT/JAVASCRIPT"));
    }
-   if(httpequiv && content && STRIEQUAL(httpequiv,"CONTENT-TYPE"))
-   {  UBYTE *p,*q;
-      for(p=content;*p && *p!=';';p++);
-      for(;*p && !STRNIEQUAL(p,"CHARSET=",8);p++);
+   /* Charset detection:
+    * - HTML5: <meta charset="...">
+    * - HTML4: <meta http-equiv="Content-Type" content="text/html; charset=...">
+    */
+   if(charset && *charset)
+   {  UBYTE *p;
+      p=charset;
+      while(*p && isspace(*p)) p++;
       if(*p)
-      {  for(p+=8;*p && isspace(*p);p++);
+      {  if(!STRIEQUAL(p,"ISO-8859-1"))
+         {  doc->dflags|=DDF_FOREIGN;
+         }
+         if(STRIEQUAL(p,"SHIFT_JIS") || STRIEQUAL(p,"SHIFT-JIS") || STRIEQUAL(p,"SHIFTJIS")
+         || STRIEQUAL(p,"SJIS") || STRIEQUAL(p,"X-SJIS") || STRIEQUAL(p,"MS_KANJI") || STRIEQUAL(p,"CSSHIFTJIS"))
+         {  doc->charset=DOCCHARSET_SHIFT_JIS;
+            doc->japanesemode=1;
+         }
+      }
+   }
+   else if(httpequiv && content && STRIEQUAL(httpequiv,"CONTENT-TYPE"))
+   {  UBYTE *p,*q;
+      p=NULL;
+      for(q=content;*q && *q!=';';q++);
+      for(;*q && !STRNIEQUAL(q,"CHARSET=",8);q++);
+      if(*q)
+      {  p=q+8;
+         while(*p && isspace(*p)) p++;
          if(*p=='"')
          {  p++;
             for(q=p;*q && *q!='"';q++);
@@ -2348,7 +2379,12 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
          {  for(q=p;*q && !isspace(*q);q++);
             *q='\0';
          }
-         SETFLAG(doc->dflags,DDF_FOREIGN,(*p && !STRIEQUAL(p,"ISO-8859-1")));
+         if(*p && !STRIEQUAL(p,"ISO-8859-1")) doc->dflags|=DDF_FOREIGN;
+         if(STRIEQUAL(p,"SHIFT_JIS") || STRIEQUAL(p,"SHIFT-JIS") || STRIEQUAL(p,"SHIFTJIS")
+         || STRIEQUAL(p,"SJIS") || STRIEQUAL(p,"X-SJIS") || STRIEQUAL(p,"MS_KANJI") || STRIEQUAL(p,"CSSHIFTJIS"))
+         {  doc->charset=DOCCHARSET_SHIFT_JIS;
+            doc->japanesemode=1;
+         }
       }
    }
    /* Parse viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0"> */

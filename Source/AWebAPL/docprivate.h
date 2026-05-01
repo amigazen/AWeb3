@@ -115,6 +115,7 @@ struct Document
    UBYTE *target;             /* base target frame */
    long titlepos;             /* text buffer position of title */
    USHORT dflags;             /* DDF_ display flags */
+   UBYTE japanesemode;        /* nonzero: force Japanese font handling */
    struct Colorinfo *bgcolor, /* Colors to use or NULL */
       *textcolor,*linkcolor,*vlinkcolor,*alinkcolor;
    void *bgimage;             /* Background image to use or NULL */
@@ -122,6 +123,7 @@ struct Document
    void *bgsound;             /* Background sound object */
    UBYTE *clientpull;         /* Clientpull string */
    long viewportwidth;        /* Viewport width from meta viewport tag, 0 if not set */
+   UWORD charset;             /* DOCCHARSET_ document character encoding */
 
    LIST(Colorinfo) colors;    /* colors used in this document */
    LIST(Aobject) links;       /* links used in this document */
@@ -169,6 +171,11 @@ struct Document
    struct Divancestor divanc[DIV_ANCESTOR_STACK_MAX];
    short divancsp;
 };
+
+/* Document character encoding.
+ * Default is Latin-1 (ISO-8859-1). Only a minimal subset is tracked in core. */
+#define DOCCHARSET_LATIN1      0
+#define DOCCHARSET_SHIFT_JIS   1
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */
 #define DPF_RELOADVERIFY   0x00000002  /* make all embedded objects forced verify */

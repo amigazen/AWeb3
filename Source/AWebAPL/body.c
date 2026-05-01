@@ -338,8 +338,14 @@ static void Setbaseface(struct Body *bd,UBYTE *face)
 static struct Fontprefs *Getfontprefs(struct Body *bd,struct Fontinfo *fi,USHORT *style)
 {  short fonttype,fontsize;
    UBYTE *face=fi->face;
+   struct Document *doc;
    fonttype=bd->bld->fonttype || fi->type;
    fontsize=fi->size;
+   doc=(struct Document *)bd->parent;
+   if(doc && doc->japanesemode)
+   {  face=(UBYTE *)"JKFF";
+      fonttype=FALSE;
+   }
    if(fi->flags&FONTF_RELSIZE)
    {  for(fi=fi->next;fi->next && (fi->flags&FONTF_RELSIZE);fi=fi->next);
       if(fi->next)
