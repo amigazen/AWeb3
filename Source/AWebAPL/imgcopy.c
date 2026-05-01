@@ -41,6 +41,7 @@ struct Imgcopy
 
 #define IMGF_OURBITMAP  0x0001   /* Bitmap is ours */
 #define IMGF_OURMASK    0x0002   /* Mask is ours */
+#define IMGF_LAZYSCALE  0x0004   /* Don't cache full scaled bitmap; scale on render */
 
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
@@ -55,8 +56,9 @@ static void Newbitmap(struct Imgcopy *img)
    }
    img->flags&=~IMGF_OURBITMAP;
    img->flags&=~IMGF_OURMASK;
+   img->flags&=~IMGF_LAZYSCALE;
 
-   if(img->source->bitmap)
+   if(img->source && img->source->bitmap)
    {  if(img->swidth && !img->sheight)
       {  img->sheight=img->source->height*img->swidth/img->source->width;
          if(img->sheight<1) img->sheight=1;
@@ -67,10 +69,23 @@ static void Newbitmap(struct Imgcopy *img)
       }
    }
 
-   if(img->source->bitmap && img->swidth && img->sheight
+   if(img->source && img->source->bitmap && img->swidth && img->sheight
    && (img->swidth!=img->source->width || img->sheight!=img->source->height))
    {  /* Create our own scaled bitmap */
-      if(img->bitmap=AllocBitMap(img->swidth,img->sheight,img->source->depth,
+      ULONG bytesperrow;
+      ULONG estbytes;
+      ULONG maxbytes;
+      bytesperrow=(ULONG)(((img->swidth+15)&~15)>>3);
+      estbytes=bytesperrow*(ULONG)img->sheight*(ULONG)img->source->depth;
+      maxbytes=128UL*1024UL;
+      if(estbytes>maxbytes)
+      {  img->bitmap=img->source->bitmap;
+         img->mask=img->source->mask;
+         img->width=img->swidth;
+         img->height=img->sheight;
+         img->flags|=IMGF_LAZYSCALE;
+      }
+      else if(img->bitmap=AllocBitMap(img->swidth,img->sheight,img->source->depth,
          BMF_MINPLANES|BMF_DISPLAYABLE,img->source->bitmap))
       {  struct BitScaleArgs bsa={0};
          int memfchip=0;
@@ -135,8 +150,14 @@ static void Newbitmap(struct Imgcopy *img)
    if(!(img->flags&IMGF_OURBITMAP))
    {  img->bitmap=img->source->bitmap;
       img->mask=img->source->mask;
-      img->width=img->source->width;
-      img->height=img->source->height;
+      if(img->flags&IMGF_LAZYSCALE)
+      {  img->width=img->swidth;
+         img->height=img->sheight;
+      }
+      else
+      {  img->width=img->source->width;
+         img->height=img->source->height;
+      }
    }
 }
 
@@ -176,7 +197,92 @@ static long Renderimgcopy(struct Imgcopy *img,struct Amrender *amr)
             dy=MAX(0,amr->miny-img->aoy);
             w=MIN(amr->maxx-img->aox+1,img->width)-dx;
             h=MIN(amr->maxy-img->aoy+1,img->height)-dy;
-            if(img->mask)
+            if((img->flags&IMGF_LAZYSCALE) && img->source && img->source->bitmap)
+            {  struct BitMap *tbm=NULL;
+               UBYTE *tmask=NULL;
+               struct BitScaleArgs bsa={0};
+               long sx,sy,sw,sh;
+               ULONG xsf,xdf,ysf,ydf;
+               /* Map destination clip rect back to source coordinates. */
+               xsf=(ULONG)img->source->width;
+               xdf=(ULONG)img->swidth;
+               ysf=(ULONG)img->source->height;
+               ydf=(ULONG)img->sheight;
+               if(xdf==0 || ydf==0)
+               {  /* Should not happen, but avoid division by zero. */
+               }
+               else
+               {  sx=(long)((ULONG)dx*xsf/xdf);
+                  sy=(long)((ULONG)dy*ysf/ydf);
+                  sw=(long)((ULONG)w*xsf/xdf);
+                  sh=(long)((ULONG)h*ysf/ydf);
+                  if(sw<1) sw=1;
+                  if(sh<1) sh=1;
+                  if(sx+sw>img->source->width) sw=img->source->width-sx;
+                  if(sy+sh>img->source->height) sh=img->source->height-sy;
+                  if(sw>0 && sh>0)
+                  {  tbm=AllocBitMap(w,h,img->source->depth,BMF_MINPLANES|BMF_DISPLAYABLE,img->source->bitmap);
+                     if(tbm)
+                     {  bsa.bsa_SrcX=sx;
+                        bsa.bsa_SrcY=sy;
+                        bsa.bsa_SrcWidth=sw;
+                        bsa.bsa_SrcHeight=sh;
+                        bsa.bsa_DestX=0;
+                        bsa.bsa_DestY=0;
+                        bsa.bsa_XSrcFactor=sw;
+                        bsa.bsa_XDestFactor=w;
+                        bsa.bsa_YSrcFactor=sh;
+                        bsa.bsa_YDestFactor=h;
+                        bsa.bsa_SrcBitMap=img->source->bitmap;
+                        bsa.bsa_DestBitMap=tbm;
+                        bsa.bsa_Flags=0;
+                        BitMapScale(&bsa);
+                        if(img->source->mask)
+                        {  struct BitMap sbm={0},dbm={0};
+                           int memfchip=0;
+                           ULONG mbytes;
+                           if(GetBitMapAttr(tbm,BMA_FLAGS)&BMF_STANDARD) memfchip=MEMF_CHIP;
+                           mbytes=(ULONG)(GetBitMapAttr(tbm,BMA_WIDTH)/8)*(ULONG)h;
+                           tmask=(UBYTE *)AllocVec(mbytes,memfchip|MEMF_CLEAR);
+                           if(tmask)
+                           {  sbm.BytesPerRow=GetBitMapAttr(img->source->bitmap,BMA_WIDTH)/8;
+                              sbm.Rows=GetBitMapAttr(img->source->bitmap,BMA_HEIGHT);
+                              sbm.Depth=1;
+                              sbm.Planes[0]=img->source->mask;
+                              dbm.BytesPerRow=GetBitMapAttr(tbm,BMA_WIDTH)/8;
+                              dbm.Rows=h;
+                              dbm.Depth=1;
+                              dbm.Planes[0]=tmask;
+                              bsa.bsa_SrcBitMap=&sbm;
+                              bsa.bsa_DestBitMap=&dbm;
+                              bsa.bsa_SrcX=sx;
+                              bsa.bsa_SrcY=sy;
+                              bsa.bsa_SrcWidth=sw;
+                              bsa.bsa_SrcHeight=sh;
+                              bsa.bsa_DestX=0;
+                              bsa.bsa_DestY=0;
+                              bsa.bsa_XSrcFactor=sw;
+                              bsa.bsa_XDestFactor=w;
+                              bsa.bsa_YSrcFactor=sh;
+                              bsa.bsa_YDestFactor=h;
+                              BitMapScale(&bsa);
+                           }
+                        }
+                        if(tmask)
+                        {  BltMaskBitMapRastPort(tbm,0,0,coo->rp,
+                              img->aox+dx+coo->dx,img->aoy+dy+coo->dy,w,h,0xe0,tmask);
+                        }
+                        else
+                        {  BltBitMapRastPort(tbm,0,0,coo->rp,
+                              img->aox+dx+coo->dx,img->aoy+dy+coo->dy,w,h,0xc0);
+                        }
+                     }
+                  }
+               }
+               if(tbm) FreeBitMap(tbm);
+               if(tmask) FreeVec(tmask);
+            }
+            else if(img->mask)
 	         {  BltMaskBitMapRastPort(img->bitmap,dx,dy,coo->rp,
                   img->aox+dx+coo->dx,img->aoy+dy+coo->dy,w,h,
                   0xe0,img->mask);

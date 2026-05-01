@@ -2605,11 +2605,30 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
    struct RastPort *rp=NULL;
    struct Screen *screen;
    long bmw,bmh;
+   long bw,bh;
+   long depth;
+   ULONG bytesperrow;
+   ULONG estbytes;
+   ULONG maxbytes;
    if(fr && fr->objecttype==AOTP_BODY)
    {  fr=Bodyframe(fr);
    }
+   bw=xmax-xmin+1;
+   bh=ymax-ymin+1;
+   if(bw<=0 || bh<=0) return NULL;
+
+   /* Guard against huge temporary displayable bitmaps. These can be very
+    * expensive in Chip/graphics memory and may fail under chip pressure. */
+   depth=(long)Agetattr(Aweb(),AOAPP_Screendepth);
+   if(depth<1) depth=1;
+   if(depth>8) depth=8; /* conservative planar estimate */
+   bytesperrow=(ULONG)(((bw+15)&~15)>>3);
+   estbytes=bytesperrow*(ULONG)bh*(ULONG)depth;
+   maxbytes=256UL*1024UL;
+   if(estbytes>maxbytes) return NULL;
+
    if((screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen))
-   && (bitmap=AllocBitMap(xmax-xmin+1,ymax-ymin+1,Agetattr(Aweb(),AOAPP_Screendepth),
+   && (bitmap=AllocBitMap(bw,bh,Agetattr(Aweb(),AOAPP_Screendepth),
          BMF_MINPLANES|BMF_DISPLAYABLE,screen->RastPort.BitMap)))
    {  if(rp=ALLOCSTRUCT(RastPort,1,MEMF_PUBLIC|MEMF_CLEAR))
       {  InitRastPort(rp);

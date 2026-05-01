@@ -59,3 +59,7 @@ struct Imgsource
 #define AOIMS_Requestdecode   (AOIMS_Dummy+100)
    /* (BOOL) Request starting decode now (experimental lazy decode). */
 
+#define AOIMS_Discarddecoded  (AOIMS_Dummy+101)
+   /* (BOOL) Discard decoded bitmap/mask and datatype object to free memory.
+    * Keeps source (file/cache) so it can be decoded again later. */
+

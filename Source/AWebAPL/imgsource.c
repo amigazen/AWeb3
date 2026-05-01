@@ -130,13 +130,17 @@ static long Transparentgif(struct Imgprocess *imp)
 static void Makealphamask(struct Imgprocess *imp,void *dto)
 {  struct pdtBlitPixelArray pbpa={0};
    UBYTE *pixeldata=NULL;
-   ULONG pixelformat;
+   ULONG pixelformat=0;
    ULONG rowstride;
    ULONG width,height;
    UBYTE *maskptr;
    ULONG x,y;
+   ULONG y0;
    ULONG maskbytesperrow;
    ULONG flags;
+   ULONG chunkrows;
+   ULONG thisrows;
+   BOOL ok;
    
    /* Get bitmap dimensions */
    width=imp->width;
@@ -145,12 +149,15 @@ static void Makealphamask(struct Imgprocess *imp,void *dto)
    flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
    if(flags&BMF_INTERLEAVED) maskbytesperrow/=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
    
-   /* Allocate buffer for RGBA pixel data */
+   /* Allocate small buffer for RGBA pixel data (streaming) */
    rowstride=width*4;  /* 4 bytes per pixel (RGBA or ARGB) */
-   pixeldata=AllocMem(rowstride*height,MEMF_PUBLIC|MEMF_CLEAR);
+   chunkrows=8;
+   if(chunkrows>height) chunkrows=height;
+   if(chunkrows<1) return;
+   pixeldata=AllocMem(rowstride*chunkrows,MEMF_PUBLIC|MEMF_CLEAR);
    if(!pixeldata) return;
    
-   /* Read pixel array with alpha channel */
+   /* Read first chunk to determine pixel format */
    pbpa.MethodID=PDTM_READPIXELARRAY;
    pbpa.pbpa_PixelData=pixeldata;
    pbpa.pbpa_PixelFormat=PBPAFMT_RGBA;  /* Try RGBA format first */
@@ -158,13 +165,15 @@ static void Makealphamask(struct Imgprocess *imp,void *dto)
    pbpa.pbpa_Left=0;
    pbpa.pbpa_Top=0;
    pbpa.pbpa_Width=width;
-   pbpa.pbpa_Height=height;
+   pbpa.pbpa_Height=chunkrows;
    
-   if(!DoMethodA(dto,(Msg)&pbpa))
+   ok=BOOLVAL(DoMethodA(dto,(Msg)&pbpa));
+   if(!ok)
    {  /* Try ARGB format if RGBA failed */
       pbpa.pbpa_PixelFormat=PBPAFMT_ARGB;
-      if(!DoMethodA(dto,(Msg)&pbpa))
-      {  FreeMem(pixeldata,rowstride*height);
+      ok=BOOLVAL(DoMethodA(dto,(Msg)&pbpa));
+      if(!ok)
+      {  FreeMem(pixeldata,rowstride*chunkrows);
          return;
       }
       pixelformat=PBPAFMT_ARGB;
@@ -181,32 +190,55 @@ static void Makealphamask(struct Imgprocess *imp,void *dto)
       /* Convert alpha channel to mask plane */
       /* Alpha values: 0=transparent, 255=opaque */
       /* Amiga mask convention: 1=opaque, 0=transparent */
-      for(y=0;y<height;y++)
-      {  UBYTE *rowdata=pixeldata+y*rowstride;
-         maskptr=imp->mask+y*maskbytesperrow;
-         for(x=0;x<width;x++)
-         {  UBYTE alpha;
-            ULONG bitpos=x&7;
-            ULONG bytepos=x>>3;
-            if(pixelformat==PBPAFMT_RGBA)
-            {  alpha=rowdata[x*4+3];  /* RGBA: R=0, G=1, B=2, A=3 */
-            }
-            else
-            {  alpha=rowdata[x*4+0];  /* ARGB: A=0, R=1, G=2, B=3 */
-            }
-            if(bytepos<maskbytesperrow)
-            {  /* Threshold alpha: values >= 128 are opaque, < 128 are transparent */
-               if(alpha>=128)
-               {  maskptr[bytepos]|=(1<<(7-bitpos));  /* Set bit for opaque */
-               }
-               /* else bit remains 0 (transparent) */
+      y0=0;
+      while(y0<height)
+      {  UBYTE *rowdata;
+         if(y0==0)
+         {  thisrows=chunkrows; /* first chunk already read */
+         }
+         else
+         {  thisrows=chunkrows;
+            if(y0+thisrows>height) thisrows=height-y0;
+            pbpa.pbpa_PixelData=pixeldata;
+            pbpa.pbpa_PixelFormat=pixelformat;
+            pbpa.pbpa_PixelArrayMod=rowstride;
+            pbpa.pbpa_Left=0;
+            pbpa.pbpa_Top=y0;
+            pbpa.pbpa_Width=width;
+            pbpa.pbpa_Height=thisrows;
+            if(!DoMethodA(dto,(Msg)&pbpa))
+            {  break;
             }
          }
+         for(y=0;y<thisrows;y++)
+         {  rowdata=pixeldata+y*rowstride;
+            maskptr=imp->mask+(y0+y)*maskbytesperrow;
+            for(x=0;x<width;x++)
+            {  UBYTE alpha;
+               ULONG bitpos;
+               ULONG bytepos;
+               bitpos=x&7;
+               bytepos=x>>3;
+               if(bytepos<maskbytesperrow)
+               {  if(pixelformat==PBPAFMT_RGBA)
+                  {  alpha=rowdata[x*4+3];  /* RGBA: R=0, G=1, B=2, A=3 */
+                  }
+                  else
+                  {  alpha=rowdata[x*4+0];  /* ARGB: A=0, R=1, G=2, B=3 */
+                  }
+                  /* Threshold alpha: values >= 128 are opaque, < 128 are transparent */
+                  if(alpha>=128)
+                  {  maskptr[bytepos]|=(1<<(7-bitpos));  /* Set bit for opaque */
+                  }
+               }
+            }
+         }
+         y0+=thisrows;
       }
       imp->ourmask=TRUE;
    }
    
-   FreeMem(pixeldata,rowstride*height);
+   FreeMem(pixeldata,rowstride*chunkrows);
 }
 
 /* Make a transparent mask if the dt didn't create it */
