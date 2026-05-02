@@ -97,8 +97,8 @@
 #define AOBDY_Basecolor    (AOBDY_Dummy+26)  /* SET */
    /* (struct Colorinfo *) Sets basefont color. */
 
-#define AOBDY_Fontface     (AOBDY_Dummy+27)  /* SET */
-   /* (UBYTE *) Comma-separated list of preferred font face names */
+#define AOBDY_Fontface     (AOBDY_Dummy+27)  /* SET,GET */
+   /* (UBYTE *) Comma-separated list of preferred font face names (GET: active stack top) */
 
 #define AOBDY_Baseface     (AOBDY_Dummy+28)  /* SET */
    /* (UBYTE *) Comma-separated list of preferred basefont face names */

@@ -176,6 +176,11 @@ struct Document
  * Default is Latin-1 (ISO-8859-1). Only a minimal subset is tracked in core. */
 #define DOCCHARSET_LATIN1      0
 #define DOCCHARSET_SHIFT_JIS   1
+#define DOCCHARSET_UTF8        2
+
+/* Comma-separated TTF family names tried first for UTF-8 documents (ttengine).
+ * Host must register these faces (or equivalents) in the ttengine font database. */
+#define AWEB_UTF8_FONTFACE  "DejaVu Sans, Arial"
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */
 #define DPF_RELOADVERIFY   0x00000002  /* make all embedded objects forced verify */

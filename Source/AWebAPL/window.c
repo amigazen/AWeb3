@@ -325,7 +325,7 @@ static UBYTE *Makescreentitle(struct Awindow *win)
    /* Use global buffer - ensure it's null-terminated */
    screentitlebuf[0] = '\0';
    /* Start with version */
-   sprintf(screentitlebuf, "AWeb %s", awebversion ? awebversion : "");
+   sprintf(screentitlebuf, "AWeb %s", awebversion ? awebversion : (UBYTE *)"");
    
    /* Add portname */
    if(win->portname && win->portname[0])

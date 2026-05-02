@@ -93,6 +93,8 @@
 #define AOELT_Id           (AOELT_Dummy+23)  /* SET,GET */
    /* (UBYTE *) Element ID */
 
+#define AOELT_Fontfacestr  (AOELT_Dummy+24)  /* SET,GET */
+   /* (UBYTE *) Dupstr-owned font-family for this text run (UTF-8 ttengine); NULL if unset */
 
 /* Horizontal alignments */
 #define HALIGN_LEFT        0
@@ -131,6 +133,9 @@ struct Element
    UBYTE *tagname;         /* HTML tag name for CSS matching */
    UBYTE *class;           /* CSS class name(s) */
    UBYTE *id;              /* Element ID */
+   /* Owning BODY set in Addchild(); walk via AOBJ_Layoutparent to reach Document
+    * (e.g. through TABLE for nested table cells). */
+   void *layoutparent;
 };
 
 #define ELTF_MEASURED   0x0001   /* Gone through AOM_MEASURE */

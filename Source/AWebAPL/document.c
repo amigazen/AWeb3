@@ -29,7 +29,9 @@
 #include "application.h"
 #include "window.h"
 #include "body.h"
+#include "element.h"
 #include "table.h"
+#include "ttengine.h"
 #include "info.h"
 #include "map.h"
 #include "jslib.h"
@@ -39,8 +41,63 @@
 #include <proto/graphics.h>
 #include <proto/utility.h>
 #include <stdio.h>
+#include <string.h>
 
 #define DQID_ONLOAD     1     /* Queueid: run onLoad JavaScript */
+
+/* Nested document AOM_MEASURE / AOM_LAYOUT (frames) share mrp; only clear ttengine on
+ * the outermost return so TT_DoneRastPort matches SDK guidance without breaking parent. */
+static ULONG doc_ttengine_mrp_depth;
+
+/*------------------------------------------------------------------------*/
+
+/* Apply charset from HTTP Content-Type (charset=...) on the document URL.
+ * META tags may override later; this runs at the start of each parse chunk so
+ * early bytes use the declared encoding before <head> META is seen. */
+static void DocApplyContentCharsetFromUrl(struct Document *doc)
+{
+   void *src;
+   void *url;
+   UBYTE *ct;
+   UBYTE *q;
+   UBYTE *p;
+   UBYTE *r;
+   UBYTE save;
+   if(!doc || !doc->source) return;
+   /* Do not override charset chosen by META or XML once parsing has advanced. */
+   if(doc->charset!=DOCCHARSET_LATIN1) return;
+   src=doc->source->source;
+   if(!src) return;
+   url=(void *)Agetattr(src,AOSRC_Url);
+   if(!url) return;
+   ct=(UBYTE *)Agetattr(url,AOURL_Contenttype);
+   if(!ct || !*ct) return;
+   for(q=ct;*q;q++)
+   {
+      if(!STRNIEQUAL(q,"charset=",8)) continue;
+      p=q+8;
+      while(*p && (*p==' ' || *p=='\t')) p++;
+      if(!*p) return;
+      r=p;
+      while(*r && *r!=';' && *r!='"' && *r!=' ' && *r!='\t' && *r!='\r' && *r!='\n') r++;
+      save=*r;
+      *r='\0';
+      if(STRIEQUAL(p,"UTF-8") || STRIEQUAL(p,"UTF8"))
+      {
+         doc->charset=DOCCHARSET_UTF8;
+         doc->dflags|=DDF_FOREIGN;
+      }
+      else if(STRIEQUAL(p,"SHIFT_JIS") || STRIEQUAL(p,"SHIFT-JIS") || STRIEQUAL(p,"SHIFTJIS")
+      || STRIEQUAL(p,"SJIS") || STRIEQUAL(p,"X-SJIS") || STRIEQUAL(p,"MS_KANJI") || STRIEQUAL(p,"CSSHIFTJIS"))
+      {
+         doc->charset=DOCCHARSET_SHIFT_JIS;
+         doc->japanesemode=1;
+         doc->dflags|=DDF_FOREIGN;
+      }
+      *r=save;
+      return;
+   }
+}
 
 /*------------------------------------------------------------------------*/
 
@@ -292,6 +349,7 @@ static long Parsedocument(struct Document *doc)
 {  BOOL eof=(doc->source->flags&DOSF_EOF) && !(doc->source->flags&DOSF_JSOPEN);
    struct Buffer *src=&doc->source->buf;
    if(Agetattr(doc->source->source,AOSRC_Foreign)) doc->dflags|=DDF_FOREIGN;
+   DocApplyContentCharsetFromUrl(doc);
    if(src && !(doc->dflags&DDF_DONE))
    {  if(doc->source->flags&DOSF_HTML)
       {  Parsehtml(doc,src,eof,&doc->srcpos);
@@ -312,7 +370,14 @@ static long Parsedocument(struct Document *doc)
 
 static long Measuredocument(struct Document *doc,struct Ammeasure *amm)
 {  if(doc->body)
-   {  Ameasure(doc->body,amm->width,amm->height,0,amm->flags,&doc->text,amm->ammr);
+   {  doc_ttengine_mrp_depth++;
+      Ameasure(doc->body,amm->width,amm->height,0,amm->flags,&doc->text,amm->ammr);
+      doc_ttengine_mrp_depth--;
+   }
+   /* SDK tutorial 2.3: TT_DoneRastPort after TT_TextLength on a shared RastPort. */
+   if(TTEngineAvailable() && mrp && doc_ttengine_mrp_depth==0UL)
+   {
+      TTEngineClearRastPort(mrp);
    }
    return 0;
 }
@@ -320,11 +385,17 @@ static long Measuredocument(struct Document *doc,struct Ammeasure *amm)
 static long Layoutdocument(struct Document *doc,struct Amlayout *aml)
 {  long result=0;
    if(doc->body)
-   {  result=Alayout(doc->body,aml->width,aml->height,aml->flags,&doc->text,0,aml->amlr);
+   {  doc_ttengine_mrp_depth++;
+      result=Alayout(doc->body,aml->width,aml->height,aml->flags,&doc->text,0,aml->amlr);
       Agetattrs(doc->body,
          AOBJ_Width,&doc->aow,
          AOBJ_Height,&doc->aoh,
          TAG_END);
+      doc_ttengine_mrp_depth--;
+   }
+   if(TTEngineAvailable() && mrp && doc_ttengine_mrp_depth==0UL)
+   {
+      TTEngineClearRastPort(mrp);
    }
    return result;
 }
@@ -947,6 +1018,75 @@ static void Disposedocument(struct Document *doc)
    }
 }
 
+/* Spare document keeps DDF_DONE and the old DOM; Parsedocument then skips Parsehtml so
+ * <meta charset> is never reapplied. Cached AOURL_Contenttype is often "text/html" without
+ * charset=, so DocApplyContentCharsetFromUrl alone cannot restore UTF-8 (history Back). */
+static void DocSpareDomReset(struct Document *doc)
+{
+   void *p;
+   if(!doc)
+   {
+      return;
+   }
+   doc->dflags&=~DDF_DONE;
+   if(doc->body)
+   {
+      Adisposeobject(doc->body);
+      doc->body=NULL;
+   }
+   while((p=REMHEAD(&doc->tables))) FREE(p);
+   while((p=REMHEAD(&doc->frames))) FREE(p);
+   while((p=REMHEAD(&doc->framesets))) FREE(p);
+   while((p=REMHEAD(&doc->bgimages))) Disposebgimage(p);
+   while((p=REMHEAD(&doc->colors))) Disposecolorinfo(p);
+   while((p=REMHEAD(&doc->links))) Adisposeobject(p);
+   while((p=REMHEAD(&doc->maps))) Adisposeobject(p);
+   while((p=REMHEAD(&doc->forms))) Adisposeobject(p);
+   while((p=REMHEAD(&doc->fragments))) Disposefragment(p);
+   while((p=REMHEAD(&doc->infotexts))) Disposeinfotext(p);
+   doc->bgimage=NULL;
+   if(doc->bgsound)
+   {
+      Adisposeobject(doc->bgsound);
+      doc->bgsound=NULL;
+   }
+   if(doc->target)
+   {
+      FREE(doc->target);
+      doc->target=NULL;
+   }
+   if(doc->clientpull)
+   {
+      FREE(doc->clientpull);
+      doc->clientpull=NULL;
+   }
+   if(doc->onload)
+   {
+      FREE(doc->onload);
+      doc->onload=NULL;
+   }
+   if(doc->onunload)
+   {
+      FREE(doc->onunload);
+      doc->onunload=NULL;
+   }
+   if(doc->onfocus)
+   {
+      FREE(doc->onfocus);
+      doc->onfocus=NULL;
+   }
+   if(doc->onblur)
+   {
+      FREE(doc->onblur);
+      doc->onblur=NULL;
+   }
+   FreeCSSStylesheet(doc);
+   doc->doctype=DOCTP_NONE;
+   doc->select=NULL;
+   doc->textarea=NULL;
+   doc->frameseqnr=0;
+}
+
 static struct Document *Newdocument(struct Amset *ams)
 {  struct Document *doc;
    struct Docsource *dos=(struct Docsource *)GetTagData(AOCDV_Sourcedriver,NULL,ams->tags);
@@ -967,10 +1107,15 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->pmode=0;
       doc->charcount=0;
       doc->charset=DOCCHARSET_LATIN1;
+      doc->japanesemode=0;
       doc->hoveredElement=NULL;
       doc->activeElement=NULL;
       doc->divancsp=0;
-      Anotifyset(doc->body,AOBJ_Nobackground,FALSE,TAG_END);
+      if(doc->body)
+      {
+         Anotifyset(doc->body,AOBJ_Nobackground,FALSE,TAG_END);
+      }
+      DocSpareDomReset(doc);
       Setdocument(doc,ams);
       if(doc->bgsound && doc->win) Asetattrs(doc->win,AOWIN_Bgsound,TRUE,TAG_END);
       if((doc->dflags&DDF_DONE) && doc->onload) Queuesetmsg(doc,DQID_ONLOAD);
@@ -1005,6 +1150,7 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->pmode=0;
       doc->charcount=0;
       doc->charset=DOCCHARSET_LATIN1;
+      doc->japanesemode=0;
       Setdocument(doc,ams);
       if(!doc->source) goto err;
       if(!(doc->base=Getbaseurl(doc))) goto err;

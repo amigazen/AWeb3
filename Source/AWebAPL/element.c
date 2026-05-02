@@ -119,6 +119,9 @@ static long Setelement(struct Element *elt,struct Amset *ams)
             if(elt->id) FREE(elt->id);
             elt->id = (UBYTE *)tag->ti_Data;
             break;
+         case AOBJ_Layoutparent:
+            elt->layoutparent=(void *)tag->ti_Data;
+            break;
       }
    }
    if(elt->halign&HALIGN_FLOATLEFT) elt->valign=VALIGN_TOP;
@@ -191,6 +194,9 @@ static long Getelement(struct Element *elt,struct Amset *ams)
             break;
          case AOELT_Id:
             PUTATTR(tag,elt->id);
+            break;
+         case AOBJ_Layoutparent:
+            PUTATTR(tag,elt->layoutparent);
             break;
       }
    }
@@ -367,11 +373,33 @@ long Textlengthext(struct RastPort *rp,UBYTE *text,long count,long *extent)
    if(extent) *extent=0;
    /* Use ttengine wrapper if ttengine font is active, else use standard graphics.library function */
    if(IsTTEngineFontActive(rp))
-   {  /* For ttengine, use TextExtent directly for the whole string - ttengine handles whole strings at once */
+   {  /* ttengine: te_Width is advance; ink span is MaxX-MinX+1 (SDK says they need not match). */
+      long lim;
+      long ink;
+      long adv;
       if(count > 0)
-      {  TTEngineTextExtent(rp,text,(WORD)count,&te);
-         length=te.te_Width;
-         if(extent) *extent=te.te_Extent.MaxX+1;
+      {  lim=count;
+         if(lim>32767L)
+         {
+            lim=32767L;
+         }
+         TTEngineTextExtent(rp,text,(WORD)lim,&te);
+         adv=(long)te.te_Width;
+         ink=(long)te.te_Extent.MaxX-(long)te.te_Extent.MinX+1L;
+         if(ink<1L)
+         {
+            ink=adv;
+         }
+         length=adv;
+         if(ink>length)
+         {
+            length=ink;
+         }
+         length+=(long)TTEngineBoldInkPad(rp);
+         if(extent)
+         {
+            *extent=ink+(long)TTEngineBoldInkPad(rp);
+         }
       }
    }
    else
@@ -381,7 +409,7 @@ long Textlengthext(struct RastPort *rp,UBYTE *text,long count,long *extent)
          length+=te.te_Width;
          text+=part;
          count-=part;
-         if(extent) *extent+=te.MaxX+1;
+         if(extent) *extent+=te.te_Extent.MaxX+1;
       }
    }
    return length;

@@ -21,6 +21,9 @@
 #define AWEB_TTENGINE
 
 #include "aweb.h"
+
+/* IANA MIBenum 106; same value as ttengine TT_Encoding_UTF8 (see SDK libraries/ttengine.h). */
+#define AWEB_TT_ENCODING_UTF8 ((ULONG)106)
 #include <graphics/text.h>
 #include <graphics/rastport.h>
 
@@ -45,8 +48,18 @@ void TTEngineCloseFont(APTR ttfont);
 /* style is the text element's style flags (FSF_BOLD, FSF_ITALIC) for bold/italic detection */
 void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface, USHORT style);
 
+/* IANA-style encoding for ttengine on (rp), e.g. TT_Encoding_UTF8 or TT_Encoding_Default.
+ * Only applies when a ttengine font is already active on the RastPort. */
+void TTEngineSetRastPortTextEncoding(struct RastPort *rp,ULONG encoding);
+
 /* Text rendering wrapper (uses ttengine if available) */
 void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count);
+
+/* Extra horizontal pixels beyond ttengine advance (bold faux ink + italic overhang). */
+ULONG TTEngineBoldInkPad(struct RastPort *rp);
+
+/* Vertical line box for HTML layout: max(tf_YSize, TT_FontMaxTop+MaxBottom) when ttengine active. */
+ULONG TTEngineLineBoxHeight(struct RastPort *rp, struct TextFont *tf);
 
 /* Text length wrapper (uses ttengine if available) */
 ULONG TTEngineTextLength(struct RastPort *rp, UBYTE *string, ULONG count);
@@ -60,6 +73,10 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
 
 /* Check if ttengine font is currently active on a rastport */
 BOOL IsTTEngineFontActive(struct RastPort *rp);
+
+/* Drop ttengine overlay on (rp) so graphics Text()/TextFit() use the TextFont from SetFont.
+ * Call before SetFont when switching an UTF-8 run from TTF metrics back to 7-bit ASCII. */
+void TTEngineClearRastPort(struct RastPort *rp);
 
 /* Enable built-in JKFF mixed Shift_JIS rendering (no system patches). */
 void SetJkffEnable(BOOL on);

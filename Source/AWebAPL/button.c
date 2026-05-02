@@ -27,6 +27,7 @@
 #include "url.h"
 #include "window.h"
 #include "jslib.h"
+#include "ttengine.h"
 #include <proto/exec.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -84,6 +85,40 @@ static long bevelw,bevelh;
 /*------------------------------------------------------------------------*/
 
 /* Get font from element, with fallback to screen font */
+/* INPUT value label: same ttengine binding on (rp) as document text so measure width matches
+ * draw (about:home submit in a narrow table vs bitmap-only Textlength on mrp). */
+static void Buttonbindvaluefont(struct RastPort *rp,struct TextFont *font)
+{
+   TTEngineSetFont(rp,font,NULL,0);
+   if(!IsTTEngineFontActive(rp))
+   {
+      SetFont(rp,font);
+      SetSoftStyle(rp,0,0x0f);
+   }
+}
+
+static long Buttonvaluefit(struct RastPort *rp,UBYTE *s,long len,struct TextExtent *te,
+   long maxw,long maxh)
+{
+   if(IsTTEngineFontActive(rp))
+   {
+      return (long)TTEngineTextFit(rp,s,(UWORD)len,te,NULL,1,(UWORD)maxw,(UWORD)maxh);
+   }
+   return (long)TextFit(rp,s,(WORD)len,te,NULL,1,(UWORD)maxw,(UWORD)maxh);
+}
+
+static void Buttonvaluedraw(struct RastPort *rp,UBYTE *s,long len)
+{
+   if(IsTTEngineFontActive(rp))
+   {
+      TTEngineText(rp,s,(ULONG)len);
+   }
+   else
+   {
+      Text(rp,s,len);
+   }
+}
+
 static struct TextFont *Getbuttonfont(struct Button *but)
 {  struct TextFont *font;
    
@@ -211,9 +246,8 @@ static long Measurebutton(struct Button *but,struct Ammeasure *amm)
       else
       {  /* INPUT type="button" elements, measure based on value attribute */
          struct TextFont *font=Getbuttonfont(but);
-         SetFont(mrp,font);
-         SetSoftStyle(mrp,0,0x0f);
-         but->aow=Textlength(mrp,but->value,strlen(but->value))+2*bevelw+8;
+         Buttonbindvaluefont(mrp,font);
+         but->aow=Textlength(mrp,but->value,(long)strlen((char *)but->value))+2*bevelw+8;
          /* Match input field height calculation for consistent appearance */
          but->aoh=font->tf_YSize+2*bevelh+4;
          but->flags&=~BUTF_REMEASURE;
@@ -334,8 +368,7 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
                   if(textpos>=0 && textlen>0 && textpos+textlen<=amr->text->length)
                   {  textptr=amr->text->buffer+textpos;
                      /* Render the text directly, same way measurement reads it from amm->text->buffer */
-                     SetFont(rp,font);
-                     SetSoftStyle(rp,0,0x0f);
+                     Buttonbindvaluefont(rp,font);
                      SetAPen(rp,coo->dri->dri_Pens[TEXTPEN]);
                      textw=Textlength(rp,textptr,textlen);
                      buttonw=but->aow-2*bevelw-8;
@@ -345,11 +378,11 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
                      }
                      else
                      {  /* Text doesn't fit, find out how much fits */
-                        textl=TextFit(rp,textptr,textlen,&te,NULL,1,buttonw,but->aoh);
+                        textl=Buttonvaluefit(rp,textptr,textlen,&te,buttonw,but->aoh);
                         textx=0;
                      }
                      Move(rp,but->aox+coo->dx+bevelw+4+textx,but->aoy+coo->dy+bevelh+1+rp->TxBaseline);
-                     Text(rp,textptr,textl);
+                     Buttonvaluedraw(rp,textptr,textl);
                      rendered=TRUE;
                   }
                }
@@ -364,11 +397,10 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
       }
       else
       {  /* INPUT type="button" elements (custom=FALSE), render the value attribute */
-         SetFont(rp,font);
-         SetSoftStyle(rp,0,0x0f);
+         Buttonbindvaluefont(rp,font);
          SetAPen(rp,coo->dri->dri_Pens[TEXTPEN]);
          /* With JS the value can have changed after measure */
-         textl=strlen(but->value);
+         textl=(long)strlen((char *)but->value);
          textw=Textlength(rp,but->value,textl);
          buttonw=but->aow-2*bevelw-8;
          if(textw<=buttonw)
@@ -377,11 +409,11 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
          }
          else
          {  /* Text doesn't fit, find out how much fits */
-            textl=TextFit(rp,but->value,textl,&te,NULL,1,buttonw,but->aoh);
+            textl=Buttonvaluefit(rp,but->value,textl,&te,buttonw,but->aoh);
             textx=0;
          }
          Move(rp,but->aox+coo->dx+bevelw+4+textx,but->aoy+coo->dy+bevelh+1+rp->TxBaseline);
-         Text(rp,but->value,textl);
+         Buttonvaluedraw(rp,but->value,textl);
       }
       if(clip) Unclipto(clipkey);
    }

@@ -569,6 +569,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL strict=(doc->htmlmode==HTML_STRICT),lf=(doc->pmode==DPM_TEXTAREA);
    short l;
    BOOL sjis;
+   BOOL utf8doc;
    
    /* Lookup tables for Latin Extended-A (U+0100-U+017F) and Latin Extended-B (U+0180-U+024F) */
    /* These map UTF-8 sequences 0xC4 and 0xC5 (Latin Extended-A) and 0xC6 and 0xC7 (Latin Extended-B) */
@@ -582,6 +583,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       "||||DDdLLlNNnAaIiOoUuUuUuUuUueAaAaAaGgGgKkOoOoEejDDdGgHWNnAaAaOo";
    
    sjis=(BOOL)(doc->charset==DOCCHARSET_SHIFT_JIS || doc->japanesemode);
+   utf8doc=(BOOL)(doc->charset==DOCCHARSET_UTF8);
    while(p<end)
    {  /* Detect and decode UTF-8 sequences.
        * 2-byte UTF-8: 0xC0-0xDF followed by 0x80-0xBF (range 0x80-0x7FF)
@@ -598,34 +600,51 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       UBYTE *replacement_str = NULL;
       BOOL skip_char = FALSE;
       UBYTE b0;
-      UBYTE t;
       
       b0=*p;
-      t=0;
       
       /* Minimal Shift_JIS preservation (core): do not apply Latin-1/UTF-8 translations to raw SJIS bytes.
        * Keep entity handling (&...;) working, but otherwise pass-through byte pairs unchanged.
-       * If we encounter plausible SJIS bytes, enable Japanese mode so font selection can switch to JKFF. */
+       *
+       * IMPORTANT (HTML4 behaviour): do not auto-detect or switch the document charset here.
+       * Charset is determined by HTTP headers and/or META declarations. */
       if(sjis && b0!='&')
       {
          /* Shift_JIS lead byte: 0x81-0x9F, 0xE0-0xFC */
          if(((b0>=0x81 && b0<=0x9F) || (b0>=0xE0 && b0<=0xFC)) && (p+1<end))
          {
-            t=p[1];
-            if((t>=0x40 && t<=0xFC) && t!=0x7F)
-            {
-               doc->japanesemode=1;
-               doc->charset=DOCCHARSET_SHIFT_JIS;
-            }
             /* Preserve both bytes regardless of trail validity. */
             p+=2;
             continue;
          }
          /* Single-byte kana range (0xA1-0xDF) and any other byte: preserve as-is. */
-         if(b0>=0xA1 && b0<=0xDF)
+         p++;
+         continue;
+      }
+      /* UTF-8 documents: keep valid UTF-8 byte sequences; do not fold to Latin-1 bullets.
+       * Entity references (&...;) are still processed below. Invalid bytes advance by one. */
+      if(utf8doc && b0!='&')
+      {
+         if(b0<0x80)
          {
-            doc->japanesemode=1;
-            doc->charset=DOCCHARSET_SHIFT_JIS;
+            p++;
+            continue;
+         }
+         if((b0 & 0xE0)==0xC0 && p+1<end && (p[1] & 0xC0)==0x80)
+         {
+            p+=2;
+            continue;
+         }
+         if((b0 & 0xF0)==0xE0 && p+2<end && (p[1] & 0xC0)==0x80 && (p[2] & 0xC0)==0x80)
+         {
+            p+=3;
+            continue;
+         }
+         if((b0 & 0xF8)==0xF0 && p+3<end
+         && (p[1] & 0xC0)==0x80 && (p[2] & 0xC0)==0x80 && (p[3] & 0xC0)==0x80)
+         {
+            p+=4;
+            continue;
          }
          p++;
          continue;
@@ -962,7 +981,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       /* Translate win '95 characters if not strict and no foreign character set.
        * (n) contains character (possibly Unicode) */
       r=NULL;
-      if(!strict && !sjis && !(doc->dflags&DDF_FOREIGN) && n>=128 && n<=159)
+      if(!strict && !sjis && !utf8doc && !(doc->dflags&DDF_FOREIGN) && n>=128 && n<=159)
       {  switch(n)
          {  case 130:n=(UBYTE)',';break;
             case 131:n=(UBYTE)'f';break;
@@ -1246,8 +1265,19 @@ static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL 
          {  attrvalue[i++]=*attrstart++;
          }
          attrvalue[i]='\0';
-         /* Store encoding - could be used to set DDF_FOREIGN flag */
-         /* For now, we just parse it but don't use it yet */
+         if(STRIEQUAL(attrvalue,"UTF-8") || STRIEQUAL(attrvalue,"UTF8"))
+         {
+            doc->charset=DOCCHARSET_UTF8;
+            doc->dflags|=DDF_FOREIGN;
+         }
+         else if(STRIEQUAL(attrvalue,"SHIFT_JIS") || STRIEQUAL(attrvalue,"SHIFT-JIS")
+         || STRIEQUAL(attrvalue,"SHIFTJIS") || STRIEQUAL(attrvalue,"SJIS")
+         || STRIEQUAL(attrvalue,"X-SJIS") || STRIEQUAL(attrvalue,"MS_KANJI"))
+         {
+            doc->charset=DOCCHARSET_SHIFT_JIS;
+            doc->japanesemode=1;
+            doc->dflags|=DDF_FOREIGN;
+         }
       }
    }
    

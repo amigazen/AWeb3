@@ -25,6 +25,9 @@
 #include <exec/resident.h>
 #include <exec/libraries.h>
 #include <exec/nodes.h>
+#include <string.h>
+#undef NOPROTOTYPES
+#include <proto/exec.h>
 
 struct Library *AboutBase;
 void *AwebPluginBase;
@@ -207,12 +210,119 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    
    /* Check for about:fonts */
    if(STRNIEQUAL(page,"fonts",5) && (page[5]=='\0' || page[5]==' ' || page[5]=='\t'))
-   {  /* about:fonts - font test page */
-      len = 12000;  /* Increased for comprehensive web safe font testing */
+   {  /* about:fonts - font test page (large HTML; keep generous buffer). */
+      /* Fetchdriver task stack is small: never put multi-kilobyte glyph grid on stack (overflow crash). */
+      len = 65536;
       html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
       if(html)
-      {  html_len = sprintf(html,
-               "<html><head><title>AWeb Fonts</title></head>"
+      {  UBYTE *glyphsec;
+         int glyph_heap;
+         char *wp;
+         long room;
+         int n;
+         int fi;
+         int li;
+         static const char grid_none[]="";
+         /* Column samples: a few codepoints each, not words. Scripts need UTF-8 outside ISO 8859-1 Latin-1. */
+         static const char * const langglyph[12]=
+         {  "\xC4\x85\xC4\x99\xC5\x9B\xC4\x87\xC5\x82",
+            "\xD0\xB0\xD0\xB1\xD0\xB2\xD0\xB3\xD0\xB4",
+            "\xCE\xB1\xCE\xB2\xCE\xB3\xCE\xB4\xCE\xB5",
+            "\xD7\x90\xD7\x91\xD7\x92\xD7\x93\xD7\x94",
+            "\xD8\xA7\xD8\xA8\xD8\xAC\xD8\xAF",
+            "\xC4\xB1\xC5\x9F\xC4\x9F\xC3\xBC\xC3\xB6\xC3\xA7",
+            "\xC4\x91\xC4\x83\xC3\xA2\xC3\xAA\xC3\xB4\xC6\xA1\xC6\xB0",
+            "\xE3\x81\xB2\xE3\x82\xAB\xE4\xB8\x80",
+            "\xEA\xB0\x80\xEB\x82\x98\xEB\x8B\xA4",
+            "\xE4\xBA\xBA\xE6\x97\xA5\xE6\x9C\x88",
+            "\xE0\xB8\x81\xE0\xB8\x82\xE0\xB8\x84",
+            "\xE0\xA4\x95\xE0\xA4\x96\xE0\xA4\x97"
+         };
+         static const char * const langhdr[12]=
+         {  "Pl","Ru","El","He","Ar","Tr","Vi","Ja","Ko","Zh","Th","Hi"
+         };
+         static const char * const facename[16]=
+         {  "serif",
+            "sans-serif",
+            "monospace",
+            "cursive",
+            "fantasy",
+            "Times New Roman, serif",
+            "Georgia",
+            "Palatino",
+            "Arial, Helvetica, sans-serif",
+            "Verdana",
+            "Tahoma",
+            "Trebuchet MS",
+            "Lucida Sans Unicode",
+            "Comic Sans MS",
+            "Courier New, Courier, monospace",
+            "Lucida Console"
+         };
+         /* Do not OpenLibrary/OpenDiskFont from this fetchdriver task: synchronous font
+          * probes here froze the machine before the HTML was returned (diskfont vs UI). */
+         glyph_heap=0;
+         glyphsec=ALLOCTYPE(UBYTE,20480,MEMF_PUBLIC);
+         if(glyphsec)
+            glyph_heap=1;
+         else
+            glyphsec=(UBYTE *)grid_none;
+         if(glyph_heap)
+         {
+         wp=(char *)glyphsec;
+         room=20480-1;
+         n=sprintf(wp,
+               "<h2>UTF-8 glyph grid (font &times; language)</h2>"
+               "<p><small>Columns are a handful of codepoints per script (not words), mostly outside ISO 8859-1. "
+               "Rows are the usual web font stacks. Missing glyphs show as gaps or replacement boxes depending on the engine.</small></p>"
+               "<table width=\"100%%\" cellpadding=\"6\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#E5E5E5\"><th align=\"left\">Font</th>");
+         if(n<0) n=0;
+         if((long)n>room) n=(int)room;
+         wp+=n; room-=n;
+         for(li=0; li<12 && room>32; li++)
+         {  n=sprintf(wp,"<th><small>%s</small></th>",langhdr[li]);
+            if(n<0) n=0;
+            if((long)n>room) n=(int)room;
+            wp+=n; room-=n;
+         }
+         if(room>8)
+         {  n=sprintf(wp,"</tr>");
+            if(n<0) n=0;
+            if((long)n>room) n=(int)room;
+            wp+=n; room-=n;
+         }
+         for(fi=0; fi<16 && room>200; fi++)
+         {  n=sprintf(wp,"<tr><td><small>%s</small></td>",facename[fi]);
+            if(n<0) n=0;
+            if((long)n>room) n=(int)room;
+            wp+=n; room-=n;
+            for(li=0; li<12 && room>64; li++)
+            {  n=sprintf(wp,"<td><font face=\"%s\">%s</font></td>",facename[fi],langglyph[li]);
+               if(n<0) n=0;
+               if((long)n>room) n=(int)room;
+               wp+=n; room-=n;
+            }
+            if(room>8)
+            {  n=sprintf(wp,"</tr>");
+               if(n<0) n=0;
+               if((long)n>room) n=(int)room;
+               wp+=n; room-=n;
+            }
+         }
+         if(room>16)
+         {  n=sprintf(wp,"</table>");
+            if(n<0) n=0;
+            if((long)n>room) n=(int)room;
+            wp+=n; room-=n;
+         }
+         *wp='\0';
+         glyphsec[20480-1]='\0';
+         }
+         html_len = sprintf(html,
+               "<html><head>"
+               "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"
+               "<title>AWeb Fonts</title></head>"
                "<body bgcolor=\"#AAAAAA\" text=\"#000000\">"
                "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"0\">"
                "<tr><td align=\"center\">"
@@ -232,6 +342,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><font face=\"cursive\">cursive</font></td><td><font face=\"cursive\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
                "<tr><td><font face=\"fantasy\">fantasy</font></td><td><font face=\"fantasy\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
                "</table>"
+               "%s"
                "<h2>Serif Fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
@@ -326,8 +437,10 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<li><strong>Default Fallback:</strong> Finally, the default preference font for the type (normal/fixed) is used.</li>"
                "</small></ol>"
                "<hr>"
-               "</body></html>");
+               "</body></html>",glyphsec);
          if(html_len >= len) html[len-1] = '\0';
+         if(glyph_heap)
+            Freemem(glyphsec);
       }
       return html;
    }

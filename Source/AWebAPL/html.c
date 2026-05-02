@@ -125,10 +125,15 @@ static BOOL Ensurebody(struct Document *doc)
       }
       doc->doctype=DOCTP_BODY;
       /* Hardcoded minimal Japanese support: prefer JKFF font on Shift_JIS pages.
-       * This keeps the change local to core and does not require system patches. */
+       * UTF-8 pages: prefer Unicode-capable TTF families via ttengine (see docprivate.h). */
       if(doc->charset==DOCCHARSET_SHIFT_JIS)
       {  Asetattrs(doc->body,
             AOBDY_Fontface,(UBYTE *)"JKFF",
+            TAG_END);
+      }
+      else if(doc->charset==DOCCHARSET_UTF8)
+      {  Asetattrs(doc->body,
+            AOBDY_Fontface,(UBYTE *)AWEB_UTF8_FONTFACE,
             TAG_END);
       }
       /* If stylesheet was merged before BODY existed, apply deterministically now. */
@@ -2360,6 +2365,18 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
          {  doc->charset=DOCCHARSET_SHIFT_JIS;
             doc->japanesemode=1;
          }
+         else if(STRIEQUAL(p,"UTF-8") || STRIEQUAL(p,"UTF8"))
+         {  doc->charset=DOCCHARSET_UTF8;
+            doc->japanesemode=0;
+         }
+         if(doc->body)
+         {  if(doc->charset==DOCCHARSET_SHIFT_JIS)
+            {  Asetattrs(doc->body,AOBDY_Fontface,(UBYTE *)"JKFF",TAG_END);
+            }
+            else if(doc->charset==DOCCHARSET_UTF8)
+            {  Asetattrs(doc->body,AOBDY_Fontface,(UBYTE *)AWEB_UTF8_FONTFACE,TAG_END);
+            }
+         }
       }
    }
    else if(httpequiv && content && STRIEQUAL(httpequiv,"CONTENT-TYPE"))
@@ -2384,6 +2401,18 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
          || STRIEQUAL(p,"SJIS") || STRIEQUAL(p,"X-SJIS") || STRIEQUAL(p,"MS_KANJI") || STRIEQUAL(p,"CSSHIFTJIS"))
          {  doc->charset=DOCCHARSET_SHIFT_JIS;
             doc->japanesemode=1;
+         }
+         else if(STRIEQUAL(p,"UTF-8") || STRIEQUAL(p,"UTF8"))
+         {  doc->charset=DOCCHARSET_UTF8;
+            doc->japanesemode=0;
+         }
+         if(doc->body)
+         {  if(doc->charset==DOCCHARSET_SHIFT_JIS)
+            {  Asetattrs(doc->body,AOBDY_Fontface,(UBYTE *)"JKFF",TAG_END);
+            }
+            else if(doc->charset==DOCCHARSET_UTF8)
+            {  Asetattrs(doc->body,AOBDY_Fontface,(UBYTE *)AWEB_UTF8_FONTFACE,TAG_END);
+            }
          }
       }
    }

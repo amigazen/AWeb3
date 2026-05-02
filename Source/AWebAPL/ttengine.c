@@ -41,6 +41,244 @@ extern struct Library *TTEngineBase = NULL;
 /* Flag to track if ttengine is available */
 static BOOL ttengine_available = FALSE;
 
+/* True while RP uses TT_Encoding_UTF8: extent_loop counts Unicode chars; AWeb passes UTF-8 byte spans. */
+static BOOL tte_utf8_byte_strings = FALSE;
+
+/* Last FSF_* style passed to TTEngineSetFont (bold pad when ttengine active on rp). */
+static USHORT tte_last_style_flags = 0;
+
+/* Complete UTF-8 codepoints wholly contained in the first nbytes of s. */
+static ULONG TteUtf8CompleteCharCount(UBYTE *s,ULONG nbytes)
+{
+   ULONG i;
+   ULONG nch;
+   UBYTE b;
+   ULONG cl;
+   ULONG j;
+   int contok;
+   if(!s || nbytes==0UL)
+   {
+      return 0UL;
+   }
+   i=0UL;
+   nch=0UL;
+   while(i<nbytes)
+   {
+      b=s[i];
+      if(b<0x80U)
+      {
+         i+=1UL;
+         nch+=1UL;
+         continue;
+      }
+      if(b<=0xC1U)
+      {
+         i+=1UL;
+         nch+=1UL;
+         continue;
+      }
+      if(b<=0xDFU)
+      {
+         cl=2UL;
+      }
+      else if(b<=0xEFU)
+      {
+         cl=3UL;
+      }
+      else if(b<=0xF4U)
+      {
+         cl=4UL;
+      }
+      else
+      {
+         i+=1UL;
+         nch+=1UL;
+         continue;
+      }
+      if(i+cl>nbytes)
+      {
+         break;
+      }
+      contok=1;
+      for(j=1UL;j<cl;j++)
+      {
+         if((s[i+j]&0xC0U)!=0x80U)
+         {
+            contok=0;
+            break;
+         }
+      }
+      if(!contok)
+      {
+         i+=1UL;
+         nch+=1UL;
+         continue;
+      }
+      i+=cl;
+      nch+=1UL;
+   }
+   return nch;
+}
+
+/* Byte length of the first nchars complete UTF-8 codepoints in s, capped by nbytes_max. */
+static ULONG TteUtf8BytesForCharCount(UBYTE *s,ULONG nbytes_max,ULONG nchars)
+{
+   ULONG i;
+   ULONG c;
+   UBYTE b;
+   ULONG cl;
+   ULONG j;
+   int contok;
+   if(!s || nbytes_max==0UL || nchars==0UL)
+   {
+      return 0UL;
+   }
+   i=0UL;
+   c=0UL;
+   while(c<nchars && i<nbytes_max)
+   {
+      b=s[i];
+      if(b<0x80U)
+      {
+         i+=1UL;
+         c+=1UL;
+         continue;
+      }
+      if(b<=0xC1U)
+      {
+         i+=1UL;
+         c+=1UL;
+         continue;
+      }
+      if(b<=0xDFU)
+      {
+         cl=2UL;
+      }
+      else if(b<=0xEFU)
+      {
+         cl=3UL;
+      }
+      else if(b<=0xF4U)
+      {
+         cl=4UL;
+      }
+      else
+      {
+         i+=1UL;
+         c+=1UL;
+         continue;
+      }
+      if(i+cl>nbytes_max)
+      {
+         break;
+      }
+      contok=1;
+      for(j=1UL;j<cl;j++)
+      {
+         if((s[i+j]&0xC0U)!=0x80U)
+         {
+            contok=0;
+            break;
+         }
+      }
+      if(!contok)
+      {
+         i+=1UL;
+         c+=1UL;
+         continue;
+      }
+      i+=cl;
+      c+=1UL;
+   }
+   return i;
+}
+
+/*------------------------------------------------------------------------*/
+
+ULONG TTEngineBoldInkPad(struct RastPort *rp)
+{
+   ULONG n;
+   if(!rp || !TTEngineBase || !ttengine_available)
+   {
+      return 0UL;
+   }
+   if(!IsTTEngineFontActive(rp))
+   {
+      return 0UL;
+   }
+   n=0UL;
+   /* Faux-bold / hinting often draws a few pixels past the rounded advance. */
+   if((tte_last_style_flags & FSF_BOLD) != 0)
+   {
+      n+=2UL;
+   }
+   if((tte_last_style_flags & FSF_ITALIC) != 0)
+   {
+      n+=1UL;
+   }
+   return n;
+}
+
+/*------------------------------------------------------------------------*/
+
+/* TT_TextFit fits ink to width; reserve same slack as TTEngineTextLength/Textlengthext. */
+static UWORD TteTextFitConstrainedWidth(UWORD cwidth, struct RastPort *rp)
+{
+   ULONG pad;
+   ULONG cw;
+   if(cwidth==0U)
+   {
+      return 0U;
+   }
+   pad=TTEngineBoldInkPad(rp);
+   cw=(ULONG)cwidth;
+   if(pad>=cw)
+   {
+      return 1U;
+   }
+   return (UWORD)(cw-pad);
+}
+
+/*------------------------------------------------------------------------*/
+
+/* Diskfont tf_YSize is often tighter than TrueType ink; TT_GetAttrs MaxTop+MaxBottom matches
+ * SDK doc (full face vertical span from baseline) for browser line spacing. */
+ULONG TTEngineLineBoxHeight(struct RastPort *rp, struct TextFont *tf)
+{
+   ULONG cell;
+   ULONG maxtop;
+   ULONG maxbot;
+   ULONG sum;
+   struct TagItem tags[3];
+   if(!tf)
+   {
+      return 8UL;
+   }
+   cell=(ULONG)tf->tf_YSize;
+   if(!rp || !TTEngineBase || !ttengine_available)
+   {
+      return cell;
+   }
+   if(!IsTTEngineFontActive(rp))
+   {
+      return cell;
+   }
+   maxtop=0UL;
+   maxbot=0UL;
+   tags[0].ti_Tag=TT_FontMaxTop;
+   tags[0].ti_Data=(ULONG)&maxtop;
+   tags[1].ti_Tag=TT_FontMaxBottom;
+   tags[1].ti_Data=(ULONG)&maxbot;
+   tags[2].ti_Tag=TAG_END;
+   (void)TT_GetAttrsA(rp,tags);
+   sum=maxtop+maxbot;
+   if(sum>cell && sum<4096UL)
+   {
+      return sum;
+   }
+   return cell;
+}
+
 /*------------------------------------------------------------------------*/
 
 /* Minimal built-in JKFF Shift_JIS renderer (no system patches).
@@ -805,7 +1043,7 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
 {
    APTR ttfont;
    struct TagItem tags[6];
-   struct TagItem attrtags[4];
+   struct TagItem posttags[6];
    UBYTE *familytable[8];
    UBYTE workbuf[512];
    UBYTE *fontname;
@@ -814,13 +1052,15 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    LONG fontstyle;
    struct Window *window = NULL;
    struct Screen *screen = NULL;
-   ULONG i;
    BOOL was_ttengine_active = FALSE;
+   LONG idx;
+   ULONG soft;
    
    if(!rp || !font)
    {
       return;
    }
+   tte_last_style_flags=style;
    
    /* Always use normal SetFont first - let AWeb handle font sizing and selection */
    SetFont(rp, font);
@@ -834,6 +1074,16 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    /* Check if a ttengine font is currently active - we'll need to clear it */
    /* if we can't set a new one for this element */
    was_ttengine_active = IsTTEngineFontActive(rp);
+   /* Rebinding: drop UTF-8 mode from a prior measure so Latin/CSS ttengine uses default encoding. */
+   if(was_ttengine_active)
+   {
+      struct TagItem rst[2];
+      rst[0].ti_Tag=TT_Encoding;
+      rst[0].ti_Data=(ULONG)TT_Encoding_Default;
+      rst[1].ti_Tag=TAG_END;
+      TT_SetAttrsA(rp,rst);
+      tte_utf8_byte_strings=FALSE;
+   }
    
    /* Only use ttengine if available (we know it is from the check above, but keep for clarity) */
    if(ttengine_available && TTEngineBase)
@@ -907,56 +1157,56 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
          
          if(ttfont)
          {
-            /* Set up ttengine rendering environment */
-            /* Try to get window from layer */
+            /* TT_Window / TT_Screen: pen-to-RGB for AA and LUT mapping (SDK TT_SetAttrsA). */
             if(rp->Layer && rp->Layer->Window)
             {
                window = rp->Layer->Window;
             }
-            
-            /* If we have a window, use it for color mapping */
-            if(window)
-            {
-               attrtags[0].ti_Tag = TT_Window;
-               attrtags[0].ti_Data = (ULONG)window;
-               attrtags[1].ti_Tag = TT_Antialias;
-               attrtags[1].ti_Data = TT_Antialias_Auto;
-               attrtags[2].ti_Tag = TT_DiskFontMetrics;
-               attrtags[2].ti_Data = TRUE;
-               attrtags[3].ti_Tag = TAG_END;
-               TT_SetAttrsA(rp, attrtags);
-            }
             else
             {
-               /* Try to get screen - check if we can get it from the application */
                screen = (struct Screen *)Agetattr(Aweb(), AOAPP_Screen);
-               if(screen)
-               {
-                  attrtags[0].ti_Tag = TT_Screen;
-                  attrtags[0].ti_Data = (ULONG)screen;
-                  attrtags[1].ti_Tag = TT_Antialias;
-                  attrtags[1].ti_Data = TT_Antialias_Auto;
-                  attrtags[2].ti_Tag = TT_DiskFontMetrics;
-                  attrtags[2].ti_Data = TRUE;
-                  attrtags[3].ti_Tag = TAG_END;
-                  TT_SetAttrsA(rp, attrtags);
-               }
-               else
-               {
-                  /* Set antialiasing and disk font metrics */
-                  attrtags[0].ti_Tag = TT_Antialias;
-                  attrtags[0].ti_Data = TT_Antialias_Auto;
-                  attrtags[1].ti_Tag = TT_DiskFontMetrics;
-                  attrtags[1].ti_Data = TRUE;
-                  attrtags[2].ti_Tag = TAG_END;
-                  TT_SetAttrsA(rp, attrtags);
-               }
             }
             
             /* Set ttengine font on rastport */
             /* TT_SetFont returns TRUE on success */
             if(TT_SetFont(rp, ttfont))
             {
+               /* One TT_SetAttrsA after TT_SetFont: SDK TT_SetFont example chains attrs; fewer
+                * library round-trips. TT_DiskFontMetrics FALSE is the library default and matches
+                * FreeType glyph metrics for JAM1 HTML layout (TRUE is diskfont-like JAM2 boxes). */
+               soft=(ULONG)TT_SoftStyle_None;
+               if((style & FSF_UNDERLINED) != 0)
+               {
+                  soft|=(ULONG)TT_SoftStyle_Underlined;
+               }
+               if((style & FSF_STRIKE) != 0)
+               {
+                  soft|=(ULONG)TT_SoftStyle_Overstriked;
+               }
+               idx=0;
+               if(window)
+               {
+                  posttags[idx].ti_Tag=TT_Window;
+                  posttags[idx].ti_Data=(ULONG)window;
+                  idx++;
+               }
+               else if(screen)
+               {
+                  posttags[idx].ti_Tag=TT_Screen;
+                  posttags[idx].ti_Data=(ULONG)screen;
+                  idx++;
+               }
+               posttags[idx].ti_Tag=TT_Antialias;
+               posttags[idx].ti_Data=(ULONG)TT_Antialias_Auto;
+               idx++;
+               posttags[idx].ti_Tag=TT_DiskFontMetrics;
+               posttags[idx].ti_Data=FALSE;
+               idx++;
+               posttags[idx].ti_Tag=TT_SoftStyle;
+               posttags[idx].ti_Data=soft;
+               idx++;
+               posttags[idx].ti_Tag=TAG_END;
+               TT_SetAttrsA(rp,posttags);
                /* Success - ttengine font is now active on rastport */
                /* Use TT_Text() for rendering instead of Text() */
                return;
@@ -1018,6 +1268,42 @@ BOOL IsTTEngineFontActive(struct RastPort *rp)
 
 /*------------------------------------------------------------------------*/
 
+void TTEngineClearRastPort(struct RastPort *rp)
+{
+   if(!ttengine_available || !TTEngineBase || !rp)
+   {
+      return;
+   }
+   if(IsTTEngineFontActive(rp))
+   {
+      TT_DoneRastPort(rp);
+      tte_utf8_byte_strings=FALSE;
+      tte_last_style_flags=0;
+   }
+}
+
+/*------------------------------------------------------------------------*/
+
+void TTEngineSetRastPortTextEncoding(struct RastPort *rp,ULONG encoding)
+{
+   struct TagItem t[2];
+   if(!rp || !TTEngineBase || !ttengine_available)
+   {
+      return;
+   }
+   if(!IsTTEngineFontActive(rp))
+   {
+      return;
+   }
+   t[0].ti_Tag=TT_Encoding;
+   t[0].ti_Data=encoding;
+   t[1].ti_Tag=TAG_END;
+   TT_SetAttrsA(rp,t);
+   tte_utf8_byte_strings=(BOOL)(encoding==AWEB_TT_ENCODING_UTF8);
+}
+
+/*------------------------------------------------------------------------*/
+
 /* Text rendering wrapper (uses ttengine if available) */
 /* Uses TT_Text() if ttengine font is active, otherwise uses standard Text() */
 void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
@@ -1040,8 +1326,13 @@ void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
-      /* Use TT_Text() - ttengine font is active */
-      TT_Text(rp, string, count);
+      ULONG ch;
+      ch=count;
+      if(tte_utf8_byte_strings)
+      {
+         ch=TteUtf8CompleteCharCount(string,count);
+      }
+      TT_Text(rp, string, ch);
    }
    else
    {
@@ -1071,8 +1362,37 @@ ULONG TTEngineTextLength(struct RastPort *rp, UBYTE *string, ULONG count)
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
-      /* Use TT_TextLength() - ttengine font is active */
-      return TT_TextLength(rp, string, count);
+      /* Prefer max(horizontal advance, ink span); italic/overhang can exceed te_Width alone. */
+      struct TextExtent te;
+      ULONG ch;
+      WORD wc;
+      ULONG adv;
+      LONG ink;
+      ULONG outw;
+      ch=count;
+      if(tte_utf8_byte_strings)
+      {
+         ch=TteUtf8CompleteCharCount(string,count);
+      }
+      if(ch>32767UL)
+      {
+         ch=32767UL;
+      }
+      wc=(WORD)ch;
+      TT_TextExtent(rp,string,wc,&te);
+      adv=(ULONG)te.te_Width;
+      ink=(LONG)te.te_Extent.MaxX-(LONG)te.te_Extent.MinX+1L;
+      if(ink<1L)
+      {
+         ink=(LONG)adv;
+      }
+      outw=adv;
+      if((ULONG)ink>outw)
+      {
+         outw=(ULONG)ink;
+      }
+      outw+=TTEngineBoldInkPad(rp);
+      return outw;
    }
    else
    {
@@ -1099,8 +1419,19 @@ void TTEngineTextExtent(struct RastPort *rp, UBYTE *string, WORD count, struct T
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
-      /* Use TT_TextExtent() - ttengine font is active */
-      TT_TextExtent(rp, string, count, te);
+      ULONG ch;
+      WORD wc;
+      ch=(ULONG)count;
+      if(tte_utf8_byte_strings && count>0)
+      {
+         ch=TteUtf8CompleteCharCount(string,(ULONG)count);
+      }
+      if(ch>32767UL)
+      {
+         ch=32767UL;
+      }
+      wc=(WORD)ch;
+      TT_TextExtent(rp, string, wc, te);
    }
    else
    {
@@ -1135,8 +1466,41 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
    /* Check if ttengine font is active on this rastport */
    if(IsTTEngineFontActive(rp))
    {
-      /* Use TT_TextFit() - ttengine font is active */
-      return TT_TextFit(rp, string, count, te, tec, dir, cwidth, cheight);
+      ULONG got;
+      ULONG umax;
+      UWORD ucnt;
+      UWORD fitw;
+      ucnt=count;
+      if(tte_utf8_byte_strings && string && count>0)
+      {
+         umax=TteUtf8CompleteCharCount(string,(ULONG)count);
+         if(umax>65535UL)
+         {
+            umax=65535UL;
+         }
+         ucnt=(UWORD)umax;
+      }
+      fitw=TteTextFitConstrainedWidth(cwidth,rp);
+      /* Stock ttengine TT_TextFit with NULL constr_extent compares horizontal ink to (height)
+       * and vertical to (width); swap last two args to match graphics TextFit semantics. */
+      if(tec)
+      {
+         got=TT_TextFit(rp, string, ucnt, te, tec, dir, fitw, cheight);
+      }
+      else
+      {
+         got=TT_TextFit(rp, string, ucnt, te, NULL, dir, cheight, fitw);
+      }
+      if(tte_utf8_byte_strings && string && got>0UL)
+      {
+         umax=TteUtf8BytesForCharCount(string,(ULONG)count,got);
+         if(umax>(ULONG)count)
+         {
+            umax=(ULONG)count;
+         }
+         return umax;
+      }
+      return got;
    }
    else
    {

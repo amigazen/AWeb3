@@ -334,6 +334,26 @@ static void Setbaseface(struct Body *bd,UBYTE *face)
    }
 }
 
+/* Nested BODY (table cell, etc.) has parent TABLE/FRAME, not DOCUMENT; walk like text.c Docisutf8(). */
+static struct Document *Bodyfinddocument(struct Body *bd)
+{  void *walk;
+   struct Aobject *ao;
+   int guard;
+   walk=(void *)bd;
+   guard=0;
+   while(walk && guard<32)
+   {
+      ao=(struct Aobject *)walk;
+      if(ao->objecttype==AOTP_DOCUMENT)
+      {
+         return (struct Document *)walk;
+      }
+      walk=(void *)Agetattr(ao,AOBJ_Layoutparent);
+      guard++;
+   }
+   return NULL;
+}
+
 /* Gets current fontprefs */
 static struct Fontprefs *Getfontprefs(struct Body *bd,struct Fontinfo *fi,USHORT *style)
 {  short fonttype,fontsize;
@@ -341,8 +361,12 @@ static struct Fontprefs *Getfontprefs(struct Body *bd,struct Fontinfo *fi,USHORT
    struct Document *doc;
    fonttype=bd->bld->fonttype || fi->type;
    fontsize=fi->size;
-   doc=(struct Document *)bd->parent;
-   if(doc && doc->japanesemode)
+   doc=Bodyfinddocument(bd);
+   if(doc && doc->charset==DOCCHARSET_UTF8)
+   {  face=(UBYTE *)AWEB_UTF8_FONTFACE;
+      fonttype=FALSE;
+   }
+   else if(doc && doc->japanesemode)
    {  face=(UBYTE *)"JKFF";
       fonttype=FALSE;
    }
@@ -2315,6 +2339,10 @@ static long Getbody(struct Body *bd,struct Amset *ams)
          case AOBJ_Frame:
             PUTATTR(tag,bd->frame);
             break;
+         case AOBJ_Layoutparent:
+            /* Document for root BODY; enclosing TABLE for TD/TH bodies (see table.c). */
+            PUTATTR(tag,bd->parent);
+            break;
          case AOBDY_List:
             if(!bd->bld || ISEMPTY(&bd->bld->list))
             {  PUTATTR(tag,&nolist);
@@ -2325,6 +2353,15 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_Style:
             PUTATTR(tag,bd->bld->hardstyle|bd->bld->font.first->style);
+            break;
+         case AOBDY_Fontface:
+            /* Current HTML/CSS font stack (innermost face); used by ttengine UTF-8 binding in text.c. */
+            if(bd->bld && bd->bld->font.first && bd->bld->font.first->face)
+            {  PUTATTR(tag,bd->bld->font.first->face);
+            }
+            else
+            {  PUTATTR(tag,NULL);
+            }
             break;
          case AOBDY_Bgupdate:
             PUTATTR(tag,bd->bgupdate);
@@ -2483,6 +2520,8 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
    UBYTE *savedface;
    UWORD savedflags;
    struct Fontinfo *fi;
+   struct Document *doc;
+   UBYTE *utfacedup;
    if(bd->bld && ama->child)
    {  ispre = BOOLVAL(Agetattr(ama->child,AOELT_Preformat));
       savedfonttype = 0;
@@ -2528,6 +2567,13 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
       if(bd->bld->link && bd->linktextcolor)
       {  ci = bd->linktextcolor;
       }
+      utfacedup=NULL;
+      doc=Bodyfinddocument(bd);
+      if(((struct Aobject *)ama->child)->objecttype==AOTP_TEXT
+      && doc && doc->charset==DOCCHARSET_UTF8
+      && bd->bld->font.first && bd->bld->font.first->face)
+      {  utfacedup=Dupstr(bd->bld->font.first->face,-1);
+      }
       Asetattrs(ama->child,
          AOELT_Link,bd->bld->link,
          AOELT_Font,of->font,
@@ -2544,6 +2590,7 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
          supof?AOELT_Supfont:TAG_IGNORE,supof?supof->font:NULL,
          AOBJ_Layoutparent,bd,
          AOBJ_Nobackground,BOOLVAL(bd->flags&BDYF_NOBACKGROUND),
+         utfacedup?AOELT_Fontfacestr:TAG_IGNORE,(ULONG)utfacedup,
          TAG_END);
       ADDTAIL(&bd->contents,ama->child);
       /* Set changed child flag so layout CHANGED will do something. */
