@@ -920,7 +920,6 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td>Punctuation</td><td>! @ # $ %% ^ & * ( ) _ + - = [ ] { } | ; ' : \" , . / &lt; &gt; ?</td></tr>"
                "<tr><td>Special</td><td>&copy; &reg; &trade; &deg; &frac12; &frac14; &frac34; &euro; &pound; &yen;</td></tr>"
                "</table>"
-               "<hr>"
                "<h2 id=\"logic\">Font matching</h2>"
                "<p>The font matching rules are detailed here. Note that in AWeb 3.6, while it remains possible to configure preferred font mappings, AWeb defaults to using the best matching fonts found on the system, especially if TTEngine is installed and OpenType/TrueType fonts are available.</p>"
                "<ol>"

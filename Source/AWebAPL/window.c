@@ -65,7 +65,6 @@
 #include <proto/layout.h>
 #include <proto/space.h>
 #include <proto/timer.h>
-#include <ctype.h>
 
 LIST(Awindow) windows;
 
@@ -231,127 +230,125 @@ static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
       Checkmenu(nm,prefs.browser.dobgsound);
 }
 
-/* Screen title memory lines: chip = free CHIP, other = free FAST, used = AWeb pool
- * (Allocmem chip+fast). Sizes use MB/KB. Fetch slot line prefixes with the document
- * URI scheme from the top-frame URL or URL gadget, then global net slots active/queued.
+/* Screen title: "AWeb <ver>  chip <n> other <n> used <n>  scheme://authority  a/q  port".
+ * Two spaces between major sections; labels keep a space before the size (chip 2MB …).
  */
-static void Appendmemtoken(UBYTE *label,ULONG bytes)
-{  UBYTE s[40];
-   if(bytes>=1048576UL)
-   {  sprintf(s," %s %luMB",label,(unsigned long)(bytes/1048576UL));
+static void Memsizefmt(ULONG bytes,UBYTE *out)
+{  if(bytes>=1048576UL)
+   {  sprintf((char *)out,"%luMB",(unsigned long)(bytes/1048576UL));
    }
    else if(bytes>=1024UL)
-   {  sprintf(s," %s %luKB",label,(unsigned long)(bytes/1024UL));
+   {  sprintf((char *)out,"%luKB",(unsigned long)(bytes/1024UL));
    }
    else
-   {  sprintf(s," %s %lu",label,(unsigned long)bytes);
+   {  sprintf((char *)out,"%lu",(unsigned long)bytes);
    }
-   Appendscreentitle(s);
 }
 
-/* Full URI string -> scheme (no colon), or buf empty. Strips x-jsgenerated: like url.c. */
-static void Schemetobuf(UBYTE *raw,UBYTE *buf,long bufsize)
-{  UBYTE *p;
-   UBYTE *start;
-   long sl;
-   long i;
-
-   buf[0]='\0';
-   if(!raw || !raw[0] || bufsize<2) return;
-   p=raw;
-   if(STRNIEQUAL(p,"x-jsgenerated:",14))
-   {  for(p+=14;*p && *p!='/';p++);
-      if(*p) p++;
-   }
-   start=p;
-   if(*start==':') return;
-   sl=0;
-   while(*p && (isalnum((int)((UBYTE)*p)) || *p=='+' || *p=='.' || *p=='-'))
-   {  sl++;
-      p++;
-   }
-   if(*p!=':' || sl<1) return;
-   if(sl>bufsize-1) sl=bufsize-1;
-   for(i=0;i<sl;i++) buf[i]=start[i];
-   buf[sl]='\0';
-}
-
-/* Scheme from top-frame URL object (Getjspart matches url.c); else AOURL_Url / gadget. */
-static void Docurlprotocol(struct Awindow *win,UBYTE *buf,long bufsize)
+/* scheme://authority (before path), or scheme:opaque through ?/#; "-" if unknown. */
+static void Docurlorigin(struct Awindow *win,UBYTE *buf,long bufsize)
 {  void *urlobj;
-   UBYTE *start;
    UBYTE *u;
-   long len;
+   UBYTE *p;
+   UBYTE *delim;
+   UBYTE *auth;
+   UBYTE *end;
+   long n;
    long i;
 
    buf[0]='\0';
    if(bufsize<2) return;
    urlobj=NULL;
+   u=NULL;
    if(win->frame) urlobj=(void *)Agetattr(win->frame,AOFRM_Url);
-   if(urlobj)
-   {  Getjspart(urlobj,UJP_PROTOCOL,&start,&len);
-      if(start && len>0)
-      {  if(len>bufsize-1) len=bufsize-1;
-         for(i=0;i<len;i++) buf[i]=start[i];
-         buf[len]='\0';
-         return;
-      }
-      u=(UBYTE *)Agetattr(urlobj,AOURL_Url);
-      if(u && u[0]) Schemetobuf(u,buf,bufsize);
-      if(buf[0]) return;
+   if(urlobj) u=(UBYTE *)Agetattr(urlobj,AOURL_Url);
+   if(!u || !u[0])
+   {  if(win->urlbuf[0]) u=win->urlbuf;
    }
-   if(win->urlbuf[0]) Schemetobuf(win->urlbuf,buf,bufsize);
-}
-
-static void Appendslotprototoken(struct Awindow *win,long active,long queued)
-{  UBYTE proto[40];
-   UBYTE s[80];
-
-   Docurlprotocol(win,proto,(long)sizeof(proto));
-   if(!proto[0]) strcpy(proto,"-");
-   sprintf(s," %s %ld/%ld",proto,active,queued);
-   Appendscreentitle(s);
-}
-
-/* Build screen title with version, portname, and available memory */
-static UBYTE *Makescreentitle(struct Awindow *win)
-{  ULONG freechip,freefast;
-   long netactive=0;
-   long netqueued=0;
-   ULONG awebtotal;
-   
-   /* Guard against NULL win - must not dereference when intuition refreshes title */
-   if(!win) return NULL;
-   /* Use global buffer - ensure it's null-terminated */
-   screentitlebuf[0] = '\0';
-   /* Start with version */
-   sprintf(screentitlebuf, "AWeb %s", awebversion ? awebversion : (UBYTE *)"");
-   
-   /* Add portname */
-   if(win->portname && win->portname[0])
-   {  strcat(screentitlebuf, " - ");
-      strcat(screentitlebuf, win->portname);
+   if(!u || !u[0])
+   {  strcpy((char *)buf,"-");
+      return;
+   }
+   p=u;
+   if(STRNIEQUAL(p,"x-jsgenerated:",14))
+   {  for(p+=14;*p && *p!='/';p++);
+      if(*p) p++;
+   }
+   delim=(UBYTE *)strstr((char *)p,"://");
+   if(delim)
+   {  auth=delim+3;
+      end=auth;
+      while(*end && *end!='/' && *end!='?' && *end!='#') end++;
+      n=(long)(end-p);
+      if(n>bufsize-1) n=bufsize-1;
+      for(i=0;i<n;i++) buf[i]=p[i];
+      buf[n]='\0';
    }
    else
-   {  /* Use window key as fallback */
-      UBYTE keybuf[32];
-      sprintf(keybuf, " - (AWEB.%ld)", win->key);
-      strcat(screentitlebuf, keybuf);
+   {  end=p;
+      while(*end && *end!='?' && *end!='#') end++;
+      n=(long)(end-p);
+      if(n<1)
+      {  strcpy((char *)buf,"-");
+         return;
+      }
+      if(n>bufsize-1) n=bufsize-1;
+      for(i=0;i<n;i++) buf[i]=p[i];
+      buf[n]='\0';
    }
-   
-   /* Compact stats: chip / other / used memory, then scheme + net active / net queued */
-   Appendscreentitle("   ");
+}
+
+/* Build screen title: AWeb + version, memory, URL origin, connections, ARexx port. */
+static UBYTE *Makescreentitle(struct Awindow *win)
+{  ULONG freechip,freefast;
+   long netactive;
+   long netqueued;
+   ULONG awebtotal;
+   UBYTE chipb[16];
+   UBYTE otherb[16];
+   UBYTE usedb[16];
+   UBYTE memsec[96];
+   UBYTE origin[120];
+   UBYTE connsec[24];
+   UBYTE keybuf[40];
+   UBYTE *portlabel;
+
+   if(!win) return NULL;
+   screentitlebuf[0]='\0';
+   if(awebversion && awebversion[0])
+   {  sprintf((char *)screentitlebuf,"AWeb %s",awebversion);
+   }
+   else
+   {  strcpy((char *)screentitlebuf,"AWeb");
+   }
+
    freechip=AvailMem(MEMF_CHIP);
    freefast=AvailMem(MEMF_FAST);
-   Appendmemtoken((UBYTE *)"chip",freechip);
-   Appendmemtoken((UBYTE *)"other",freefast);
    awebtotal=Awebmemused();
-   Appendmemtoken((UBYTE *)"used",awebtotal);
+   Memsizefmt(freechip,chipb);
+   Memsizefmt(freefast,otherb);
+   Memsizefmt(awebtotal,usedb);
+   sprintf((char *)memsec,"chip %s other %s used %s",chipb,otherb,usedb);
+
+   Docurlorigin(win,origin,(long)sizeof(origin));
 
    Fetchslotfills(&netactive,&netqueued,NULL,NULL);
-   if(netqueued>0 || netactive>0 || Transferring())
-   {  Appendslotprototoken(win,netactive,netqueued);
+   sprintf((char *)connsec,"%ld/%ld",netactive,netqueued);
+
+   if(win->portname && win->portname[0]) portlabel=win->portname;
+   else
+   {  sprintf((char *)keybuf,"AWEB.%ld",win->key);
+      portlabel=keybuf;
    }
+
+   Appendscreentitle("  ");
+   Appendscreentitle(memsec);
+   Appendscreentitle("  ");
+   Appendscreentitle(origin);
+   Appendscreentitle("  ");
+   Appendscreentitle(connsec);
+   Appendscreentitle("  ");
+   Appendscreentitle(portlabel);
    return screentitlebuf;
 }
 
