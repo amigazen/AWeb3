@@ -211,6 +211,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    /* Check for about:fonts */
    if(STRNIEQUAL(page,"fonts",5) && (page[5]=='\0' || page[5]==' ' || page[5]=='\t'))
    {  /* about:fonts - font test page (large HTML; keep generous buffer). */
+      /* UTF-8 glyph matrix is emitted last in the HTML so Latin demos stay first; the closing
+       * prose warns that ttengine + TTF coverage shows real scripts, else mojibake and gaps. */
       /* Fetchdriver task stack is small: never put multi-kilobyte glyph grid on stack (overflow crash). */
       len = 65536;
       html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
@@ -239,7 +241,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "\xE0\xA4\x95\xE0\xA4\x96\xE0\xA4\x97"
          };
          static const char * const langhdr[12]=
-         {  "Pl","Ru","El","He","Ar","Tr","Vi","Ja","Ko","Zh","Th","Hi"
+         {  "Polish","Russian","Greek","Hebrew","Arabic","Turkish","Vietnamese",
+            "Japanese","Korean","Chinese","Thai","Hindi"
          };
          static const char * const facename[16]=
          {  "serif",
@@ -273,8 +276,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
          room=20480-1;
          n=sprintf(wp,
                "<h2>UTF-8 glyph grid (font &times; language)</h2>"
-               "<p><small>Columns are a handful of codepoints per script (not words), mostly outside ISO 8859-1. "
-               "Rows are the usual web font stacks. Missing glyphs show as gaps or replacement boxes depending on the engine.</small></p>"
+               "<p><small>Each cell is a few UTF-8 codepoints for that column&rsquo;s script (not words). "
+               "Rows repeat the same stacks as above so you can compare the same script across font families.</small></p>"
                "<table width=\"100%%\" cellpadding=\"6\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><th align=\"left\">Font</th>");
          if(n<0) n=0;
@@ -342,7 +345,6 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><font face=\"cursive\">cursive</font></td><td><font face=\"cursive\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
                "<tr><td><font face=\"fantasy\">fantasy</font></td><td><font face=\"fantasy\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
                "</table>"
-               "%s"
                "<h2>Serif Fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
@@ -436,6 +438,12 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<li><strong>Generic Family:</strong> If no alias is found, generic families (serif, sans-serif, monospace) map to default preference fonts.</li>"
                "<li><strong>Default Fallback:</strong> Finally, the default preference font for the type (normal/fixed) is used.</li>"
                "</small></ol>"
+               "<hr>"
+               "<h2>UTF-8 multilingual samples</h2>"
+               "<p><small>This page is UTF-8 end-to-end; the table below is intentionally placed <strong>after</strong> the Latin font checks. "
+               "With <strong>ttengine.library</strong> enabled in preferences and TrueType fonts that actually contain the scripts in each column, you should see correct non&mdash;Latin glyphs. "
+               "Without ttengine (or without suitable outline coverage), expect a mix of missing or substituted glyphs and meaningless <strong>Latin character garbage</strong> where raw UTF&mdash;8 bytes are drawn through a Latin font.</small></p>"
+               "%s"
                "<hr>"
                "</body></html>",glyphsec);
          if(html_len >= len) html[len-1] = '\0';

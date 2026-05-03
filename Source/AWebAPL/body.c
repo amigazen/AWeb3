@@ -28,6 +28,7 @@
 #include "css.h"
 #include "html.h"
 #include "application.h"
+#include "ttengine.h"
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -362,7 +363,10 @@ static struct Fontprefs *Getfontprefs(struct Body *bd,struct Fontinfo *fi,USHORT
    fonttype=bd->bld->fonttype || fi->type;
    fontsize=fi->size;
    doc=Bodyfinddocument(bd);
-   if(doc && doc->charset==DOCCHARSET_UTF8)
+   /* UTF-8 docs used to force one Matchfont face for every run so bitmap metrics matched
+    * ttengine's global TTF list; without ttengine that makes about:fonts (and similar)
+    * show one font for all rows. Only squash the face when ttengine can actually bind. */
+   if(doc && doc->charset==DOCCHARSET_UTF8 && TTEngineAvailable())
    {  face=(UBYTE *)AWEB_UTF8_FONTFACE;
       fonttype=FALSE;
    }
