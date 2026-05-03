@@ -73,8 +73,9 @@ struct Tsection
 
 /*------------------------------------------------------------------------*/
 
-/* Minimal Shift_JIS detection for mixed-content pages.
- * We use it to switch to JKFF for text runs containing SJIS lead bytes. */
+/* Heuristic Shift_JIS pair detection inside a buffer (lead 0x81-0x9F / 0xE0-0xFC).
+ * Only consult this when the document charset is SHIFT_JIS: Latin-1 bytes such as
+ * umlaut 0xF6 sit in the SJIS lead range and would false-trigger JKFF on Western pages. */
 static BOOL Hassjisbytes(UBYTE *s,long len)
 {  UBYTE b0,b1;
    long i;
@@ -136,6 +137,30 @@ static struct TextFont *Getjkfffont(short ysize)
    font=OpenDiskFont(&ta);
    cache[ysize]=font;
    return font;
+}
+
+/* Shift_JIS HTML: same parent walk as Docisutf8; run-pair heuristics only in this mode. */
+static BOOL Docisshiftjis(struct Text *tx)
+{
+   void *walk;
+   struct Aobject *ao;
+   struct Document *doc;
+   int guard;
+   if(!tx) return FALSE;
+   walk=(void *)Agetattr((struct Aobject *)tx,AOBJ_Layoutparent);
+   guard=0;
+   while(walk && guard<24)
+   {
+      ao=(struct Aobject *)walk;
+      if(ao->objecttype==AOTP_DOCUMENT)
+      {
+         doc=(struct Document *)walk;
+         return BOOLVAL(doc->charset==DOCCHARSET_SHIFT_JIS);
+      }
+      walk=(void *)Agetattr(ao,AOBJ_Layoutparent);
+      guard++;
+   }
+   return FALSE;
 }
 
 /* UTF-8 HTML: document charset is DOCCHARSET_UTF8; walk AOBJ_Layoutparent to Document
@@ -383,7 +408,7 @@ static long Measuretext(struct Text *tx,struct Ammeasure *amm)
    {  Utf8TtengineSelectForText(tx,mrp);
    }
    else if(tx && tx->text && tx->text->buffer && tx->length>0)
-   {  if(Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
+   {  if(Docisshiftjis(tx) && Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
       {  struct TextFont *jkff;
          jkff=Getjkfffont((short)tx->font->tf_YSize);
          if(jkff)
@@ -529,7 +554,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
             }
          }
          else if(tx->text && tx->text->buffer
-            && Hassjisbytes(p,length))
+            && Docisshiftjis(tx) && Hassjisbytes(p,length))
          {  struct TextFont *jkff;
             jkff=Getjkfffont((short)tx->font->tf_YSize);
             if(jkff)
@@ -758,7 +783,7 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
       /* Non-UTF-8: one font for the whole element. UTF-8 uses ttengine once before drawing sections. */
       if(!Docisutf8(tx))
       {  if(tx && tx->text && tx->text->buffer && tx->length>0)
-         {  if(Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
+         {  if(Docisshiftjis(tx) && Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
             {  struct TextFont *jkff;
                jkff=Getjkfffont((short)tx->font->tf_YSize);
                if(jkff)

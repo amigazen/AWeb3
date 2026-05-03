@@ -625,7 +625,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    static const UBYTE latin_ext_b_c7[] =
       "||||DDdLLlNNnAaIiOoUuUuUuUuUueAaAaAaGgGgKkOoOoEejDDdGgHWNnAaAaOo";
    
-   sjis=(BOOL)(doc->charset==DOCCHARSET_SHIFT_JIS || doc->japanesemode);
+   sjis=(BOOL)(doc->charset==DOCCHARSET_SHIFT_JIS);
    utf8doc=(BOOL)(doc->charset==DOCCHARSET_UTF8);
    while(p<end)
    {  /* Detect and decode UTF-8 sequences.

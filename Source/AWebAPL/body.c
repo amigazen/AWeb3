@@ -370,7 +370,7 @@ static struct Fontprefs *Getfontprefs(struct Body *bd,struct Fontinfo *fi,USHORT
    {  face=(UBYTE *)AWEB_UTF8_FONTFACE;
       fonttype=FALSE;
    }
-   else if(doc && doc->japanesemode)
+   else if(doc && doc->charset==DOCCHARSET_SHIFT_JIS)
    {  face=(UBYTE *)"JKFF";
       fonttype=FALSE;
    }
