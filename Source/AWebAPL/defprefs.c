@@ -69,7 +69,7 @@ struct Prefs defprefs=
             {  "LetterGothic.font",   36,NULL },
          },
       },
-      EMPTYLIST(Fontalias,defprefs.aliaslist), /* font alias */
+      EMPTYLIST(Fontalias,defprefs.browser.aliaslist), /* font alias */
       {  /* styles */
          {  0,3,FALSE,0 },                   /* NORMAL */
          {  0,7,FALSE,0 },                   /* H1 */
@@ -114,7 +114,7 @@ struct Prefs defprefs=
       TRUE,                                  /* tooltips */
       TRUE,                                  /* hand pointer */
       TRUE,                                  /* JS watch */
-      EMPTYLIST(Mimeinfo,defprefs.mimelist), /* mime */
+      EMPTYLIST(Mimeinfo,defprefs.browser.mimelist), /* mime */
    },
    {  /* program prefs */
       "RAM:",                                /* save path */
@@ -161,13 +161,13 @@ struct Prefs defprefs=
                                              /* popup key */
       TRUE,                                  /* show buttons */
       TRUE,                                  /* show navigation controls */
-      EMPTYLIST(Menuentry,defprefs.menus),   /* menus */
-      EMPTYLIST(Userbutton,defprefs.buttons),/* user buttons */
-      {  EMPTYLIST(Popupitem,defprefs.popupmenu[PUPT_IMAGE]),  /* popup menu items */
-         EMPTYLIST(Popupitem,defprefs.popupmenu[PUPT_LINK]),   /* popup menu items */
-         EMPTYLIST(Popupitem,defprefs.popupmenu[PUPT_FRAME]),  /* popup menu items */
+      EMPTYLIST(Menuentry,defprefs.gui.menus),   /* menus */
+      EMPTYLIST(Userbutton,defprefs.gui.buttons),/* user buttons */
+      {  EMPTYLIST(Popupitem,defprefs.gui.popupmenu[PUPT_IMAGE]),  /* popup menu items */
+         EMPTYLIST(Popupitem,defprefs.gui.popupmenu[PUPT_LINK]),   /* popup menu items */
+         EMPTYLIST(Popupitem,defprefs.gui.popupmenu[PUPT_FRAME]),  /* popup menu items */
       },
-      EMPTYLIST(Userkey,defprefs.keys),      /* user keys */
+      EMPTYLIST(Userkey,defprefs.gui.keys),      /* user keys */
       {  {NULL},{NULL},{NULL},{NULL},{NULL}, /* navigation buttons */
          {NULL},{NULL},{NULL},{NULL},{NULL}
       },
@@ -200,20 +200,20 @@ struct Prefs defprefs=
       NULL,                                  /* telnet proxy */
       FALSE,                                 /* limit proxy */
       FALSE,                                 /* passive FTP */
-      EMPTYLIST(Noproxy,defprefs.noproxy),   /* no proxy sites */
+      EMPTYLIST(Noproxy,defprefs.network.noproxy),   /* no proxy sites */
       "AWeb:Cache",                          /* cache path */
       1024,10240,                            /* memsize, disksize */
       100,0,                                 /* min free chip,fast */
       CAVERIFY_ONCE,                         /* verification mode */
       TRUE,                                  /* fast response */
-      EMPTYLIST(Nocache,defprefs.nocache),   /* no cache sites */
+      EMPTYLIST(Nocache,defprefs.network.nocache),   /* no cache sites */
       TRUE,                                  /* referer */
       FALSE,                                 /* form warn */
       TRUE,                                  /* spam block */
       TRUE,                                  /* ftp email address */
       COOKIES_QUIET,                           /* use cookies */
       TRUE,                                  /* RFC 2109 cookies */
-      EMPTYLIST(Nocookie,defprefs.nocookie), /* no cookie domains */
+      EMPTYLIST(Nocookie,defprefs.network.nocookie), /* no cookie domains */
       "",                                    /* email address */
       "",                                    /* reply address */
       "",                                    /* full name */
@@ -1148,7 +1148,7 @@ static BOOL Copyoptstring(UBYTE *from,UBYTE **to)
 
 static void Adddeffontalias(UBYTE *alias,short size,UBYTE *font,short fsize)
 {  struct Fontalias *fa;
-   if(fa=Addfontalias(&defprefs.aliaslist,alias))
+   if(fa=Addfontalias(&defprefs.browser.aliaslist,alias))
    {  fa->fp[size].fontname=Dupstr(font,-1);
       fa->fp[size].fontsize=fsize;
    }
@@ -1168,7 +1168,7 @@ static void Adddefmenu(USHORT type,ULONG msg,UBYTE *cmd)
    {  scut=title[0];
       title+=2;
    }
-   Addmenuentry(&defprefs.menus,type,title,scut,cmd?cmd:NULLSTRING);
+   Addmenuentry(&defprefs.gui.menus,type,title,scut,cmd?cmd:NULLSTRING);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1178,11 +1178,11 @@ BOOL Initdefprefs(void)
    struct DrawInfo *dri;
    UBYTE *alias,*font;
    if(screen=LockPubScreen(NULL))
-   {  defprefs.screenmode=GetVPModeID(&screen->ViewPort);
-      defprefs.screenwidth=screen->Width;
-      defprefs.screenheight=screen->Height;
+   {  defprefs.program.screenmode=GetVPModeID(&screen->ViewPort);
+      defprefs.program.screenwidth=screen->Width;
+      defprefs.program.screenheight=screen->Height;
       if(dri=GetScreenDrawInfo(screen))
-      {  defprefs.screendepth=dri->dri_Depth;
+      {  defprefs.program.screendepth=dri->dri_Depth;
          FreeScreenDrawInfo(screen,dri);
       }
       UnlockPubScreen(NULL,screen);
@@ -1341,19 +1341,19 @@ BOOL Initdefprefs(void)
    Adddeffontalias(alias,5,font,24);
    Adddeffontalias(alias,6,font,36);
    
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","html","html htm shtml phtml php asp",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","plain","txt",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","css","css",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","javascript","js",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","csv","csv",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","xml","xml",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","rss+xml","rss",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebrss.awebplugin",""
@@ -1361,7 +1361,7 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","atom+xml","atom",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebrss.awebplugin",""
@@ -1369,7 +1369,7 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "message","rfc822","eml",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebeml.awebplugin",""
@@ -1377,24 +1377,24 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","x-lha","lha",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","zip","zip",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","x-tar","tar",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","gzip","gz",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","pdf","pdf",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "application","x-shockwave-flash","swf",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","x-aguide","guide",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","*","",MDRIVER_EXTERNAL,
       "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","gif","gif",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebgif.awebplugin",""
@@ -1402,7 +1402,7 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","jpeg","jpg jpeg jpe jfif",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebjfif.awebplugin",""
@@ -1410,9 +1410,9 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","x-iff","iff ilbm ham ham8",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","png","png",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebpng.awebplugin",""
@@ -1420,17 +1420,17 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","xbitmap","xbm",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","bmp","bmp",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","tiff","tif tiff",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","vnd.microsoft.icon","ico",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","x-icon","ico",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","svg+xml","svg",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebsvg.awebplugin",""
@@ -1438,31 +1438,31 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","*","",MDRIVER_INTERNAL,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "video","mpeg","mpg mpeg",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "video","x-msvideo","avi",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "video","quicktime","qt",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "video","x-anim","ani anim",MDRIVER_EXTERNAL,
       "SYS:Utilities/MultiView","%f screen")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","basic","au snd",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","mpeg","mp3 mpga",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","midi","mid midi",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","wav","wav",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","x-8svx","8svx svx",MDRIVER_EXTERNAL,
       "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","x-mod","mod",MDRIVER_NONE,"","")) return FALSE;
-   if(!Addmimeinfo(&defprefs.mimelist,
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "audio","*","",MDRIVER_INTERNAL,"","")) return FALSE;
 
    Adddefmenu(AMENU_MENU,MSG_PROJECT_MENU,NULL);
@@ -1608,134 +1608,134 @@ BOOL Initdefprefs(void)
 
 
 #ifndef LOCALONLY
-   if(!Adduserbutton(&defprefs.buttons,"AWeb",
+   if(!Adduserbutton(&defprefs.gui.buttons,"AWeb",
       "OPEN http://amigazen.com/aweb/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"Amiga.com",
+   if(!Adduserbutton(&defprefs.gui.buttons,"Amiga.com",
       "OPEN https://www.amiga.com/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"Aminet",
+   if(!Adduserbutton(&defprefs.gui.buttons,"Aminet",
       "OPEN http://www.aminet.net/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"Amiga-News",
+   if(!Adduserbutton(&defprefs.gui.buttons,"Amiga-News",
       "OPEN http://www.amiga-news.de/en/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"AmigaWorld",
+   if(!Adduserbutton(&defprefs.gui.buttons,"AmigaWorld",
       "OPEN https://amigaworld.net/")) return FALSE;
 #else
    /* LOCALONLY: No network links in predefined buttons */
 #endif
 #ifdef OSVERSION
-   if(!Adduserbutton(&defprefs.buttons,"Modes",
+   if(!Adduserbutton(&defprefs.gui.buttons,"Modes",
       "RUN AWeb:plugins/awebmodes.awebrx")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"DZone",
+   if(!Adduserbutton(&defprefs.gui.buttons,"DZone",
       "RUN AWeb:plugins/dropzone.awebrx")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"HTTX",
+   if(!Adduserbutton(&defprefs.gui.buttons,"HTTX",
       "RUN AWeb:plugins/httx/httxplugincp.awebrx")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"ToolBar",
+   if(!Adduserbutton(&defprefs.gui.buttons,"ToolBar",
       "RUN AWeb:plugins/toolbar.awebrx")) return FALSE;
 #else
 #ifdef DEMOVERSION
-   if(!Adduserbutton(&defprefs.buttons,"HTTX",
+   if(!Adduserbutton(&defprefs.gui.buttons,"HTTX",
       "REQUEST HTTX \"This HTML to ASCII/ANSI converter*Nis included in the "
       "full version.*N *NComplete with ARexx interface.\" _Ok")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"Full version",
+   if(!Adduserbutton(&defprefs.gui.buttons,"Full version",
       "OPEN file:///AWeb:docs/full.html")) return FALSE;
 #endif
 #endif
 #ifndef LOCALONLY
-   /*if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CACHE),
+   /*if(!Adduserbutton(&defprefs.gui.buttons,Getmainstr(MSG_USERBUTTON_CACHE),
       "SUBWINDOW CACHEBROWSER OPEN")) return FALSE;*/
-   if(!Adduserbutton(&defprefs.buttons,"Protoweb",
+   if(!Adduserbutton(&defprefs.gui.buttons,"Protoweb",
       "RUN AWeb:Docs/protoweb.awebrx")) return FALSE;
    /*
-   if(!Adduserbutton(&defprefs.buttons,"News:",
+   if(!Adduserbutton(&defprefs.gui.buttons,"News:",
       "OPEN news:")) return FALSE;
    */
 #endif
 /*
-   if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CLOCK),
+   if(!Adduserbutton(&defprefs.gui.buttons,Getmainstr(MSG_USERBUTTON_CLOCK),
       "SYSTEM SYS:Utilities/Clock pubscreen %n digital format 2 top 0 left 9999")) return FALSE;
 */
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_IMAGE],
       PUPF_INMEM,Getmainstr(MSG_POPUP_FLUSHIMAGE),"FLUSHCACHE URL %u")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_IMAGE],
       PUPF_NOTINMEM,Getmainstr(MSG_POPUP_LOADIMAGE),"LOAD %u")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_IMAGE],
       PUPF_INMEM,Getmainstr(MSG_POPUP_RELOADIMAGE),"LOAD %u RELOAD")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_IMAGE],
       PUPF_NOTINMEM,Getmainstr(MSG_POPUP_DOWNLOADIMAGE),"LOAD %u SAVEREQ")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_IMAGE],
       PUPF_INMEM,Getmainstr(MSG_POPUP_SAVEIMAGE),"LOAD %u SAVEREQ")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_IMAGE],
       PUPF_INMEM|PUPF_NOTINMEM,Getmainstr(MSG_POPUP_SHOWIMAGE),"OPEN %u")) return FALSE;
 
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_LINK],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_LINK],
       PUPF_INMEM|PUPF_NOTINMEM,Getmainstr(MSG_POPUP_OPENLINK),"OPEN %u TARGET %i")) return FALSE;
 #ifndef DEMOVERSION
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_LINK],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_LINK],
       PUPF_INMEM|PUPF_NOTINMEM,Getmainstr(MSG_POPUP_OPENLINKNW),"NEW %u")) return FALSE;
 #endif
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_LINK],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_LINK],
       PUPF_NOTINMEM,Getmainstr(MSG_POPUP_LOADLINK),"LOAD %u")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_LINK],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_LINK],
       PUPF_NOTINMEM,Getmainstr(MSG_POPUP_DOWNLOADLINK),"LOAD %u SAVEREQ")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_LINK],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_LINK],
       PUPF_INMEM,Getmainstr(MSG_POPUP_SAVELINK),"LOAD %u SAVEREQ")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_LINK],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_LINK],
       PUPF_INMEM|PUPF_NOTINMEM,Getmainstr(MSG_POPUP_ADDLINK),"ADDHOTLIST %u %t")) return FALSE;
 
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_FRAME],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_FRAME],
       0,Getmainstr(MSG_POPUP_RELOADFRAME),"RELOAD TARGET %i")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_FRAME],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_FRAME],
       0,Getmainstr(MSG_POPUP_SAVEFRAME),"SAVEAS TARGET %i")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_FRAME],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_FRAME],
       0,Getmainstr(MSG_POPUP_VIEWFRAME),"VIEWSOURCE %u")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_FRAME],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_FRAME],
       0,Getmainstr(MSG_POPUP_SHOWFRAME),"OPEN %u")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_FRAME],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_FRAME],
       0,Getmainstr(MSG_POPUP_SEARCHFRAME),"SEARCH TARGET %i")) return FALSE;
-   if(!Addpopupitem(&defprefs.popupmenu[PUPT_FRAME],
+   if(!Addpopupitem(&defprefs.gui.popupmenu[PUPT_FRAME],
       0,Getmainstr(MSG_POPUP_INFOFRAME),"INFO TARGET %i")) return FALSE;
 
-   Adduserkey(&defprefs.keys,0x45,"CANCEL");
-   Adduserkey(&defprefs.keys,0x41,"SCROLL PAGE UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x40,"SCROLL PAGE DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x4c,"SCROLL 8 UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x4d,"SCROLL 8 DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x4e,"SCROLL 8 RIGHT TARGET %i");
-   Adduserkey(&defprefs.keys,0x4f,"SCROLL 8 LEFT TARGET %i");
-   Adduserkey(&defprefs.keys,0x4c|UKEY_SHIFT,"SCROLL PAGE UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x4d|UKEY_SHIFT,"SCROLL PAGE DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x4e|UKEY_SHIFT,"SCROLL PAGE RIGHT TARGET %i");
-   Adduserkey(&defprefs.keys,0x4f|UKEY_SHIFT,"SCROLL PAGE LEFT TARGET %i");
-   Adduserkey(&defprefs.keys,0x4c|UKEY_ALT,"SCROLL FAR UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x4d|UKEY_ALT,"SCROLL FAR DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x4e|UKEY_ALT,"GO FORWARD");
-   Adduserkey(&defprefs.keys,0x4f|UKEY_ALT,"GO BACK");
-   Adduserkey(&defprefs.keys,0x3d,"SCROLL FAR UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x3e,"SCROLL 8 UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x3f,"SCROLL PAGE UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x2d,"SCROLL 8 LEFT TARGET %i");
-   Adduserkey(&defprefs.keys,0x2f,"SCROLL 8 RIGHT TARGET %i");
-   Adduserkey(&defprefs.keys,0x1d,"SCROLL FAR DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x1e,"SCROLL 8 DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x1f,"SCROLL PAGE DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x5f,"OPEN \"file:///AWeb:docs/aweb.html\"");
-   Adduserkey(&defprefs.keys,0x7a,"SCROLL 80 UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x7b,"SCROLL 80 DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x7a|UKEY_SHIFT,"SCROLL PAGE UP TARGET %i");
-   Adduserkey(&defprefs.keys,0x7b|UKEY_SHIFT,"SCROLL PAGE DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x45,"CANCEL");
+   Adduserkey(&defprefs.gui.keys,0x41,"SCROLL PAGE UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x40,"SCROLL PAGE DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4c,"SCROLL 8 UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4d,"SCROLL 8 DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4e,"SCROLL 8 RIGHT TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4f,"SCROLL 8 LEFT TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4c|UKEY_SHIFT,"SCROLL PAGE UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4d|UKEY_SHIFT,"SCROLL PAGE DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4e|UKEY_SHIFT,"SCROLL PAGE RIGHT TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4f|UKEY_SHIFT,"SCROLL PAGE LEFT TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4c|UKEY_ALT,"SCROLL FAR UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4d|UKEY_ALT,"SCROLL FAR DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x4e|UKEY_ALT,"GO FORWARD");
+   Adduserkey(&defprefs.gui.keys,0x4f|UKEY_ALT,"GO BACK");
+   Adduserkey(&defprefs.gui.keys,0x3d,"SCROLL FAR UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x3e,"SCROLL 8 UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x3f,"SCROLL PAGE UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x2d,"SCROLL 8 LEFT TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x2f,"SCROLL 8 RIGHT TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x1d,"SCROLL FAR DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x1e,"SCROLL 8 DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x1f,"SCROLL PAGE DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x5f,"OPEN \"file:///AWeb:docs/aweb.html\"");
+   Adduserkey(&defprefs.gui.keys,0x7a,"SCROLL 80 UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x7b,"SCROLL 80 DOWN TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x7a|UKEY_SHIFT,"SCROLL PAGE UP TARGET %i");
+   Adduserkey(&defprefs.gui.keys,0x7b|UKEY_SHIFT,"SCROLL PAGE DOWN TARGET %i");
 
-   if(!(defprefs.navs[0].cmd=Dupstr("GO BACK",-1))) return FALSE;
-   if(!(defprefs.navs[1].cmd=Dupstr("GO FORWARD",-1))) return FALSE;
-   if(!(defprefs.navs[2].cmd=Dupstr("GO HOME",-1))) return FALSE;
-   if(!(defprefs.navs[3].cmd=Dupstr("ADDHOTLIST %u %t",-1))) return FALSE;
-   if(!(defprefs.navs[4].cmd=Dupstr("HOTLIST",-1))) return FALSE;
-   if(!(defprefs.navs[5].cmd=Dupstr("CANCEL",-1))) return FALSE;
-   if(!(defprefs.navs[6].cmd=Dupstr("SUBWINDOW NETSTATUS OPEN",-1))) return FALSE;
-   if(!(defprefs.navs[7].cmd=Dupstr("SEARCH TARGET %i",-1))) return FALSE;
-   if(!(defprefs.navs[8].cmd=Dupstr("RELOAD",-1))) return FALSE;
-   if(!(defprefs.navs[9].cmd=Dupstr("LOADIMAGES",-1))) return FALSE;
+   if(!(defprefs.gui.navs[0].cmd=Dupstr("GO BACK",-1))) return FALSE;
+   if(!(defprefs.gui.navs[1].cmd=Dupstr("GO FORWARD",-1))) return FALSE;
+   if(!(defprefs.gui.navs[2].cmd=Dupstr("GO HOME",-1))) return FALSE;
+   if(!(defprefs.gui.navs[3].cmd=Dupstr("ADDHOTLIST %u %t",-1))) return FALSE;
+   if(!(defprefs.gui.navs[4].cmd=Dupstr("HOTLIST",-1))) return FALSE;
+   if(!(defprefs.gui.navs[5].cmd=Dupstr("CANCEL",-1))) return FALSE;
+   if(!(defprefs.gui.navs[6].cmd=Dupstr("SUBWINDOW NETSTATUS OPEN",-1))) return FALSE;
+   if(!(defprefs.gui.navs[7].cmd=Dupstr("SEARCH TARGET %i",-1))) return FALSE;
+   if(!(defprefs.gui.navs[8].cmd=Dupstr("RELOAD",-1))) return FALSE;
+   if(!(defprefs.gui.navs[9].cmd=Dupstr("LOADIMAGES",-1))) return FALSE;
 
-   if(AvailMem(MEMF_CHIP)>300*1024) defprefs.minfreechip=300;
-   if(AvailMem(MEMF_FAST)>500*1024) defprefs.minfreefast=500;
+   if(AvailMem(MEMF_CHIP)>300*1024) defprefs.network.minfreechip=300;
+   if(AvailMem(MEMF_FAST)>500*1024) defprefs.network.minfreefast=500;
 
    return TRUE;
 }
@@ -1743,10 +1743,10 @@ BOOL Initdefprefs(void)
 void Freedefprefs(void)
 {  void *p;
    short i;
-   while(p=REMHEAD(&defprefs.mimelist)) Freemimeinfo(p);
-   while(p=REMHEAD(&defprefs.buttons)) Freeuserbutton(p);
+   while(p=REMHEAD(&defprefs.browser.mimelist)) Freemimeinfo(p);
+   while(p=REMHEAD(&defprefs.gui.buttons)) Freeuserbutton(p);
    for(i=0;i<NRPOPUPMENUS;i++)
-   {  while(p=REMHEAD(&defprefs.popupmenu[i])) Freepopupitem(p);
+   {  while(p=REMHEAD(&defprefs.gui.popupmenu[i])) Freepopupitem(p);
    }
 }
 

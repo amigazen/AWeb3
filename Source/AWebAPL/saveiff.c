@@ -544,7 +544,7 @@ static long Updatesaveiff(struct Saveiff *sif,struct Amset *ams)
             FREE(comment);
          }
       }
-      if(!(sif->flags&SIFF_NOICON) && sif->name && prefs.saveicons)
+      if(!(sif->flags&SIFF_NOICON) && sif->name && prefs.program.saveicons)
       {  struct DiskObject *dob;
          /* Use GetDiskObjectNew() which queries DefIcons if running,
           * providing file-type-specific default icons */

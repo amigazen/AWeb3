@@ -67,9 +67,9 @@ static void Editortask(struct Editor *ed)
    params[1]=ed->screenname;
    ObtainSemaphore(&prefssema);
    if(cmd=ALLOCTYPE(UBYTE,
-      strlen(prefs.editcmd)+Pformatlength(prefs.editargs,"fn",params)+32,0))
-   {  sprintf(cmd,"\"%s\" ",prefs.editcmd);
-      Pformat(cmd+strlen(cmd),prefs.editargs,"fn",params,TRUE);
+      strlen(prefs.program.editcmd)+Pformatlength(prefs.program.editargs,"fn",params)+32,0))
+   {  sprintf(cmd,"\"%s\" ",prefs.program.editcmd);
+      Pformat(cmd+strlen(cmd),prefs.program.editargs,"fn",params,TRUE);
       /* Can't add a delete because file will be deleted before DOS notification
        * is processed. */
    }

@@ -238,7 +238,7 @@ static struct Awebrequest *Makeawebrequest2(struct Screen *screen,
          WA_IDCMP,IDCMP_RAWKEY,
          WA_BackFill,&requestbackfillhook,
          (synch?TAG_IGNORE:WINDOW_SharedPort),reqport,
-         (type==ARTYPE_ABOUT || prefs.centerreq)?WINDOW_Position:TAG_IGNORE,WPOS_CENTERSCREEN,
+         (type==ARTYPE_ABOUT || prefs.program.centerreq)?WINDOW_Position:TAG_IGNORE,WPOS_CENTERSCREEN,
          WINDOW_Layout,toplayout=VLayoutObject,
             LAYOUT_SpaceOuter,TRUE,
             LAYOUT_FixedVert,FALSE,
@@ -535,7 +535,7 @@ void Aboutreq(UBYTE *portname)
 #endif
             strcat(buf," \n");
             strcat(buf,AWEBSTR(MSG_ABOUT_TRANSLATOR));
-            if(prefs.screentype==SCRTYPE_OWN)
+            if(prefs.program.screentype==SCRTYPE_OWN)
             {  strcat(buf,AWEBSTR(MSG_ABOUT_SCREENNAME));
 #ifdef LOCALONLY
                strcat(buf,": AWebView\n");

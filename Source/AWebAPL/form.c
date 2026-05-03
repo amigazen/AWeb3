@@ -306,7 +306,7 @@ static long Dosubmitform(struct Form *frm,struct Afosubmit *afms,BOOL runonsubmi
             AOFRM_Id,&frameid,
             AOBJ_Window,&window,
             TAG_END);
-         if(prefs.formwarn) loadflags|=AUMLF_FORMWARN;
+         if(prefs.network.formwarn) loadflags|=AUMLF_FORMWARN;
          if(Agetattr(window,AOWIN_Noproxy)) loadflags|=AUMLF_NOPROXY;
          if(frm->method==FORMTH_POST)
          {  url=Findurl((UBYTE *)Agetattr(frm->action,AOURL_Url),"",-1);

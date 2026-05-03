@@ -308,13 +308,13 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
       {  /* NEVER attempt to use a document as an embedded object */
          drt=0;
       }
-      if(*prefs.imgvcmd
+      if(*prefs.program.imgvcmd
       && STRNIEQUAL(src->defaulttype,"text/",5)
       && type && STRNIEQUAL(type,"image/",6))
       {  /* View image using separate image viewer */
          drt=MIMEDRV_EXTPROG;
-         name=prefs.imgvcmd;
-         args=prefs.imgvargs;
+         name=prefs.program.imgvcmd;
+         args=prefs.program.imgvargs;
          Setchildren(src,AOCPY_Nodisplay,TRUE,TAG_END);
       }
       src->sdtype=src->cdtype=0;
@@ -392,7 +392,7 @@ static void Savesource(struct Source *src,UBYTE *name,BOOL append)
    short icontype=FILEICON_NONE;
    if(Agetattr(src->driver,AOSDV_Saveable))
    {  ObtainSemaphore(&prefssema);
-      if(prefs.saveicons && !(src->flags&SRCF_NOICON))
+      if(prefs.program.saveicons && !(src->flags&SRCF_NOICON))
       {  if(STRNIEQUAL(src->contenttype,"text/",5)) icontype=FILEICON_TEXT;
          else icontype=FILEICON_DATA;
       }
@@ -431,14 +431,14 @@ static void Viewsource(struct Source *src)
       AOSDV_Saveable,&saveable,
       AOSDV_Viewable,&viewable,
       TAG_END);
-   if(prefs.viewcmd && prefs.viewargs && saveable && viewable)
+   if(prefs.program.viewcmd && prefs.program.viewargs && saveable && viewable)
    {  if(temp=Anewobject(AOTP_FILE,
          AOFIL_Delete,FALSE,
          TAG_END))
       {  Asetattrs(src->driver,AOSDV_Savesource,temp,TAG_END);
          Asetattrs(temp,AOFIL_Eof,TRUE,TAG_END);
          if(filename=Fullname((UBYTE *)Agetattr(temp,AOFIL_Name)))
-         {  if(!Spawn(TRUE,prefs.viewcmd,prefs.viewargs,"fn",
+         {  if(!Spawn(TRUE,prefs.program.viewcmd,prefs.program.viewargs,"fn",
                filename,Agetattr(Aweb(),AOAPP_Screenname)))
             {  Asetattrs(temp,AOFIL_Delete,TRUE,TAG_END);
             }
@@ -499,9 +499,9 @@ static void Flushsourcetype(USHORT type)
  * then flush (displayed) nondocuments if keep-minimum free isn't met. */
 static void Flushexcess(void)
 {  struct Source *src;
-   long max=prefs.camemsize*1024;
-   long minfast=prefs.minfreefast*1024;
-   long minchip=prefs.minfreechip*1024;
+   long max=prefs.network.camemsize*1024;
+   long minfast=prefs.network.minfreefast*1024;
+   long minchip=prefs.network.minfreechip*1024;
    if(AvailMem(MEMF_CHIP)<minchip || AvailMem(MEMF_FAST)<minfast)
    {  void *p=AllocVec(AvailMem(MEMF_TOTAL),0);
       if(p) FreeVec(p);

@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Original aweblib template Copyright (C) 2002 Yvon Rozijn
- * about: page aweblib Copyright (C) 2025 amigazen project
+ * about: page aweblib Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -28,6 +28,18 @@
 #include <string.h>
 #undef NOPROTOTYPES
 #include <proto/exec.h>
+#include <graphics/text.h>
+#include <libraries/diskfont.h>
+#include <libraries/ttengine.h>
+#include <utility/tagitem.h>
+#include <proto/graphics.h>
+#include <proto/diskfont.h>
+#include <proto/ttengine.h>
+
+/* Library bases for pragma libcall stubs in this module only (about.aweblib). */
+extern struct GfxBase *GfxBase;
+struct Library *DiskfontBase;
+struct Library *TTEngineBase;
 
 struct Library *AboutBase;
 void *AwebPluginBase;
@@ -166,6 +178,468 @@ __asm __saveds ULONG Extfunclib(void)
 
 /*-----------------------------------------------------------------------*/
 
+/*
+ * about:fonts — HTML4-style face mapping hints: diskfont OpenDiskFont probe chains
+ * (.font / outline under FONTS:) plus optional ttengine TT_OpenFontA per family.
+ * OpenDiskFont pairs with graphics.library CloseFont (diskfont.doc). No raw font
+ * directory listing — only per-row mapping of HTML/CSS family labels to probed
+ * diskfont and TTEngine results.
+ */
+typedef struct FontdiagRow FontdiagRow;
+struct FontdiagRow
+{
+   const char *label;
+   const char *ideal_name;
+   const char * const *disk_try;
+   const char * const *tt_try;
+};
+
+static const char * const fd_d_serif[] = {
+   "Times New Roman.font","Times.font","times.font","CGTimes.font",NULL
+};
+static const char * const fd_t_serif[] = {
+   "Times New Roman","Times","serif","default",NULL
+};
+
+static const char * const fd_d_sans[] = {
+   "Arial.font","Helvetica.font","helvetica.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_sans[] = {
+   "Arial","Helvetica","sans-serif","default",NULL
+};
+
+static const char * const fd_d_mono[] = {
+   "Courier New.font","Courier.font","courier.font","LetterGothic.font",NULL
+};
+static const char * const fd_t_mono[] = {
+   "Courier New","Courier","Liberation Mono","monospaced","default",NULL
+};
+
+static const char * const fd_d_cursive[] = {
+   "Comic Sans MS.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_cursive[] = {
+   "Comic Sans MS","cursive","sans-serif","default",NULL
+};
+
+static const char * const fd_d_fantasy[] = {
+   "Impact.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_fantasy[] = {
+   "Impact","fantasy","sans-serif","default",NULL
+};
+
+static const char * const fd_d_tnr[] = {
+   "Times New Roman.font","Times.font","times.font","CGTimes.font",NULL
+};
+static const char * const fd_t_tnr[] = {
+   "Times New Roman","Times","Liberation Serif",NULL
+};
+
+static const char * const fd_d_times[] = {
+   "Times.font","times.font","Times New Roman.font","CGTimes.font",NULL
+};
+static const char * const fd_t_times[] = {
+   "Times","Times New Roman","Liberation Serif",NULL
+};
+
+static const char * const fd_d_georgia[] = {
+   "Georgia.font","CGTimes.font",NULL
+};
+static const char * const fd_t_georgia[] = {
+   "Georgia","Times New Roman","Liberation Serif",NULL
+};
+
+static const char * const fd_d_palatino[] = {
+   "Palatino.font","CGTimes.font",NULL
+};
+static const char * const fd_t_palatino[] = {
+   "Palatino","Book Antiqua","Liberation Serif",NULL
+};
+
+static const char * const fd_d_garamond[] = {
+   "Garamond.font","CGTimes.font",NULL
+};
+static const char * const fd_t_garamond[] = {
+   "Garamond","EB Garamond","Times New Roman",NULL
+};
+
+static const char * const fd_d_book[] = {
+   "Book Antiqua.font","CGTimes.font",NULL
+};
+static const char * const fd_t_book[] = {
+   "Book Antiqua","Palatino","Times New Roman",NULL
+};
+
+static const char * const fd_d_arial[] = {
+   "Arial.font","Helvetica.font","helvetica.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_arial[] = {
+   "Arial","Helvetica","Liberation Sans",NULL
+};
+
+static const char * const fd_d_helv[] = {
+   "Helvetica.font","Arial.font","helvetica.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_helv[] = {
+   "Helvetica","Arial","Liberation Sans",NULL
+};
+
+static const char * const fd_d_verdana[] = {
+   "Verdana.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_verdana[] = {
+   "Verdana","DejaVu Sans","Liberation Sans",NULL
+};
+
+static const char * const fd_d_tahoma[] = {
+   "Tahoma.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_tahoma[] = {
+   "Tahoma","Verdana","DejaVu Sans",NULL
+};
+
+static const char * const fd_d_treb[] = {
+   "Trebuchet MS.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_treb[] = {
+   "Trebuchet MS","Liberation Sans","DejaVu Sans",NULL
+};
+
+static const char * const fd_d_lucsans[] = {
+   "Lucida Sans Unicode.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_lucsans[] = {
+   "Lucida Sans Unicode","Lucida Sans","DejaVu Sans",NULL
+};
+
+static const char * const fd_d_comic[] = {
+   "Comic Sans MS.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_comic[] = {
+   "Comic Sans MS","DejaVu Sans","Liberation Sans",NULL
+};
+
+static const char * const fd_d_geneva[] = {
+   "Geneva.font","Helvetica.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_geneva[] = {
+   "Geneva","Helvetica","Arial",NULL
+};
+
+static const char * const fd_d_impact[] = {
+   "Impact.font","CGTriumvirate.font",NULL
+};
+static const char * const fd_t_impact[] = {
+   "Impact","Arial Black","Liberation Sans",NULL
+};
+
+static const char * const fd_d_courier[] = {
+   "Courier New.font","Courier.font","courier.font","LetterGothic.font",NULL
+};
+static const char * const fd_t_courier[] = {
+   "Courier New","Courier","Liberation Mono",NULL
+};
+
+static const char * const fd_d_monaco[] = {
+   "Monaco.font","Courier.font","LetterGothic.font",NULL
+};
+static const char * const fd_t_monaco[] = {
+   "Monaco","Courier New","Liberation Mono",NULL
+};
+
+static const char * const fd_d_luccon[] = {
+   "Lucida Console.font","LetterGothic.font",NULL
+};
+static const char * const fd_t_luccon[] = {
+   "Lucida Console","Consolas","Liberation Mono",NULL
+};
+
+static const char * const fd_d_consolas[] = {
+   "Consolas.font","LetterGothic.font",NULL
+};
+static const char * const fd_t_consolas[] = {
+   "Consolas","Courier New","Liberation Mono",NULL
+};
+
+static const FontdiagRow fd_rows[] =
+{
+   { "serif (generic)", "serif", fd_d_serif, fd_t_serif },
+   { "sans-serif (generic)", "sans-serif", fd_d_sans, fd_t_sans },
+   { "monospace (generic)", "monospace", fd_d_mono, fd_t_mono },
+   { "cursive (generic)", "cursive", fd_d_cursive, fd_t_cursive },
+   { "fantasy (generic)", "fantasy", fd_d_fantasy, fd_t_fantasy },
+   { "Times New Roman, serif", "Times New Roman", fd_d_tnr, fd_t_tnr },
+   { "Times, serif", "Times", fd_d_times, fd_t_times },
+   { "Georgia", "Georgia", fd_d_georgia, fd_t_georgia },
+   { "Palatino", "Palatino", fd_d_palatino, fd_t_palatino },
+   { "Garamond", "Garamond", fd_d_garamond, fd_t_garamond },
+   { "Book Antiqua", "Book Antiqua", fd_d_book, fd_t_book },
+   { "Arial, Helvetica, sans-serif", "Arial", fd_d_arial, fd_t_arial },
+   { "Helvetica, Arial, sans-serif", "Helvetica", fd_d_helv, fd_t_helv },
+   { "Verdana", "Verdana", fd_d_verdana, fd_t_verdana },
+   { "Tahoma", "Tahoma", fd_d_tahoma, fd_t_tahoma },
+   { "Trebuchet MS", "Trebuchet MS", fd_d_treb, fd_t_treb },
+   { "Lucida Sans Unicode", "Lucida Sans Unicode", fd_d_lucsans, fd_t_lucsans },
+   { "Comic Sans MS", "Comic Sans MS", fd_d_comic, fd_t_comic },
+   { "Geneva", "Geneva", fd_d_geneva, fd_t_geneva },
+   { "Impact", "Impact", fd_d_impact, fd_t_impact },
+   { "Courier New, Courier, monospace", "Courier New", fd_d_courier, fd_t_courier },
+   { "Monaco", "Monaco", fd_d_monaco, fd_t_monaco },
+   { "Lucida Console", "Lucida Console", fd_d_luccon, fd_t_luccon },
+   { "Consolas", "Consolas", fd_d_consolas, fd_t_consolas }
+};
+
+static struct TextFont *FontdiagOpenDiskfont(const char *fontfile, USHORT ysize)
+{
+   struct TextAttr ta;
+   struct TextFont *tf;
+
+   if(!fontfile || !DiskfontBase)
+   {
+      return NULL;
+   }
+   ta.ta_Name = (STRPTR)fontfile;
+   ta.ta_YSize = ysize;
+   ta.ta_Style = FS_NORMAL;
+   ta.ta_Flags = 0;
+   tf = OpenDiskFont(&ta);
+   return tf;
+}
+
+static const char *FontdiagFirstDiskHit(const char * const *names, USHORT ysize)
+{
+   int i;
+   struct TextFont *tf;
+   const char *hit;
+
+   hit = NULL;
+   if(!names)
+   {
+      return NULL;
+   }
+   for(i = 0; names[i] != NULL; i++)
+   {
+      tf = FontdiagOpenDiskfont(names[i], ysize);
+      if(tf)
+      {
+         hit = names[i];
+         CloseFont(tf);
+         break;
+      }
+   }
+   return hit;
+}
+
+static const char *FontdiagFirstTTHit(const char * const *fnames)
+{
+   int i;
+   APTR f;
+   struct TagItem tags[6];
+   STRPTR ftab[3];
+   const char *hit;
+
+   hit = NULL;
+   if(!TTEngineBase || !fnames)
+   {
+      return NULL;
+   }
+   for(i = 0; fnames[i] != NULL; i++)
+   {
+      ftab[0] = (STRPTR)fnames[i];
+      ftab[1] = NULL;
+      tags[0].ti_Tag = TT_FamilyTable;
+      tags[0].ti_Data = (ULONG)ftab;
+      tags[1].ti_Tag = TT_FontSize;
+      tags[1].ti_Data = 15UL;
+      tags[2].ti_Tag = TT_FontWeight;
+      tags[2].ti_Data = TT_FontWeight_Normal;
+      tags[3].ti_Tag = TT_FontStyle;
+      tags[3].ti_Data = TT_FontStyle_Regular;
+      tags[4].ti_Tag = TAG_END;
+      tags[4].ti_Data = 0UL;
+      f = TT_OpenFontA(tags);
+      if(f)
+      {
+         hit = fnames[i];
+         TT_CloseFont(f);
+         break;
+      }
+   }
+   return hit;
+}
+
+static int FontdiagSnprintf(char **wpp, long *room, const char *fmt, ...)
+{
+   va_list ap;
+   int n;
+   char *wp;
+   long rem;
+
+   wp = *wpp;
+   rem = *room;
+   if(rem < 8)
+   {
+      return 0;
+   }
+   va_start(ap, fmt);
+   n = vsprintf(wp, fmt, ap);
+   va_end(ap);
+   if(n < 0)
+   {
+      n = 0;
+   }
+   if((long)n > rem - 1)
+   {
+      n = (int)(rem - 1);
+      wp[n] = '\0';
+   }
+   *wpp = wp + n;
+   *room = rem - (long)n;
+   return n;
+}
+
+static void FontdiagEmitTtengineNotice(char **wpp, long *room, int tt_ok)
+{
+   if(tt_ok)
+   {
+      FontdiagSnprintf(wpp, room,
+         "<p>TTEngine is installed on this system. OpenType/TrueType fonts will "
+         "be used in preference to Amiga bitmap and scalable fonts when available."
+         "</p><p></p>");
+   }
+   else
+   {
+      FontdiagSnprintf(wpp, room,
+         "<table width=\"100%%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" bordercolor=\"#996600\" bgcolor=\"#FFF0CC\">"
+         "<tr><td align=\"left\"><strong>TTEngine is not installed on this system</strong></td></tr>"
+         "<tr><td>Without TTEngine, AWeb renders HTML using standard Amiga bitmap and scalable fonts. "
+         "Install TTEngine (ttengine.library) and OpenType/TrueType fonts to add UTF-8 support, kerning, and more accurate font family matching."
+         "</td></tr>"
+         "</table><p></p>");
+   }
+}
+
+static void FontdiagProbeTable(char **wpp, long *room, int tt_ok)
+{
+   int ri;
+   int nrows;
+   const char *ideal_disp;
+   const char *primary_file;
+   const char *dhit;
+   const char *thit;
+   int n;
+
+   nrows = (int)(sizeof(fd_rows) / sizeof(fd_rows[0]));
+   n = FontdiagSnprintf(wpp, room,
+      "<table width=\"100%%\" cellpadding=\"6\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+      "<tr bgcolor=\"#E5E5E5\"><th align=\"left\">Font family</th>"
+      "<th align=\"left\">Matched Amiga font</th>"
+      "<th align=\"left\">Matched TTEngine font</th></tr>");
+   if(n < 1)
+   {
+      return;
+   }
+   for(ri = 0; ri < nrows && *room > 200; ri++)
+   {
+      ideal_disp = fd_rows[ri].ideal_name;
+      primary_file = fd_rows[ri].disk_try[0];
+      dhit = FontdiagFirstDiskHit(fd_rows[ri].disk_try, 15);
+      thit = NULL;
+      if(tt_ok)
+      {
+         thit = FontdiagFirstTTHit(fd_rows[ri].tt_try);
+      }
+      FontdiagSnprintf(wpp, room,
+         "<tr><td><strong>%s</strong><br>%s</td>",
+         fd_rows[ri].label,
+         ideal_disp ? ideal_disp : "-");
+      if(dhit)
+      {
+         if(primary_file && strcmp((const char *)dhit, (const char *)primary_file) == 0)
+         {
+            FontdiagSnprintf(wpp, room, "<td>%s <em>(exact match)</em></td>", dhit);
+         }
+         else
+         {
+            FontdiagSnprintf(wpp, room, "<td>%s <em>(best match)</em></td>", dhit);
+         }
+      }
+      else
+      {
+         FontdiagSnprintf(wpp, room, "<td>-</td>");
+      }
+      if(thit)
+      {
+         FontdiagSnprintf(wpp, room, "<td>%s</td>", thit);
+      }
+      else
+      {
+         FontdiagSnprintf(wpp, room, "<td>-</td>");
+      }
+      FontdiagSnprintf(wpp, room, "</tr>");
+   }
+   FontdiagSnprintf(wpp, room, "</table>");
+}
+
+static void FontdiagBuildHtml(UBYTE *buf, long maxlen)
+{
+   char *wp;
+   long room;
+   int tt_ok;
+
+   if(!buf || maxlen < 128L)
+   {
+      return;
+   }
+   buf[0] = '\0';
+   wp = (char *)buf;
+   room = maxlen - 1L;
+   GfxBase = NULL;
+   DiskfontBase = NULL;
+   TTEngineBase = NULL;
+   tt_ok = 0;
+   GfxBase = OpenLibrary("graphics.library", 36L);
+   DiskfontBase = OpenLibrary("diskfont.library", 37L);
+   TTEngineBase = OpenLibrary(TTENGINENAME, (LONG)TTENGINEMINVERSION);
+   if(TTEngineBase)
+   {
+      tt_ok = 1;
+   }
+   FontdiagSnprintf(&wp, &room,
+      "<h2 id=\"mapping\">Font family mapping</h2>"
+      "<p>This section dynamically illustrates how font families are mapped to the fonts"
+      " installed on this Amiga. AWeb supports both standard Amiga bitmap and scalable fonts, and "
+      "will also use TTEngine to render scalable OpenType/TrueType fonts directly if available on the system."
+      "</p>");
+   FontdiagEmitTtengineNotice(&wp, &room, tt_ok);
+   if(DiskfontBase)
+   {
+      FontdiagProbeTable(&wp, &room, tt_ok);
+   }
+   else
+   {
+      FontdiagSnprintf(&wp, &room,
+         "<p>diskfont.library could not be opened; diskfont probes are skipped.</p>");
+   }
+   if(TTEngineBase)
+   {
+      CloseLibrary(TTEngineBase);
+      TTEngineBase = NULL;
+   }
+   if(DiskfontBase)
+   {
+      CloseLibrary(DiskfontBase);
+      DiskfontBase = NULL;
+   }
+   if(GfxBase)
+   {
+      CloseLibrary(GfxBase);
+      GfxBase = NULL;
+   }
+   *wp = '\0';
+}
+
 /* Generate HTML content for about: pages */
 static UBYTE *GenerateAboutPage(UBYTE *url)
 {  UBYTE *html = NULL;
@@ -212,17 +686,20 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    if(STRNIEQUAL(page,"fonts",5) && (page[5]=='\0' || page[5]==' ' || page[5]=='\t'))
    {  /* about:fonts - font test page (large HTML; keep generous buffer). */
       /* UTF-8 glyph matrix is emitted last in the HTML so Latin demos stay first; the closing
-       * prose warns that ttengine + TTF coverage shows real scripts, else mojibake and gaps. */
+       * prose warns that Install TTF coverage shows real scripts, else mojibake and gaps. */
       /* Fetchdriver task stack is small: never put multi-kilobyte glyph grid on stack (overflow crash). */
-      len = 65536;
+      len = 131072;
       html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
       if(html)
-      {  UBYTE *glyphsec;
+      {  static const char fontdiag_empty[] = "";
+         UBYTE *fontdiag;
+         int fontdiag_heap;
+         UBYTE *glyphsec;
          int glyph_heap;
          char *wp;
          long room;
          int n;
-         int fi;
+         int fi; 
          int li;
          static const char grid_none[]="";
          /* Column samples: a few codepoints each, not words. Scripts need UTF-8 outside ISO 8859-1 Latin-1. */
@@ -262,8 +739,17 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "Courier New, Courier, monospace",
             "Lucida Console"
          };
-         /* Do not OpenLibrary/OpenDiskFont from this fetchdriver task: synchronous font
-          * probes here froze the machine before the HTML was returned (diskfont vs UI). */
+         /* Font diagnostics: bounded OpenDiskFont chains with CloseFont (diskfont.doc); optional ttengine probes. */
+         fontdiag_heap=0;
+         fontdiag=(UBYTE *)fontdiag_empty;
+         fontdiag=ALLOCTYPE(UBYTE,56000,MEMF_PUBLIC);
+         if(fontdiag)
+         {  fontdiag_heap=1;
+            FontdiagBuildHtml(fontdiag,56000L);
+         }
+         else
+         {  fontdiag=(UBYTE *)fontdiag_empty;
+         }
          glyph_heap=0;
          glyphsec=ALLOCTYPE(UBYTE,20480,MEMF_PUBLIC);
          if(glyphsec)
@@ -275,16 +761,14 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
          wp=(char *)glyphsec;
          room=20480-1;
          n=sprintf(wp,
-               "<h2>UTF-8 glyph grid (font &times; language)</h2>"
-               "<p><small>Each cell is a few UTF-8 codepoints for that column&rsquo;s script (not words). "
-               "Rows repeat the same stacks as above so you can compare the same script across font families.</small></p>"
+               "<h2 id=\"utf8grid\"></h2>"
                "<table width=\"100%%\" cellpadding=\"6\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><th align=\"left\">Font</th>");
          if(n<0) n=0;
          if((long)n>room) n=(int)room;
          wp+=n; room-=n;
          for(li=0; li<12 && room>32; li++)
-         {  n=sprintf(wp,"<th><small>%s</small></th>",langhdr[li]);
+         {  n=sprintf(wp,"<th>%s</th>",langhdr[li]);
             if(n<0) n=0;
             if((long)n>room) n=(int)room;
             wp+=n; room-=n;
@@ -296,7 +780,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             wp+=n; room-=n;
          }
          for(fi=0; fi<16 && room>200; fi++)
-         {  n=sprintf(wp,"<tr><td><small>%s</small></td>",facename[fi]);
+         {  n=sprintf(wp,"<tr><td>%s</td>",facename[fi]);
             if(n<0) n=0;
             if((long)n>room) n=(int)room;
             wp+=n; room-=n;
@@ -335,17 +819,34 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</td></tr>"
                "</table>"
                "<br clear=\"all\">"
-               "<hr>"
-               "<h2>Web Safe Font Families</h2>"
+               "<h1 id=\"top\">Fonts in AWeb</h1>"
+               "<p>Use this <code>about:fonts</code> page to inspect how AWeb maps web font families, Browser preferences, and installed fonts together to render text on this Amiga.</p>"
+               "<p>Since AWeb 3.6, AWeb will automatically choose the best font matches available on the system corresponding to standard web font families.</p>"
+               "<ul>"
+               "<li><a href=\"#safe\">Web safe font families</a></li>"
+               "<li><a href=\"#mapping\">Font family mapping</a></li>"
+               "<li><a href=\"#serif\">Serif fonts</a></li>"
+               "<li><a href=\"#sans\">Sans-serif fonts</a></li>"
+               "<li><a href=\"#mono\">Monospace and fixed-element fonts</a></li>"
+               "<li><a href=\"#chains\">Font selection chain examples</a></li>"
+               "<li><a href=\"#sizes\">Font sizes</a></li>"
+               "<li><a href=\"#styles\">Font styles</a></li>"
+               "<li><a href=\"#special\">Special characters</a></li>"
+               "<li><a href=\"#logic\">Font matching</a></li>"
+               "<li><a href=\"#utf8\">UTF-8 rendering</a> of non-Latin alphabets</li>"
+               "<li><a href=\"#haiku\">Haiku credits</a></li>"
+               "</ul>"
+               "<h2 id=\"safe\">Web safe font families</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
-               "<tr><td><font face=\"serif\">serif</font></td><td><font face=\"serif\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
+               "<tr><td><font face=\"serif\">serif</font></td><td><font face=\"serif\">An old silent pond<br>A frog jumps into the pond<br>Splash! Silence again.</font></td></tr>"
                "<tr><td><font face=\"sans-serif\">sans-serif</font></td><td><font face=\"sans-serif\">Morning glory!<br>the well bucket-entangled,<br>I ask for water.</font></td></tr>"
-               "<tr><td><font face=\"monospace\">monospace</font></td><td><font face=\"monospace\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
-               "<tr><td><font face=\"cursive\">cursive</font></td><td><font face=\"cursive\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
-               "<tr><td><font face=\"fantasy\">fantasy</font></td><td><font face=\"fantasy\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
+               "<tr><td><font face=\"monospace\">monospace</font></td><td><font face=\"monospace\">An old silent pond<br>A frog jumps into the pond<br>Splash! Silence again.</font></td></tr>"
+               "<tr><td><font face=\"cursive\">cursive</font></td><td><font face=\"cursive\">An old silent pond<br>A frog jumps into the pond<br>Splash! Silence again.</font></td></tr>"
+               "<tr><td><font face=\"fantasy\">fantasy</font></td><td><font face=\"fantasy\">An old silent pond<br>A frog jumps into the pond<br>Splash! Silence again.</font></td></tr>"
                "</table>"
-               "<h2>Serif Fonts</h2>"
+               "%s"
+               "<h2 id=\"serif\">Serif fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"Times New Roman, serif\">Times New Roman, serif</font></td><td><font face=\"Times New Roman, serif\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
@@ -355,7 +856,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><font face=\"Garamond\">Garamond</font></td><td><font face=\"Garamond\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
                "<tr><td><font face=\"Book Antiqua\">Book Antiqua</font></td><td><font face=\"Book Antiqua\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
                "</table>"
-               "<h2>Sans-Serif Fonts</h2>"
+               "<h2 id=\"sans\">Sans-serif fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"Arial, Helvetica, sans-serif\">Arial, Helvetica, sans-serif</font></td><td><font face=\"Arial, Helvetica, sans-serif\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
@@ -367,7 +868,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><font face=\"Comic Sans MS\">Comic Sans MS</font></td><td><font face=\"Comic Sans MS\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
                "<tr><td><font face=\"Geneva\">Geneva</font></td><td><font face=\"Geneva\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
                "</table>"
-               "<h2>Monospace Fonts</h2>"
+               "<h2 id=\"mono\">Monospace fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"Courier New, Courier, monospace\">Courier New, Courier, monospace</font></td><td><font face=\"Courier New, Courier, monospace\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
@@ -378,8 +879,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><code>&lt;pre&gt;</code></td><td><pre>Morning glory!<br>the well bucket-entangled,<br>I ask for water.</pre></td></tr>"
                "<tr><td><code>&lt;tt&gt;</code></td><td><tt>O snail<br>climb Mount Fuji,<br>but slowly, slowly!</tt></td></tr>"
                "</table>"
-               "<h2>Font Selection Chain Examples</h2>"
-               "<p><small>These examples demonstrate the font selection priority: direct system font &rarr; alias mapping &rarr; generic family &rarr; default preference.</small></p>"
+               "<h2 id=\"chains\">Font selection chain examples</h2>"
+               "<p>These examples demonstrate the font selection priority: direct system font &rarr; alias mapping &rarr; generic family &rarr; default preference.</p>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Face Attribute</strong></td><td><strong>Expected Behavior</strong></td><td><strong>Sample</strong></td></tr>"
                "<tr><td><code>face=\"Times New Roman, serif\"</code></td><td>Try Times New Roman.font, then alias, then serif default</td><td><font face=\"Times New Roman, serif\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
@@ -387,7 +888,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><code>face=\"Courier New, Courier, monospace\"</code></td><td>Try Courier New.font, then Courier.font, then alias, then monospace default</td><td><font face=\"Courier New, Courier, monospace\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
                "<tr><td><code>face=\"Verdana, sans-serif\"</code></td><td>Try Verdana.font, then alias, then sans-serif default</td><td><font face=\"Verdana, sans-serif\">After the storm the moon's brightness on the green pines.</font></td></tr>"
                "</table>"
-               "<h2>Font Sizes</h2>"
+               "<h2 id=\"sizes\">Font sizes</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Size</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><code>size=\"-2\"</code></td><td><font size=\"-2\">After the storm</font></td></tr>"
@@ -398,7 +899,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><code>size=\"+3\"</code></td><td><font size=\"+3\">Splash! Silence again.</font></td></tr>"
                "<tr><td><code>size=\"+4\"</code></td><td><font size=\"+4\">O snail</font></td></tr>"
                "</table>"
-               "<h2>Font Styles</h2>"
+               "<h2 id=\"styles\">Font styles</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Style</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><code>&lt;b&gt;</code></td><td><b>Morning glory!</b></td></tr>"
@@ -410,7 +911,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><code>&lt;small&gt;</code></td><td><small>how pleasing</small></td></tr>"
                "<tr><td><code>&lt;big&gt;</code></td><td><big>with sandals in my hands!</big></td></tr>"
                "</table>"
-               "<h2>Special Characters</h2>"
+               "<h2 id=\"special\">Special characters</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Category</strong></td><td><strong>Sample</strong></td></tr>"
                "<tr><td>Numbers</td><td>0123456789</td></tr>"
@@ -420,33 +921,33 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td>Special</td><td>&copy; &reg; &trade; &deg; &frac12; &frac14; &frac34; &euro; &pound; &yen;</td></tr>"
                "</table>"
                "<hr>"
-               "<h2>Haiku Acknowledgments</h2>"
-               "<p><small>Sample texts on this page include haiku from classical Japanese poets:</small></p>"
-               "<ul><small>"
-               "<li><strong>Matsuo Bash&otilde;</strong> (1644&ndash;1694): &ldquo;An old silent pond... A frog jumps into the pond, splash! Silence again.\"</li>"
-               "<li><strong>Yosa Buson</strong> (1716&ndash;1784): &ldquo;A summer river being crossed how pleasing with sandals in my hands!\"</li>"
-               "<li><strong>Kobayashi Issa</strong> (1763&ndash;1828): &ldquo;O snail climb Mount Fuji, but slowly, slowly!\"</li>"
-               "<li><strong>Chiyo-ni</strong> (1703&ndash;1775): &ldquo;Morning glory! the well bucket-entangled, I ask for water.\"</li>"
-               "<li><strong>Masaoka Shiki</strong> (1867&ndash;1902): &ldquo;After the storm the moon's brightness on the green pines.\"</li>"
-               "</small></ul>"
-               "<hr>"
-               "<h2>Font Selection Logic</h2>"
-               "<p><small>This page helps verify that AWeb's font selection works correctly:</small></p>"
-               "<ol><small>"
+               "<h2 id=\"logic\">Font matching</h2>"
+               "<p>The font matching rules are detailed here. Note that in AWeb 3.6, while it remains possible to configure preferred font mappings, AWeb defaults to using the best matching fonts found on the system, especially if TTEngine is installed and OpenType/TrueType fonts are available.</p>"
+               "<ol>"
                "<li><strong>Direct System Font:</strong> If a font name (e.g., \"Times New Roman\") exists on the system, it will be used directly.</li>"
                "<li><strong>Alias Mapping:</strong> If the font is not found directly, AWeb checks alias mappings (e.g., \"Times New Roman\" &rarr; \"CGTimes.font\").</li>"
                "<li><strong>Generic Family:</strong> If no alias is found, generic families (serif, sans-serif, monospace) map to default preference fonts.</li>"
                "<li><strong>Default Fallback:</strong> Finally, the default preference font for the type (normal/fixed) is used.</li>"
-               "</small></ol>"
-               "<hr>"
-               "<h2>UTF-8 multilingual samples</h2>"
-               "<p><small>This page is UTF-8 end-to-end; the table below is intentionally placed <strong>after</strong> the Latin font checks. "
-               "With <strong>ttengine.library</strong> enabled in preferences and TrueType fonts that actually contain the scripts in each column, you should see correct non&mdash;Latin glyphs. "
-               "Without ttengine (or without suitable outline coverage), expect a mix of missing or substituted glyphs and meaningless <strong>Latin character garbage</strong> where raw UTF&mdash;8 bytes are drawn through a Latin font.</small></p>"
+               "</ol>"
+               "<h2 id=\"utf8\">UTF-8 rendering examples</h2>"
+               "<p>This table previews UTF-8 multibyte characters from non-Latin languages for checking if the fonts installed contain the necessary glyphs. "
+               "With TTEngine installed and OpenType/TrueType fonts available, correct non-Latin glyphs will be displayed. "
+               "Without TTEngine, or without fonts with coverage for all character sets, expect a mix of missing or substituted glyphs and garbage Latin characters in the table that follows.</p>"
                "%s"
                "<hr>"
-               "</body></html>",glyphsec);
+               "<h2 id=\"haiku\">Haiku credits</h2>"
+               "<p>Sample texts on this page include haiku from classical Japanese poets:</p>"
+               "<ul>"
+               "<li><strong>Matsuo Bash&otilde;</strong> (1644-1694): \"An old silent pond... A frog jumps into the pond, splash! Silence again.\"</li>"
+               "<li><strong>Yosa Buson</strong> (1716-1784): \"A summer river being crossed how pleasing with sandals in my hands!\"</li>"
+               "<li><strong>Kobayashi Issa</strong> (1763-1828): \"O snail climb Mount Fuji, but slowly, slowly!\"</li>"
+               "<li><strong>Chiyo-ni</strong> (1703-1775): \"Morning glory! the well bucket-entangled, I ask for water.\"</li>"
+               "<li><strong>Masaoka Shiki</strong> (1867-1902): \"After the storm the moon's brightness on the green pines.\"</li>"
+               "</ul>"
+               "</body></html>",fontdiag,glyphsec);
          if(html_len >= len) html[len-1] = '\0';
+         if(fontdiag_heap)
+            Freemem(fontdiag);
          if(glyph_heap)
             Freemem(glyphsec);
       }
@@ -575,7 +1076,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<br clear=\"all\">"
                "<hr>"
                "<h2>Loaded AWebPlugins</h2>"
-               "<p><small>AWebPlugins are external plugin modules that extend AWeb's functionality.</small></p>"
+               "<p>AWebPlugins are external plugin modules that extend AWeb's functionality.</p>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Plugin Name</strong></td><td><strong>Version</strong></td><td><strong>Revision</strong></td><td><strong>ID String</strong></td></tr>");
          html_ptr += html_used;
@@ -591,8 +1092,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                {  libid = (UBYTE *)lib->lib_IdString;
                   if(!libid) libid = (UBYTE *)"";
                   html_used = sprintf(html_ptr,
-                        "<tr><td><code>%s</code></td><td>%ld</td><td>%ld</td><td><small>%s</small></td></tr>",
-                        libname ? libname : "(unknown)",
+                        "<tr><td><code>%s</code></td><td>%ld</td><td>%ld</td><td>%s</td></tr>",
+                        libname ? (char *)libname : "(unknown)",
                         (long)lib->lib_Version,
                         (long)lib->lib_Revision,
                         libid);
@@ -613,7 +1114,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<ol>"
                "<li>Start AWeb and open the browser settings (Settings menu &rarr; Browser Options).</li>"
                "<li>Navigate to the <em>Viewers</em> page in the settings window.</li>"
-               "<li>Select the entry for the MIME type you want to configure (e.g., <code>IMAGE/PNG</code>, <code>IMAGE/GIF</code>, <code>IMAGE/JPEG</code>).</li>"
+               "<li>Select the entry for the MIME type to be configured (e.g., <code>IMAGE/PNG</code>, <code>IMAGE/GIF</code>, <code>IMAGE/JPEG</code>).</li>"
                "<li>Change the following settings:"
                "<ul>"
                "<li><strong>Action:</strong> Select &quot;AWeb Plugin (A)&quot;</li>"
@@ -623,16 +1124,16 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</li>"
                "<li>Save your settings.</li>"
                "</ol>"
-               "<p><small>Note: Plugin files are typically located in the <code>awebplugins</code> drawer where AWeb is installed. "
+               "<p>Note: Plugin files are typically located in the <code>awebplugins</code> drawer where AWeb is installed. "
                "Each plugin may support optional parameters that can be specified in the Arguments field. "
-               "See the plugin documentation for details on available parameters.</small></p>"
+               "See the plugin documentation for details on available parameters.</p>"
                "<hr>");
          html_ptr += html_used;
          html_used = len - (html_ptr - html);
          
          html_used = sprintf(html_ptr,
                "<h2>Loaded AWebLib Modules</h2>"
-               "<p><small>AWebLib modules are protocol handlers and internal extensions.</small></p>"
+               "<p>AWebLib modules are protocol handlers and internal extensions.</p>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Module Name</strong></td><td><strong>Version</strong></td><td><strong>Revision</strong></td><td><strong>ID String</strong></td></tr>");
          html_ptr += html_used;
@@ -646,7 +1147,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                libid = (UBYTE *)lib->lib_IdString;
                if(!libid) libid = (UBYTE *)"";
                html_used = sprintf(html_ptr,
-                     "<tr><td><code>%s</code></td><td>%ld</td><td>%ld</td><td><small>%s</small></td></tr>",
+                     "<tr><td><code>%s</code></td><td>%ld</td><td>%ld</td><td>%s</td></tr>",
                      libname ? libname : known_aweblibs[i],
                      (long)lib->lib_Version,
                      (long)lib->lib_Revision,
@@ -664,7 +1165,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
          
          html_used = sprintf(html_ptr,
                "<hr>"
-               "<p><small>Note: Only currently loaded plugins are shown. Plugins are loaded on demand when their functionality is needed.</small></p>"
+               "<p>Note: Only currently loaded plugins are shown. Plugins are loaded on demand when their functionality is needed.</p>"
                "<hr>"
                "</body></html>");
          html_ptr += html_used;
@@ -814,7 +1315,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "supersede any condition above with which it is incompatible.</li>"
             "</ol>"
             "<hr>"
-            "<p><small>Copyright &copy; 2002 Yvon Rozijn. &nbsp; Changes Copyright &copy; 2026 amigazen project</small></p>"
+            "<p>Copyright &copy; 2002 Yvon Rozijn. &nbsp; Changes Copyright &copy; 2025-2026 amigazen project</p>"
             "</body></html>",
             about_str,version_str);
       

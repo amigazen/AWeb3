@@ -327,6 +327,11 @@ struct Prefs               /* all preferences bundled */
    struct Networkprefs network;
    struct Windowprefs window;
 };
+/*
+ * Storage layout: browser-facing options (fonts, colours, MIME types, HTML mode, etc.)
+ * live in prefs.browser; program/network/gui/window each own their own sub-struct.
+ * Access must use the qualified names (prefs.browser.font, prefs.network.loadimg, etc.).
+ */
 
 #define LOADIMG_OFF     0  /* don't load images */
 #define LOADIMG_MAPS    1  /* load only maps */

@@ -271,16 +271,16 @@ static long Updatefilereq(struct Filereq *fr,struct Amset *ams)
             TAG_END);
       }
       if(fr->flags&FRQF_SAVEMODE)
-      {  prefs.savex=fr->x;
-         prefs.savey=fr->y;
-         prefs.savew=fr->w;
-         prefs.saveh=fr->h;
+      {  prefs.window.savex=fr->x;
+         prefs.window.savey=fr->y;
+         prefs.window.savew=fr->w;
+         prefs.window.saveh=fr->h;
       }
       else
-      {  prefs.openx=fr->x;
-         prefs.openy=fr->y;
-         prefs.openw=fr->w;
-         prefs.openh=fr->h;
+      {  prefs.window.openx=fr->x;
+         prefs.window.openy=fr->y;
+         prefs.window.openw=fr->w;
+         prefs.window.openh=fr->h;
       }
       if(!(fr->flags&FRQF_DISPOSING))
       {  Adisposeobject(fr);
@@ -312,16 +312,16 @@ static struct Filereq *Newfilereq(struct Amset *ams)
       strcpy(fr->file,p);
       fr->screenname=(UBYTE *)Agetattr(Aweb(),AOAPP_Screenname);
       if(fr->flags&FRQF_SAVEMODE)
-      {  fr->x=prefs.savex;
-         fr->y=prefs.savey;
-         fr->w=prefs.savew;
-         fr->h=prefs.saveh;
+      {  fr->x=prefs.window.savex;
+         fr->y=prefs.window.savey;
+         fr->w=prefs.window.savew;
+         fr->h=prefs.window.saveh;
       }
       else
-      {  fr->x=prefs.openx;
-         fr->y=prefs.openy;
-         fr->w=prefs.openw;
-         fr->h=prefs.openh;
+      {  fr->x=prefs.window.openx;
+         fr->y=prefs.window.openy;
+         fr->w=prefs.window.openw;
+         fr->h=prefs.window.openh;
       }
       if(fr->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,Filereqtask,

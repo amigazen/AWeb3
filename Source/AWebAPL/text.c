@@ -788,14 +788,14 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
          nodecoration = Agetattr(tx->link,AOLNK_NoDecoration);
          if(Agetattr(tx->link,AOLNK_Visited))
          {  pen=coo->vlinkcolor;
-            if(prefs.ullink && !nodecoration)
+            if(prefs.browser.ullink && !nodecoration)
             {  pattern=0xcccc;
                clearpattern=TRUE;
             }
          }
          else
          {  pen=coo->linkcolor;
-            if(prefs.ullink && !nodecoration) pattern=0xffff;
+            if(prefs.browser.ullink && !nodecoration) pattern=0xffff;
          }
          if(Agetattr(tx->link,AOLNK_Selected))
          {  pen=coo->alinkcolor;

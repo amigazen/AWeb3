@@ -197,7 +197,7 @@ static void Checktooltip(long x,long y)
 
 void Tooltip(UBYTE *text,long x,long y)
 {  Closetooltip();
-   if(text && prefs.tooltips)
+   if(text && prefs.browser.tooltips)
    {  Wordwrap(text);
       CurrentTime(&ttsecs,&ttmics);
       ttx=x;

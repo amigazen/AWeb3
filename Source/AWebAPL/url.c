@@ -209,7 +209,7 @@ static void Buildabsurl(UBYTE *base,UBYTE *rel)
    /* if rel starts with slash, it's absurl path */
    if(*rel=='/')
    {  /* In strict mode, just copy the remaining path. */
-      if(prefs.htmlmode==HTML_STRICT)
+      if(prefs.browser.htmlmode==HTML_STRICT)
       {  Urlcat(absurl,rel,Urllength(rel));
          return;
       }
@@ -252,7 +252,7 @@ static void Buildabsurl(UBYTE *base,UBYTE *rel)
             if(Removelastseg(pathp,localhost)) rel+=l;
             else
             {  /* Only add extra ../ in strict mode */
-               if(prefs.htmlmode==HTML_STRICT)
+               if(prefs.browser.htmlmode==HTML_STRICT)
                {  Urlcat(absurl,"../",3);
                   pathp+=3;
                }
@@ -514,9 +514,9 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
          chis=BOOLVAL(auml->flags&AUMLF_HISTORY);
          ciim=BOOLVAL(auml->flags&AUMLF_IFINMEM);
          cval=(auml->flags&AUMLF_VERIFY) ||
-            (prefs.caverify==CAVERIFY_ALWAYS) ||
-            (!(url->flags&URLF_VERIFIED) && prefs.caverify!=CAVERIFY_NEVER);
-         cfr=prefs.fastresponse;
+            (prefs.network.caverify==CAVERIFY_ALWAYS) ||
+            (!(url->flags&URLF_VERIFIED) && prefs.network.caverify!=CAVERIFY_NEVER);
+         cfr=prefs.network.fastresponse;
          csrc=url->source && Agetattr(url->source,AOSRC_Driver);
          expired=(url->flags&URLF_VOLATILE) || Agetattr(url->cache,AOCAC_Expired);
          ccac=url->cache && !expired;
@@ -613,7 +613,7 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
          AOCAC_Touched,TRUE,
          AOCAC_Sendinfo,url->rfetch,
          TAG_END);
-      if(!assrc && !prefs.ignoremime)
+      if(!assrc && !prefs.network.ignoremime)
       {  Asrcupdatetags(url->source,url->rfetch,
             AOURL_Contenttype,Agetattr(url->cache,AOCAC_Contenttype),
             TAG_END);
@@ -745,7 +745,7 @@ static long Specialurl(struct Url *url,struct Aumspecial *aums)
 /* Find the content type of this object */
 static UBYTE *Urlcontenttype(struct Url *url)
 {  UBYTE *type=NULL;
-   if(url->cache && !prefs.ignoremime)
+   if(url->cache && !prefs.network.ignoremime)
    {  type=(UBYTE *)Agetattr(url->cache,AOCAC_Contenttype);
    }
    if(!type) type=(UBYTE *)Agetattr(url->source,AOURL_Contenttype);
@@ -769,7 +769,7 @@ static void Moveurl(struct Url *url,UBYTE *newurl,BOOL temp,BOOL seeother,void *
       seeother?TAG_IGNORE:AOFCH_Multipartdata,&mpd,
       AOFCH_Loadflags,&loadflags,
       TAG_END);
-   if(prefs.htmlmode==HTML_COMPATIBLE) postmsg=NULL;
+   if(prefs.browser.htmlmode==HTML_COMPATIBLE) postmsg=NULL;
 /*
    /* If the old URL doesn't have a cache object attached any more, there
     * must have been a Pragma: no-cache header. Make the url volatile. */
@@ -873,7 +873,7 @@ static void Srcupdatevfetch(struct Url *url,struct Amsrcupdate *ams)
             else
             {  Notifychilds(url,AOREL_URL_WINDOW,AOWIN_Status,NULL,TAG_END);
             }
-            if(!prefs.fastresponse)
+            if(!prefs.network.fastresponse)
             {  /* Let load logic decide to use source or cache copy.
                 * Pass HISTORY flag so it won't start another verify */
                Agetattrs(ams->fetch,

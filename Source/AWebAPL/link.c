@@ -42,7 +42,7 @@
 static void Popupinquire(struct Link *lnk,void *pup)
 {  struct Popupitem *pi;
    BOOL inmem=Agetattr(lnk->url,AOURL_Isinmem);
-   for(pi=prefs.popupmenu[PUPT_LINK].first;pi->next;pi=pi->next)
+   for(pi=prefs.gui.popupmenu[PUPT_LINK].first;pi->next;pi=pi->next)
    {  if((inmem && (pi->flags&PUPF_INMEM))
       || (!inmem && (pi->flags&PUPF_NOTINMEM)))
       {  Asetattrs(pup,
@@ -498,7 +498,7 @@ static long Hittestlink(struct Link *lnk,struct Amhittest *amh)
          if(buf=Linkurl(lnk,FALSE))
          {  amh->amhr->text=buf;
          }
-         if(prefs.handpointer) amh->amhr->ptrtype=APTR_HAND;
+         if(prefs.browser.handpointer) amh->amhr->ptrtype=APTR_HAND;
       }
    }
    return result;

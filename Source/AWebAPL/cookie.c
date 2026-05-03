@@ -404,7 +404,7 @@ static BOOL Matchdomain(UBYTE *domain,UBYTE *orgdomain)
          }
       }
       if(!ip)
-      {  if(prefs.rfc2109)
+      {  if(prefs.network.rfc2109)
          {  if(*domain=='.' && strchr(domain+1,'.'))
             {  p=strchr(orgdomain,'.');
                if(p && STRIEQUAL(p,domain)) match=TRUE;
@@ -435,7 +435,7 @@ static BOOL Matchdomainsend(UBYTE *ckdomain,UBYTE *domain)
    {  match=TRUE;
    }
    else
-   {        if(prefs.rfc2109)
+   {        if(prefs.network.rfc2109)
       {  p=strchr(domain,'.');
          if(p && STRIEQUAL(ckdomain,p)) match=TRUE;
       }
@@ -476,7 +476,7 @@ static BOOL Nocookie(UBYTE *domain)
 {  struct Nocookie *nc;
    BOOL result=FALSE;
    ObtainSemaphore(&prefssema);
-   for(nc=prefs.nocookie.first;!result && nc->next;nc=nc->next)
+   for(nc=prefs.network.nocookie.first;!result && nc->next;nc=nc->next)
    {  if(nc->pattern)
       {  result=MatchPatternNoCase(nc->pattern,domain);
       }
@@ -645,12 +645,12 @@ static void Parsecookie(UBYTE *cookiespec,UBYTE *orgdomain,UBYTE *orgpath,ULONG 
       }
       /* Path must match, if not given then use orgpath */
       if(!path) path=orgpath;
-      else if(prefs.rfc2109 && !Matchpath(path,orgpath)) path=NULL;
+      else if(prefs.network.rfc2109 && !Matchpath(path,orgpath)) path=NULL;
       /* Domain must not match any "no-cookie" domains */
       if(domain && Nocookie(domain)) domain=NULL;
       if(domain && path)
       {  if(!orgdomain
-         || prefs.cookies==COOKIES_QUIET
+         || prefs.network.cookies==COOKIES_QUIET
          || (ok=Knowncookie(domain,path,name))
          || (ok=Askcookie(domain,path,name,value,expires,maxage,comment,secure)))
          {  if(ck=ALLOCSTRUCT(Cookie,1,MEMF_PUBLIC|MEMF_CLEAR))
@@ -789,7 +789,7 @@ UBYTE *Findcookies(UBYTE *url,BOOL secure)
          Addtobuffer(&buf,"=",1);
          Addtobuffer(&buf,ck->value,strlen(ck->value));
          ObtainSemaphore(&prefssema);
-         if(prefs.rfc2109)
+         if(prefs.network.rfc2109)
          {  if(ck->flags&COOF_PATH)
             {  Addtobuffer(&buf,"; $Path=\"",9);
                Addtobuffer(&buf,ck->path,strlen(ck->path));

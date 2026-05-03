@@ -368,7 +368,7 @@ aweblib/about.aweblib: about.o about.lnk
 
 about.o:   about.c aweblib.h fetchdriver.h task.h
    @echo "        Compiling $*..."
-   @sc idir=sslinclude: MemorySize=h IdentifierLength=100 
+   @sc idir=SDK:Include_h idir=sslinclude: MemorySize=h IdentifierLength=100 $*
 
 #- gopher --------
 

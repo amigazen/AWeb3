@@ -732,16 +732,16 @@ static long Updatehotwindow(struct Hotwindow *how,struct Amset *ams)
    }
    if(dim)
    {  if(how->libentry==LIBENTRY_VIEWER)
-      {  prefs.hotx=how->x;
-         prefs.hoty=how->y;
-         prefs.hotw=how->w;
-         prefs.hoth=how->h;
+      {  prefs.window.hotx=how->x;
+         prefs.window.hoty=how->y;
+         prefs.window.hotw=how->w;
+         prefs.window.hoth=how->h;
       }
       else
-      {  prefs.homx=how->x;
-         prefs.homy=how->y;
-         prefs.homw=how->w;
-         prefs.homh=how->h;
+      {  prefs.window.homx=how->x;
+         prefs.window.homy=how->y;
+         prefs.window.homw=how->w;
+         prefs.window.homh=how->h;
       }
    }
    if(close && !(how->flags&HOTF_BREAKING))
@@ -785,17 +785,17 @@ static struct Hotwindow *Newhotwindow(struct Amset *ams)
          how->hotbase=&hotbase;
          how->hotlist=&hotlist;
          if(how->libentry==LIBENTRY_VIEWER)
-         {  how->x=prefs.hotx;
-            how->y=prefs.hoty;
-            how->w=prefs.hotw;
-            how->h=prefs.hoth;
-            how->autoclose=prefs.hlautoclose;
+         {  how->x=prefs.window.hotx;
+            how->y=prefs.window.hoty;
+            how->w=prefs.window.hotw;
+            how->h=prefs.window.hoth;
+            how->autoclose=prefs.program.hlautoclose;
          }
          else
-         {  how->x=prefs.homx;
-            how->y=prefs.homy;
-            how->w=prefs.homw;
-            how->h=prefs.homh;
+         {  how->x=prefs.window.homx;
+            how->y=prefs.window.homy;
+            how->w=prefs.window.homw;
+            how->h=prefs.window.homh;
          }
          how->screenname=(UBYTE *)Agetattr(Aweb(),AOAPP_Screenname);
          if(!Starttask(how))

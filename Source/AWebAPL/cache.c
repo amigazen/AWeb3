@@ -400,7 +400,7 @@ static void Setcomment(struct Cache *cac)
 /* Delete all files beyond limit, last touched first */
 static void Flushexcess(void)
 {  struct Cache *cac,*next;
-   long max=prefs.cadisksize*1024;
+   long max=prefs.network.cadisksize*1024;
    ObtainSemaphore(&cachesema);
    for(cac=cache.first;cac->next && cadisksize>max;cac=next)
    {  next=cac->next;
@@ -886,7 +886,7 @@ BOOL Initcache(void)
 {  UBYTE *awcr;
    long lock;
    BOOL corrupt=FALSE;
-   cachelock=Lock(prefs.cachepath,SHARED_LOCK);
+   cachelock=Lock(prefs.network.cachepath,SHARED_LOCK);
    if(!cachelock) cachelock=Lock("T:",SHARED_LOCK);
    if(cachelock) NameFromLock(cachelock,cachename,NAMESIZE);
    if(!(awcuname=Makename("AWCU",NULL))) return FALSE;

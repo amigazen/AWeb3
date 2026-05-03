@@ -438,7 +438,7 @@ static void Setsavepath(struct Application *app,UBYTE *path)
       newpath=Dupstr(path,end-path);
    }
    else
-   {  newpath=Dupstr(prefs.savepath,-1);
+   {  newpath=Dupstr(prefs.program.savepath,-1);
    }
    if(newpath)
    {  if(app->savepath) FREE(app->savepath);
@@ -602,7 +602,7 @@ static BOOL Makemenus(struct Application *app)
    if(app->menus) Freemenus(app);
    app->menus=NULL;
    nrmenudata=1;
-   for(me=prefs.menus.first;valid && me->next;me=me->next)
+   for(me=prefs.gui.menus.first;valid && me->next;me=me->next)
    {  nrmenudata++;
       switch(me->type)
       {  case AMENU_MENU:
@@ -623,7 +623,7 @@ static BOOL Makemenus(struct Application *app)
    }
    if(!valid) return FALSE;
    if(!(newmenus=ALLOCSTRUCT(NewMenu,nrmenudata,MEMF_CLEAR))) return FALSE;
-   for(i=0,me=prefs.menus.first;me->next;i++,me=me->next)
+   for(i=0,me=prefs.gui.menus.first;me->next;i++,me=me->next)
    {  switch(me->type)
       {  case AMENU_MENU:
             mnum++;
@@ -706,7 +706,7 @@ static void Setcolors(struct Application *app,short depth)
    long skip,i;
    ULONG c,r,g,b;
    /* If grayscale, change the mouse pointer colours to gray */
-   if(prefs.loadpalette==LOADPAL_GRAY)
+   if(prefs.program.loadpalette==LOADPAL_GRAY)
    {  ULONG table[9];
       GetRGB32(cm,17,3,table);
       for(i=0;i<3;i++)
@@ -723,7 +723,7 @@ static void Setcolors(struct Application *app,short depth)
       if(depth>=5) i-=3;            /* Intuition allocated 3 more for the pointer */
       skip=256/i;
       for(i=0;i<256;i+=skip)
-      {  if(prefs.loadpalette==LOADPAL_GRAY)
+      {  if(prefs.program.loadpalette==LOADPAL_GRAY)
          {  r=g=b=Rgbexpand(255-i);
          }
          else
@@ -741,17 +741,17 @@ static void Setcolors(struct Application *app,short depth)
 void Loadpalette(struct Application *app)
 {  short i;
    for(i=0;i<8;i++)
-   {  if(prefs.loadpalette==LOADPAL_GRAY && prefs.screendepth<=8)
+   {  if(prefs.program.loadpalette==LOADPAL_GRAY && prefs.program.screendepth<=8)
       {  ULONG r,g,b,c;
-         r=prefs.scrpalette[3*i]>>24;
-         g=prefs.scrpalette[3*i+1]>>24;
-         b=prefs.scrpalette[3*i+2]>>24;
+         r=prefs.program.scrpalette[3*i]>>24;
+         g=prefs.program.scrpalette[3*i+1]>>24;
+         b=prefs.program.scrpalette[3*i+2]>>24;
          c=Rgbexpand((299*r + 588*g + 113*b)/1000);
          SetRGB32(&app->screen->ViewPort,i,c,c,c);
       }
       else
-      {  SetRGB32(&app->screen->ViewPort,i,prefs.scrpalette[3*i],
-           prefs.scrpalette[3*i+1],prefs.scrpalette[3*i+2]);
+      {  SetRGB32(&app->screen->ViewPort,i,prefs.program.scrpalette[3*i],
+           prefs.program.scrpalette[3*i+1],prefs.program.scrpalette[3*i+2]);
       }
    }
 }
@@ -782,26 +782,26 @@ static void Releaseapppens(struct Application *app)
 /* Obtain our default pens */
 static void Obtainapppens(struct Application *app)
 {  app->linkpen=ObtainBestPen(app->screen->ViewPort.ColorMap,
-      prefs.newlink.red,prefs.newlink.green,prefs.newlink.blue,TAG_END);
+      prefs.browser.newlink.red,prefs.browser.newlink.green,prefs.browser.newlink.blue,TAG_END);
    app->vlinkpen=ObtainBestPen(app->screen->ViewPort.ColorMap,
-      prefs.oldlink.red,prefs.oldlink.green,prefs.oldlink.blue,TAG_END);
+      prefs.browser.oldlink.red,prefs.browser.oldlink.green,prefs.browser.oldlink.blue,TAG_END);
    app->alinkpen=ObtainBestPen(app->screen->ViewPort.ColorMap,
-      prefs.selectlink.red,prefs.selectlink.green,prefs.selectlink.blue,TAG_END);
+      prefs.browser.selectlink.red,prefs.browser.selectlink.green,prefs.browser.selectlink.blue,TAG_END);
    app->blackpen=ObtainBestPen(app->screen->ViewPort.ColorMap,
       0,0,0,TAG_END);
    app->whitepen=ObtainBestPen(app->screen->ViewPort.ColorMap,
       0xffffffff,0xffffffff,0xffffffff,TAG_END);
    app->tooltippen=ObtainBestPen(app->screen->ViewPort.ColorMap,
       0xffffffff,0xffffffff,0xcccccccc,TAG_END);
-   if(prefs.screenpens)
+   if(prefs.browser.screenpens)
    {  app->bgpen=app->drawinfo->dri_Pens[BACKGROUNDPEN];
       app->textpen=app->drawinfo->dri_Pens[TEXTPEN];
    }
    else
    {  app->bgpen=ObtainBestPen(app->screen->ViewPort.ColorMap,
-         prefs.background.red,prefs.background.green,prefs.background.blue,TAG_END);
+         prefs.browser.background.red,prefs.browser.background.green,prefs.browser.background.blue,TAG_END);
       app->textpen=ObtainBestPen(app->screen->ViewPort.ColorMap,
-         prefs.text.red,prefs.text.green,prefs.text.blue,TAG_END);
+         prefs.browser.text.red,prefs.browser.text.green,prefs.browser.text.blue,TAG_END);
       app->flags|=APPF_OURBGPENS;
    }
 }
@@ -948,16 +948,16 @@ static void Appclosescreen(struct Application *app)
 /* Open the screen */
 static BOOL Appopenscreen(struct Application *app,BOOL loadreq)
 {  short i;
-   if(prefs.screentype==SCRTYPE_OWN)
+   if(prefs.program.screentype==SCRTYPE_OWN)
    {  if((app->pubsignum=AllocSignal(-1))<0) return FALSE;
       if(app->screen=OpenScreenTags(NULL,
-         SA_Width,prefs.screenwidth,
-         SA_Height,prefs.screenheight,
-         SA_Depth,prefs.screendepth,
+         SA_Width,prefs.program.screenwidth,
+         SA_Height,prefs.program.screenheight,
+         SA_Depth,prefs.program.screendepth,
          SA_Type,PUBLICSCREEN,
-         SA_DisplayID,prefs.screenmode,
+         SA_DisplayID,prefs.program.screenmode,
          SA_AutoScroll,TRUE,
-         SA_Pens,prefs.scrdrawpens,
+         SA_Pens,prefs.program.scrdrawpens,
          SA_SysFont,TRUE,
          SA_Interleaved,TRUE,
          SA_Overscan,OSCAN_TEXT,
@@ -972,28 +972,28 @@ static BOOL Appopenscreen(struct Application *app,BOOL loadreq)
          {  ObtainPen(app->screen->ViewPort.ColorMap,i,0,0,0,PEN_NO_SETCOLOR);
          }
          Loadpalette(app);
-         if(prefs.loadpalette && prefs.screendepth<=8)
-         {  Setcolors(app,prefs.screendepth);
+         if(prefs.program.loadpalette && prefs.program.screendepth<=8)
+         {  Setcolors(app,prefs.program.screendepth);
          }
       }
       else  /* Own screen failed */
       {  FreeSignal(app->pubsignum);
          app->pubsignum=-1;
-         prefs.screentype=SCRTYPE_DEFAULT;   /* Try on WB */
+         prefs.program.screentype=SCRTYPE_DEFAULT;   /* Try on WB */
       }
    }
-   else if(prefs.screentype==SCRTYPE_NAMED)
-   {  if(app->screen=LockPubScreen(prefs.screenname))
-      {  app->screenname=Dupstr(prefs.screenname,-1);
+   else if(prefs.program.screentype==SCRTYPE_NAMED)
+   {  if(app->screen=LockPubScreen(prefs.program.screenname))
+      {  app->screenname=Dupstr(prefs.program.screenname,-1);
       }
       else
-      {  prefs.screentype=SCRTYPE_DEFAULT;   /* Try on WB */
+      {  prefs.program.screentype=SCRTYPE_DEFAULT;   /* Try on WB */
       }
    }
    else
-   {  prefs.screentype=SCRTYPE_DEFAULT;
+   {  prefs.program.screentype=SCRTYPE_DEFAULT;
    }
-   if(prefs.screentype==SCRTYPE_DEFAULT)
+   if(prefs.program.screentype==SCRTYPE_DEFAULT)
    {  struct List *scrlist;
       struct PubScreenNode *scrnode;
       if(!(app->screen=LockPubScreen(NULL))) return FALSE;
@@ -1021,7 +1021,7 @@ static BOOL Appopenscreen(struct Application *app,BOOL loadreq)
    if(!(app->drawinfo=GetScreenDrawInfo(app->screen))) return FALSE;
    Obtainapppens(app);
    if(app->flags&APPF_OURSCREEN)
-   {  for(i=0;i<12;i++) prefs.scrdrawpens[i]=app->drawinfo->dri_Pens[i];
+   {  for(i=0;i<12;i++) prefs.program.scrdrawpens[i]=app->drawinfo->dri_Pens[i];
    }
    if(loadreq) Openloadreq(app->screen);
    Setloadreqstate(LRQ_IMAGES);
@@ -1181,8 +1181,8 @@ static long Setapplication(struct Application *app,struct Amset *ams)
             break;
          case AOAPP_Blink:
             Asetattrs(app->blinktimer,
-               AOTIM_Waitseconds,prefs.blinkrate/10,
-               AOTIM_Waitmicros,(prefs.blinkrate%10)*100000+1,
+               AOTIM_Waitseconds,prefs.browser.blinkrate/10,
+               AOTIM_Waitmicros,(prefs.browser.blinkrate%10)*100000+1,
                TAG_END);
             break;
          case AOAPP_Processtype:
@@ -1195,7 +1195,7 @@ static long Setapplication(struct Application *app,struct Amset *ams)
             }
             break;
          case AOAPP_Animgadsetting:
-            if((app->flags&APPF_ANIMON) && prefs.contanim)
+            if((app->flags&APPF_ANIMON) && prefs.network.contanim)
             {  Asetattrs(app->animtimer,
                   AOTIM_Waitseconds,0,
                   AOTIM_Waitmicros,10000,
@@ -1248,15 +1248,15 @@ static struct Application *Newapplication(struct Amset *ams)
       app->systemfont=OpenFont(&sysattr);
       app->windowport=CreateMsgPort();
       Setprocessfun(app->windowport->mp_SigBit,Processapp);
-      app->savepath=Dupstr(prefs.savepath,-1);
+      app->savepath=Dupstr(prefs.program.savepath,-1);
       Setapplication(app,ams);
       Makemenus(app);
       Appopenscreen(app,!nostartup);
       app->blinktimer=Anewobject(AOTP_TIMER,
          AOBJ_Target,app,
          AOBJ_Map,blinktimermap,
-         AOTIM_Waitseconds,prefs.blinkrate/10,
-         AOTIM_Waitmicros,(prefs.blinkrate%10)*100000,
+         AOTIM_Waitseconds,prefs.browser.blinkrate/10,
+         AOTIM_Waitmicros,(prefs.browser.blinkrate%10)*100000,
          TAG_END);
       app->animtimer=Anewobject(AOTP_TIMER,
          AOBJ_Target,app,
@@ -1381,7 +1381,7 @@ static long Getapplication(struct Application *app,struct Amset *ams)
             PUTATTR(tag,&pwfont);
             break;
          case AOAPP_Jcontext:
-            if(prefs.dojs && Openjslib())
+            if(prefs.browser.dojs && Openjslib())
             {  if(!app->jcontext)
                {  app->jcontext=Newjcontext(app->screenname);
                }
@@ -1413,11 +1413,11 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOAPP_Blinktimer:
-            if(prefs.blinkrate)
+            if(prefs.browser.blinkrate)
             {  app->flags^=APPF_BLINKON;
                Asetattrs(app->blinktimer,
-                  AOTIM_Waitseconds,prefs.blinkrate/10,
-                  AOTIM_Waitmicros,(prefs.blinkrate%10)*100000,
+                  AOTIM_Waitseconds,prefs.browser.blinkrate/10,
+                  AOTIM_Waitmicros,(prefs.browser.blinkrate%10)*100000,
                   TAG_END);
             }
             else
@@ -1441,7 +1441,7 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
             }
             break;
          case AOAPP_Animtimer:
-            if(prefs.contanim && (app->flags&APPF_ANIMON))
+            if(prefs.network.contanim && (app->flags&APPF_ANIMON))
             {  Asetattrs(app->animtimer,
                   AOTIM_Waitseconds,0,
                   AOTIM_Waitmicros,100000,
@@ -1500,7 +1500,7 @@ static long Remchildapplication(struct Application *app,struct Amadd *ama)
 static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
 {  struct Jvar *jv;
    UBYTE buf[256],*p;
-   if(prefs.dojs && Openjslib())
+   if(prefs.browser.dojs && Openjslib())
    {  if(!app->jcontext)
       {  app->jcontext=Newjcontext(app->screenname);
       }
@@ -1514,8 +1514,8 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
          {  if(jv=Jproperty(app->jcontext,app->jnavigator,"appCodeName"))
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
 #ifndef DEMOVERSION
-               if(*prefs.spoofid)
-               {  strcpy(buf,prefs.spoofid);
+               if(*prefs.network.spoofid)
+               {  strcpy(buf,prefs.network.spoofid);
                   if(p=strchr(buf,'/')) *p='\0';
                }
                else
@@ -1528,9 +1528,9 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
                p="AWeb";
 #ifndef DEMOVERSION
-               if(*prefs.spoofid)
-               {  if(STRNIEQUAL(prefs.spoofid,"Mozilla/",8)) p="Netscape";
-                  else if(STRNIEQUAL(prefs.spoofid,"MSIE/",5)) p="Microsoft Internet Explorer";
+               if(*prefs.network.spoofid)
+               {  if(STRNIEQUAL(prefs.network.spoofid,"Mozilla/",8)) p="Netscape";
+                  else if(STRNIEQUAL(prefs.network.spoofid,"MSIE/",5)) p="Microsoft Internet Explorer";
                }
 #endif
                Jasgstring(app->jcontext,jv,p);
@@ -1538,7 +1538,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             if(jv=Jproperty(app->jcontext,app->jnavigator,"appVersion"))
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
 #ifndef DEMOVERSION
-               if(p=strchr(prefs.spoofid,'/'))
+               if(p=strchr(prefs.network.spoofid,'/'))
                {  strcpy(buf,p+1);
                }
                else
@@ -1556,8 +1556,8 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             if(jv=Jproperty(app->jcontext,app->jnavigator,"userAgent"))
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
 #ifndef DEMOVERSION
-               if(*prefs.spoofid)
-               {  strcpy(buf,prefs.spoofid);
+               if(*prefs.network.spoofid)
+               {  strcpy(buf,prefs.network.spoofid);
                }
                else
 #endif
@@ -1853,7 +1853,7 @@ BOOL Setanimgads(BOOL onoff)
          Setanimgadsactive(FALSE);
       }
       else if(onoff)
-      {  if(!oldonoff && prefs.contanim)
+      {  if(!oldonoff && prefs.network.contanim)
          {  /* Start continuous animation */
             Asetattrs(app->animtimer,
                AOTIM_Waitseconds,0,
@@ -1861,7 +1861,7 @@ BOOL Setanimgads(BOOL onoff)
                TAG_END);
             Setanimgadsactive(TRUE);
          }
-         if(!prefs.contanim)
+         if(!prefs.network.contanim)
          {  /* Step animation ahead */
             Setanimgadsactive(TRUE);
          }
@@ -1872,7 +1872,7 @@ BOOL Setanimgads(BOOL onoff)
 
 USHORT Menunumfromcmd(UBYTE *cmd)
 {  struct Menuentry *me;
-   for(me=prefs.menus.first;me->next;me=me->next)
+   for(me=prefs.gui.menus.first;me->next;me=me->next)
    {  if(STRIEQUAL(me->cmd,cmd)) return me->menunum;
    }
    return (USHORT)MENUNULL;
@@ -1881,7 +1881,7 @@ USHORT Menunumfromcmd(UBYTE *cmd)
 struct Menuentry *Menuentryfromkey(UBYTE key)
 {  struct Menuentry *me;
    key=toupper(key);
-   for(me=prefs.menus.first;me->next;me=me->next)
+   for(me=prefs.gui.menus.first;me->next;me=me->next)
    {  switch(me->type)
       {  case AMENU_ITEM:
          case AMENU_SUB:
@@ -1894,7 +1894,7 @@ struct Menuentry *Menuentryfromkey(UBYTE key)
 
 struct Menuentry *Menuentryfromnum(USHORT menunum)
 {  struct Menuentry *me;
-   for(me=prefs.menus.first;me->next;me=me->next)
+   for(me=prefs.gui.menus.first;me->next;me=me->next)
    {  if(me->menunum==menunum) return me;
    }
    return NULL;

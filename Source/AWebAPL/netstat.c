@@ -561,10 +561,10 @@ static long Dispatch(struct Netstatwin *nsw,struct Amessage *amsg)
 
 BOOL Installnetstatwin(void)
 {  NEWLIST(&netstats);
-   lastx=prefs.nwsx;
-   lasty=prefs.nwsy;
-   lastw=prefs.nwsw;
-   lasth=prefs.nwsh;
+   lastx=prefs.window.nwsx;
+   lasty=prefs.window.nwsy;
+   lastw=prefs.window.nwsw;
+   lasth=prefs.window.nwsh;
    renderhook.h_Entry=(HOOKFUNC)Renderhook;
    if(!Amethod(NULL,AOM_INSTALL,AOTP_NETSTATWIN,Dispatch)) return FALSE;
    return TRUE;

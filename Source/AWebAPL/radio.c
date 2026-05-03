@@ -55,9 +55,9 @@ static void *sizeradio;          /* Dummy single object to catch pres changes */
 
 /* Determine the size */
 static void Radiosize(void)
-{  short type=prefs.styles[STYLE_NORMAL].fonttype;
-   short size=prefs.styles[STYLE_NORMAL].fontsize;
-   struct TextFont *font=prefs.font[type][size-1].font;
+{  short type=prefs.browser.styles[STYLE_NORMAL].fonttype;
+   short size=prefs.browser.styles[STYLE_NORMAL].fontsize;
+   struct TextFont *font=prefs.browser.font[type][size-1].font;
    radiobuttonh=font->tf_Baseline;
    radiobuttonw=(radiobuttonh*6+4)/5;
    SetAttrs(radiobutton,

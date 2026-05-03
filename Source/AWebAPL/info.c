@@ -306,10 +306,10 @@ static struct Info *Newinfo(struct Amset *ams)
          Setinfo(inf,ams);
          urlname=(UBYTE *)Agetattr(inf->url,AOURL_Url);
          if(!lastw)
-         {  lastx=prefs.infx;
-            lasty=prefs.infy;
-            lastw=prefs.infw;
-            lasth=prefs.infh;
+         {  lastx=prefs.window.infx;
+            lasty=prefs.window.infy;
+            lastw=prefs.window.infw;
+            lasth=prefs.window.infh;
          }
          inf->cawin=WindowObject,
             WA_Title,inf->title?inf->title:AWEBSTR(MSG_INFO_TITLE),

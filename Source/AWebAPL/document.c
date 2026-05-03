@@ -302,7 +302,7 @@ static void Reloaddocument(struct Document *doc)
    doc->jdomain=Dupstrp(start,length,doc->pool);
    Addtobuffer(&doc->text," ",1);
    doc->srcpos=0;
-   doc->htmlmode=prefs.htmlmode;
+   doc->htmlmode=prefs.browser.htmlmode;
    /* Preserve DPF_RELOADVERIFY flag during reload so CSS and other external
     * resources are properly reloaded instead of using cached versions */
    {  ULONG savedReloadVerify = (doc->pflags & DPF_RELOADVERIFY);
@@ -625,7 +625,7 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
             if(!doc->frame && tag->ti_Data)  /* set new frame from NULL */
             {  prom_frame=TRUE;
                doc->dflags|=DDF_DISPTITLE;
-               SETFLAG(doc->dflags,DDF_PLAYBGSOUND,prefs.dobgsound);
+               SETFLAG(doc->dflags,DDF_PLAYBGSOUND,prefs.browser.dobgsound);
                if(doc->clientpull)
                {  Asetattrs(doc->copy,AOURL_Clientpull,doc->clientpull,TAG_END);
                }
@@ -1133,7 +1133,7 @@ static struct Document *Newdocument(struct Amset *ams)
       NEWLIST(&doc->forms);
       NEWLIST(&doc->fragments);
       NEWLIST(&doc->infotexts);
-      doc->htmlmode=prefs.htmlmode;
+      doc->htmlmode=prefs.browser.htmlmode;
       doc->gotbreak=2;
       doc->hoveredElement=NULL;
       doc->activeElement=NULL;

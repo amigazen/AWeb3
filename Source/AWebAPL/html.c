@@ -2512,10 +2512,10 @@ static BOOL Doscript(struct Document *doc,struct Tagattr *ta)
             break;
       }
    }
-   if(prefs.dojs)
+   if(prefs.browser.dojs)
    {  if(STRNIEQUAL(language,"LiveScript",10)) isjs=TRUE;
       else if(STRNIEQUAL(language,"JavaScript",10))
-      {  if(prefs.dojs==DOJS_ALL) isjs=TRUE;
+      {  if(prefs.browser.dojs==DOJS_ALL) isjs=TRUE;
          else if(language[10]=='1')
          {  if(language[11]=='.')
             {  if(language[12]=='0' || language[12]=='1') isjs=TRUE;
@@ -4260,7 +4260,7 @@ static BOOL Addframe(struct Document *doc,struct Tagattr *ta,BOOL iframe)
 /*** <FRAME> ***/
 static BOOL Doframe(struct Document *doc,struct Tagattr *ta)
 {  BOOL result=TRUE;
-   if(prefs.doframes)
+   if(prefs.browser.doframes)
    {  if(doc->doctype==DOCTP_FRAMESET && !(doc->pflags&DPF_FRAMESETEND))
       {  result=Addframe(doc,ta,FALSE);
       }
@@ -4276,7 +4276,7 @@ static BOOL Doframe(struct Document *doc,struct Tagattr *ta)
 /*** <IFRAME> ***/
 static BOOL Doiframe(struct Document *doc,struct Tagattr *ta)
 {  BOOL result=TRUE;
-   if(prefs.doframes)
+   if(prefs.browser.doframes)
    {  if(!Ensurebody(doc)) return FALSE;
       result=Addframe(doc,ta,TRUE);
       doc->pmode=DPM_IFRAME;
@@ -4291,7 +4291,7 @@ static BOOL Doframeset(struct Document *doc,struct Tagattr *ta)
    long spacing=-1;
    struct Number num;
    void *frameset;
-   if(prefs.doframes)
+   if(prefs.browser.doframes)
    {  for(;ta->next;ta=ta->next)
       {  switch(ta->attr)
          {  case TAGATTR_COLS:
@@ -4354,7 +4354,7 @@ static BOOL Doframeset(struct Document *doc,struct Tagattr *ta)
 
 /*** </FRAMESET> ***/
 static BOOL Doframesetend(struct Document *doc)
-{  if(prefs.doframes)
+{  if(prefs.browser.doframes)
    {  if(doc->doctype==DOCTP_FRAMESET)
       {  Popframeset(doc);
       }

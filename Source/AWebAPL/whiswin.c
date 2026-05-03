@@ -76,16 +76,16 @@ static long Updatewhiswindow(struct Whiswindow *whw,struct Amset *ams)
             close=TRUE;
             break;
          case AOWHW_Dimx:
-            prefs.whisx=whw->x=tag->ti_Data;
+            prefs.window.whisx=whw->x=tag->ti_Data;
             break;
          case AOWHW_Dimy:
-            prefs.whisy=whw->y=tag->ti_Data;
+            prefs.window.whisy=whw->y=tag->ti_Data;
             break;
          case AOWHW_Dimw:
-            prefs.whisw=whw->w=tag->ti_Data;
+            prefs.window.whisw=whw->w=tag->ti_Data;
             break;
          case AOWHW_Dimh:
-            prefs.whish=whw->h=tag->ti_Data;
+            prefs.window.whish=whw->h=tag->ti_Data;
             break;
          case AOWHW_Display:
             twhis=(struct Winhis *)tag->ti_Data;
@@ -155,11 +155,11 @@ static struct Whiswindow *Newwhiswindow(struct Amset *ams)
       if(Agetattr(Aweb(),AOAPP_Screenvalid))
       {  whw->whissema=&whissema;
          whw->winhislist=&winhis;
-         whw->x=prefs.whisx;
-         whw->y=prefs.whisy;
-         whw->w=prefs.whisw;
-         whw->h=prefs.whish;
-         whw->autoclose=prefs.whautoclose;
+         whw->x=prefs.window.whisx;
+         whw->y=prefs.window.whisy;
+         whw->w=prefs.window.whisw;
+         whw->h=prefs.window.whish;
+         whw->autoclose=prefs.program.whautoclose;
          whw->screenname=(UBYTE *)Agetattr(Aweb(),AOAPP_Screenname);
          if(!Starttask(whw))
          {  Adisposeobject(whw);

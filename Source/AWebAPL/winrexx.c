@@ -79,7 +79,7 @@ static void Scrollframe(void *frame,long n,ULONG toptag,ULONG heighttag,BOOL pag
          heighttag,&h,
          TAG_END);
       if(page)
-      {  if(h>prefs.overlap) top+=n*(h-prefs.overlap);
+      {  if(h>prefs.program.overlap) top+=n*(h-prefs.program.overlap);
          else top+=n*h;
       }
       else
@@ -170,7 +170,7 @@ static BOOL Doallowcmd(struct Arexxcmd *ac,struct Awindow *win)
 static BOOL Dobackground(struct Arexxcmd *ac,struct Awindow *win,
    BOOL on,BOOL off)
 {  if(!on && !off)
-   {  on=!prefs.docolors;
+   {  on=!prefs.browser.docolors;
    }
    Prefsdocolors(on);
    return TRUE;
@@ -179,7 +179,7 @@ static BOOL Dobackground(struct Arexxcmd *ac,struct Awindow *win,
 static BOOL Dobgsound(struct Arexxcmd *ac,struct Awindow *win,
    BOOL on,BOOL off)
 {  if(!on && !off)
-   {  on=!prefs.dobgsound;
+   {  on=!prefs.browser.dobgsound;
    }
    Prefsdobgsound(on);
    return TRUE;
@@ -649,7 +649,7 @@ static BOOL Dogo(struct Arexxcmd *ac,struct Awindow *win,
    void *whis,*nwhis;
    if(win)
    {  if(home)
-      {  if(*prefs.homeurl) Followurlname(win,prefs.homeurl,0);
+      {  if(*prefs.network.homeurl) Followurlname(win,prefs.network.homeurl,0);
       }
       else
       {  if(back)
@@ -697,7 +697,7 @@ static BOOL Dohotlist(struct Arexxcmd *ac,struct Awindow *win,
       }
    }
    if(win && !restore && !set && !save)
-   {  if(prefs.hlrequester) Hotlistviewer(win->key);
+   {  if(prefs.program.hlrequester) Hotlistviewer(win->key);
       else Doopen(ac,win,"x-aweb:hotlist",NULL,FALSE,NULL,FALSE);
    }
    return TRUE;
@@ -718,7 +718,7 @@ static BOOL Doimageloading(struct Arexxcmd *ac,struct Awindow *win,
    if(off) type=LOADIMG_OFF;
    else if(maps) type=LOADIMG_MAPS;
    else if(all) type=LOADIMG_ALL;
-   else type=(prefs.loadimg+1)%3;
+   else type=(prefs.network.loadimg+1)%3;
    Prefsloadimg(type);
    return TRUE;
 }
@@ -745,7 +745,7 @@ static BOOL Dojavascript(struct Arexxcmd *ac,struct Awindow *win,UBYTE *source,
    struct Jvar *jv;
    UBYTE *result,*p;
    UBYTE *srcbuf=NULL;
-   if(win && prefs.dojs)
+   if(win && prefs.browser.dojs)
    {  if(!source && file)
       {  long fh;
          struct FileInfoBlock *fib;

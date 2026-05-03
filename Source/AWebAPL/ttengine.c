@@ -734,7 +734,7 @@ static LONG GetFontSizeFromPrefs(struct TextFont *font)
    fontsize = (LONG)font->tf_YSize;
    
    /* Search through font alias list to find matching TextFont */
-   for(fa = prefs.aliaslist.first; fa->next; fa = fa->next)
+   for(fa = prefs.browser.aliaslist.first; fa->next; fa = fa->next)
    {
       for(i = 0; i < NRFONTS; i++)
       {
@@ -749,10 +749,10 @@ static LONG GetFontSizeFromPrefs(struct TextFont *font)
    /* Also check default font preferences */
    for(i = 0; i < NRFONTS; i++)
    {
-      if(prefs.font[0][i].font == font || prefs.font[1][i].font == font)
+      if(prefs.browser.font[0][i].font == font || prefs.browser.font[1][i].font == font)
       {
          /* Found in default fonts - use the fontsize from Fontprefs */
-         return (LONG)prefs.font[0][i].fontsize;
+         return (LONG)prefs.browser.font[0][i].fontsize;
       }
    }
    
@@ -1009,7 +1009,7 @@ static UBYTE *GetFontNameFromPrefs(struct TextFont *font)
    }
    
    /* Search through font alias list to find matching TextFont */
-   for(fa = prefs.aliaslist.first; fa->next; fa = fa->next)
+   for(fa = prefs.browser.aliaslist.first; fa->next; fa = fa->next)
    {
       for(i = 0; i < NRFONTS; i++)
       {
@@ -1024,10 +1024,10 @@ static UBYTE *GetFontNameFromPrefs(struct TextFont *font)
    /* Also check default font preferences */
    for(i = 0; i < NRFONTS; i++)
    {
-      if(prefs.font[0][i].font == font || prefs.font[1][i].font == font)
+      if(prefs.browser.font[0][i].font == font || prefs.browser.font[1][i].font == font)
       {
          /* Found in default fonts - return the font name from Fontprefs */
-         return prefs.font[0][i].fontname;
+         return prefs.browser.font[0][i].fontname;
       }
    }
    

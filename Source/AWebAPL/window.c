@@ -200,7 +200,7 @@ static UWORD securedata[]=
 static struct NewMenu *Findmenudata(struct NewMenu *menus,UBYTE *cmd)
 {  struct NewMenu *nm=menus;
    struct Menuentry *me;
-   for(me=prefs.menus.first;me->next;me=me->next,nm++)
+   for(me=prefs.gui.menus.first;me->next;me=me->next,nm++)
    {  if(STRIEQUAL(me->cmd,cmd)) return nm;
    }
    return NULL;
@@ -216,19 +216,19 @@ static void Checkmenu(struct NewMenu *nm,BOOL check)
 static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
 {  struct NewMenu *nm;
    if(nm=Findmenudata(nmenus,"@LOADIMGOFF"))
-      Checkmenu(nm,prefs.loadimg==LOADIMG_OFF);
+      Checkmenu(nm,prefs.network.loadimg==LOADIMG_OFF);
    if(nm=Findmenudata(nmenus,"@LOADIMGMAPS"))
-      Checkmenu(nm,prefs.loadimg==LOADIMG_MAPS);
+      Checkmenu(nm,prefs.network.loadimg==LOADIMG_MAPS);
    if(nm=Findmenudata(nmenus,"@LOADIMGALL"))
-      Checkmenu(nm,prefs.loadimg==LOADIMG_ALL);
+      Checkmenu(nm,prefs.network.loadimg==LOADIMG_ALL);
    if(nm=Findmenudata(nmenus,"@DRAGGING"))
       Checkmenu(nm,BOOLVAL(win->flags&WINF_CLIPDRAG));
    if(nm=Findmenudata(nmenus,"@NOPROXY"))
       Checkmenu(nm,BOOLVAL(win->flags&WINF_NOPROXY));
    if(nm=Findmenudata(nmenus,"@BGIMAGES"))
-      Checkmenu(nm,prefs.docolors);
+      Checkmenu(nm,prefs.browser.docolors);
    if(nm=Findmenudata(nmenus,"@BGSOUND"))
-      Checkmenu(nm,prefs.dobgsound);
+      Checkmenu(nm,prefs.browser.dobgsound);
 }
 
 /* Screen title memory lines: chip = free CHIP, other = free FAST, used = AWeb pool
@@ -595,9 +595,9 @@ static void Addspeedbutton(struct Awindow *win,struct DrawInfo *dri,
 static void *Makebuttonrow(struct Awindow *win,struct DrawInfo *dri)
 {  void *buttonrow=NULL;
    win->ubutgad=NULL;
-   if(!ISEMPTY(&prefs.buttons) && prefs.showbuttons && (win->flags&WINF_BUTTONS))
-   {  Addspeedbutton(win,dri,prefs.buttons.first,-1);
-      Addspeedbutton(win,dri,prefs.buttons.first,-1);
+   if(!ISEMPTY(&prefs.gui.buttons) && prefs.gui.showbuttons && (win->flags&WINF_BUTTONS))
+   {  Addspeedbutton(win,dri,prefs.gui.buttons.first,-1);
+      Addspeedbutton(win,dri,prefs.gui.buttons.first,-1);
       buttonrow=HLayoutObject,
          LAYOUT_SpaceOuter,TRUE,
          LAYOUT_SpaceInner,FALSE,
@@ -621,7 +621,7 @@ static void Completebuttonrow(struct Awindow *win,struct DrawInfo *dri)
    short n;
    if(win->ubutgad)
    {  Setgadgetattrs(win->ubutgad,NULL,NULL,SPEEDBAR_Buttons,~0,TAG_END);
-      for(ub=prefs.buttons.first,n=0;ub->next;ub=ub->next,n++)
+      for(ub=prefs.gui.buttons.first,n=0;ub->next;ub=ub->next,n++)
       {  Addspeedbutton(win,dri,ub,n);
       }
       Setgadgetattrs(win->ubutgad,NULL,NULL,SPEEDBAR_Buttons,&win->userbutlist,TAG_END);
@@ -640,9 +640,9 @@ static void Rebuildbuttonrow(struct Awindow *win,struct DrawInfo *dri)
          DisposeObject(label);
          FreeSpeedButtonNode(node);
       }
-      Addspeedbutton(win,dri,prefs.buttons.first,-1);
-      Addspeedbutton(win,dri,prefs.buttons.first,-1);
-      for(ub=prefs.buttons.first,n=0;ub->next;ub=ub->next,n++)
+      Addspeedbutton(win,dri,prefs.gui.buttons.first,-1);
+      Addspeedbutton(win,dri,prefs.gui.buttons.first,-1);
+      for(ub=prefs.gui.buttons.first,n=0;ub->next;ub=ub->next,n++)
       {  Addspeedbutton(win,dri,ub,n);
       }
       Setgadgetattrs(win->ubutgad,win->window,NULL,SPEEDBAR_Buttons,&win->userbutlist,TAG_END);
@@ -912,8 +912,8 @@ static BOOL Openwindow(struct Awindow *win)
       BOOL want_fullscreen;
       
       /* Calculate window size from preferences */
-      calc_width=prefs.winw;
-      calc_height=prefs.winh;
+      calc_width=prefs.window.winw;
+      calc_height=prefs.window.winh;
       
       /* If preferences indicate maximum size (9999), calculate sensible default */
       if(calc_width==9999 || calc_height==9999)
@@ -984,8 +984,8 @@ static BOOL Openwindow(struct Awindow *win)
       
       if(!(win->flags&WINF_USERPOS))
       {  if(nextx<0)
-         {  nextx=prefs.winx;
-            nexty=prefs.winy;
+         {  nextx=prefs.window.winx;
+            nexty=prefs.window.winy;
          }
          if(want_fullscreen)
          {  win->box.Left=0;
@@ -1022,10 +1022,10 @@ static BOOL Openwindow(struct Awindow *win)
             break;
          }
       }
-      win->zoombox.Left=prefs.wiax;
-      win->zoombox.Top=prefs.wiay;
-      win->zoombox.Width=prefs.wiaw;
-      win->zoombox.Height=prefs.wiah;
+      win->zoombox.Left=prefs.window.wiax;
+      win->zoombox.Top=prefs.window.wiay;
+      win->zoombox.Width=prefs.window.wiaw;
+      win->zoombox.Height=prefs.window.wiah;
    }
 
    GetRGB32(colormap,drinfo->dri_Pens[BACKGROUNDPEN],1,bgrgb);
@@ -1120,7 +1120,7 @@ static BOOL Openwindow(struct Awindow *win)
       SYSIA_Which,LEFTIMAGE,
       TAG_END))) return FALSE;
 
-   if(prefs.shownav && (win->flags&WINF_NAVS))
+   if(prefs.gui.shownav && (win->flags&WINF_NAVS))
    {  if(!(win->backimg=Buttonimage(Aweb(),BUTF_BACK,backdata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
       if(!(win->fwdimg=Buttonimage(Aweb(),BUTF_FORWARD,fwddata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
       if(!(win->homeimg=Buttonimage(Aweb(),BUTF_HOME,homedata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
@@ -1208,7 +1208,7 @@ static BOOL Openwindow(struct Awindow *win)
       LAYOUT_SpaceInner,FALSE,
       TAG_END);
    if(!win->layoutgad) return FALSE;
-   if(prefs.shownav && (win->flags&WINF_NAVS))
+   if(prefs.gui.shownav && (win->flags&WINF_NAVS))
    {  void *navlayout;
       if(win->layoutstyle==1)
       {  
@@ -1301,7 +1301,7 @@ static BOOL Openwindow(struct Awindow *win)
    }
    if(buttonrow)
    { 
-      if(!(prefs.shownav && (win->flags&WINF_NAVS)))
+      if(!(prefs.gui.shownav && (win->flags&WINF_NAVS)))
       { 
          SetAttrs(win->layoutgad,
             StartMember,SpaceObject,
@@ -1317,7 +1317,7 @@ static BOOL Openwindow(struct Awindow *win)
    }
    SetAttrs(win->layoutgad,
       StartMember,VLayoutObject,
-         LAYOUT_BevelStyle,(buttonrow || (prefs.shownav && (win->flags&WINF_NAVS)))?
+         LAYOUT_BevelStyle,(buttonrow || (prefs.gui.shownav && (win->flags&WINF_NAVS)))?
             BVS_SBAR_VERT:BVS_NONE,
          LAYOUT_SpaceOuter,TRUE,
          StartMember,win->spacegad=SpaceObject,
@@ -1774,7 +1774,7 @@ static struct Awindow *Newwindow(struct Amset *ams)
       win->layoutstyle=0;  /* 0 = Original layout, 1 = Modern layout */
       win->statustime=0;    /* No status shown initially */
       win->screentitletime=0;
-      SETFLAG(win->flags,WINF_CLIPDRAG,prefs.clipdrag);
+      SETFLAG(win->flags,WINF_CLIPDRAG,prefs.program.clipdrag);
       if(portname=Openarexxport(win->key))
       {  win->portname=Dupstr(portname,-1);
       }

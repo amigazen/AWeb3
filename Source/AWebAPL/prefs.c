@@ -79,7 +79,7 @@ static void Jmimetypes(struct Jcontext *jc)
    UBYTE buf[64],namebuf[32];
    UBYTE *p,*q,*name;
    /* First create all MIME types */
-   for(mi=prefs.mimelist.first;mi->next;mi=mi->next)
+   for(mi=prefs.browser.mimelist.first;mi->next;mi=mi->next)
    {  if(jo=Newjobject(jc))
       {  if(jv=Jproperty(jc,jo,"description"))
          {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
@@ -126,7 +126,7 @@ static void Jmimetypes(struct Jcontext *jc)
       Jasgnumber(jc,jv,mlength);
    }
    /* Scan the mime list for plugins. */
-   for(mi=prefs.mimelist.first;mi->next;mi=mi->next)
+   for(mi=prefs.browser.mimelist.first;mi->next;mi=mi->next)
    {  if(mi->driver==MDRIVER_PLUGIN && mi->cmd)
       {  name=mi->cmd+strlen(mi->cmd)-1;
          for(;*name && *name!='/' && *name!=':';name--);
@@ -249,9 +249,9 @@ static BOOL Openfonts(void)
    struct TextAttr ta={0};
    for(j=0;j<2;j++)
    {  for(i=0;i<NRFONTS;i++)
-      {  ta.ta_Name=prefs.font[j][i].fontname;
-         ta.ta_YSize=prefs.font[j][i].fontsize;
-         if(!(prefs.font[j][i].font=OpenDiskFont(&ta)))
+      {  ta.ta_Name=prefs.browser.font[j][i].fontname;
+         ta.ta_YSize=prefs.browser.font[j][i].fontsize;
+         if(!(prefs.browser.font[j][i].font=OpenDiskFont(&ta)))
          {  /* Fallback to bitmap fonts if scalable fonts not available */
             if(j==0)
             {  ta.ta_Name="times.font";
@@ -259,9 +259,9 @@ static BOOL Openfonts(void)
             else
             {  ta.ta_Name="courier.font";
             }
-            if(!(prefs.font[j][i].font=OpenDiskFont(&ta)))
+            if(!(prefs.browser.font[j][i].font=OpenDiskFont(&ta)))
             {  ta.ta_Name="topaz.font";
-               if(!(prefs.font[j][i].font=OpenDiskFont(&ta))) return FALSE;
+               if(!(prefs.browser.font[j][i].font=OpenDiskFont(&ta))) return FALSE;
             }
          }
       }
@@ -310,7 +310,7 @@ static void Installmimetypes(void)
    UBYTE buffer[32];
    UBYTE *p;
    Reinitmime();
-   for(mi=prefs.mimelist.first;mi->next;mi=mi->next)
+   for(mi=prefs.browser.mimelist.first;mi->next;mi=mi->next)
    {  if(*mi->type)
       {  strcpy(buffer,mi->type);
          strcat(buffer,"/");
@@ -333,10 +333,10 @@ static ULONG Changedbrowser(void)
    Loadbrowserprefs(&prefs.browser,FALSE,NULL);
    Busypointer(TRUE);
    for(j=0;j<2;j++)
-   {  pcmd|=Comparefontprefsarray(oldp.font[j],prefs.font[j],TRUE);
+   {  pcmd|=Comparefontprefsarray(oldp.font[j],prefs.browser.font[j],TRUE);
    }
    Busypointer(FALSE);
-   for(fan=prefs.aliaslist.first;fan->next;fan=fan->next)
+   for(fan=prefs.browser.aliaslist.first;fan->next;fan=fan->next)
    {  for(fao=oldp.aliaslist.first;fao->next;fao=fao->next)
       {  if(STRIEQUAL(fan->alias,fao->alias))
          {  pcmd|=Comparefontprefsarray(fao->fp,fan->fp,FALSE);
@@ -347,7 +347,7 @@ static ULONG Changedbrowser(void)
    }
    /* Also check if no alias was deleted */
    for(fao=oldp.aliaslist.first;fao->next;fao=fao->next)
-   {  for(fan=prefs.aliaslist.first;fan->next;fan=fan->next)
+   {  for(fan=prefs.browser.aliaslist.first;fan->next;fan=fan->next)
       {  if(STRIEQUAL(fan->alias,fao->alias)) break;
       }
       if(!fan->next)
@@ -357,32 +357,32 @@ static ULONG Changedbrowser(void)
    }
    for(i=0;i<NRSTYLES;i++)
    {  olds=&oldp.styles[i];
-      news=&prefs.styles[i];
+      news=&prefs.browser.styles[i];
       if(olds->fonttype!=news->fonttype
       || olds->fontsize!=news->fontsize
       || olds->style!=news->style)
          pcmd|=PCMD_BROWSER;
    }
-   if(prefs.ullink!=oldp.ullink) pcmd|=PCMD_BROWSER;
-   if(memcmp(&prefs.newlink,&oldp.newlink,sizeof(prefs.newlink)))
+   if(prefs.browser.ullink!=oldp.ullink) pcmd|=PCMD_BROWSER;
+   if(memcmp(&prefs.browser.newlink,&oldp.newlink,sizeof(prefs.browser.newlink)))
       pcmd|=PCMD_NEWLINKPENS;
-   if(memcmp(&prefs.oldlink,&oldp.oldlink,sizeof(prefs.oldlink)))
+   if(memcmp(&prefs.browser.oldlink,&oldp.oldlink,sizeof(prefs.browser.oldlink)))
       pcmd|=PCMD_NEWLINKPENS;
-   if(memcmp(&prefs.selectlink,&oldp.selectlink,sizeof(prefs.selectlink)))
+   if(memcmp(&prefs.browser.selectlink,&oldp.selectlink,sizeof(prefs.browser.selectlink)))
       pcmd|=PCMD_NEWLINKPENS;
-   if(memcmp(&prefs.background,&oldp.background,sizeof(prefs.background)))
+   if(memcmp(&prefs.browser.background,&oldp.background,sizeof(prefs.browser.background)))
       pcmd|=PCMD_NEWLINKPENS;
-   if(memcmp(&prefs.text,&oldp.text,sizeof(prefs.text)))
+   if(memcmp(&prefs.browser.text,&oldp.text,sizeof(prefs.browser.text)))
       pcmd|=PCMD_NEWLINKPENS;
-   if(prefs.htmlmode!=oldp.htmlmode) pcmd|=PCMD_BROWSER;
-   if(prefs.docolors!=oldp.docolors) pcmd|=PCMD_DOCOLORS;
-   if(prefs.dobgsound!=oldp.dobgsound) pcmd|=PCMD_DOBGSOUND;
-   if(prefs.blinkrate!=oldp.blinkrate) pcmd|=PCMD_BLINKRATE;
-   if(prefs.screenpens!=oldp.screenpens) pcmd|=PCMD_NEWLINKPENS;
-   if(prefs.dojs!=oldp.dojs) pcmd|=PCMD_BROWSER;
-   if(prefs.doframes!=oldp.doframes) pcmd|=PCMD_BROWSER;
-   if(prefs.nominalframe!=oldp.nominalframe) pcmd|=PCMD_BROWSER;
-   for(min=prefs.mimelist.first;min->next && !(pcmd&PCMD_NEWMIME);min=min->next)
+   if(prefs.browser.htmlmode!=oldp.htmlmode) pcmd|=PCMD_BROWSER;
+   if(prefs.browser.docolors!=oldp.docolors) pcmd|=PCMD_DOCOLORS;
+   if(prefs.browser.dobgsound!=oldp.dobgsound) pcmd|=PCMD_DOBGSOUND;
+   if(prefs.browser.blinkrate!=oldp.blinkrate) pcmd|=PCMD_BLINKRATE;
+   if(prefs.browser.screenpens!=oldp.screenpens) pcmd|=PCMD_NEWLINKPENS;
+   if(prefs.browser.dojs!=oldp.dojs) pcmd|=PCMD_BROWSER;
+   if(prefs.browser.doframes!=oldp.doframes) pcmd|=PCMD_BROWSER;
+   if(prefs.browser.nominalframe!=oldp.nominalframe) pcmd|=PCMD_BROWSER;
+   for(min=prefs.browser.mimelist.first;min->next && !(pcmd&PCMD_NEWMIME);min=min->next)
    {  for(mio=oldp.mimelist.first;mio->next;mio=mio->next)
       {  if(STRIEQUAL(min->type,mio->type) && STRIEQUAL(min->subtype,mio->subtype))
          {  if((min->driver==MDRIVER_PLUGIN || mio->driver==MDRIVER_PLUGIN)
@@ -410,22 +410,22 @@ static ULONG Changedprogram(void)
    ULONG pcmd=0;
    Copyprogramprefs(&prefs.program,&oldp);
    Loadprogramprefs(&prefs.program,FALSE,NULL);
-   if(prefs.screentype!=oldp.screentype) pcmd|=PCMD_NEWSCREEN;
-   if(prefs.screentype==SCRTYPE_NAMED)
-   {  if(!STREQUAL(prefs.screenname,oldp.screenname)) pcmd|=PCMD_NEWSCREEN;
+   if(prefs.program.screentype!=oldp.screentype) pcmd|=PCMD_NEWSCREEN;
+   if(prefs.program.screentype==SCRTYPE_NAMED)
+   {  if(!STREQUAL(prefs.program.screenname,oldp.screenname)) pcmd|=PCMD_NEWSCREEN;
    }
-   if(prefs.screentype==SCRTYPE_OWN)
-   {  if(prefs.screenmode!=oldp.screenmode
-      || prefs.screenwidth!=oldp.screenwidth
-      || prefs.screenheight!=oldp.screenheight
-      || prefs.screendepth!=oldp.screendepth
-      || prefs.loadpalette!=oldp.loadpalette) pcmd|=PCMD_NEWSCREEN;
+   if(prefs.program.screentype==SCRTYPE_OWN)
+   {  if(prefs.program.screenmode!=oldp.screenmode
+      || prefs.program.screenwidth!=oldp.screenwidth
+      || prefs.program.screenheight!=oldp.screenheight
+      || prefs.program.screendepth!=oldp.screendepth
+      || prefs.program.loadpalette!=oldp.loadpalette) pcmd|=PCMD_NEWSCREEN;
    }
-   if(prefs.screentype==SCRTYPE_OWN
-   && memcmp(prefs.scrdrawpens,oldp.scrdrawpens,sizeof(prefs.scrdrawpens)))
+   if(prefs.program.screentype==SCRTYPE_OWN
+   && memcmp(prefs.program.scrdrawpens,oldp.scrdrawpens,sizeof(prefs.program.scrdrawpens)))
       pcmd|=PCMD_NEWSCREEN;
-   if(!STRIEQUAL(prefs.savepath,oldp.savepath)) pcmd|=PCMD_NEWSAVEPATH;
-   if(prefs.overlap!=oldp.overlap) pcmd|=PCMD_OVERLAP;
+   if(!STRIEQUAL(prefs.program.savepath,oldp.savepath)) pcmd|=PCMD_NEWSAVEPATH;
+   if(prefs.program.overlap!=oldp.overlap) pcmd|=PCMD_OVERLAP;
    Disposeprogramprefs(&oldp);
    return pcmd;
 }
@@ -442,18 +442,18 @@ static ULONG Changedgui(void)
    /* Delete all existing definitions, so "no entry" in the config file won't
     * leave the exiting definitions */
 #ifndef DEMOVERSION
-   while(me=REMHEAD(&prefs.menus)) Freemenuentry(me);
-   while(uk=REMHEAD(&prefs.keys)) Freeuserkey(uk);
+   while(me=REMHEAD(&prefs.gui.menus)) Freemenuentry(me);
+   while(uk=REMHEAD(&prefs.gui.keys)) Freeuserkey(uk);
 #endif
-   while(ub=REMHEAD(&prefs.buttons)) Freeuserbutton(ub);
+   while(ub=REMHEAD(&prefs.gui.buttons)) Freeuserbutton(ub);
    for(i=0;i<NRPOPUPMENUS;i++)
-   {  while(pi=REMHEAD(&prefs.popupmenu[i])) Freepopupitem(pi);
+   {  while(pi=REMHEAD(&prefs.gui.popupmenu[i])) Freepopupitem(pi);
    }
    Loadguiprefs(&prefs.gui,FALSE,NULL);
-   if(prefs.showbuttons!=oldp.showbuttons) pcmd|=PCMD_SHOWBUTTONS;
-   if(prefs.shownav!=oldp.shownav) pcmd|=PCMD_SHOWBUTTONS;
+   if(prefs.gui.showbuttons!=oldp.showbuttons) pcmd|=PCMD_SHOWBUTTONS;
+   if(prefs.gui.shownav!=oldp.shownav) pcmd|=PCMD_SHOWBUTTONS;
 /*
-   for(me=oldp.menus.first,mf=prefs.menus.first;
+   for(me=oldp.menus.first,mf=prefs.gui.menus.first;
       me->next && mf->next;me=me->next,mf=mf->next)
    {  if(me->type!=mf->type
       || !STREQUAL(me->title,mf->title)
@@ -462,7 +462,7 @@ static ULONG Changedgui(void)
    if(me->next || mf->next) pcmd|=PCMD_NEWMENUS;   /* old and new menus are different */
 */
    pcmd|=PCMD_NEWMENUS; /* Always rebuild the menus and the menunums */
-   for(ub=oldp.buttons.first,uc=prefs.buttons.first;
+   for(ub=oldp.buttons.first,uc=prefs.gui.buttons.first;
       ub->next && uc->next;ub=ub->next,uc=uc->next)
    {  if(!STREQUAL(ub->label,uc->label)) break;
    }
@@ -477,16 +477,16 @@ static ULONG Changednetwork(void)
    Copynetworkprefs(&prefs.network,&oldp);
    Disposenetworkprefs(&prefs.network);
    Loadnetworkprefs(&prefs.network,FALSE,NULL);
-   if(prefs.loadimg!=oldp.loadimg) pcmd|=PCMD_LOADIMG;
-   if(prefs.camemsize<oldp.camemsize) pcmd|=PCMD_CACHE;
-   if(prefs.cadisksize<oldp.cadisksize) pcmd|=PCMD_CACHE;
-   if(prefs.minfreechip<oldp.minfreechip) pcmd|=PCMD_CACHE;
-   if(prefs.minfreefast<oldp.minfreefast) pcmd|=PCMD_CACHE;
-   if(prefs.contanim!=oldp.contanim) pcmd|=PCMD_CONTANIM;
-   if(prefs.restrictimages!=oldp.restrictimages) pcmd|=PCMD_LOADIMG;
-   Makepatterns(&prefs.nocookie);
-   Makepatterns(&prefs.noproxy);
-   Makepatterns(&prefs.nocache);
+   if(prefs.network.loadimg!=oldp.loadimg) pcmd|=PCMD_LOADIMG;
+   if(prefs.network.camemsize<oldp.camemsize) pcmd|=PCMD_CACHE;
+   if(prefs.network.cadisksize<oldp.cadisksize) pcmd|=PCMD_CACHE;
+   if(prefs.network.minfreechip<oldp.minfreechip) pcmd|=PCMD_CACHE;
+   if(prefs.network.minfreefast<oldp.minfreefast) pcmd|=PCMD_CACHE;
+   if(prefs.network.contanim!=oldp.contanim) pcmd|=PCMD_CONTANIM;
+   if(prefs.network.restrictimages!=oldp.restrictimages) pcmd|=PCMD_LOADIMG;
+   Makepatterns(&prefs.network.nocookie);
+   Makepatterns(&prefs.network.noproxy);
+   Makepatterns(&prefs.network.nocache);
    Disposenetworkprefs(&oldp);
    return pcmd;
 }
@@ -563,9 +563,9 @@ BOOL Initprefs(void)
    Loadnetworkprefs(&prefs.network,FALSE,NULL);
    Loadwindowprefs(&prefs.window,TRUE,NULL);
    Installmimetypes();
-   Makepatterns(&prefs.nocookie);
-   Makepatterns(&prefs.noproxy);
-   Makepatterns(&prefs.nocache);
+   Makepatterns(&prefs.network.nocookie);
+   Makepatterns(&prefs.network.noproxy);
+   Makepatterns(&prefs.network.nocache);
    if(!(notifyport=CreateMsgPort())) return FALSE;
    if(*configname)
    {  AddPart(nfname,configname,64);
@@ -696,27 +696,27 @@ void Snapshotwindows(void *window)
       AOWIN_Zoombox,&zoombox,
       TAG_END);
    if(box)
-   {  prefs.winx=box->Left;
-      prefs.winy=box->Top;
-      prefs.winw=box->Width;
-      prefs.winh=box->Height;
+   {  prefs.window.winx=box->Left;
+      prefs.window.winy=box->Top;
+      prefs.window.winw=box->Width;
+      prefs.window.winh=box->Height;
    }
    if(zoombox)
-   {  prefs.wiax=zoombox->Left;
-      prefs.wiay=zoombox->Top;
-      prefs.wiaw=zoombox->Width;
-      prefs.wiah=zoombox->Height;
+   {  prefs.window.wiax=zoombox->Left;
+      prefs.window.wiay=zoombox->Top;
+      prefs.window.wiaw=zoombox->Width;
+      prefs.window.wiah=zoombox->Height;
    }
-   Getnetstatdim(&prefs.nwsx,&prefs.nwsy,&prefs.nwsw,&prefs.nwsh);
-   Getinfodim(&prefs.infx,&prefs.infy,&prefs.infw,&prefs.infh);
+   Getnetstatdim(&prefs.window.nwsx,&prefs.window.nwsy,&prefs.window.nwsw,&prefs.window.nwsh);
+   Getinfodim(&prefs.window.infx,&prefs.window.infy,&prefs.window.infw,&prefs.window.infh);
    Savewindowprefs(&prefs.window,TRUE,NULL);
    ReleaseSemaphore(&prefssema);
 }
 
 void Prefsloadimg(long loadimg)
 {  ObtainSemaphore(&prefssema);
-   if(loadimg!=prefs.loadimg)
-   {  prefs.loadimg=loadimg;
+   if(loadimg!=prefs.network.loadimg)
+   {  prefs.network.loadimg=loadimg;
       Savenetworkprefs(&prefs.network,FALSE,NULL);
       Setloadimg();
    }
@@ -725,8 +725,8 @@ void Prefsloadimg(long loadimg)
 
 void Prefsdocolors(BOOL docolors)
 {  ObtainSemaphore(&prefssema);
-   if(docolors!=prefs.docolors)
-   {  prefs.docolors=docolors;
+   if(docolors!=prefs.browser.docolors)
+   {  prefs.browser.docolors=docolors;
       Savebrowserprefs(&prefs.browser,FALSE,NULL);
       Setdocolors();
    }
@@ -735,8 +735,8 @@ void Prefsdocolors(BOOL docolors)
 
 void Prefsdobgsound(BOOL dobgsound)
 {  ObtainSemaphore(&prefssema);
-   if(dobgsound!=prefs.dobgsound)
-   {  prefs.dobgsound=dobgsound;
+   if(dobgsound!=prefs.browser.dobgsound)
+   {  prefs.browser.dobgsound=dobgsound;
       Savebrowserprefs(&prefs.browser,FALSE,NULL);
       Setdobgsound();
    }
@@ -817,14 +817,14 @@ void Addtonocookie(UBYTE *name)
    BOOL found=FALSE;
    long len;
    ObtainSemaphore(&prefssema);
-   for(nc=prefs.nocookie.first;nc->next;nc=nc->next)
+   for(nc=prefs.network.nocookie.first;nc->next;nc=nc->next)
    {  if(STRIEQUAL(nc->name,name))
       {  found=TRUE;
          break;
       }
    }
    if(!found)
-   {  nc=Addnocookie(&prefs.nocookie,name);
+   {  nc=Addnocookie(&prefs.network.nocookie,name);
       len=2*strlen(nc->name)+4;
       nc->pattern=ALLOCTYPE(UBYTE,len,0);
       if(nc->pattern)
@@ -927,7 +927,7 @@ static struct TextFont *Tryopenfontdirect(UBYTE *name,short fontsize,UBYTE *used
    return font;
 }
 
-struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
+struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fixed)
 {  struct Fontalias *fa;
    struct Namebreak nbf,nba;
    struct TextFont *directfont;
@@ -938,7 +938,7 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
     * This ensures consistent point size usage throughout the font selection process.
     * The size parameter corresponds to HTML font sizes 1-7 (mapped to indices 0-6).
     */
-   fontsize=prefs.font[fixed?1:0][size].fontsize;
+   fontsize=pr->browser.font[fixed?1:0][size].fontsize;
    /* First pass: try to open fonts directly by name from the system.
     * Use the default preference font size for consistency with the size index.
     */
@@ -953,7 +953,7 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
          if(!(fixed && (directfont->tf_Flags&FPF_PROPORTIONAL)))
          {  /* Font opened successfully and is appropriate */
             /* Add to alias list dynamically so it can be reused */
-            fa=Addfontalias(&prefs.aliaslist,nbf.buffer);
+            fa=Addfontalias(&pr->browser.aliaslist,nbf.buffer);
             if(fa)
             {  if(!fa->fp[size].font)
                {  fa->fp[size].fontname=Dupstr(actualfontname,-1);
@@ -980,7 +980,7 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
    /* Second pass: check alias list */
    nbf.list=nbf.current=face;
    while(Nextname(&nbf))
-   {  for(fa=prefs.aliaslist.first;fa->next;fa=fa->next)
+   {  for(fa=pr->browser.aliaslist.first;fa->next;fa=fa->next)
       {  nba.list=nba.current=fa->alias;
          while(Nextname(&nba))
          {  if(STRIEQUAL(nbf.buffer,nba.buffer))
@@ -1008,12 +1008,12 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
    {  /* Map generic families to appropriate default fonts */
       if(STRIEQUAL(genericfamily,"serif"))
       {  /* Use default serif font (normal, not fixed) */
-         return &prefs.font[0][size];
+         return &pr->browser.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"sans-serif"))
       {  /* For sans-serif, try to find a sans-serif alias (e.g., "Arial,Helvetica,sans-serif") */
          /* Check alias list for sans-serif fonts */
-         for(fa=prefs.aliaslist.first;fa->next;fa=fa->next)
+         for(fa=pr->browser.aliaslist.first;fa->next;fa=fa->next)
          {  nba.list=nba.current=fa->alias;
             while(Nextname(&nba))
             {  if(STRIEQUAL(nba.buffer,"sans-serif") || STRIEQUAL(nba.buffer,"Arial") || STRIEQUAL(nba.buffer,"Helvetica"))
@@ -1031,7 +1031,7 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
          directfont=Tryopenfontdirect((UBYTE *)"CGTriumvirate",fontsize,actualfontname,sizeof(actualfontname));
          if(directfont)
          {  if(!(fixed && (directfont->tf_Flags&FPF_PROPORTIONAL)))
-            {  fa=Addfontalias(&prefs.aliaslist,(UBYTE *)"CGTriumvirate");
+            {  fa=Addfontalias(&pr->browser.aliaslist,(UBYTE *)"CGTriumvirate");
                if(fa)
                {  if(!fa->fp[size].font)
                   {  fa->fp[size].fontname=Dupstr(actualfontname,-1);
@@ -1052,21 +1052,27 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
             }
          }
          /* Final fallback: use default font (may be serif, but better than nothing) */
-         return &prefs.font[0][size];
+         return &pr->browser.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"monospace"))
       {  /* Use default monospace font (fixed) */
-         return &prefs.font[1][size];
+         return &pr->browser.font[1][size];
       }
       else if(STRIEQUAL(genericfamily,"cursive"))
       {  /* Use default serif font for cursive */
-         return &prefs.font[0][size];
+         return &pr->browser.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"fantasy"))
       {  /* Use default sans-serif font for fantasy */
-         return &prefs.font[0][size];
+         return &pr->browser.font[0][size];
       }
+
    }
    /* Final fallback: use default preference font for type */
-   return &prefs.font[fixed?1:0][size];
+   return &pr->browser.font[fixed?1:0][size];
+}
+
+struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
+{
+   return Matchfontprefs(&prefs,face,size,fixed);
 }

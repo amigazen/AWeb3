@@ -83,16 +83,16 @@ static long Updatecabrwindow(struct Cabrwindow *cbw,struct Amset *ams)
             if(tag->ti_Data) close=TRUE;
             break;
          case AOCBR_Dimx:
-            prefs.cabrx=cbw->x=tag->ti_Data;
+            prefs.window.cabrx=cbw->x=tag->ti_Data;
             break;
          case AOCBR_Dimy:
-            prefs.cabry=cbw->y=tag->ti_Data;
+            prefs.window.cabry=cbw->y=tag->ti_Data;
             break;
          case AOCBR_Dimw:
-            prefs.cabrw=cbw->w=tag->ti_Data;
+            prefs.window.cabrw=cbw->w=tag->ti_Data;
             break;
          case AOCBR_Dimh:
-            prefs.cabrh=cbw->h=tag->ti_Data;
+            prefs.window.cabrh=cbw->h=tag->ti_Data;
             break;
 #ifndef DEMOVERSION
          case AOCBR_Open:
@@ -151,11 +151,11 @@ static struct Cabrwindow *Newcabrwindow(struct Amset *ams)
       {  cbw->cachesema=&cachesema;
          cbw->cache=&cache;
          cbw->cfnameshort=Cfnameshort;
-         cbw->x=prefs.cabrx;
-         cbw->y=prefs.cabry;
-         cbw->w=prefs.cabrw;
-         cbw->h=prefs.cabrh;
-         cbw->disksize=prefs.cadisksize;
+         cbw->x=prefs.window.cabrx;
+         cbw->y=prefs.window.cabry;
+         cbw->w=prefs.window.cabrw;
+         cbw->h=prefs.window.cabrh;
+         cbw->disksize=prefs.network.cadisksize;
          cbw->currentsize=cadisksize;
          cbw->screenname=(UBYTE *)Agetattr(Aweb(),AOAPP_Screenname);
          if(!Starttask(cbw))

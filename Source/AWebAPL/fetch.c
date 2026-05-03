@@ -257,7 +257,7 @@ static void Channelheader(struct Fetchdriver *fd,UBYTE *header)
          TAG_END);
    }
    else if(STRNIEQUAL(header,"Content-Type:",13))
-   {  if(!prefs.ignoremime)
+   {  if(!prefs.network.ignoremime)
       {  UBYTE *p,*q;
          for(p=header+13;*p && isspace(*p);p++);
          q=strchr(p,';');
@@ -269,7 +269,7 @@ static void Channelheader(struct Fetchdriver *fd,UBYTE *header)
       }
    }
    else if(STRNIEQUAL(header,"Set-Cookie:",11))
-   {  if(prefs.cookies)
+   {  if(prefs.network.cookies)
       {  Storecookie(fd->name,header+11,fd->serverdate);
       }
    }
@@ -347,7 +347,7 @@ static BOOL Isinlist(LIST(Nocache) *list,UBYTE *name)
    p=strstr(name,"://");
    if(p) p+=3;
    else p=name;
-   if((*p=='/' || STRNIEQUAL(p,"localhost",9)) && !prefs.cachelocalhost) result=TRUE;
+   if((*p=='/' || STRNIEQUAL(p,"localhost",9)) && !prefs.network.cachelocalhost) result=TRUE;
    else
    {  q=strchr(p,'/');
       plen=strlen(p);
@@ -399,8 +399,8 @@ static BOOL Dostartdriver(struct Fetch *fch)
                   (char *)Agetattr(fch->url,AOURL_Url),
                   (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
                   (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
-                  (long)nrnet,(long)prefs.maxconnect,
-                  (long)nrlocal,(long)prefs.maxdiskread);
+                  (long)nrnet,(long)prefs.network.maxconnect,
+                  (long)nrlocal,(long)prefs.network.maxdiskread);
             }
          }
       }
@@ -473,14 +473,14 @@ static void Checkqueues(struct Fetch *tfch)
       if(tfch->flags&FCHF_LOCALSLOT) nrlocal--;
       tfch->flags&=~FCHF_USESLOT;
    }
-   while(nrnet<prefs.maxconnect && (fch=REMHEAD(&netqueue)))
+   while(nrnet<prefs.network.maxconnect && (fch=REMHEAD(&netqueue)))
    {  ADDTAIL(&running,fch);
       fch->flags&=~FCHF_QUEUED;
       {  extern BOOL httpdebug;
          if(httpdebug)
          {  printf("[FETCH] Checkqueues: DEQUEUE-NET url=%s nrnet=%ld/%ld\n",
                fch->name? (char *)fch->name : "(null)",
-               (long)nrnet,(long)prefs.maxconnect);
+               (long)nrnet,(long)prefs.network.maxconnect);
          }
       }
       if(!Dostartdriver(fch))
@@ -490,14 +490,14 @@ static void Checkqueues(struct Fetch *tfch)
          Adisposeobject(fch);
       }
    }
-   while(nrlocal<prefs.maxdiskread && (fch=REMHEAD(&localqueue)))
+   while(nrlocal<prefs.network.maxdiskread && (fch=REMHEAD(&localqueue)))
    {  ADDTAIL(&running,fch);
       fch->flags&=~FCHF_QUEUED;
       {  extern BOOL httpdebug;
          if(httpdebug)
          {  printf("[FETCH] Checkqueues: DEQUEUE-LOCAL url=%s nrlocal=%ld/%ld\n",
                fch->name? (char *)fch->name : "(null)",
-               (long)nrlocal,(long)prefs.maxdiskread);
+               (long)nrlocal,(long)prefs.network.maxdiskread);
          }
       }
       if(!Dostartdriver(fch))
@@ -579,8 +579,8 @@ static void Driverfunction(struct Fetch *fch)
    {  /* Use original bsdsocket-based implementation */
       fch->driverfun=Httptask;
       fch->fd->name=fch->name;
-      if(prefs.httpproxy && !(fch->flags&FCHF_NOPROXY))
-      {  Setproxy(fch->fd,prefs.httpproxy);
+      if(prefs.network.httpproxy && !(fch->flags&FCHF_NOPROXY))
+      {  Setproxy(fch->fd,prefs.network.httpproxy);
       }
       fch->flags|=FCHF_NETSLOT;
    }
@@ -589,17 +589,17 @@ static void Driverfunction(struct Fetch *fch)
       fch->driverfun=Httptask;
       fch->fd->name=fch->name;
       fch->fd->flags|=FDVF_SSL;
-      if(prefs.httpproxy && !(fch->flags&FCHF_NOPROXY))
-      {  Setproxy(fch->fd,prefs.httpproxy);
+      if(prefs.network.httpproxy && !(fch->flags&FCHF_NOPROXY))
+      {  Setproxy(fch->fd,prefs.network.httpproxy);
       }
       fch->flags|=FCHF_NETSLOT;
    }
    else if(STRNIEQUAL(fch->name,"FTPS://",7))
    {  /* FTPS (FTP over TLS) - use SSL */
-      if(prefs.ftpproxy && !(fch->flags&FCHF_NOPROXY))
+      if(prefs.network.ftpproxy && !(fch->flags&FCHF_NOPROXY))
       {  fch->driverfun=Httptask;
          fch->fd->name=fch->name;
-         Setproxy(fch->fd,prefs.ftpproxy);
+         Setproxy(fch->fd,prefs.network.ftpproxy);
          fch->flags|=FCHF_NETSLOT;
       }
       else if(fch->fdbase=Openaweblib("AWeb:aweblib/ftp.aweblib"))
@@ -615,10 +615,10 @@ static void Driverfunction(struct Fetch *fch)
       }
    }
    else if(STRNIEQUAL(fch->name,"FTP://",6))
-   {  if(prefs.ftpproxy && !(fch->flags&FCHF_NOPROXY))
+   {  if(prefs.network.ftpproxy && !(fch->flags&FCHF_NOPROXY))
       {  fch->driverfun=Httptask;
          fch->fd->name=fch->name;
-         Setproxy(fch->fd,prefs.ftpproxy);
+         Setproxy(fch->fd,prefs.network.ftpproxy);
          fch->flags|=FCHF_NETSLOT;
       }
       else if(fch->fdbase=Openaweblib("AWeb:aweblib/ftp.aweblib"))
@@ -677,9 +677,9 @@ static void Driverfunction(struct Fetch *fch)
       fch->fd->validate=MSG_EPART_ADDRSCHEME;
    }
    else if(STRNIEQUAL(fch->name,"MAILTO:",7))
-   {  if(prefs.extmailer && prefs.mailtocmd)
-      {  Spawn(FALSE,prefs.mailtocmd,
-            prefs.mailtoargs?prefs.mailtoargs:NULLSTRING,
+   {  if(prefs.network.extmailer && prefs.network.mailtocmd)
+      {  Spawn(FALSE,prefs.network.mailtocmd,
+            prefs.network.mailtoargs?prefs.network.mailtoargs:NULLSTRING,
             "en",
             Unescape(fch->name+7),Agetattr(Aweb(),AOAPP_Screenname));
       }
@@ -742,7 +742,7 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->name=upath+9;
       else fch->fd->name=upath;
       fch->flags|=FCHF_LOCALSLOT;
-      if(!prefs.cachelocalhost)
+      if(!prefs.network.cachelocalhost)
       {  Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
       }
    }
@@ -750,7 +750,7 @@ static void Driverfunction(struct Fetch *fch)
    {  struct Jcontext *jc;
       struct Jvar *jv;
       UBYTE *result;
-      if(prefs.dojs && Openjslib())
+      if(prefs.browser.dojs && Openjslib())
       {  Runjavascript(fch->jframe,Unescape(fch->name+11),NULL);
          jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
          if(jv=Jgetreturnvalue(jc))
@@ -884,19 +884,19 @@ static BOOL Startdriver(struct Fetch *fch)
    && !STRNIEQUAL(fch->name,"CID:",4))
    {  if(STRNIEQUAL(fch->fd->referer,"FILE://",7)
       || STRNIEQUAL(fch->fd->referer,"X-AWEB:",7)) fch->fd->referer=NULL;
-      if(!prefs.referer) fch->fd->referer=NULL;
+      if(!prefs.network.referer) fch->fd->referer=NULL;
    }
    /* Don't proxy if limited proxy usage and it's a POST, or
     * if it is in the noproxy list. */
-   if(prefs.limitproxy)
+   if(prefs.network.limitproxy)
    {  if(fch->postmsg || fch->mpd)
       {  fch->flags|=FCHF_NOPROXY;
       }
    }
-   if(Isinlist(&prefs.noproxy,fch->name))
+   if(Isinlist(&prefs.network.noproxy,fch->name))
    {  fch->flags|=FCHF_NOPROXY;
    }
-   if(Isinlist(&prefs.nocache,fch->name))
+   if(Isinlist(&prefs.network.nocache,fch->name))
    {  Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
    }
    Driverfunction(fch);
@@ -908,11 +908,11 @@ static BOOL Startdriver(struct Fetch *fch)
          fch->driverfun,
          (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
          (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
-         (long)nrnet,(long)prefs.maxconnect,
-         (long)nrlocal,(long)prefs.maxdiskread);
+         (long)nrnet,(long)prefs.network.maxconnect,
+         (long)nrlocal,(long)prefs.network.maxdiskread);
    }
    if(fch->driverfun)
-   {  if((fch->flags&FCHF_LOCALSLOT) && nrlocal>=prefs.maxdiskread)
+   {  if((fch->flags&FCHF_LOCALSLOT) && nrlocal>=prefs.network.maxdiskread)
       {  REMOVE(fch);
          Addtoqueue(&localqueue,fch);
          fch->flags|=FCHF_QUEUED;
@@ -921,11 +921,11 @@ static BOOL Startdriver(struct Fetch *fch)
          if(httpdebug)
          {  printf("[FETCH] Startdriver: QUEUED-LOCAL url=%s nrlocal=%ld/%ld\n",
                fch->name? (char *)fch->name : "(null)",
-               (long)nrlocal,(long)prefs.maxdiskread);
+               (long)nrlocal,(long)prefs.network.maxdiskread);
          }
          result=TRUE;
       }
-      else if((fch->flags&FCHF_NETSLOT) && nrnet>=prefs.maxconnect)
+      else if((fch->flags&FCHF_NETSLOT) && nrnet>=prefs.network.maxconnect)
       {  REMOVE(fch);
          Addtoqueue(&netqueue,fch);
          fch->flags|=FCHF_QUEUED;
@@ -934,7 +934,7 @@ static BOOL Startdriver(struct Fetch *fch)
          if(httpdebug)
          {  printf("[FETCH] Startdriver: QUEUED-NET url=%s nrnet=%ld/%ld\n",
                fch->name? (char *)fch->name : "(null)",
-               (long)nrnet,(long)prefs.maxconnect);
+               (long)nrnet,(long)prefs.network.maxconnect);
          }
          result=TRUE;
       }

@@ -153,7 +153,7 @@ static BOOL Cmdwarnok(UBYTE *cmd,BOOL arexx)
 static void Docommand(struct Fetchdriver *fd,UBYTE *cmd,BOOL arexx)
 {  BOOL commands;
    ObtainSemaphore(&prefssema);
-   commands=prefs.commands || (fd->flags&FDVF_COMMANDS);
+   commands=prefs.program.commands || (fd->flags&FDVF_COMMANDS);
    ReleaseSemaphore(&prefssema);
 //if(!fd->referer) fd->referer="file://";
    if(fd->referer

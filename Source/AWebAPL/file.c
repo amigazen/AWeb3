@@ -57,7 +57,7 @@ static UBYTE *Makefilename(UBYTE *ext,BOOL pipe)
    long len,num;
    ObtainSemaphore(&filesema);
    if(pipe) path="PIPE:";
-   else path=prefs.temppath;
+   else path=prefs.program.temppath;
    len=strlen(path)+16;
    if(ext && *ext) len+=strlen(ext)+1;
    if(name=ALLOCTYPE(UBYTE,len,MEMF_PUBLIC))
@@ -78,7 +78,7 @@ static void Saveiconfile(struct File *fil)
 {  
 #ifndef DEMOVERSION
    struct DiskObject *dob;
-   if(prefs.saveicons && fil->icontype)
+   if(prefs.program.saveicons && fil->icontype)
    {  /* Use GetDiskObjectNew() which queries DefIcons if running,
         * providing file-type-specific default icons */
       if(dob=GetDiskObjectNew(fil->name))

@@ -293,7 +293,7 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
             win->hitobject=amhr.object;
             win->jonmouse=amhr.jonmouse;
             SETFLAG(win->window->Flags,WFLG_RMBTRAP,
-               (prefs.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
+               (prefs.gui.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
             /* Set context menu pointer if popup is available and popup key is active */
             if((result&AMHR_POPUP) && (hitflags&AMHF_POPUP) && !amhr.ptrtype)
             {  Setawinpointer(win,APTR_CONTEXTMENU);
@@ -305,7 +305,7 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
             break;
          case AMHR_OLDHIT:
             SETFLAG(win->window->Flags,WFLG_RMBTRAP,
-               (prefs.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
+               (prefs.gui.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
             Tooltipmove(x+win->window->LeftEdge,y+win->window->TopEdge);
             break;
          default:
@@ -323,7 +323,7 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
             win->hitobject=NULL;
             win->jonmouse=NULL;
             SETFLAG(win->window->Flags,WFLG_RMBTRAP,
-               (prefs.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
+               (prefs.gui.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
             Setawinpointer(win,APTR_DEFAULT);
             Tooltip(amhr.tooltip,x+win->window->LeftEdge,y+win->window->TopEdge);
             break;
@@ -549,7 +549,7 @@ static void Followurlsmart(struct Awindow *win,UBYTE *urlname,UBYTE *id)
    Followurlname(win,urlname,id);
 #else
 #ifndef DEMOVERSION
-   if(prefs.autosearch && *prefs.searchurl && *urlname
+   if(prefs.network.autosearch && *prefs.network.searchurl && *urlname
    && !strchr(urlname,':') && !strchr(urlname,'.') && !strchr(urlname,'/'))
    {  struct Buffer argbuf={0};
       UBYTE *urlbuf;
@@ -557,9 +557,9 @@ static void Followurlsmart(struct Awindow *win,UBYTE *urlname,UBYTE *id)
       void *url,*referer;
       ULONG loadflags=0;
       Urlencode(&argbuf,urlname,strlen(urlname));
-      len=Pformatlength(prefs.searchurl,"s",&argbuf.buffer)+4;
+      len=Pformatlength(prefs.network.searchurl,"s",&argbuf.buffer)+4;
       if(urlbuf=ALLOCTYPE(UBYTE,len,0))
-      {  Pformat(urlbuf,prefs.searchurl,"s",&argbuf.buffer,FALSE);
+      {  Pformat(urlbuf,prefs.network.searchurl,"s",&argbuf.buffer,FALSE);
          /* Start the load already with referer to allow arexx scripts */
          url=Findurl(NULL,urlbuf,0);
          referer=Findurl(NULL,"x-aweb:",0);
@@ -600,7 +600,7 @@ static void Douserbutton(struct Awindow *win,short nr)
 {  struct Userbutton *ub;
    void *url;
    UBYTE *id,*title;
-   for(ub=prefs.buttons.first;ub->next && nr;ub=ub->next,nr--);
+   for(ub=prefs.gui.buttons.first;ub->next && nr;ub=ub->next,nr--);
    if(ub->next)
    {  url=(void *)Agetattr(win->whis,AOWHS_Url);
       if(id=Rexxframeid(win->focus?win->focus:win->frame))
@@ -621,7 +621,7 @@ static void Douserkey(struct Awindow *win,USHORT key)
 {  struct Userkey *uk;
    void *url;
    UBYTE *id,*title;
-   uk=Finduserkey(&prefs.keys,key);
+   uk=Finduserkey(&prefs.gui.keys,key);
    if(uk)
    {  url=(void *)Agetattr(win->whis,AOWHS_Url);
       if(id=Rexxframeid(win->focus?win->focus:win->frame))
@@ -655,15 +655,15 @@ static void Donavbutton(struct Awindow *win,short nr)
       {  /* Reload button acts as cancel when network transfer is in progress - user clicked button */
          cmd="CANCEL";
       }
-      else if(prefs.navs[nr].cmd)
-      {  cmd=prefs.navs[nr].cmd;
+      else if(prefs.gui.navs[nr].cmd)
+      {  cmd=prefs.gui.navs[nr].cmd;
       }
       else
       {  return;
       }
    }
-   else if(prefs.navs[nr].cmd)
-   {  cmd=prefs.navs[nr].cmd;
+   else if(prefs.gui.navs[nr].cmd)
+   {  cmd=prefs.gui.navs[nr].cmd;
    }
    else
    {  return;
@@ -691,22 +691,22 @@ static void Scrollframe(struct Awindow *win,void *focus,long top,long left)
    if(win->cmd&CMD_RIGHT) left+=8;
    if(win->cmd&CMD_PAGEUP)
    {  long h=Agetattr(focus,AOFRM_Innerheight);
-      if(h>prefs.overlap) top-=h-prefs.overlap;
+      if(h>prefs.program.overlap) top-=h-prefs.program.overlap;
       else top-=h;
    }
    if(win->cmd&CMD_PAGEDOWN)
    {  long h=Agetattr(focus,AOFRM_Innerheight);
-      if(h>prefs.overlap) top+=h-prefs.overlap;
+      if(h>prefs.program.overlap) top+=h-prefs.program.overlap;
       else top+=h;
    }
    if(win->cmd&CMD_PAGELEFT)
    {  long w=Agetattr(focus,AOFRM_Innerwidth);
-      if(w>prefs.overlap) left-=w-prefs.overlap;
+      if(w>prefs.program.overlap) left-=w-prefs.program.overlap;
       else left-=w;
    }
    if(win->cmd&CMD_PAGERIGHT)
    {  long w=Agetattr(focus,AOFRM_Innerwidth);
-      if(w>prefs.overlap) left+=w-prefs.overlap;
+      if(w>prefs.program.overlap) left+=w-prefs.program.overlap;
       else left+=w;
    }
    if(win->cmd&CMD_HOME) top=0;
@@ -904,13 +904,13 @@ void Processwindow(void)
       else process=TRUE;
       if(process)
       {  hitflags=0;
-         if(msg->Qualifier&prefs.popupkey) hitflags|=AMHF_POPUP;
+         if(msg->Qualifier&prefs.gui.popupkey) hitflags|=AMHF_POPUP;
          else if(msg->Qualifier&(IEQUALIFIER_LSHIFT|IEQUALIFIER_RSHIFT)) hitflags|=AMHF_DOWNLOAD;
          if(msg->Class==IDCMP_MOUSEBUTTONS && (msg->Code&IECODE_UP_PREFIX))
-         {  if((prefs.popupkey&IEQUALIFIER_RBUTTON) && msg->Code==MENUUP)
+         {  if((prefs.gui.popupkey&IEQUALIFIER_RBUTTON) && msg->Code==MENUUP)
             {  hitflags|=AMHF_POPUPREL;
             }
-            else if((prefs.popupkey&IEQUALIFIER_MIDBUTTON) && msg->Code==MIDDLEUP)
+            else if((prefs.gui.popupkey&IEQUALIFIER_MIDBUTTON) && msg->Code==MIDDLEUP)
             {  hitflags|=AMHF_POPUPREL;
             }
             else if((hitflags&AMHF_POPUP) && msg->Code==SELECTUP)
@@ -1069,8 +1069,8 @@ void Processwindow(void)
                }
                else
                {  if(msg->Code==SELECTDOWN
-                  || ((prefs.popupkey&IEQUALIFIER_RBUTTON) && msg->Code==MENUDOWN)
-                  || ((prefs.popupkey&IEQUALIFIER_MIDBUTTON) && msg->Code==MIDDLEDOWN))
+                  || ((prefs.gui.popupkey&IEQUALIFIER_RBUTTON) && msg->Code==MENUDOWN)
+                  || ((prefs.gui.popupkey&IEQUALIFIER_MIDBUTTON) && msg->Code==MIDDLEDOWN))
                   {  Activatelink(win,msg,hitflags);
                   }
                }
@@ -1164,14 +1164,14 @@ void Setloadimg(void)
    ULONG mid=(ULONG)~0;
    UBYTE *mids[3]={ "@LOADIMGALL","@LOADIMGMAPS","@LOADIMGOFF" };
    short i;
-   switch(prefs.loadimg)
+   switch(prefs.network.loadimg)
    {  case LOADIMG_ALL: mid=0;break;
       case LOADIMG_MAPS:mid=1;break;
       case LOADIMG_OFF: mid=2;break;
    }
    for(w=windows.first;w->next;w=w->next)
-   {  if(prefs.loadimg!=LOADIMG_OFF)
-      {  Anotifycload(w->frame,(prefs.loadimg==LOADIMG_MAPS)?ACMLF_MAPSONLY:0);
+   {  if(prefs.network.loadimg!=LOADIMG_OFF)
+      {  Anotifycload(w->frame,(prefs.network.loadimg==LOADIMG_MAPS)?ACMLF_MAPSONLY:0);
       }
       if(w->window)
       {  ClearMenuStrip(w->window);
@@ -1192,7 +1192,7 @@ void Setdocolors(void)
    USHORT minum;
    struct MenuItem *mi;
    for(w=windows.first;w->next;w=w->next)
-   {  if(prefs.docolors)
+   {  if(prefs.browser.docolors)
       {  Anotifycload(w->frame,ACMLF_BACKGROUND);
          Anotifyset(w->frame,AOBJ_Bgchanged,TRUE,TAG_END);
          Arender(w->frame,NULL,0,0,AMRMAX,AMRMAX,AMRF_CLEAR,NULL);
@@ -1205,7 +1205,7 @@ void Setdocolors(void)
       {  ClearMenuStrip(w->window);
          minum=Menunumfromcmd("@BGIMAGES");
          if(mi=ItemAddress(w->menu,minum))
-         {  if(prefs.docolors) mi->Flags|=CHECKED;
+         {  if(prefs.browser.docolors) mi->Flags|=CHECKED;
             else mi->Flags&=~CHECKED;
          }
          ResetMenuStrip(w->window,w->menu);
@@ -1218,12 +1218,12 @@ void Setdobgsound(void)
    USHORT minum;
    struct MenuItem *mi;
    for(w=windows.first;w->next;w=w->next)
-   {  Anotifyset(w->frame,AOCDV_Playsound,prefs.dobgsound,TAG_END);
+   {  Anotifyset(w->frame,AOCDV_Playsound,prefs.browser.dobgsound,TAG_END);
       if(w->window)
       {  ClearMenuStrip(w->window);
          minum=Menunumfromcmd("@BGSOUND");
          if(mi=ItemAddress(w->menu,minum))
-         {  if(prefs.dobgsound) mi->Flags|=CHECKED;
+         {  if(prefs.browser.dobgsound) mi->Flags|=CHECKED;
             else mi->Flags&=~CHECKED;
          }
          ResetMenuStrip(w->window,w->menu);

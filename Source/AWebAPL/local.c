@@ -1023,9 +1023,9 @@ void Localfiletask(struct Fetchdriver *fd)
    if(c=='/' || c==':')
    {  /* Try index file first */
       ObtainSemaphore(&prefssema);
-      if(buf=ALLOCTYPE(UBYTE,strlen(fd->name)+strlen(prefs.localindex)+2,MEMF_PUBLIC))
+      if(buf=ALLOCTYPE(UBYTE,strlen(fd->name)+strlen(prefs.network.localindex)+2,MEMF_PUBLIC))
       {  strcpy(buf,fd->name);
-         strcat(buf,prefs.localindex);
+         strcat(buf,prefs.network.localindex);
          name=buf;
       }
       ReleaseSemaphore(&prefssema);

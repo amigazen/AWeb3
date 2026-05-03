@@ -223,16 +223,16 @@ static long Updateauthedit(struct Authedit *aew,struct Amset *ams)
             if(tag->ti_Data) close=TRUE;
             break;
          case AOAEW_Dimx:
-            prefs.autx=aew->x=tag->ti_Data;
+            prefs.window.autx=aew->x=tag->ti_Data;
             break;
          case AOAEW_Dimy:
-            prefs.auty=aew->y=tag->ti_Data;
+            prefs.window.auty=aew->y=tag->ti_Data;
             break;
          case AOAEW_Dimw:
-            prefs.autw=aew->w=tag->ti_Data;
+            prefs.window.autw=aew->w=tag->ti_Data;
             break;
          case AOAEW_Dimh:
-            prefs.auth=aew->h=tag->ti_Data;
+            prefs.window.auth=aew->h=tag->ti_Data;
             break;
          case AOAEW_Authnode:
             an=(struct Authnode *)tag->ti_Data;
@@ -285,10 +285,10 @@ static struct Authedit *Newauthedit(struct Amset *ams)
       if(Agetattr(Aweb(),AOAPP_Screenvalid))
       {  aew->authsema=&authsema;
          aew->auths=&auths;
-         aew->x=prefs.autx;
-         aew->y=prefs.auty;
-         aew->w=prefs.autw;
-         aew->h=prefs.auth;
+         aew->x=prefs.window.autx;
+         aew->y=prefs.window.auty;
+         aew->w=prefs.window.autw;
+         aew->h=prefs.window.auth;
          if(!Starttask(aew))
          {  Adisposeobject(aew);
             aew=NULL;

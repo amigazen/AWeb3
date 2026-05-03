@@ -27,6 +27,7 @@
 #include "application.h"
 #include "docprivate.h"
 #include "jslib.h"
+#include "ttengine.h"
 
 #define MAXATTRS 40
 static struct Tagattr tagattr[MAXATTRS];
@@ -518,6 +519,48 @@ static UBYTE *Findicon(UBYTE *name)
       else b=m-1;
    }
    return NULL;
+}
+
+/* Windows-1252 bytes 0x80-0x9F (128-159) to Unicode scalars. Bytes 0xA0-0xFF match ISO-8859-1 / U+00A0-U+00FF.
+ * Used when expanding HTML entities into a UTF-8 document buffer: raw 0x91 is invalid UTF-8 but U+2018 is not. */
+static const ULONG cp1252_to_unicode[32]=
+{  0x20ACUL,0x0020UL,0x201AUL,0x0192UL,0x201EUL,0x2026UL,0x2020UL,0x2021UL,
+   0x02C6UL,0x2030UL,0x0160UL,0x2039UL,0x0152UL,0x0020UL,0x017DUL,0x0020UL,
+   0x0020UL,0x2018UL,0x2019UL,0x201CUL,0x201DUL,0x2022UL,0x2013UL,0x2014UL,
+   0x02DCUL,0x2122UL,0x0161UL,0x203AUL,0x0153UL,0x0020UL,0x017EUL,0x0178UL
+};
+
+static ULONG EntitybyteToUnicode(USHORT n)
+{
+   if(n < 128)
+   {
+      return (ULONG)n;
+   }
+   if(n < 160)
+   {
+      return cp1252_to_unicode[n - 128];
+   }
+   return (ULONG)n;
+}
+
+/* Encode one Unicode BMP code point as UTF-8; returns 1-3. */
+static int UnicodeToUtf8(ULONG u, UBYTE *out)
+{
+   if(u <= 0x7FUL)
+   {
+      out[0] = (UBYTE)u;
+      return 1;
+   }
+   if(u <= 0x7FFUL)
+   {
+      out[0] = (UBYTE)(0xC0 | (u >> 6));
+      out[1] = (UBYTE)(0x80 | (u & 0x3F));
+      return 2;
+   }
+   out[0] = (UBYTE)(0xE0 | (u >> 12));
+   out[1] = (UBYTE)(0x80 | ((u >> 6) & 0x3F));
+   out[2] = (UBYTE)(0x80 | (u & 0x3F));
+   return 3;
 }
 
 static struct Tagattr *Nextattr(struct Document *doc)
@@ -1058,6 +1101,35 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 9674:n=(UBYTE)0x25CA;break;
             default:
                r=ebuf;
+         }
+      }
+      /* UTF-8 documents + TTEngine: entity table stores Latin-1 / CP1252 bytes (e.g. lsquo=145, mdash=151).
+       * Those are invalid as standalone UTF-8; expand to UTF-8 for TTEngine (encoding + TextFit).
+       * Without TTEngine, layout uses diskfont Text() on Latin-1 bytes; keep single-byte entity output. */
+      if(utf8doc && TTEngineAvailable() && !sjis && !r && n > 127 && n <= 255)
+      {
+         ULONG u;
+         UBYTE u8[4];
+         int ulen;
+         long pos;
+
+         u = EntitybyteToUnicode((USHORT)n);
+         ulen = UnicodeToUtf8(u, u8);
+         if(ulen > 1)
+         {
+            pos = p - buf->buffer;
+            if(Insertinbuffer(buf, u8, (long)ulen, pos))
+            {
+               Deleteinbuffer(buf, pos + ulen, 1);
+               ta->length += ulen - 1;
+               end = buf->buffer + buf->length;
+               p = buf->buffer + pos + ulen;
+               continue;
+            }
+         }
+         else
+         {
+            *p = u8[0];
          }
       }
       if(r)

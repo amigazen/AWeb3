@@ -267,9 +267,9 @@ static void Rendersize(struct Frame *fr,struct Coords *coo)
 /* Update the scrollers */
 static void Setscrollers(struct Frame *fr,BOOL moved)
 {  long total=fr->doch,visible=fr->h;
-   if(visible>prefs.overlap)
-   {  total=MAX(0,total-prefs.overlap);
-      visible-=prefs.overlap;
+   if(visible>prefs.program.overlap)
+   {  total=MAX(0,total-prefs.program.overlap);
+      visible-=prefs.program.overlap;
    }
    if(fr->flags&FRMF_TOPFRAME)
    {  Asetattrs(fr->win,
@@ -320,7 +320,7 @@ static BOOL Nestedurl(struct Frame *fr,void *url)
 /* Set coords pen numbers. */
 /* PICKBGCOLOR: Background color logic - always prefer document color if set,
  * otherwise use white when docolors is off, browsebg when docolors is on */
-#define PICKBGCOLOR(c1,browsebg,white) (((c1)>=0)?(c1):(prefs.docolors?(browsebg):(white)))
+#define PICKBGCOLOR(c1,browsebg,white) (((c1)>=0)?(c1):(prefs.browser.docolors?(browsebg):(white)))
 
 static void Setcolors(struct Frame *fr,struct Coords *coo)
 {  long bg=1,text=1,link=1,vlink=1,alink=1;
@@ -351,7 +351,7 @@ static void Setcolors(struct Frame *fr,struct Coords *coo)
       coo->vlinkcolor=(fr->vlinkcolor>=0)?fr->vlinkcolor:vlink;
       coo->alinkcolor=(fr->alinkcolor>=0)?fr->alinkcolor:alink;
       /* Background image: only set if docolors is enabled */
-      if(prefs.docolors)
+      if(prefs.browser.docolors)
       {  coo->bgimage=fr->bgimage;
       }
       else
@@ -392,7 +392,7 @@ static void Scroll(struct Frame *fr,void *win,struct Coords *coo,
       TAG_END);
    bfinfo.frame=fr;
    bfinfo.coo=clipcoo;
-   if(clipcoo->bgimage && prefs.docolors)
+   if(clipcoo->bgimage && prefs.browser.docolors)
    {  Agetattrs(fr->bgimage,
          AOCDV_Imagebitmap,&bfinfo.bitmap,
          AOCDV_Imagemask,&bfinfo.mask,
@@ -413,7 +413,7 @@ static void Scroll(struct Frame *fr,void *win,struct Coords *coo,
       else
       {  bfinfo.backgroundrepeat = NULL;
       }
-      if(prefs.docolors && fr->bgcolor>=0) bfinfo.bgpen=fr->bgcolor;
+      if(prefs.browser.docolors && fr->bgcolor>=0) bfinfo.bgpen=fr->bgcolor;
       else bfinfo.bgpen=clipcoo->bgcolor;
    LockLayerInfo(bfinfo.rp->Layer->LayerInfo);
    LockLayer(0,bfinfo.rp->Layer);
@@ -566,7 +566,7 @@ static BOOL Layoutcontents(struct Frame *fr,USHORT flags)
       flags&=~AMLF_CHANGED;
    }
    if((fr->flags&FRMF_TOPFRAME) || !(fr->flags&FRMF_SCROLLING))
-   {  if((fr->flags&FRMF_TOPFRAME) && prefs.nominalframe && fr->layouth<400)
+   {  if((fr->flags&FRMF_TOPFRAME) && prefs.browser.nominalframe && fr->layouth<400)
       {  h=400;
       }
       else h=fr->layouth;
@@ -704,9 +704,9 @@ static BOOL Layoutcontents(struct Frame *fr,USHORT flags)
          }
          if((fr->flags&FRMF_VSCROLL) && !(oldf&FRMF_VSCROLL))
          {  long total=h,visible=fr->h;
-            if(visible>prefs.overlap)
-            {  total=MAX(0,total-prefs.overlap);
-               visible-=prefs.overlap;
+            if(visible>prefs.program.overlap)
+            {  total=MAX(0,total-prefs.program.overlap);
+               visible-=prefs.program.overlap;
             }
             Asetattrs(fr->vscroll,
                AOBJ_Left,fr->aox+fr->aow-fr->border-scrw,
@@ -1147,7 +1147,7 @@ static void Reloadframe(struct Frame *fr,void *url)
 /* Build a popup menu */
 static void Popupinquire(struct Frame *fr,void *pup)
 {  struct Popupitem *pi;
-   for(pi=prefs.popupmenu[PUPT_FRAME].first;pi->next;pi=pi->next)
+   for(pi=prefs.gui.popupmenu[PUPT_FRAME].first;pi->next;pi=pi->next)
    {  Asetattrs(pup,
          AOPUP_Title,pi->title,
          AOPUP_Command,pi->cmd,
@@ -1386,7 +1386,7 @@ amr->minx,amr->miny,amr->maxx,amr->maxy,coo->dx,coo->dy,coo->minx,coo->miny,coo-
                   AOBJ_Left,fr->aox+fr->aow-fr->border-scrw,
                   AOBJ_Top,fr->aoy+fr->border,
                   AOBJ_Height,fr->aoh-2*fr->border,
-                  AOSCR_Visible,fr->h-(fr->h>prefs.overlap?prefs.overlap:0),
+                  AOSCR_Visible,fr->h-(fr->h>prefs.program.overlap?prefs.program.overlap:0),
                   TAG_END);
                Agetattrs(fr->vscroll,
                   AOBJ_Left,&fr->vsx,
@@ -2523,7 +2523,7 @@ void Erasebg(struct Frame *fr,struct Coords *coo,long xmin,long ymin,long xmax,l
       bfinfo.rp=coo->rp;
       bfinfo.frame=fr;
       bfinfo.coo=coo;
-      if(coo->bgimage && fr && prefs.docolors)
+      if(coo->bgimage && fr && prefs.browser.docolors)
       {  Agetattrs(coo->bgimage,
             AOCDV_Imagebitmap,&bfinfo.bitmap,
             AOCDV_Imagemask,&bfinfo.mask,
@@ -2641,7 +2641,7 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
          coords.maxy=ymax-ymin;
          bfinfo.rp=rp;
          bfinfo.coo=&coords;
-         if(coo->bgimage && fr && prefs.docolors)
+         if(coo->bgimage && fr && prefs.browser.docolors)
          {  Agetattrs(coo->bgimage,
                AOCDV_Imagebitmap,&bfinfo.bitmap,
                AOCDV_Imagemask,&bfinfo.mask,

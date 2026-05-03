@@ -99,10 +99,10 @@ BOOL Inittcp(void)
 void Freetcp(void)
 {  
 #ifndef DEMOVERSION
-   if(startedtcp && prefs.endtcpcmd)
+   if(startedtcp && prefs.network.endtcpcmd)
    {  if(Syncrequest(AWEBSTR(MSG_REQUEST_TITLE),haiku?HAIKU21:AWEBSTR(MSG_TCP_ENDTCP),
          AWEBSTR(MSG_TCP_BUTTONS),0))
-      {  Spawnsync(prefs.endtcpcmd,prefs.endtcpargs);
+      {  Spawnsync(prefs.network.endtcpcmd,prefs.network.endtcpargs);
       }
    }
 #endif
@@ -131,9 +131,9 @@ struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autoco
       if(started) break;
       if(!autocon) break;
       ObtainSemaphore(&prefssema);
-      if(prefs.starttcpcmd && *prefs.starttcpcmd)
-      {  cmd=Dupstr(prefs.starttcpcmd,-1);
-         args=Dupstr(prefs.starttcpargs,-1);
+      if(prefs.network.starttcpcmd && *prefs.network.starttcpcmd)
+      {  cmd=Dupstr(prefs.network.starttcpcmd,-1);
+         args=Dupstr(prefs.network.starttcpargs,-1);
       }
       ReleaseSemaphore(&prefssema);
       if(!cmd) break;

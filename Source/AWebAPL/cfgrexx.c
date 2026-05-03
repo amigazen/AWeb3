@@ -1192,7 +1192,7 @@ __asm __saveds void Setcfg(register __a0 struct Arexxcmd *ac,
    /* Clear font pointers to avoid bogus close */
    for(i=0;i<2;i++)
    {  for(j=0;j<NRFONTS;j++)
-      {  newprefs.font[i][j].font=NULL;
+      {  newprefs.browser.font[i][j].font=NULL;
       }
    }
    for(i=0;i<NRADDIND;i++) add[i]=ac->parameter[3];

@@ -460,7 +460,7 @@ BOOL Spawn(BOOL del,UBYTE *cmd,UBYTE *args,UBYTE *argspec,...)
    if(del) len+=24+strlen(params[0]);
    conparams[0]=AWEBSTR(MSG_AWEB_EXTWINTITLE);
    conparams[1]=(UBYTE *)Agetattr(Aweb(),AOAPP_Screenname);
-   conlen=2+Pformatlength(prefs.console,"tn",conparams);
+   conlen=2+Pformatlength(prefs.program.console,"tn",conparams);
    if((buffer=ALLOCTYPE(UBYTE,len,MEMF_PUBLIC))
    && (conbuf=ALLOCTYPE(UBYTE,conlen,MEMF_PUBLIC)))
    {  strcpy(buffer,"failat 30\n");
@@ -470,7 +470,7 @@ BOOL Spawn(BOOL del,UBYTE *cmd,UBYTE *args,UBYTE *argspec,...)
       strcat(buffer," ");
       Pformat(buffer+strlen(buffer),args,argspec,params,TRUE);
       if(del) sprintf(buffer+strlen(buffer),"\ndelete \"%s\" quiet",params[0]);
-      Pformat(conbuf,prefs.console,"tn",conparams,FALSE);
+      Pformat(conbuf,prefs.program.console,"tn",conparams,FALSE);
       if(!(out=Open(conbuf,MODE_NEWFILE)))
       {  out=Open("NIL:",MODE_NEWFILE);
       }
@@ -803,7 +803,7 @@ UBYTE *Savepath(void *url)
    {  if(fname=(UBYTE *)Agetattr(url,AOURL_Url))
       {  fname=Urlfilename(fname);
       }
-      if(!fname || !*fname) fname=Dupstr(prefs.localindex,-1);
+      if(!fname || !*fname) fname=Dupstr(prefs.network.localindex,-1);
       len=strlen(path);
       if(fname) len+=strlen(fname);
       if(name=ALLOCTYPE(UBYTE,len+4,MEMF_PUBLIC))
@@ -1602,14 +1602,14 @@ int main(int fromcli,struct WBStartup *wbs)
    if(Dupstartupcheck()
    && Initall())
    {  Initialrequester(Aboutreq,NULL);
-      if(*prefs.startupscript)
-      {  Sendarexxcmd(Agetattr(Firstwindow(),AOWIN_Key),prefs.startupscript);
+      if(*prefs.program.startupscript)
+      {  Sendarexxcmd(Agetattr(Firstwindow(),AOWIN_Key),prefs.program.startupscript);
       }
       if(!Initialdocs())
       {  UBYTE *fragment;
-         if(prefs.homeurl && *prefs.homeurl && prefs.starthomepage
-          && (home=Findurl("",prefs.homeurl,0)))
-         {  fragment=Fragmentpart(prefs.homeurl);
+         if(prefs.network.homeurl && *prefs.network.homeurl && prefs.network.starthomepage
+          && (home=Findurl("",prefs.network.homeurl,0)))
+         {  fragment=Fragmentpart(prefs.network.homeurl);
             Inputwindoc(Firstwindow(),home,fragment,NULL);
          }
       }
@@ -1621,9 +1621,9 @@ int main(int fromcli,struct WBStartup *wbs)
             AOWIN_Key,&key,
             AOWIN_Windownr,&nr,
             TAG_END);
-         if(prefs.aanetstat) Opennetstat();
-         if(prefs.aawinhis) Openwhiswindow(whis,nr);
-         if(prefs.aahotlist) Hotlistviewer(key);
+         if(prefs.program.aanetstat) Opennetstat();
+         if(prefs.program.aawinhis) Openwhiswindow(whis,nr);
+         if(prefs.program.aahotlist) Hotlistviewer(key);
          Delay(2);
          Asetattrs(Firstwindow(),AOWIN_Activate,TRUE,TAG_END);
       }
@@ -1673,8 +1673,8 @@ int main(int fromcli,struct WBStartup *wbs)
             icondefer=FALSE;
          }
       }
-      if(*prefs.shutdownscript)
-      {  Sendarexxcmd(Agetattr(Firstwindow(),AOWIN_Key),prefs.shutdownscript);
+      if(*prefs.program.shutdownscript)
+      {  Sendarexxcmd(Agetattr(Firstwindow(),AOWIN_Key),prefs.program.shutdownscript);
       }
 #ifdef NETDEMO
 #ifndef OSVERSION

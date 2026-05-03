@@ -225,7 +225,7 @@ static long Getdocsource(struct Docsource *dos,struct Amset *ams)
             PUTATTR(tag,dos->buf.buffer);
             break;
          case AODOS_Spare:
-            if(dos->spare && dos->spare->htmlmode!=prefs.htmlmode)
+            if(dos->spare && dos->spare->htmlmode!=prefs.browser.htmlmode)
             {  Adisposeobject(dos->spare);
                dos->spare=NULL;
             }

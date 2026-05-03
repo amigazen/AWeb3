@@ -73,7 +73,7 @@ static ULONG Getjprotkey(struct Document *doc)
 static void Getjcolor(struct Varhookdata *vd,struct Colorinfo *ci,struct Colorprefs *cp)
 {  ULONG rgb;
    UBYTE buf[10];
-   if(prefs.docolors && ci && ci->pen>=0)
+   if(prefs.browser.docolors && ci && ci->pen>=0)
    {  rgb=ci->rgb;
    }
    else
@@ -104,7 +104,7 @@ static BOOL Propertybgcolor(struct Varhookdata *vd)
             result=TRUE;
             break;
          case VHC_GET:
-            Getjcolor(vd,doc->bgcolor,&prefs.background);
+            Getjcolor(vd,doc->bgcolor,&prefs.browser.background);
             result=TRUE;
             break;
       }
@@ -122,7 +122,7 @@ static BOOL Propertyfgcolor(struct Varhookdata *vd)
             result=TRUE;
             break;
          case VHC_GET:
-            Getjcolor(vd,doc->textcolor,&prefs.text);
+            Getjcolor(vd,doc->textcolor,&prefs.browser.text);
             result=TRUE;
             break;
       }
@@ -140,7 +140,7 @@ static BOOL Propertylinkcolor(struct Varhookdata *vd)
             result=TRUE;
             break;
          case VHC_GET:
-            Getjcolor(vd,doc->linkcolor,&prefs.newlink);
+            Getjcolor(vd,doc->linkcolor,&prefs.browser.newlink);
             result=TRUE;
             break;
       }
@@ -158,7 +158,7 @@ static BOOL Propertyalinkcolor(struct Varhookdata *vd)
             result=TRUE;
             break;
          case VHC_GET:
-            Getjcolor(vd,doc->alinkcolor,&prefs.selectlink);
+            Getjcolor(vd,doc->alinkcolor,&prefs.browser.selectlink);
             result=TRUE;
             break;
       }
@@ -176,7 +176,7 @@ static BOOL Propertyvlinkcolor(struct Varhookdata *vd)
             result=TRUE;
             break;
          case VHC_GET:
-            Getjcolor(vd,doc->vlinkcolor,&prefs.oldlink);
+            Getjcolor(vd,doc->vlinkcolor,&prefs.browser.oldlink);
             result=TRUE;
             break;
       }

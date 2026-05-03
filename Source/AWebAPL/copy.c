@@ -236,7 +236,7 @@ static void Popupinquire(struct Copy *cop,void *pup)
 {  struct Popupitem *pi;
    void *url=(void *)Agetattr(cop->source,AOSRC_Url);
    BOOL inmem=Agetattr(url,AOURL_Isinmem);
-   for(pi=prefs.popupmenu[PUPT_IMAGE].first;pi->next;pi=pi->next)
+   for(pi=prefs.gui.popupmenu[PUPT_IMAGE].first;pi->next;pi=pi->next)
    {  if((inmem && (pi->flags&PUPF_INMEM))
       || (!inmem && (pi->flags&PUPF_NOTINMEM)))
       {  Asetattrs(pup,
@@ -419,11 +419,11 @@ static void Initialloadcopy(struct Copy *cop)
 {  void *url=(void *)Agetattr(cop->source,AOSRC_Url);
    ULONG flag=PROXY(cop)|((cop->flags&CPYF_RELOADVERIFY)?AUMLF_VERIFY:0);
    if(cop->flags&CPYF_EMBEDDED)
-   {  if(!prefs.restrictimages || Issamehost(url,cop->referer))
-      {  if(prefs.loadimg==LOADIMG_ALL)
+   {  if(!prefs.network.restrictimages || Issamehost(url,cop->referer))
+      {  if(prefs.network.loadimg==LOADIMG_ALL)
          {  Auload(url,AUMLF_IMAGE|flag,cop->referer,NULL,cop->frame);
          }
-         else if(prefs.loadimg==LOADIMG_MAPS)
+         else if(prefs.network.loadimg==LOADIMG_MAPS)
          {  if(cop->usemap || (cop->flags&CPYF_ISMAP))
             {  Auload(url,AUMLF_IMAGE|flag,cop->referer,NULL,cop->frame);
             }
@@ -437,8 +437,8 @@ static void Initialloadcopy(struct Copy *cop)
       }
    }
    else if(cop->flags&CPYF_BACKGROUND)
-   {  if(!prefs.restrictimages || Issamehost(url,cop->referer))
-      {  if(prefs.docolors)
+   {  if(!prefs.network.restrictimages || Issamehost(url,cop->referer))
+      {  if(prefs.browser.docolors)
          {  Auload(url,AUMLF_IMAGE|flag,cop->referer,NULL,cop->frame);
          }
          else
@@ -447,7 +447,7 @@ static void Initialloadcopy(struct Copy *cop)
       }
    }
    else if(cop->flags&CPYF_BGSOUND)
-   {  if(prefs.dobgsound)
+   {  if(prefs.browser.dobgsound)
       {  Auload(url,AUMLF_IMAGE|flag,cop->referer,NULL,cop->frame);
       }
    }
@@ -778,7 +778,7 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
          case AOCPY_Driver:
             if(cop->driver)
             {  Adisposeobject(cop->driver);
-               if((cop->flags&CPYF_BACKGROUND) && prefs.docolors)
+               if((cop->flags&CPYF_BACKGROUND) && prefs.browser.docolors)
                {  /* Let parent know that previous background object is gone */
                   Asetattrs(cop->parent,AOBJ_Changedchild,cop,TAG_END);
                }
@@ -1085,7 +1085,7 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
          case AOBJ_Changedchild:
             if((void *)tag->ti_Data==cop->driver)
             {  /* Don't refresh if background and no background is shown */
-               if(!(cop->flags&CPYF_BACKGROUND) || prefs.docolors)
+               if(!(cop->flags&CPYF_BACKGROUND) || prefs.browser.docolors)
                {  changed=Setchangedcopy(cop);
                }
             }
@@ -1372,7 +1372,7 @@ static long Hittestcopy(struct Copy *cop,struct Amhittest *amh)
                      if(!amh->amhr->tooltip && cop->textpos && cop->text)
                      {  amh->amhr->tooltip=Dupstr(cop->text->buffer+cop->textpos,cop->length);
                      }
-                     if(prefs.handpointer) amh->amhr->ptrtype=APTR_HAND;
+                     if(prefs.browser.handpointer) amh->amhr->ptrtype=APTR_HAND;
                   }
                   else FREE(mapurl);
                }

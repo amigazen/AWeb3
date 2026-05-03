@@ -807,8 +807,8 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    else p+=sprintf(p,httprequest,hi->abspath);
    ObtainSemaphore(&prefssema);
 #ifndef DEMOVERSION
-   if(*prefs.spoofid)
-   {  p+=sprintf(p,useragentspoof,prefs.spoofid);
+   if(*prefs.network.spoofid)
+   {  p+=sprintf(p,useragentspoof,prefs.network.spoofid);
    }
    else
 #endif
@@ -885,7 +885,7 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
       p+=sprintf(p, "Range: bytes=%ld-\r\n", hi->bytes_received);
       debug_printf("DEBUG: Buildrequest: Adding Range header: bytes=%ld-\n", hi->bytes_received);
    }
-   if(prefs.cookies && (cookies=Findcookies(fd->name,hi->flags&HTTPIF_SSL)))
+   if(prefs.network.cookies && (cookies=Findcookies(fd->name,hi->flags&HTTPIF_SSL)))
    {  long len=strlen(cookies);
       if((p-fd->block)+len<7000)
       {  strcpy(p,cookies);
@@ -1298,7 +1298,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
          
          debug_printf("DEBUG: Content-Type header found in Readheaders: '%s'\n", hi->fd->block);
          mimetype[0] = '\0';  /* Initialize empty string */
-         if(!prefs.ignoremime)
+         if(!prefs.network.ignoremime)
          {  for(p=hi->fd->block+13;*p && isspace(*p);p++);
             for(q=p;*q && !isspace(*q) && *q!=';';q++);
             qq=*q;
@@ -1357,7 +1357,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
                TAG_END);
          }
          else
-         {  debug_printf("DEBUG: No mimetype extracted from Content-Type header (forward=%d, prefs.ignoremime=%d)\n", forward, prefs.ignoremime);
+         {  debug_printf("DEBUG: No mimetype extracted from Content-Type header (forward=%d, prefs.network.ignoremime=%d)\n", forward, prefs.network.ignoremime);
             /* Clear parttype if no mimetype */
             hi->parttype[0] = '\0';
          }
@@ -1561,7 +1561,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
          hi->prxauth=Parseauth(hi->fd->block+19,hi->fd->proxy);
       }
       else if(STRNIEQUAL(hi->fd->block,"Set-Cookie:",11))
-      {  if(prefs.cookies) Storecookie(hi->fd->name,hi->fd->block+11,hi->fd->serverdate);
+      {  if(prefs.network.cookies) Storecookie(hi->fd->name,hi->fd->block+11,hi->fd->serverdate);
       }
       else if(STRNIEQUAL(hi->fd->block,"Refresh:",8))
       {  Updatetaskattrs(
@@ -1678,7 +1678,7 @@ static BOOL Readpartheaders(struct Httpinfo *hi)
       }
       else if(STRNIEQUAL(hi->fd->block,"Content-Type:",13))
       {  debug_printf("DEBUG: Content-Type header found in Readpartheaders: '%s'\n", hi->fd->block);
-         if(!prefs.ignoremime)
+         if(!prefs.network.ignoremime)
          {  UBYTE *p,*q;
             for(p=hi->fd->block+13;*p && isspace(*p);p++);
             q=strchr(p,';');
@@ -6307,8 +6307,8 @@ void Httptask(struct Fetchdriver *fd)
    
    if(Makehttpaddr(&hi,fd->proxy,fd->name,BOOLVAL(fd->flags&FDVF_SSL)))
    {  debug_printf("DEBUG: Httptask: Makehttpaddr succeeded\n");
-      if(!prefs.limitproxy && !hi.auth) hi.auth=Guessauthorize(hi.hostport);
-      if(fd->proxy && !prefs.limitproxy) hi.prxauth=Guessauthorize(fd->proxy);
+      if(!prefs.network.limitproxy && !hi.auth) hi.auth=Guessauthorize(hi.hostport);
+      if(fd->proxy && !prefs.network.limitproxy) hi.prxauth=Guessauthorize(fd->proxy);
       debug_printf("DEBUG: Httptask: Auth setup complete (auth=%p, prxauth=%p)\n", hi.auth, hi.prxauth);
       
       for(;;)
@@ -6323,7 +6323,7 @@ void Httptask(struct Fetchdriver *fd)
             break;
          }
          
-         if(fd->proxy && hi.auth && prefs.limitproxy)
+         if(fd->proxy && hi.auth && prefs.network.limitproxy)
          {  debug_printf("DEBUG: Httptask: Handling proxy auth limitproxy case\n");
             if(hi.connect) FREE(hi.connect);
             if(hi.tunnel) FREE(hi.tunnel);hi.tunnel=NULL;

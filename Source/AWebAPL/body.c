@@ -247,7 +247,7 @@ static BOOL Pushfont(struct Body *bd,short style,short size,struct Colorinfo *ci
    if(fi)
    {  ADDHEAD(&bd->bld->font,fi);
       if(which&FONTW_STYLE)
-      {  sp=&prefs.styles[style];
+      {  sp=&prefs.browser.styles[style];
          fi->type=sp->fonttype;
          fi->size=sp->fontsize;
          fi->flags=sp->relsize?FONTF_RELSIZE:FONTF_BASE;
@@ -1526,7 +1526,7 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
       {  coo->bgcolor=bd->bgcolor;
       }
       /* Only apply background image if docolors is enabled */
-      if(prefs.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
+      if(prefs.browser.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
       {  coo->bgimage=bd->bgimage;
          coo->bgalign=bd->bgalign;
       }
@@ -1537,7 +1537,7 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          coo->bgalign=NULL;
       }
       /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
-      if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
+      if(!prefs.browser.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
          /* Clear background image when forcing background color */
          coo->bgimage=NULL;
@@ -2683,7 +2683,7 @@ static long Dragrenderbody(struct Body *bd,struct Amdragrender *amd)
       {  amd->coords->bgcolor=bd->bgcolor;
       }
       /* Only apply background image if docolors is enabled */
-      if(prefs.docolors && bd->bgimage)
+      if(prefs.browser.docolors && bd->bgimage)
       {  amd->coords->bgimage=bd->bgimage;
       }
       else if(bd->bgcolor>=0)
@@ -2692,7 +2692,7 @@ static long Dragrenderbody(struct Body *bd,struct Amdragrender *amd)
          amd->coords->bgimage=NULL;
       }
       /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
-      if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
+      if(!prefs.browser.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  amd->coords->bgcolor=bd->bgcolor;
          /* Clear background image when forcing background color */
          amd->coords->bgimage=NULL;
@@ -2820,7 +2820,7 @@ void Bodycoords(struct Body *bd,struct Coords *coo)
       {  coo->bgcolor=bd->bgcolor;
       }
       /* Only apply background image if docolors is enabled */
-      if(prefs.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
+      if(prefs.browser.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
       {  coo->bgimage=bd->bgimage;
          coo->bgalign=bd->bgalign;
       }
@@ -2831,7 +2831,7 @@ void Bodycoords(struct Body *bd,struct Coords *coo)
          coo->bgalign=NULL;
       }
       /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
-      if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
+      if(!prefs.browser.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
          /* Clear background image when forcing background color */
          coo->bgimage=NULL;

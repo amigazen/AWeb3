@@ -303,7 +303,7 @@ static void Methodopen(struct Jcontext *jc)
       }
       else if(nobanners)
       {  // Don't show errors resulting from this function failing
-         Jerrors(jc,prefs.jserrors,JERRORS_OFF,prefs.jswatch);
+         Jerrors(jc,prefs.browser.jserrors,JERRORS_OFF,prefs.browser.jswatch);
       }
       else if(njo=Jopenwindow(jc,fr->jobject,urlname,name,spec,fr->win))
       {  Jasgobject(jc,NULL,njo);
@@ -843,7 +843,7 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
    UBYTE buf[16];
    long i,length;
    BOOL add;
-   if(prefs.dojs && Openjslib())
+   if(prefs.browser.dojs && Openjslib())
    {  Jallowgc(amj->jc,FALSE);
       if(!fr->jobject)
       {  fr->jobject=Newjobject(amj->jc);
@@ -1106,7 +1106,7 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
    struct Jobject *jgscope[4];
    short i;
    long jerr;
-   if(fr && script && prefs.dojs && Openjslib())
+   if(fr && script && prefs.browser.dojs && Openjslib())
    {  fr=Bodyframe(fr);
       if(!fr)
       {  return FALSE;
@@ -1144,7 +1144,7 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
             }
          }
          /* for compatabilty purposes ignore a leading "javascript:" */
-         if(script && prefs.htmlmode!=HTML_STRICT)
+         if(script && prefs.browser.htmlmode!=HTML_STRICT)
          {  UBYTE *p;
             p=strchr(script,':');
             if(p && STRNIEQUAL(script,"javascript:",p+1-script))
@@ -1152,9 +1152,9 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
             }
          }
          animon=Setanimgads(TRUE);
-         jerr=(prefs.jserrors?JERRORS_ON:JERRORS_OFF);
-         if(prefs.dojs==DOJS_ALL) jerr=JERRORS_CONTINUE;
-         Jerrors(jc,prefs.jserrors,jerr,prefs.jswatch);
+         jerr=(prefs.browser.jserrors?JERRORS_ON:JERRORS_OFF);
+         if(prefs.browser.dojs==DOJS_ALL) jerr=JERRORS_CONTINUE;
+         Jerrors(jc,prefs.browser.jserrors,jerr,prefs.browser.jswatch);
 #ifndef DEMOVERSION
          Jdebug(jc,Agetattr(fr->win,AOWIN_Jsdebug));
 #endif
@@ -1175,7 +1175,7 @@ BOOL Runjavascript(struct Frame *fr,UBYTE *script,struct Jobject **jthisp)
 BOOL Runjsnobanners(struct Frame *fr,UBYTE *script,struct Jobject **jthisp)
 {  BOOL result;
    BOOL oldnobanners=nobanners;
-   nobanners=prefs.nobanners;
+   nobanners=prefs.browser.nobanners;
    result=Runjavascript(fr,script,jthisp);
    nobanners=oldnobanners;
    return result;

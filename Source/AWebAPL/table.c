@@ -574,7 +574,7 @@ static BOOL Startrow(struct Table *tab,struct TagItem *tstate,long vspacing)
       /* If there are prior rows, and this row has no span extension cells,
        * and the table allows incremental display, allow that now. */
       if((tab->eltflags&ELTF_ALIGNED)
-      && prefs.inctable
+      && prefs.browser.inctable
       && !(tab->flags&TABF_TFOOT) && (tab->flags&TABF_INCREMENTAL)
       && !(tr->flags&TABRF_INHERITING) && tr->prev->prev)
       {  for(tra=tr->prev;tra->prev;tra=tra->prev)
@@ -979,7 +979,7 @@ static void Rendercellborder(struct Table *tab,struct Coords *coo,
    ci2=tc->bordercolor?tc->bordercolor:tc->borderlight;
    hcol=&tab->cols[tc->cellnr-1];
    if(tc->flags&TABCF_BORLEFT)
-   {  if(prefs.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
+   {  if(prefs.browser.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
       else pen=coo->dri->dri_Pens[SHADOWPEN];
       x1=tab->aox+coo->dx+hcol->x+tab->spacing/2-1;
       y1=tab->aoy+coo->dy+tr->y-1;
@@ -993,7 +993,7 @@ static void Rendercellborder(struct Table *tab,struct Coords *coo,
       }
    }
    if(tc->flags&TABCF_BORTOP)
-   {  if(prefs.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
+   {  if(prefs.browser.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
       else pen=coo->dri->dri_Pens[SHADOWPEN];
       x1=tab->aox+coo->dx+hcol->x-1;
       x2=x1+hcol->width+tab->spacing+1;
@@ -1007,7 +1007,7 @@ static void Rendercellborder(struct Table *tab,struct Coords *coo,
       }
    }
    if(tc->flags&TABCF_BORRIGHT)
-   {  if(prefs.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
+   {  if(prefs.browser.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
       else pen=coo->dri->dri_Pens[SHINEPEN];
       x1=tab->aox+coo->dx+hcol->x+(tab->spacing+1)/2+hcol->width;
       y1=tab->aoy+coo->dy+tr->y-1;
@@ -1021,7 +1021,7 @@ static void Rendercellborder(struct Table *tab,struct Coords *coo,
       }
    }
    if(tc->flags&TABCF_BORBOTTOM)
-   {  if(prefs.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
+   {  if(prefs.browser.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
       else pen=coo->dri->dri_Pens[SHINEPEN];
       x1=tab->aox+coo->dx+hcol->x-1;
       x2=x1+hcol->width+tab->spacing+1;
@@ -1045,7 +1045,7 @@ static void Rendertabframe(struct Table *tab,struct Coords *coo)
    ci2=tab->bordercolor?tab->bordercolor:tab->borderdark;
    
    if(tab->tabframe&TABFRM_LEFT)
-   {  if(prefs.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
+   {  if(prefs.browser.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
       else pen=coo->dri->dri_Pens[SHINEPEN];
       x1=tab->aox+coo->dx;
       y1=tab->aoy+coo->dy;
@@ -1058,7 +1058,7 @@ static void Rendertabframe(struct Table *tab,struct Coords *coo)
       }
    }
    if(tab->tabframe&TABFRM_ABOVE)
-   {  if(prefs.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
+   {  if(prefs.browser.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
       else pen=coo->dri->dri_Pens[SHINEPEN];
       x1=tab->aox+coo->dx;
       y1=tab->aoy+coo->dy;
@@ -1071,7 +1071,7 @@ static void Rendertabframe(struct Table *tab,struct Coords *coo)
       }
    }
    if(tab->tabframe&TABFRM_RIGHT)
-   {  if(prefs.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
+   {  if(prefs.browser.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
       else pen=coo->dri->dri_Pens[SHADOWPEN];
       x1=tab->aox+coo->dx+tab->aow-tab->borright;
       y1=tab->aoy+coo->dy+tab->bortop;
@@ -1088,7 +1088,7 @@ static void Rendertabframe(struct Table *tab,struct Coords *coo)
       }
    }
    if((tab->tabframe&TABFRM_BELOW) && (tab->flags&TABF_COMPLETE))
-   {  if(prefs.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
+   {  if(prefs.browser.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
       else pen=coo->dri->dri_Pens[SHADOWPEN];
       x1=tab->aox+coo->dx+tab->borleft;
       y1=tab->aoy+coo->dy+tab->aoh-tab->borbottom;
@@ -1120,7 +1120,7 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
    BOOL all;
    
    /* If incomplete and no incremental display, do nothing. */
-   if(!prefs.inctable) tab->flags&=~TABF_INCREMENTAL;
+   if(!prefs.browser.inctable) tab->flags&=~TABF_INCREMENTAL;
    if(!(tab->flags&(TABF_INCREMENTAL|TABF_COMPLETE))) return 0;
 
    /* Measure all if requested,
@@ -1408,7 +1408,7 @@ static long Layouttable(struct Table *tab,struct Amlayout *aml)
    
    tab->aox=aml->startx;
    /* If incomplete and no incremental display, do nothing. */
-   if(!prefs.inctable) tab->flags&=~TABF_INCREMENTAL;
+   if(!prefs.browser.inctable) tab->flags&=~TABF_INCREMENTAL;
    if(!(tab->flags&(TABF_INCREMENTAL|TABF_COMPLETE)))
    {  if(aml->amlr)
       {  aml->amlr->result=AMLR_NEWLINE;
@@ -1998,7 +1998,7 @@ static long Rendertable(struct Table *tab,struct Amrender *amr)
          void *save_bgalign=coo->bgalign;
          
          /* Render table-level background image/color before rendering cells */
-         if(prefs.docolors && (tab->bgcolor || tab->bgimage))
+         if(prefs.browser.docolors && (tab->bgcolor || tab->bgimage))
          {  if(tab->bgcolor) coo->bgcolor=COLOR(tab->bgcolor);
             coo->bgimage=tab->bgimage;
             coo->bgalign=tab->bgalign;
@@ -2278,7 +2278,7 @@ static struct Table *Newtable(struct Amset *ams)
       Settable(tab,ams);
       /* Because of different AOM_ALIGN strategy, incremental can't be used for
        * floating tables. */
-      if(prefs.inctable
+      if(prefs.browser.inctable
       && !(tab->halign&(HALIGN_FLOATLEFT|HALIGN_FLOATRIGHT)))
       {  tab->flags|=TABF_INCREMENTAL;
       }
