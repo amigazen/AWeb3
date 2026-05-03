@@ -1076,3 +1076,120 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
 {
    return Matchfontprefs(&prefs,face,size,fixed);
 }
+
+/* TT_OpenFont family names are concrete typeface names; literals like "serif" never match and
+ * the next fallback in the list (e.g. DejaVu Sans from AWEB_UTF8_FONTFACE) wins. Reuse
+ * Matchfontprefs() so generics resolve identically to the diskfont stack. */
+void Expandgenericsinfontface(UBYTE *face,struct TextFont *font,UBYTE *out,ULONG outlen)
+{
+   struct Namebreak nbf;
+   UBYTE *op;
+   UBYTE *oend;
+   UBYTE *p;
+   BOOL first;
+   BOOL fixedwidth;
+   BOOL stripdotfont;
+   short sizeidx;
+   short i;
+   struct Fontprefs *fp;
+   struct Prefs *pr;
+   ULONG bl;
+
+   if(!out || outlen<4UL)
+   {
+      return;
+   }
+   out[0]='\0';
+   if(!face || !face[0] || !font)
+   {
+      return;
+   }
+   pr=&prefs;
+   fixedwidth=TRUE;
+   if(font->tf_Flags & FPF_PROPORTIONAL)
+   {
+      fixedwidth=FALSE;
+   }
+   sizeidx=-1;
+   for(i=0;i<NRFONTS;i++)
+   {
+      if(pr->browser.font[fixedwidth?1:0][i].fontsize==(short)font->tf_YSize)
+      {
+         sizeidx=i;
+         break;
+      }
+   }
+   if(sizeidx<0)
+   {
+      for(i=0;i<NRFONTS;i++)
+      {
+         if(pr->browser.font[fixedwidth?0:1][i].fontsize==(short)font->tf_YSize)
+         {
+            sizeidx=i;
+            fixedwidth=fixedwidth?FALSE:TRUE;
+            break;
+         }
+      }
+   }
+   if(sizeidx<0)
+   {
+      sizeidx=3;
+      if(sizeidx>=NRFONTS)
+      {
+         sizeidx=NRFONTS-1;
+      }
+   }
+   op=out;
+   oend=out+outlen-1UL;
+   first=TRUE;
+   nbf.list=face;
+   nbf.current=face;
+   while(Nextname(&nbf))
+   {
+      stripdotfont=FALSE;
+      if(!first)
+      {
+         if((ULONG)(oend-op)<3UL)
+         {
+            break;
+         }
+         *op++=',';
+         *op++=' ';
+         *op='\0';
+      }
+      first=FALSE;
+      if(Isgenericfamily(nbf.buffer))
+      {
+         fp=Matchfontprefs(pr,nbf.buffer,sizeidx,fixedwidth);
+         if(fp && fp->fontname && fp->fontname[0])
+         {
+            p=fp->fontname;
+            stripdotfont=TRUE;
+         }
+         else
+         {
+            p=nbf.buffer;
+         }
+      }
+      else
+      {
+         p=nbf.buffer;
+      }
+      bl=(ULONG)strlen((char *)p);
+      if(stripdotfont && bl>5UL && STRIEQUAL(p+bl-5,".font"))
+      {
+         bl-=5UL;
+      }
+      if((ULONG)(oend-op)<bl)
+      {
+         bl=(ULONG)(oend-op);
+      }
+      if(bl==0UL)
+      {
+         break;
+      }
+      strncpy((char *)op,(char *)p,bl);
+      op+=bl;
+      *op='\0';
+   }
+}

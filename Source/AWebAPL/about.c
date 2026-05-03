@@ -620,7 +620,7 @@ static void FontdiagBuildHtml(UBYTE *buf, long maxlen)
    else
    {
       FontdiagSnprintf(&wp, &room,
-         "<p>diskfont.library could not be opened; diskfont probes are skipped.</p>");
+         "<p>diskfont.library could not be opened.</p>");
    }
    if(TTEngineBase)
    {
@@ -815,7 +815,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td align=\"center\">"
                "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
                "<br>"
-               "<font size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
+               "<font face=\"serif\" size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
                "</td></tr>"
                "</table>"
                "<br clear=\"all\">"
@@ -935,7 +935,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "%s"
                "<hr>"
                "<h2 id=\"haiku\">Haiku credits</h2>"
-               "<p>Sample texts on this page include haiku from classical Japanese poets:</p>"
+               "<p>Sample texts on this page include <em>haiku</em> from classical Japanese poets:</p>"
                "<ul>"
                "<li><strong>Matsuo Bash&otilde;</strong> (1644-1694): \"An old silent pond... A frog jumps into the pond, splash! Silence again.\"</li>"
                "<li><strong>Yosa Buson</strong> (1716-1784): \"A summer river being crossed how pleasing with sandals in my hands!\"</li>"
@@ -1069,7 +1069,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td align=\"center\">"
                "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
                "<br>"
-               "<font size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
+               "<font face=\"serif\" size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
                "</td></tr>"
                "</table>"
                "<br clear=\"all\">"

@@ -739,6 +739,8 @@ extern void Jsetupprefs(struct Jcontext *jc,struct Jobject *jnav);
    /* Find matching font from font alias list. */
 extern struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed);
 extern struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fixed);
+/* Map CSS/HTML generic families in a face list to prefs font names for ttengine (no generic keywords). */
+extern void Expandgenericsinfontface(UBYTE *face,struct TextFont *font,UBYTE *out,ULONG outlen);
 
 /*-----------------------------------------------------------------------*/
 /*-- print --------------------------------------------------------------*/

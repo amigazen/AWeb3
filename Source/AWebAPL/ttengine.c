@@ -1035,6 +1035,96 @@ static UBYTE *GetFontNameFromPrefs(struct TextFont *font)
    return NULL;
 }
 
+/* Expandgenericsinfontface() yields prefs disk names (CGTimes, CGTriumvirate). Those are not
+ * always registered under the same spelling in ttengine's family DB; map each list entry
+ * through GetTTFamilyName() like the no-fontface path so UTF-8 (metrics font often DejaVu)
+ * can still bind a serif TrueType instead of falling through to the global sans fallback. */
+static void Mapfontfacelisttottnames(UBYTE *src,UBYTE *dest,ULONG destlen)
+{
+   UBYTE *o;
+   UBYTE *oend;
+   UBYTE *p;
+   UBYTE *segstart;
+   UBYTE *q;
+   UBYTE seg[160];
+   UBYTE mapped[256];
+   ULONG sl;
+   ULONG ml;
+   BOOL first;
+
+   if(!src || !dest || destlen<4UL)
+   {
+      return;
+   }
+   o=dest;
+   oend=dest+destlen-1UL;
+   dest[0]='\0';
+   first=TRUE;
+   p=src;
+   while(*p)
+   {
+      while(*p==' ' || *p=='\t')
+      {
+         p++;
+      }
+      if(!*p)
+      {
+         break;
+      }
+      segstart=p;
+      q=p;
+      while(*q && *q!=',' && *q!=';')
+      {
+         q++;
+      }
+      sl=(ULONG)(q-segstart);
+      if(sl>=160UL)
+      {
+         sl=159UL;
+      }
+      if(sl>0UL)
+      {
+         strncpy((char *)seg,(char *)segstart,(size_t)sl);
+         seg[sl]='\0';
+         while(sl>0UL && (seg[sl-1UL]==' ' || seg[sl-1UL]=='\t'))
+         {
+            sl--;
+            seg[sl]='\0';
+         }
+         if(sl>0UL)
+         {
+            GetTTFamilyName(seg,mapped,sizeof mapped);
+            ml=(ULONG)strlen((char *)mapped);
+            if(!first)
+            {
+               if((ULONG)(oend-o)<2UL)
+               {
+                  break;
+               }
+               *o++=',';
+               *o++=' ';
+            }
+            first=FALSE;
+            if((ULONG)(oend-o)<ml)
+            {
+               ml=(ULONG)(oend-o);
+            }
+            if(ml>0UL)
+            {
+               strncpy((char *)o,(char *)mapped,(size_t)ml);
+               o+=ml;
+               *o='\0';
+            }
+         }
+      }
+      if(!*q)
+      {
+         break;
+      }
+      p=q+1;
+   }
+}
+
 /* Set font on rastport (uses ttengine if available, else standard SetFont) */
 /* fontface can be from CSS font-family or HTML FONT face attribute */
 /* If fontface is NULL, font name will be looked up from Fontprefs */
@@ -1046,6 +1136,8 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    struct TagItem posttags[6];
    UBYTE *familytable[8];
    UBYTE workbuf[512];
+   UBYTE expandedface[512];
+   UBYTE mappedface[512];
    UBYTE *fontname;
    LONG fontsize;
    LONG fontweight;
@@ -1091,9 +1183,28 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
       /* Get font name from fontface (CSS or HTML face attribute) or from Fontprefs */
       if(fontface && *fontface)
       {
-         /* Use fontface directly (CSS font-family or HTML FONT face attribute) */
-         /* CSS font-family strings are already in the correct format for ttengine */
-         fontname = fontface;
+         /* Generics (serif, sans-serif, …) are not TT family names; expand like Matchfont(). */
+         Expandgenericsinfontface(fontface,font,expandedface,sizeof expandedface);
+         if(expandedface[0])
+         {
+            Mapfontfacelisttottnames(expandedface,mappedface,sizeof mappedface);
+         }
+         else
+         {
+            Mapfontfacelisttottnames(fontface,mappedface,sizeof mappedface);
+         }
+         if(mappedface[0])
+         {
+            fontname = mappedface;
+         }
+         else if(expandedface[0])
+         {
+            fontname = expandedface;
+         }
+         else
+         {
+            fontname = fontface;
+         }
       }
       else
       {
