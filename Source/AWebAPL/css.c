@@ -1917,6 +1917,10 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
    /* Check if this is a BODY element or regular element */
    ao = (struct Aobject *)element;
    objtype = ao->objecttype;
+   /* Defensive: layout bodies are never Element subclasses; AOELT_* is invalid. */
+   if(objtype == AOTP_BODY)
+   {  return;
+   }
    
    name = prop->name;
    value = prop->value;
@@ -2394,6 +2398,15 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    {  tagname = (UBYTE *)Agetattr(element, AOELT_TagName);
       class = (UBYTE *)Agetattr(element, AOELT_Class);
       id = (UBYTE *)Agetattr(element, AOELT_Id);
+   }
+   /* DIV/SPAN-as-block etc. are AOTP_BODY. ReapplyCSSToBodyRecursiveInternal calls
+    * ApplyCSSToElement on every child; ApplyProperty only issues AOELT_* tags and
+    * corrupts memory or crashes if the target is a Body. Route bodies through the
+    * same implementation as tag open (ApplyCSSToBody uses AOBDY_* / AOBJ_*). */
+   if(objtype == AOTP_BODY)
+   {  ApplyCSSToBody(doc, element, class, id, tagname);
+      currentCSSDoc = NULL;
+      return;
    }
    if(httpdebug)
    {  printf("[CSS] ApplyCSSToElement: element=%p, type=%d, tagname=%s, class=%s, id=%s\n",
