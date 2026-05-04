@@ -485,14 +485,14 @@ static long Measurecopy(struct Copy *cop,struct Ammeasure *amm)
       {  cop->aow=cop->width;
          cop->aoh=cop->height;
       }
-      /* If alternate text given, use its width */
+      /* If alternate text given, NEVER use its width as this will screw up layouts
       else if(cop->textpos && amm->text)
       {  SetFont(mrp,cop->font);
          SetSoftStyle(mrp,cop->style,0x0f);
          Textlengthext(mrp,amm->text->buffer+cop->textpos,cop->length,&realw);
          cop->aow=realw+4;
          cop->aoh=cop->font->tf_YSize+4;
-      }
+      } */
       /* Modern browsers (2025) no longer show placeholder icons for broken/missing images.
        * If no alt text and no dimensions specified, use minimal size (1x1) instead of
        * placeholder icon dimensions. This matches modern browser behavior. */

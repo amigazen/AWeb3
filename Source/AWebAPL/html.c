@@ -6466,6 +6466,7 @@ static BOOL Dofldimage(struct Document *doc,struct Tagattr *ta)
          AOCPY_Text,&doc->text,
          AOCPY_Reloadverify,(doc->pflags&DPF_RELOADVERIFY),
          AOCPY_Defaulttype,"image/x-unknown",
+         AOCPY_Trueimage,TRUE,
          CONDTAG(AOCPY_Width,width),
          CONDTAG(AOCPY_Height,height),
          CONDTAG(AOCPY_Hspace,hspace),
