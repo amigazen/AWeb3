@@ -1239,6 +1239,9 @@ static BOOL Dosetcfg(struct Arexxcmd *ac)
    {  entry=(aweblibf *)AWEBLIBENTRY(base,AREXXLIB_SETCFG);
       entry(ac,&prefs);
       CloseLibrary(base);
+      if(ac->errorlevel==0)
+      {  Synccfgprefsfromdisk();
+      }
    }
    return TRUE;
 }
@@ -1366,7 +1369,7 @@ static BOOL Douseproxy(struct Arexxcmd *ac,struct Awindow *win,
    struct MenuItem *mi;
    if(win)
    {  if(!enable && !disable) disable=!BOOLVAL(win->flags&WINF_NOPROXY);
-      SETFLAG(win->flags,WINF_NOPROXY,disable);
+      Asetattrs(win,AOWIN_Noproxy,disable,TAG_END);
       minum=Menunumfromcmd("@NOPROXY");
       if(mi=ItemAddress(win->menu,minum))
       {  ClearMenuStrip(win->window);
