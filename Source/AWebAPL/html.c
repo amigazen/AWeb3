@@ -1350,27 +1350,6 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      {  Asetattrs(body, AOBDY_Cursor, cursorStr, TAG_END);
                      }
                   }
-                  /* Apply text-transform */
-                  else if(Stricmp((char *)prop->name,"text-transform") == 0)
-                  {  UBYTE *transformStr;
-                     transformStr = Dupstrp(prop->value, -1, doc->pool);
-                     if(transformStr)
-                     {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
-                        /* Also set document-level text-transform for compatibility */
-                        if(Stricmp((char *)transformStr, "uppercase") == 0)
-                        {  doc->texttransform = 1;
-                        }
-                        else if(Stricmp((char *)transformStr, "lowercase") == 0)
-                        {  doc->texttransform = 2;
-                        }
-                        else if(Stricmp((char *)transformStr, "capitalize") == 0)
-                        {  doc->texttransform = 3;
-                        }
-                        else if(Stricmp((char *)transformStr, "none") == 0)
-                        {  doc->texttransform = 0;
-                        }
-                     }
-                  }
                   /* Apply white-space */
                   else if(Stricmp((char *)prop->name,"white-space") == 0)
                   {  UBYTE *whitespaceStr;
