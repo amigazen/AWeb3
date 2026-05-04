@@ -1003,15 +1003,16 @@ static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
    if(url->dsource)
    {  AmethodA(url->dsource,ams);
    }
-   if(!url->ssource && !(url->flags&URLF_DEXFETCH))
-   {  /* Update our cache too */
-      if(cache && url->cache && !(url->flags&URLF_FETCHERROR))
+   if(!url->ssource)
+   {  if(cache && url->cache && !(url->flags&URLF_FETCHERROR))
       {  AmethodA(url->cache,ams);
       }
-      if(url->source || !url->movedto)
-      {  AmethodA(Urlsource(url),ams);
+      if(!(url->flags&URLF_DEXFETCH))
+      {  if(url->source || !url->movedto)
+         {  AmethodA(Urlsource(url),ams);
+         }
+         Changedlayout();
       }
-      Changedlayout();
    }
    if(terminate)
    {  url->flags&=~URLF_FETCHERROR;
