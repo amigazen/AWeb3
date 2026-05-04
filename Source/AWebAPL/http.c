@@ -120,7 +120,9 @@ static UBYTE *httprequest="GET %.7000s HTTP/1.1\r\n";
 
 static UBYTE *httppostrequest="POST %.7000s HTTP/1.1\r\n";
 
-static UBYTE *useragent="User-Agent: Mozilla/3.0 (compatible; Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
+/* Cloudflare (and similar) often return 403 / error 1010 for any UA whose token is
+ * Mozilla/3.0 or Mozilla/3.01; Mozilla/4.0+ with the same product comment is accepted. */
+static UBYTE *useragent="User-Agent: Mozilla/4.0 (compatible; Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
 
 #ifndef DEMOVERSION
 /* Full replacement User-Agent from prefs (chooser supplies a complete token, no suffix). */
