@@ -63,7 +63,9 @@ static void *checkbox;           /* Dummy single object to catch prefs changes *
 static void Checkmarksize(void)
 {  short type=prefs.browser.styles[STYLE_NORMAL].fonttype;
    short size=prefs.browser.styles[STYLE_NORMAL].fontsize;
-   struct TextFont *font=prefs.browser.font[type][size-1].font;
+   struct Fontprefs *fp=Matchfont(NULL,size-1,BOOLVAL(type));
+   struct TextFont *font=fp?fp->font:NULL;
+   if(!font) return;
    checkmarkh=font->tf_Baseline-2*bevelh;
    checkmarkw=2*checkmarkh;
    SetAttrs(checkmark,

@@ -68,6 +68,9 @@
 
 LIST(Awindow) windows;
 
+/* aweb.c parses the HTTPDEBUG/S tooltype/CLI switch into this global. */
+extern BOOL httpdebug;
+
 static short nextx=-1,nexty;
 static UBYTE buf2[MAXSTRBUFCHARS],buf3[MAXSTRBUFCHARS];
 static UBYTE screentitlebuf[256];  /* Global buffer for screen title */
@@ -1690,6 +1693,15 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
    if(status!=(UBYTE *)~0)
    {  if(win->statustext) FREE(win->statustext);
       win->statustext=Dupstr(status,-1);
+      if(httpdebug)
+      {  ULONG sl;
+         if(status && *status)
+         {  Write(Output(),"[STATUS] ",9);
+            sl=(ULONG)strlen((char *)status);
+            if(sl) Write(Output(),status,sl);
+            Write(Output(),"\n",1);
+         }
+      }
       if(win->window && win->statusgad)
       {  Setgadgetattrs(win->statusgad,win->window,NULL,
             GA_Text,status,

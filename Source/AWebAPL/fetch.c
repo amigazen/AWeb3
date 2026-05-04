@@ -32,6 +32,7 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
+#include <string.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -77,6 +78,45 @@ struct Fetch
 #define FCHF_FORMWARN      0x00008000  /* Warn if form is sent over unsecure link */
 #define FCHF_CHANNEL       0x00010000  /* This is a channel fetch */
 #define FCHF_VIEWSOURCE    0x00020000  /* view-source: URL - render as plain text */
+
+/* File-local status bar helpers (after struct Fetch and FCHF_* so types and macros exist). */
+static BOOL Fetchurlsuffixci(UBYTE *u,UBYTE *suf)
+{  long lu;
+   long ls;
+   if(!u || !suf) return FALSE;
+   lu=(long)strlen((char *)u);
+   ls=(long)strlen((char *)suf);
+   if(lu<ls) return FALSE;
+   return BOOLVAL(STRNIEQUAL(u+lu-ls,suf,ls));
+}
+
+static void Fetchresourceprefix(struct Fetch *fch,UBYTE *out,long outmax)
+{  UBYTE *u;
+   if(!out || outmax<14) return;
+   out[0]='\0';
+   if(fch->flags&FCHF_IMAGE)
+   {  strncpy((char *)out,"Image: ",(int)outmax-1);
+      out[outmax-1]='\0';
+      return;
+   }
+   if(fch->flags&FCHF_CHANNEL)
+   {  strncpy((char *)out,"Channel: ",(int)outmax-1);
+      out[outmax-1]='\0';
+      return;
+   }
+   u=fch->name;
+   if(!u) return;
+   if(Fetchurlsuffixci(u,(UBYTE *)".css"))
+   {  strncpy((char *)out,"CSS: ",(int)outmax-1);
+      out[outmax-1]='\0';
+      return;
+   }
+   if(Fetchurlsuffixci(u,(UBYTE *)".js") || Fetchurlsuffixci(u,(UBYTE *)".mjs"))
+   {  strncpy((char *)out,"JavaScript: ",(int)outmax-1);
+      out[outmax-1]='\0';
+      return;
+   }
+}
 
 static LIST(Fetch) netqueue;
 static LIST(Fetch) localqueue;
@@ -1026,6 +1066,7 @@ static long Updatefetch(struct Fetch *fch,struct Amset *ams)
    BOOL forward=TRUE,dispose=FALSE,retryget=FALSE,statusset=FALSE;
    ULONG netstat=0;
    UBYTE buf[40];
+   UBYTE lab[56];
    ULONG statustag=TAG_IGNORE;
    if(tstate)
    {  while(tag=NextTagItem(&tstate))
@@ -1074,6 +1115,23 @@ static long Updatefetch(struct Fetch *fch,struct Amset *ams)
                strncpy(fch->statusbuf,(UBYTE *)tag->ti_Data,STATUSBUFSIZE-1);
                tag->ti_Data=(ULONG)fch->statusbuf;
                statusset=TRUE;
+               break;
+            case AOURL_Fromcache:
+               if(tag->ti_Data)
+               {  UBYTE *fullu;
+                  strncpy(fch->statusbuf,"From cache: ",STATUSBUFSIZE-1);
+                  fch->statusbuf[STATUSBUFSIZE-1]='\0';
+                  fullu=(UBYTE *)Agetattr(fch->url,AOURL_Url);
+                  if(fullu && *fullu)
+                  {  long room;
+                     room=STATUSBUFSIZE-2-(long)strlen((char *)fch->statusbuf);
+                     if(room>8)
+                     {  strncat((char *)fch->statusbuf,(char *)fullu,(int)room);
+                        fch->statusbuf[STATUSBUFSIZE-1]='\0';
+                     }
+                  }
+                  statusset=TRUE;
+               }
                break;
             case AOURL_Netstatus:
                netstat=tag->ti_Data;
@@ -1129,23 +1187,44 @@ static long Updatefetch(struct Fetch *fch,struct Amset *ams)
    }
    /* Forward this message. Build status text */
    if(forward && fch->sofar && !statusset)
-   {  strcpy(buf,AWEBSTR(MSG_AWEB_BYTESREAD));
+   {  lab[0]='\0';
+      Fetchresourceprefix(fch,lab,sizeof(lab));
+      strcpy(buf,AWEBSTR(MSG_AWEB_BYTESREAD));
       if(fch->total)
       {  strcat(buf,": %d/%d");
-         sprintf(fch->statusbuf,buf,fch->sofar,fch->total);
+         if(lab[0])
+         {  sprintf(fch->statusbuf,"%s ",lab);
+            sprintf(fch->statusbuf+strlen((char *)fch->statusbuf),buf,fch->sofar,fch->total);
+         }
+         else sprintf(fch->statusbuf,buf,fch->sofar,fch->total);
       }
       else
       {  strcat(buf,": %d");
-         sprintf(fch->statusbuf,buf,fch->sofar);
+         if(lab[0])
+         {  sprintf(fch->statusbuf,"%s ",lab);
+            sprintf(fch->statusbuf+strlen((char *)fch->statusbuf),buf,fch->sofar);
+         }
+         else sprintf(fch->statusbuf,buf,fch->sofar);
       }
       statustag=AOURL_Status;
    }
    if(forward)
-   {  Asrcupdatetags(fch->url,fch,
-         statustag,fch->statusbuf,
-         AOURL_Contentlength,fch->total,
-         AOURL_Datatotal,fch->sofar,
-         ams->tags?TAG_MORE:TAG_END,ams->tags);
+   {  ULONG stt;
+      stt=statustag;
+      if(stt==TAG_IGNORE && statusset) stt=AOURL_Status;
+      if(stt!=TAG_IGNORE)
+      {  Asrcupdatetags(fch->url,fch,
+            stt,fch->statusbuf,
+            AOURL_Contentlength,fch->total,
+            AOURL_Datatotal,fch->sofar,
+            ams->tags?TAG_MORE:TAG_END,ams->tags);
+      }
+      else
+      {  Asrcupdatetags(fch->url,fch,
+            AOURL_Contentlength,fch->total,
+            AOURL_Datatotal,fch->sofar,
+            ams->tags?TAG_MORE:TAG_END,ams->tags);
+      }
    }
    if(netstat && fch->netstat)
    {  Chgnetstat(fch->netstat,netstat,fch->sofar,fch->total);

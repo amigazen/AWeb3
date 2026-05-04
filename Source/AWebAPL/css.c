@@ -35,6 +35,7 @@
 #include "copy.h"
 #include "colours.h"
 #include "url.h"
+#include "window.h"
 
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
@@ -93,6 +94,21 @@ static void css_debug_printf(const char *format, ...)
    va_end(args);
 }
 
+static long CssRuleCount(struct Document *doc)
+{  struct CSSStylesheet *sheet;
+   struct CSSRule *rule;
+   long cnt;
+   if(!doc || !doc->cssstylesheet) return 0;
+   sheet=(struct CSSStylesheet *)doc->cssstylesheet;
+   cnt=0;
+   for(rule=(struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule=(struct CSSRule *)rule->node.mln_Succ)
+   {  cnt++;
+   }
+   return cnt;
+}
+
 void MarkDocCssDirty(struct Document *doc)
 {  if(!doc) return;
    doc->cssserial++;
@@ -111,6 +127,13 @@ void ApplyDocCssIfReady(struct Document *doc)
    {  Registerdoccolors(doc);
    }
    doc->cssappliedserial = doc->cssserial;
+   if(doc->win)
+   {  long ruleCount;
+      UBYTE stmsg[STATUSBUFSIZE];
+      ruleCount=CssRuleCount(doc);
+      sprintf((char *)stmsg,"CSS applied (%ld rules)",ruleCount);
+      Asetattrs(doc->win,AOWIN_Status,stmsg,TAG_END);
+   }
    /* Layout/repaint is driven by Srcupdatedocument (or explicit resume after
     * DPF_EXTCSSEXPECT), not here, so fast loads do not miss a single coalesced refresh. */
 }
@@ -188,6 +211,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    struct CSSSelector *sel;
    long ruleCount;
    long existingCount;
+   UBYTE stmsg[STATUSBUFSIZE];
    
    if(!doc || !css) return;
    
@@ -226,6 +250,10 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    if(!doc->cssstylesheet)
    {  doc->cssstylesheet = (void *)newSheet;
       MarkDocCssDirty(doc);
+      if(doc->win)
+      {  sprintf((char *)stmsg,"CSS applied (%ld rules)",ruleCount);
+         Asetattrs(doc->win,AOWIN_Status,stmsg,TAG_END);
+      }
       /* debug_printf("MergeCSSStylesheet: No existing sheet, using new one\n"); */
       return;
    }
@@ -260,6 +288,10 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    }
    css_debug_printf("MergeCSSStylesheet: Merge completed, total rules=%ld\n", ruleCount);
    MarkDocCssDirty(doc);
+   if(doc->win)
+   {  sprintf((char *)stmsg,"CSS merged (%ld rules total)",ruleCount);
+      Asetattrs(doc->win,AOWIN_Status,stmsg,TAG_END);
+   }
 }
 
 /* Parse CSS content */

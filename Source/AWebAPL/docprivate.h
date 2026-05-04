@@ -124,6 +124,12 @@ struct Document
    UBYTE *clientpull;         /* Clientpull string */
    long viewportwidth;        /* Viewport width from meta viewport tag, 0 if not set */
    UWORD charset;             /* DOCCHARSET_ document character encoding */
+   /* DOCTYPE / HTML version hints (from <!DOCTYPE ...>). Strings are allocated and freed
+    * per document load/reload; may be NULL when absent. */
+   UBYTE *doctyperoot;        /* Root element name (e.g. "HTML") */
+   UBYTE *doctypepubid;       /* PUBLIC identifier string */
+   UBYTE *doctypesysid;       /* SYSTEM identifier string */
+   UBYTE *doctypehuman;       /* Human readable label (e.g. "HTML 4.01 Transitional") */
 
    LIST(Colorinfo) colors;    /* colors used in this document */
    LIST(Aobject) links;       /* links used in this document */

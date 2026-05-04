@@ -1562,6 +1562,14 @@ static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,B
 {  UBYTE rootname[32];
    short i;
    UBYTE quote;
+   UBYTE pubid[160];
+   UBYTE sysid[160];
+   BOOL havepub;
+   BOOL havesys;
+   UBYTE *kw;
+   long klen;
+   long blen;
+   UBYTE *buf;
    
    /* Skip "DOCTYPE" keyword */
    while(p<end && isspace(*p)) p++;
@@ -1579,7 +1587,107 @@ static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,B
    }
    if(i>0)
    {  rootname[i]='\0';
-      /* Root element name extracted - could be used for document type detection */
+      if(doc)
+      {  if(doc->doctyperoot) { FREE(doc->doctyperoot); doc->doctyperoot=NULL; }
+         doc->doctyperoot=Dupstr(rootname,-1);
+      }
+   }
+
+   pubid[0]='\0';
+   sysid[0]='\0';
+   havepub=FALSE;
+   havesys=FALSE;
+   /* Try to find PUBLIC or SYSTEM and capture the first two quoted strings. */
+   while(p<end && *p!='>')
+   {  while(p<end && isspace(*p)) p++;
+      if(p>=end || *p=='>') break;
+      kw=p;
+      klen=0;
+      while(p<end && isalpha(*p) && klen<12)
+      {  p++;
+         klen++;
+      }
+      if(klen==6 && STRNIEQUAL(kw,"PUBLIC",6))
+      {  while(p<end && isspace(*p)) p++;
+         if(p<end && (*p=='"' || *p=='\''))
+         {  quote=*p++;
+            i=0;
+            while(p<end && *p!=quote && i<159)
+            {  pubid[i++]=*p++;
+            }
+            pubid[i]='\0';
+            if(p<end && *p==quote) p++;
+            havepub=BOOLVAL(pubid[0]);
+         }
+         while(p<end && isspace(*p)) p++;
+         if(p<end && (*p=='"' || *p=='\''))
+         {  quote=*p++;
+            i=0;
+            while(p<end && *p!=quote && i<159)
+            {  sysid[i++]=*p++;
+            }
+            sysid[i]='\0';
+            if(p<end && *p==quote) p++;
+            havesys=BOOLVAL(sysid[0]);
+         }
+         break;
+      }
+      else if(klen==6 && STRNIEQUAL(kw,"SYSTEM",6))
+      {  while(p<end && isspace(*p)) p++;
+         if(p<end && (*p=='"' || *p=='\''))
+         {  quote=*p++;
+            i=0;
+            while(p<end && *p!=quote && i<159)
+            {  sysid[i++]=*p++;
+            }
+            sysid[i]='\0';
+            if(p<end && *p==quote) p++;
+            havesys=BOOLVAL(sysid[0]);
+         }
+         break;
+      }
+      else
+      {  /* Skip token/attribute */
+         while(p<end && *p!='>' && !isspace(*p))
+         {  p++;
+         }
+      }
+   }
+   if(doc)
+   {  if(doc->doctypepubid) { FREE(doc->doctypepubid); doc->doctypepubid=NULL; }
+      if(doc->doctypesysid) { FREE(doc->doctypesysid); doc->doctypesysid=NULL; }
+      if(doc->doctypehuman) { FREE(doc->doctypehuman); doc->doctypehuman=NULL; }
+      if(havepub) doc->doctypepubid=Dupstr(pubid,-1);
+      if(havesys) doc->doctypesysid=Dupstr(sysid,-1);
+      buf=NULL;
+      if(havepub)
+      {  if(STRIEQUAL(pubid,"-//W3C//DTD HTML 4.01 Transitional//EN")) buf=(UBYTE *)"HTML 4.01 Transitional";
+         else if(STRIEQUAL(pubid,"-//W3C//DTD HTML 4.01//EN")) buf=(UBYTE *)"HTML 4.01";
+         else if(STRIEQUAL(pubid,"-//W3C//DTD HTML 4.01 Frameset//EN")) buf=(UBYTE *)"HTML 4.01 Frameset";
+         else if(STRIEQUAL(pubid,"-//W3C//DTD HTML 4.0 Transitional//EN")) buf=(UBYTE *)"HTML 4.0 Transitional";
+         else if(STRIEQUAL(pubid,"-//W3C//DTD HTML 4.0//EN")) buf=(UBYTE *)"HTML 4.0";
+         else if(STRIEQUAL(pubid,"-//W3C//DTD HTML 3.2 Final//EN")) buf=(UBYTE *)"HTML 3.2";
+         else if(STRIEQUAL(pubid,"-//W3C//DTD HTML 2.0//EN")) buf=(UBYTE *)"HTML 2.0";
+      }
+      if(buf)
+      {  doc->doctypehuman=Dupstr(buf,-1);
+      }
+      else
+      {  blen=64;
+         if(doc->doctyperoot && doc->doctyperoot[0])
+         {  blen+=(long)strlen((char *)doc->doctyperoot);
+         }
+         buf=ALLOCTYPE(UBYTE,blen,0);
+         if(buf)
+         {  if(doc->doctyperoot && doc->doctyperoot[0])
+            {  sprintf((char *)buf,"%s (unknown)",doc->doctyperoot);
+            }
+            else
+            {  sprintf((char *)buf,"unknown");
+            }
+            doc->doctypehuman=buf;
+         }
+      }
    }
    
    /* Skip rest of DOCTYPE until closing > */

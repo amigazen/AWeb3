@@ -41,6 +41,7 @@
 #include "awebssl.h"
 #include <dos/dosextens.h>
 #include <proto/amisslmaster.h>
+#include <string.h>
 
 #include "/zlib/zconf.h"
 #include "/zlib/zlib.h"
@@ -286,13 +287,56 @@ static void debug_printf(const char *format, ...)
 /*-----------------------------------------------------------------------*/
 
 static void Messageread(struct Fetchdriver *fd,long n)
-{  UBYTE buf[64];
+{  UBYTE buf[96];
    strcpy(buf,AWEBSTR(MSG_AWEB_BYTESREAD));
-   strcat(buf,": ");
-   sprintf(buf+strlen(buf),"%d",n);
+   strcat(buf," (headers): ");
+   sprintf(buf+strlen(buf),"%ld",(long)n);
    Updatetaskattrs(
       AOURL_Status,buf,
       TAG_END);
+}
+
+/* Copy at most lim-1 bytes from src into dst with a terminator (status bar clips long URLs). */
+static void Httpclipcpy(UBYTE *dst, UBYTE *src, long lim)
+{  long n;
+   if(!dst || lim<2) return;
+   if(!src) { dst[0]='\0'; return; }
+   n=(long)strlen((char *)src);
+   if(n>=lim) n=lim-1;
+   strncpy((char *)dst,(char *)src,n);
+   dst[n]='\0';
+}
+
+/* One-line status for the browser chrome: redirects, errors, and unusual success codes. */
+static void Httpstatushint(long code, UBYTE *extra)
+{  UBYTE line[STATUSBUFSIZE];
+   UBYTE clipped[112];
+   if(code==304)
+   {  strcpy((char *)line,"HTTP 304 Not Modified (using cached copy)");
+      Updatetaskattrs(AOURL_Status,line,TAG_END);
+      return;
+   }
+   Httpclipcpy(clipped,extra,sizeof(clipped));
+   if(code==301 && clipped[0])
+   {  sprintf((char *)line,"Redirect 301 to %s",clipped);
+   }
+   else if((code==302 || code==307) && clipped[0])
+   {  sprintf((char *)line,"Redirect %ld to %s",(long)code,clipped);
+   }
+   else if(code==303 && clipped[0])
+   {  sprintf((char *)line,"Redirect 303 to %s",clipped);
+   }
+   else if(code>=400 && code<500)
+   {  sprintf((char *)line,"HTTP client error %ld",(long)code);
+   }
+   else if(code>=500)
+   {  sprintf((char *)line,"HTTP server error %ld",(long)code);
+   }
+   else if(code>=200 && code<300 && code!=200)
+   {  sprintf((char *)line,"HTTP %ld response",(long)code);
+   }
+   else return;
+   Updatetaskattrs(AOURL_Status,line,TAG_END);
 }
 
 /* Forward declarations */
@@ -1612,6 +1656,7 @@ static BOOL Readresponse(struct Httpinfo *hi)
              * from misclassifying this as a connection failure (status==0),
              * and to avoid dropping into Readdata() which can race with a new fetch. */
             hi->status=304;
+            Httpstatushint(304,NULL);
          }
          else if(stat==206)
          {  /* 206 Partial Content - Range request successful */
@@ -1625,36 +1670,45 @@ static BOOL Readresponse(struct Httpinfo *hi)
          {  if(hi->flags&HTTPIF_AUTH)
             {  /* Second attempt */
                if(hi->auth) Forgetauthorize(hi->auth);
+               Httpstatushint(401,NULL);
                Updatetaskattrs(
                   AOURL_Error,TRUE,
                   TAG_END);
             }
             else
-            {  hi->status=401;
+            {  Httpstatushint(401,NULL);
+               hi->status=401;
             }
          }
          else if(stat==407)
          {  if(hi->flags&HTTPIF_PRXAUTH)
             {  /* Second attempt */
                if(hi->prxauth) Forgetauthorize(hi->prxauth);
+               Httpstatushint(407,NULL);
                Updatetaskattrs(
                   AOURL_Error,TRUE,
                   TAG_END);
             }
             else
-            {  hi->status=407;
+            {  Httpstatushint(407,NULL);
+               hi->status=407;
             }
          }
          else if((stat==405 || stat==500 || stat==501) && hi->fd->postmsg)
-         {  Updatetaskattrs(
+         {  Httpstatushint(stat,NULL);
+            Updatetaskattrs(
                AOURL_Postnogood,TRUE,
                TAG_END);
          }
          else
-         {  Updatetaskattrs(
+         {  Httpstatushint(stat,NULL);
+            Updatetaskattrs(
                AOURL_Error,TRUE,
                TAG_END);
          }
+      }
+      if(stat>=200 && stat<300 && stat!=200)
+      {  Httpstatushint(stat,NULL);
       }
       http=TRUE;
    }
@@ -5042,7 +5096,12 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
             return;
          }
          if(hi->movedto && hi->movedtourl)
-         {  redirect_count++; /* Increment redirect counter for loop protection */
+         {  long rcode;
+            rcode=302;
+            if(hi->movedto==AOURL_Movedto) rcode=301;
+            else if(hi->movedto==AOURL_Seeother) rcode=303;
+            Httpstatushint(rcode,hi->movedtourl);
+            redirect_count++; /* Increment redirect counter for loop protection */
             debug_printf("DEBUG: Processing redirect to: %s (redirect_count=%d)\n", hi->movedtourl, redirect_count);
             /* For redirects, consume any remaining body data before processing redirect */
             Nextline(hi);

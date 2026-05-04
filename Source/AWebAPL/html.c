@@ -2118,6 +2118,27 @@ static BOOL Dotitleend(struct Document *doc)
    return TRUE;
 }
 
+/* Brief load-phase message in the status bar (URL clipped to fit STATUSBUFSIZE). */
+static void Docsetloadstatus(struct Document *doc,UBYTE *msg,UBYTE *url)
+{  UBYTE buf[STATUSBUFSIZE];
+   UBYTE clip[100];
+   long ulen;
+   long take;
+   if(!doc || !doc->win || !msg) return;
+   clip[0]='\0';
+   if(url && *url)
+   {  ulen=(long)strlen((char *)url);
+      take=ulen;
+      if(take>99) take=99;
+      strncpy((char *)clip,(char *)url+(ulen-take),(int)take+1);
+      clip[take]='\0';
+      sprintf((char *)buf,"%s %s",msg,clip);
+   }
+   else strncpy((char *)buf,(char *)msg,sizeof(buf)-1);
+   buf[sizeof(buf)-1]='\0';
+   Asetattrs(doc->win,AOWIN_Status,buf,TAG_END);
+}
+
 /*** <BASE> ***/
 static BOOL Dobase(struct Document *doc,struct Tagattr *ta)
 {  UBYTE *base=NULL,*target=NULL;
@@ -2222,8 +2243,17 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                   {  contentIsCss = FALSE;
                   }
                }
+               /* Some legacy stylesheets are wrapped in HTML comments ("<!-- ... -->").
+                * Only reject actual HTML documents here. */
                if(extcss && extcss[0] == '<')
-               {  payloadIsCss = FALSE;
+               {  if(STRNIEQUAL(extcss,"<!--",4))
+                  {  payloadIsCss = TRUE;
+                  }
+                  else if(STRNIEQUAL(extcss,"<!DOCTYPE",9)
+                  || STRNIEQUAL(extcss,"<HTML",5)
+                  || STRNIEQUAL(extcss,"<?XML",5))
+                  {  payloadIsCss = FALSE;
+                  }
                }
                if(httpdebug)
                {  /* Get length safely by copying first (for debug only) */
@@ -2285,6 +2315,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
          if(httpdebug)
          {  printf("[STYLE] Dolink: External CSS not yet available, suspending parsing\n");
          }
+         Docsetloadstatus(doc,(UBYTE *)"Fetching CSS",urlstr);
          /* External CSS not yet available, suspend parsing. Only then defer
           * AOBJ_Changedchild from Srcupdatedocument: setting DPF_EXTCSSEXPECT before
           * Finddocext could suppress refresh across sync/re-entrant completion paths
@@ -2529,7 +2560,10 @@ static BOOL Doscript(struct Document *doc,struct Tagattr *ta)
             }
          }
          else
-         {  /* External source not yet available. */
+         {  UBYTE *absjs;
+            /* External source not yet available. */
+            absjs=(UBYTE *)Agetattr(url,AOURL_Url);
+            Docsetloadstatus(doc,(UBYTE *)"Fetching JavaScript",absjs);
             doc->pflags|=DPF_SUSPEND|DPF_NORLDOCEXT;
             doc->jsrcline=Docslinenrfrompos(doc->source,doc->srcpos);
          }

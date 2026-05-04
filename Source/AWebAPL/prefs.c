@@ -23,6 +23,7 @@
 #include "cache.h"
 #include "application.h"
 #include "jslib.h"
+#include "ttengine.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
@@ -611,7 +612,12 @@ BOOL Initprefs(void)
 }
 
 BOOL Initprefs2(void)
-{  if(!Openfonts()) return FALSE;
+{  /* If ttengine is present we avoid preloading all disk fonts at startup.
+    * Fonts are opened on demand through Matchfontprefs()/Opennewfont(). */
+   if(TTEngineAvailable())
+   {  return TRUE;
+   }
+   if(!Openfonts()) return FALSE;
    return TRUE;
 }
 
@@ -927,6 +933,12 @@ static struct TextFont *Tryopenfontdirect(UBYTE *name,short fontsize,UBYTE *used
    return font;
 }
 
+static void Ensurefontprefsopen(struct Fontprefs *fp)
+{  if(fp && !fp->font)
+   {  Opennewfont(fp);
+   }
+}
+
 struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fixed)
 {  struct Fontalias *fa;
    struct Namebreak nbf,nba;
@@ -1008,6 +1020,7 @@ struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fi
    {  /* Map generic families to appropriate default fonts */
       if(STRIEQUAL(genericfamily,"serif"))
       {  /* Use default serif font (normal, not fixed) */
+         Ensurefontprefsopen(&pr->browser.font[0][size]);
          return &pr->browser.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"sans-serif"))
@@ -1052,23 +1065,28 @@ struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fi
             }
          }
          /* Final fallback: use default font (may be serif, but better than nothing) */
+         Ensurefontprefsopen(&pr->browser.font[0][size]);
          return &pr->browser.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"monospace"))
       {  /* Use default monospace font (fixed) */
+         Ensurefontprefsopen(&pr->browser.font[1][size]);
          return &pr->browser.font[1][size];
       }
       else if(STRIEQUAL(genericfamily,"cursive"))
       {  /* Use default serif font for cursive */
+         Ensurefontprefsopen(&pr->browser.font[0][size]);
          return &pr->browser.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"fantasy"))
       {  /* Use default sans-serif font for fantasy */
+         Ensurefontprefsopen(&pr->browser.font[0][size]);
          return &pr->browser.font[0][size];
       }
 
    }
    /* Final fallback: use default preference font for type */
+   Ensurefontprefsopen(&pr->browser.font[fixed?1:0][size]);
    return &pr->browser.font[fixed?1:0][size];
 }
 

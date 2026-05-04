@@ -87,7 +87,7 @@
 #ifndef Z_SYNC_FLUSH
 #define Z_SYNC_FLUSH 2
 #endif
-#define STATUSBUFSIZE   64    /* size of status text buffer */
+#define STATUSBUFSIZE   192   /* size of status text buffer */
 #define STRINGBUFSIZE   256   /* size of general string buffer */
 
 struct Buffer              /* an expandable text buffer */

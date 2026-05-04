@@ -179,10 +179,63 @@ static void Disposeinfotext(struct Infotext *it)
    }
 }
 
+static void FreeDOCTYPEinfo(struct Document *doc)
+{  if(!doc) return;
+   if(doc->doctyperoot) { FREE(doc->doctyperoot); doc->doctyperoot=NULL; }
+   if(doc->doctypepubid) { FREE(doc->doctypepubid); doc->doctypepubid=NULL; }
+   if(doc->doctypesysid) { FREE(doc->doctypesysid); doc->doctypesysid=NULL; }
+   if(doc->doctypehuman) { FREE(doc->doctypehuman); doc->doctypehuman=NULL; }
+}
+
 /* Send info text lines */
 static void Makeinfo(struct Document *doc,void *inf)
 {  struct Infotext *it;
    BOOL meta=FALSE,link=FALSE;
+   UBYTE *buf;
+   UBYTE *cname;
+   UBYTE *hname;
+   UBYTE *dname;
+   long blen;
+
+   if(doc)
+   {  cname=(UBYTE *)"Latin-1";
+      if(doc->charset==DOCCHARSET_UTF8) cname=(UBYTE *)"UTF-8";
+      else if(doc->charset==DOCCHARSET_SHIFT_JIS) cname=(UBYTE *)"Shift_JIS";
+
+      hname=(UBYTE *)"tolerant";
+      if(doc->htmlmode==HTML_STRICT) hname=(UBYTE *)"strict";
+      else if(doc->htmlmode==HTML_COMPATIBLE) hname=(UBYTE *)"compatible";
+
+      dname=doc->doctypehuman;
+      if(!dname || !dname[0]) dname=(UBYTE *)"unknown";
+
+      Asetattrs(inf,
+         AOINF_Text,(UBYTE *)"Document",
+         AOINF_Header,TRUE,
+         TAG_END);
+
+      blen=(long)(strlen((char *)cname)+32);
+      buf=ALLOCTYPE(UBYTE,blen,0);
+      if(buf)
+      {  sprintf((char *)buf,"Charset: %s",cname);
+         Asetattrs(inf,AOINF_Text,buf,TAG_END);
+         FREE(buf);
+      }
+      blen=(long)(strlen((char *)hname)+32);
+      buf=ALLOCTYPE(UBYTE,blen,0);
+      if(buf)
+      {  sprintf((char *)buf,"HTML mode: %s",hname);
+         Asetattrs(inf,AOINF_Text,buf,TAG_END);
+         FREE(buf);
+      }
+      blen=(long)(strlen((char *)dname)+32);
+      buf=ALLOCTYPE(UBYTE,blen,0);
+      if(buf)
+      {  sprintf((char *)buf,"DOCTYPE: %s",dname);
+         Asetattrs(inf,AOINF_Text,buf,TAG_END);
+         FREE(buf);
+      }
+   }
    for(it=doc->infotexts.first;it->next;it=it->next)
    {  if(it->link) link=TRUE;
       else meta=TRUE;
@@ -234,6 +287,7 @@ static void Reloaddocument(struct Document *doc)
 {  void *p,*url;
    UBYTE *newbase,*start;
    long length;
+   FreeDOCTYPEinfo(doc);
    Asetattrs(doc->frame,
       AOFRM_Bgcolor,-1,
       AOFRM_Textcolor,-1,
@@ -773,11 +827,20 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                         }
                         /* Defensive: if payload looks like HTML, don't attempt to parse as CSS.
                          * This commonly happens when a .css URL returns an error page. */
+                        /* Some legacy stylesheets are wrapped in HTML comments ("<!-- ... -->").
+                         * Only reject actual HTML documents here. */
                         if(extcss[0] == '<')
-                        {  if(httpdebug)
-                           {  printf("[STYLE] AODOC_Docextready: Content looks like HTML, skipping CSS merge\n");
+                        {  if(STRNIEQUAL(extcss,"<!--",4))
+                           {  payloadIsCss = TRUE;
                            }
-                           payloadIsCss = FALSE;
+                           else if(STRNIEQUAL(extcss,"<!DOCTYPE",9)
+                           || STRNIEQUAL(extcss,"<HTML",5)
+                           || STRNIEQUAL(extcss,"<?XML",5))
+                           {  if(httpdebug)
+                              {  printf("[STYLE] AODOC_Docextready: Content looks like HTML, skipping CSS merge\n");
+                              }
+                              payloadIsCss = FALSE;
+                           }
                         }
                         if(payloadIsCss)
                         {  /* Check if this CSS was already merged via Dolink.
@@ -916,6 +979,7 @@ static void Disposedocument(struct Document *doc)
    struct Colorinfo *ci;
    struct Bgimage *bgi;
    short i;
+   FreeDOCTYPEinfo(doc);
    for(i=0;i<doc->divancsp && i<DIV_ANCESTOR_STACK_MAX;i++)
    {  if(doc->divanc[i].tagname) FREE(doc->divanc[i].tagname);
       if(doc->divanc[i].class) FREE(doc->divanc[i].class);
@@ -1080,6 +1144,7 @@ static void DocSpareDomReset(struct Document *doc)
       FREE(doc->onblur);
       doc->onblur=NULL;
    }
+   FreeDOCTYPEinfo(doc);
    FreeCSSStylesheet(doc);
    doc->doctype=DOCTP_NONE;
    doc->select=NULL;
