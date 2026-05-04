@@ -1751,8 +1751,11 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
    return TRUE;
 }
 
-/* Match a selector component to either an element or body */
-static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
+/* Match a selector component to either an element or body.
+ * nameHint/classHint/idHint: when non-NULL and obj is AOTP_BODY, use instead of
+ * AOBDY_* (ApplyCSSToBody passes parser tag while layout bodies often omit TagName). */
+static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj,
+   UBYTE *nameHint, UBYTE *classHint, UBYTE *idHint)
 {  struct Aobject *ao;
    short objtype;
    UBYTE *name;
@@ -1767,7 +1770,7 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
    {  ao = (struct Aobject *)obj;
       objtype = ao->objecttype;
       if(objtype == AOTP_BODY)
-      {  name = (UBYTE *)Agetattr(obj, AOBDY_TagName);
+      {  name = nameHint ? nameHint : (UBYTE *)Agetattr(obj, AOBDY_TagName);
       }
       else
       {  name = (UBYTE *)Agetattr(obj, AOELT_TagName);
@@ -1780,10 +1783,10 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
    objtype = ao->objecttype;
    
    if(objtype == AOTP_BODY)
-   {  /* It's a body - use body attributes */
-      name = (UBYTE *)Agetattr(obj, AOBDY_TagName);
-      class = (UBYTE *)Agetattr(obj, AOBDY_Class);
-      id = (UBYTE *)Agetattr(obj, AOBDY_Id);
+   {  /* It's a body - use body attributes (hints override missing AOBDY_* on subject) */
+      name = nameHint ? nameHint : (UBYTE *)Agetattr(obj, AOBDY_TagName);
+      class = classHint ? classHint : (UBYTE *)Agetattr(obj, AOBDY_Class);
+      id = idHint ? idHint : (UBYTE *)Agetattr(obj, AOBDY_Id);
    }
    else
    {  /* Assume it's an element - use element attributes */
@@ -1859,7 +1862,9 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
 
 /* Match a selector to an element (handles descendant/child selectors) */
 /* maxDepth limits recursion depth to prevent infinite loops and performance issues */
-static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long maxDepth)
+/* Hints apply only to the initial subject; parent/ancestor steps use NULL hints. */
+static BOOL MatchSelectorInternal(struct CSSSelector *sel, void *element, long maxDepth,
+   UBYTE *nameHint, UBYTE *classHint, UBYTE *idHint)
 {  void *parentBody;
    void *ancestorBody;
    BOOL foundMatch;
@@ -1870,7 +1875,7 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
    /* If selector has a parent (descendant/child selector), we need to match the chain */
    if(sel->parent)
    {  /* Match subject with Generic so AOTP_BODY (nested DIV) uses AOBDY_* attrs. */
-      if(!MatchSelectorComponentGeneric(sel, element))
+      if(!MatchSelectorComponentGeneric(sel, element, nameHint, classHint, idHint))
       {  return FALSE;
       }
       
@@ -1883,13 +1888,14 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
       /* For child combinator (>), only immediate parent is valid */
       if(sel->combinator == CSS_COMB_CHILD)
       {  /* Check immediate parent only */
-         if(!MatchSelectorComponentGeneric(sel->parent, parentBody))
+         if(!MatchSelectorComponentGeneric(sel->parent, parentBody, NULL, NULL, NULL))
          {  return FALSE;  /* Immediate parent doesn't match */
          }
          /* Matched! Continue up the chain if parent selector has its own parent */
          if(sel->parent->parent)
          {  /* Recursively match parent selector against parent body */
-            return MatchSelectorInternal(sel->parent, parentBody, maxDepth - 1);
+            return MatchSelectorInternal(sel->parent, parentBody, maxDepth - 1,
+               NULL, NULL, NULL);
          }
          return TRUE;  /* Full chain matched */
       }
@@ -1903,7 +1909,7 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
          /* Limit depth to prevent excessive traversal on deep DOM trees */
          while(ancestorBody && depth < 50)
          {  /* Check if this ancestor matches the parent selector */
-            if(MatchSelectorComponentGeneric(sel->parent, ancestorBody))
+            if(MatchSelectorComponentGeneric(sel->parent, ancestorBody, NULL, NULL, NULL))
             {  foundMatch = TRUE;
                break;  /* Found matching ancestor */
             }
@@ -1920,7 +1926,8 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
          /* Matched! Continue up the chain if parent selector has its own parent */
          if(sel->parent->parent)
          {  /* Recursively match parent selector against matching ancestor */
-            return MatchSelectorInternal(sel->parent, ancestorBody, maxDepth - 1);
+            return MatchSelectorInternal(sel->parent, ancestorBody, maxDepth - 1,
+               NULL, NULL, NULL);
          }
          return TRUE;  /* Full chain matched */
       }
@@ -1931,7 +1938,7 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
    }
    else
    {  /* Simple selector - no parent chain */
-      return MatchSelectorComponentGeneric(sel, element);
+      return MatchSelectorComponentGeneric(sel, element, nameHint, classHint, idHint);
    }
 }
 
@@ -1939,12 +1946,13 @@ static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long max
 /* Public wrapper with default depth limit */
 static BOOL MatchSelector(struct CSSSelector *sel,void *element)
 {  /* Limit recursion depth to 20 levels to prevent performance issues */
-   return MatchSelectorInternal(sel, element, 20);
+   return MatchSelectorInternal(sel, element, 20, NULL, NULL, NULL);
 }
 
 /* Full compound matching for nested DIV bodies (ApplyCSSToBody in html.c). Preserves
  * currentCSSDoc across nested calls (e.g. from ApplyCSSToElement). */
-BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSSelector *sel)
+BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSSelector *sel,
+   UBYTE *nameHint, UBYTE *classHint, UBYTE *idHint)
 {  struct Document *prevDoc;
    BOOL result;
    
@@ -1953,7 +1961,7 @@ BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSS
    }
    prevDoc = currentCSSDoc;
    currentCSSDoc = doc;
-   result = MatchSelectorInternal(sel, obj, 20);
+   result = MatchSelectorInternal(sel, obj, 20, nameHint, classHint, idHint);
    currentCSSDoc = prevDoc;
    return result;
 }
@@ -1998,72 +2006,9 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       }
       Asetattrs(element,AOELT_Halign,align,TAG_END);
    }
-   /* font-family */
+   /* font-family on non-body elements (layout AOTP_BODY returns at top of ApplyProperty). */
    else if(Stricmp((char *)name,"font-family") == 0)
-   {  /* Handle font-family differently for BODY vs regular elements */
-      if(objtype == AOTP_BODY)
-      {  /* BODY element - use AOBDY_Fontface (like ApplyCSSToBody in html.c) */
-         UBYTE *fontFace;
-         UBYTE *p;
-         UBYTE *q;
-         long len;
-         BOOL inQuotes;
-         UBYTE quote;
-         
-         /* Strip quotes from font names before passing to Matchfont */
-         /* Calculate length needed (without quotes) */
-         len = 0;
-         p = value;
-         inQuotes = FALSE;
-         quote = 0;
-         while(*p)
-         {  if((*p == '"' || *p == '\'') && !inQuotes)
-            {  quote = *p;
-               inQuotes = TRUE;
-               p++;
-            }
-            else if(inQuotes && *p == quote)
-            {  inQuotes = FALSE;
-               quote = 0;
-               p++;
-            }
-            else
-            {  len++;
-               p++;
-            }
-         }
-         
-         fontFace = ALLOCTYPE(UBYTE, len + 1, MEMF_FAST);
-         if(fontFace)
-         {  /* Copy font value, stripping quotes */
-            p = value;
-            q = fontFace;
-            inQuotes = FALSE;
-            quote = 0;
-            while(*p)
-            {  if((*p == '"' || *p == '\'') && !inQuotes)
-               {  quote = *p;
-                  inQuotes = TRUE;
-                  p++;
-               }
-               else if(inQuotes && *p == quote)
-               {  inQuotes = FALSE;
-                  quote = 0;
-                  p++;
-               }
-               else
-               {  *q++ = *p++;
-               }
-            }
-            *q = '\0';
-            
-            /* Apply font face to body - Matchfont will handle the comma-separated list and generic families */
-            Asetattrs(element, AOBDY_Fontface, fontFace, TAG_END);
-            FREE(fontFace);
-         }
-      }
-      else
-      {  /* Regular element - use AOELT_Font */
+   {  /* Regular element - use AOELT_Font */
          struct TextFont *currentFont;
          struct Fontprefs *fp;
          short fontSize;
@@ -2143,15 +2088,26 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
             /* Pass the stripped value so Matchfont can try each font in order */
             fontFamily = fontFamilyStripped;
             if(fontFamily && *fontFamily)
-            {  fp = Matchfont(fontFamily, fontSize, isFixed);
+            {  if(httpdebug)
+               {  printf("[CSS] font-family (inline style): Matchfont list='%s' sizeidx=%d fixed=%d objtype=%ld el=%p\n",
+                     (char *)fontFamily, (int)fontSize, (int)isFixed, (long)objtype, element);
+               }
+               fp = Matchfont(fontFamily, fontSize, isFixed);
                if(fp && fp->font)
-               {  /* Apply the matched font to the element */
+               {  if(httpdebug)
+                  {  printf("[CSS] font-family (inline style): AOELT_Font set el=%p ysize=%d\n",
+                        element, (int)fp->font->tf_YSize);
+                  }
+                  /* Apply the matched font to the element */
                   Asetattrs(element, AOELT_Font, fp->font, TAG_END);
+               }
+               else if(httpdebug)
+               {  printf("[CSS] font-family (inline style): Matchfont returned no font list='%s'\n",
+                     (char *)fontFamily);
                }
             }
             FREE(fontFamilyStripped);
          }
-      }
    }
    /* float */
    else if(Stricmp((char *)name,"float") == 0)
@@ -2831,6 +2787,38 @@ void ApplyInlineCSS(struct Document *doc,void *element,UBYTE *style)
    }
 }
 
+/* Remove ASCII quotes from a Dupstr'd font-family value in place for AOBDY_Fontface. */
+static void Stripcssfontfamilyquotes(UBYTE *s)
+{
+   UBYTE *p;
+   UBYTE *q;
+   BOOL inQuotes;
+   UBYTE quote;
+
+   if(!s)
+      return;
+   p = s;
+   q = s;
+   inQuotes = FALSE;
+   quote = 0;
+   while(*p)
+   {  if((*p == '"' || *p == '\'') && !inQuotes)
+      {  quote = *p;
+         inQuotes = TRUE;
+         p++;
+      }
+      else if(inQuotes && *p == quote)
+      {  inQuotes = FALSE;
+         quote = 0;
+         p++;
+      }
+      else
+      {  *q++ = *p++;
+      }
+   }
+   *q = '\0';
+}
+
 /* Parse and apply inline CSS to a Body object */
 void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *tagname)
 {  struct CSSProperty *prop;
@@ -2840,7 +2828,6 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
    struct Colorinfo *ci;
    short align;
    UBYTE *fontFace;
-   UBYTE *comma;
    short fontSize;
    BOOL isRelative;
    long marginTop;
@@ -3617,27 +3604,23 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
-         /* Apply font-family */
+         /* Apply font-family (full comma-separated list; Matchfont parses fallbacks) */
          else if(Stricmp((char *)prop->name,"font-family") == 0)
-         {  fontFace = NULL;
-            comma = (UBYTE *)strchr((char *)prop->value,',');
-            if(comma)
-            {  long len = comma - prop->value;
-               fontFace = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
-               if(fontFace)
-               {  memmove(fontFace,prop->value,len);
-                  fontFace[len] = '\0';
-                  while(len > 0 && isspace(fontFace[len - 1]))
-                  {  fontFace[--len] = '\0';
-                  }
-               }
-            }
-            else
-            {  fontFace = Dupstr(prop->value,-1);
-            }
+         {  fontFace = Dupstr(prop->value,-1);
             if(fontFace)
-            {  Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+            {  Stripcssfontfamilyquotes(fontFace);
+               if(httpdebug)
+               {  printf("[CSS] font-family (inline on body tag=%s): raw='%s' -> AOBDY_Fontface='%s' body=%p\n",
+                     tagname ? (char *)tagname : "(null)",
+                     prop->value ? (char *)prop->value : "(null)",
+                     (char *)fontFace, body);
+               }
+               Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
                FREE(fontFace);
+            }
+            else if(httpdebug)
+            {  printf("[CSS] font-family (inline): Dupstr failed raw='%s'\n",
+                  prop->value ? (char *)prop->value : "(null)");
             }
          }
          /* Apply font-size */

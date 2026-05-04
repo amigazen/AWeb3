@@ -626,7 +626,9 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          {  matches = CssSelectorMatchesDivParseStack(doc, sel, tagname, class, id);
          }
          else
-         {  matches = CssSelectorMatchesLayoutObject(doc, body, sel);
+         {  /* Pass resolved tag/class/id: many AOTP_BODY objects never set AOBDY_TagName
+            * (e.g. document root, table cells) while callers supply the real tag here. */
+            matches = CssSelectorMatchesLayoutObject(doc, body, sel, tagname, class, id);
          }
          if(!matches)
          {  continue;
@@ -688,9 +690,11 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      
                      fontFace = NULL;
                      fontValue = prop->value;
-                     /* debug_printf("CSS: font-family property value='%s' (length=%ld)\n",
-                                  fontValue ? (char *)fontValue : "NULL",
-                                  fontValue ? strlen((char *)fontValue) : 0); */
+                     if(httpdebug)
+                     {  printf("[CSS] font-family: raw='%s' tagname=%s body=%p\n",
+                           fontValue ? (char *)fontValue : "(null)",
+                           tagname ? (char *)tagname : "(null)", body);
+                     }
                      p = fontValue;
                      
                      /* Try each font in the comma-separated list */
@@ -792,22 +796,28 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                            }
                            *q = '\0';
                            
-                           /* debug_printf("CSS: Applying full font-family='%s' to body (tagname=%s, length=%ld)\n",
-                                        fontFace, (tagname ? (char *)tagname : "NULL"),
-                                        strlen((char *)fontFace)); */
+                           if(httpdebug)
+                           {  printf("[CSS] font-family: AOBDY_Fontface='%s' tagname=%s body=%p\n",
+                                 (char *)fontFace,
+                                 tagname ? (char *)tagname : "(null)", body);
+                           }
                            /* Apply font face to body - Matchfont will handle the comma-separated list and generic families */
-                           /* Note: We need to ensure the font is actually used - Matchfont should find Helvetica or Arial from the alias list */
                            Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
-                           /* debug_printf("CSS: font-family applied to body, fontFace='%s'\n", fontFace); */
                            FREE(fontFace);
-                           /* debug_printf("CSS: font-family applied successfully\n"); */
                         }
                         else
-                        {  /* debug_printf("CSS: font-family allocation failed for '%s'\n",fontValue); */
+                        {  if(httpdebug)
+                           {  printf("[CSS] font-family: alloc failed for raw='%s' tagname=%s\n",
+                                 fontValue ? (char *)fontValue : "(null)",
+                                 tagname ? (char *)tagname : "(null)");
+                           }
                         }
                      }
                      else
-                     {  /* debug_printf("CSS: font-family value is empty or NULL\n"); */
+                     {  if(httpdebug)
+                        {  printf("[CSS] font-family: empty value tagname=%s\n",
+                              tagname ? (char *)tagname : "(null)");
+                        }
                      }
                   }
                   /* Apply font-size */
@@ -2379,8 +2389,10 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
          {  doc->charset=DOCCHARSET_UTF8;
             doc->japanesemode=0;
          }
-         if(doc->body)
-         {  if(doc->charset==DOCCHARSET_SHIFT_JIS)
+         if(doc->body
+         && !(doc->cssstylesheet && doc->cssappliedserial == doc->cssserial))
+         {  
+            if(doc->charset==DOCCHARSET_SHIFT_JIS)
             {  Asetattrs(doc->body,AOBDY_Fontface,(UBYTE *)"JKFF",TAG_END);
             }
             else if(doc->charset==DOCCHARSET_UTF8)
@@ -2416,7 +2428,8 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
          {  doc->charset=DOCCHARSET_UTF8;
             doc->japanesemode=0;
          }
-         if(doc->body)
+         if(doc->body
+         && !(doc->cssstylesheet && doc->cssappliedserial == doc->cssserial))
          {  if(doc->charset==DOCCHARSET_SHIFT_JIS)
             {  Asetattrs(doc->body,AOBDY_Fontface,(UBYTE *)"JKFF",TAG_END);
             }
