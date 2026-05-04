@@ -2612,22 +2612,20 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
       ao = (struct Aobject *)child;
       objtype = ao->objecttype;
       
-      /* Apply CSS to this element */
-      tagname = (UBYTE *)Agetattr(child, AOELT_TagName);
-      class = (UBYTE *)Agetattr(child, AOELT_Class);
-      id = (UBYTE *)Agetattr(child, AOELT_Id);
-      ApplyCSSToElement(doc, child);
-      
-      /* If this child is a body element, recursively apply CSS to its children */
+      /* AOTP_BODY (nested DIV, etc.): recursion begins with ApplyCSSToBody on that
+       * node. Do not call ApplyCSSToElement/ApplyCSSToBody here first — that ran
+       * the full stylesheet twice per nested body (font stack, display, margins) */
       if(objtype == AOTP_BODY)
       {  childBody = (void *)child;
-         /* Prevent processing the same body element (circular reference protection) */
          if(childBody != body)
          {  ReapplyCSSToBodyRecursiveInternal(doc, childBody, depth + 1);
          }
          else if(httpdebug)
          {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Body element %p contains itself, skipping to prevent infinite recursion\n", body);
          }
+      }
+      else
+      {  ApplyCSSToElement(doc, child);
       }
    }
    
