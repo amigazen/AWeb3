@@ -545,7 +545,7 @@ regexp/pcre.o:   regexp/pcre.c regexp/pcre.h regexp/internal.h regexp/config.h r
    @sc $(DEBUG) idir=regexp: regexp/pcre.c to regexp/pcre.o
 
 markdown.o: markdown.c aweb.h html.h application.h docprivate.h
-   @echo "        Compiling $*..."
+   @echo "        Compiling $*.c..."
    @sc $(DEBUG) $*.c
 
 # Ensure docprivate.h changes rebuild all dependent objects
