@@ -39,6 +39,12 @@
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
 
+/* WAF pages ship multi-megabyte CSS. Uncapped rules make ApplyCSSToElement allocate
+ * one sort node per match per layout object and blow chip RAM; ApplyCSSToBody also
+ * scans the full list per node. Truncate for stability; styling is best-effort. */
+#define CSS_SHEET_MAX_RULES 4096L
+#define CSS_ELEMENT_MAX_MATCH_NODES 512L
+
 /* Minimal Body structure to access contents.first (full definition in body.c) */
 /* LIST(Element) expands to: struct { struct Element *first; struct Element *tail; struct Element *last; } */
 struct BodyMinimal
@@ -181,6 +187,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    struct CSSRule *rule;
    struct CSSSelector *sel;
    long ruleCount;
+   long existingCount;
    
    if(!doc || !css) return;
    
@@ -225,10 +232,20 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    
    /* Merge: append rules from new sheet to existing sheet */
    existingSheet = (struct CSSStylesheet *)doc->cssstylesheet;
-   
-   /* Move all rules from newSheet to existingSheet */
+   existingCount = 0;
+   for(rule = (struct CSSRule *)existingSheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  existingCount++;
+   }
    while((rule = (struct CSSRule *)REMHEAD(&newSheet->rules)))
-   {  ADDTAIL(&existingSheet->rules,rule);
+   {  if(existingCount >= CSS_SHEET_MAX_RULES)
+      {  FreeCSSRule(rule);
+      }
+      else
+      {  ADDTAIL(&existingSheet->rules,rule);
+         existingCount++;
+      }
    }
    
    /* Free the empty newSheet structure */
@@ -564,6 +581,11 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css,long cssBo
             if(ruleCount % 50 == 0)
             {  css_debug_printf("ParseCSS: Parsed %ld rules so far, position %ld/%ld\n",
                                ruleCount, p - cssStart, cssLen);
+            }
+            if(ruleCount >= CSS_SHEET_MAX_RULES)
+            {  css_debug_printf("ParseCSS: Rule cap %ld reached, ignoring remainder of stylesheet\n",
+                               (long)CSS_SHEET_MAX_RULES);
+               break;
             }
          }
          else
@@ -2381,6 +2403,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    UBYTE *class;
    UBYTE *id;
    long matchCount;
+   long matchSlotsUsed;
    
    if(!doc || !element || !doc->cssstylesheet) return;
    
@@ -2431,6 +2454,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    
    NEWLIST(&matches);
+   matchSlotsUsed = 0;
    
    /* Find all matching rules and calculate their maximum specificity */
    /* Optimize: Check element attributes once to avoid repeated Agetattr calls */
@@ -2466,7 +2490,10 @@ void ApplyCSSToElement(struct Document *doc,void *element)
        * Use matched flag rather than maxSpec > 0 so that universal selector (*)
        * with specificity 0 is correctly applied. */
       if(matched)
-      {  ruleSpec = ALLOCSTRUCT(RuleWithSpecificity, 1, MEMF_FAST);
+      {  if(matchSlotsUsed >= CSS_ELEMENT_MAX_MATCH_NODES)
+         {  continue;
+         }
+         ruleSpec = ALLOCSTRUCT(RuleWithSpecificity, 1, MEMF_FAST);
          if(ruleSpec)
          {  ruleSpec->rule = rule;
             ruleSpec->maxSpecificity = maxSpec;
@@ -2485,13 +2512,14 @@ void ApplyCSSToElement(struct Document *doc,void *element)
             }
             
             if(insertAfter)
-            {  /* INSERT inserts after the specified node */
-               INSERT(&matches, (struct MinNode *)insertAfter, (struct MinNode *)ruleSpec);
+            {  /* Insert(ruleSpec) after insertAfter. Swapped args corrupt MinList; Freemem then hits bad pool header (wild free) and may fault as illegal instruction. */
+               INSERT(&matches, (struct MinNode *)ruleSpec, (struct MinNode *)insertAfter);
             }
             else
             {  /* No node with lower or equal specificity, add at head */
                ADDHEAD(&matches, (struct MinNode *)ruleSpec);
             }
+            matchSlotsUsed++;
          }
       }
    }
