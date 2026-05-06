@@ -570,6 +570,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css,long cssBo
             UBYTE atRuleName[32];
             long i = 0;
             /* Extract @ rule name for debugging */
+            p++; /* Skip '@' */
             while(p < cssEnd && *p && i < 31 && (isalpha((unsigned char)*p) || *p == '-' || *p == '_'))
             {  atRuleName[i++] = *p++;
             }
@@ -2677,14 +2678,18 @@ void ReapplyCSSToAllElements(struct Document *doc)
       return;
    }
    if(httpdebug)
-   {  printf("[CSS] ReapplyCSSToAllElements: Starting - recursively applying CSS to all elements\n");
+   {  printf("[CSS] ReapplyCSSToAllElements: ENTER doc=%p cssserial=%lu applied=%lu sheet=%p body=%p frame=%p\n",
+             doc, (ULONG)doc->cssserial, (ULONG)doc->cssappliedserial,
+             doc->cssstylesheet, doc->body, doc->frame);
    }
    
    /* Recursively apply CSS to document body and all child elements */
    ReapplyCSSToBodyRecursive(doc, doc->body);
    
    if(httpdebug)
-   {  printf("[CSS] ReapplyCSSToAllElements: Completed - CSS applied to all elements\n");
+   {  printf("[CSS] ReapplyCSSToAllElements: EXIT doc=%p cssserial=%lu applied=%lu sheet=%p body=%p frame=%p\n",
+             doc, (ULONG)doc->cssserial, (ULONG)doc->cssappliedserial,
+             doc->cssstylesheet, doc->body, doc->frame);
    }
 }
 

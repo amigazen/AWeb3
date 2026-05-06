@@ -36,6 +36,7 @@
 #include "aweb.h"
 #include "awebssl.h"
 #include "task.h"
+#include "window.h"
 #include <libraries/amissl.h>
 #include <libraries/amisslmaster.h>
 #include <proto/amissl.h>
@@ -71,6 +72,35 @@ extern BOOL debug_log_sema_initialized;
  * <proto/amisslmaster.h> */
 
 /*-----------------------------------------------------------------------*/
+
+/* Offer a direct "Open Aminet" option when AmiSSL is missing/outdated.
+ * This intentionally lives in amissl.c (rather than changing Lowlevelreq)
+ * because only a few early-startup dependency errors benefit from navigation.
+ *
+ * NOTE: We use Inputwindocsmart() so we can pass a plain URL string. */
+#define AMISSL_UPDATE_URL "http://aminet.net/search?query=amissl"
+
+static void AmiSSLupdatehelp(UBYTE *text)
+{
+  void *win;
+  long result;
+
+  win = Firstwindow();
+
+  /* If there is no window yet, fall back to the existing low-level requester. */
+  if (!win)
+  {
+    Lowlevelreq(text);
+    return;
+  }
+
+  /* Syncrequest returns GA_ID (1..n). */
+  result = Syncrequest("AWeb", text, "_Get AmiSSL|_Ok", 0);
+  if (result == 1)
+  {
+    Inputwindocsmart(win, AMISSL_UPDATE_URL, NULL);
+  }
+}
 
 /* Per-task reference tracking for CleanupAmiSSL() calls */
 struct TaskRefCount {
@@ -1234,8 +1264,11 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
         } else {
           debug_printf("DEBUG: Assl_initamissl: OpenAmiSSLTags() failed\n");
           PutStr("ERROR: OpenAmiSSLTags() failed.\n");
-          Lowlevelreq("AWeb could not initialize AmiSSL 5.27+.\nPlease check "
-                      "your AmiSSL installation and try again.");
+          AmiSSLupdatehelp(
+              "AWeb could not initialize AmiSSL 5.27+.\nPlease check your "
+              "AmiSSL installation and try again.\n\n"
+              "You can download/update AmiSSL from Aminet:\n"
+              AMISSL_UPDATE_URL);
           CloseLibrary(AmiSSLMasterBase);
           AmiSSLMasterBase = NULL;
         }
@@ -1243,9 +1276,12 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
         debug_printf(
             "DEBUG: Assl_initamissl: Failed to open amisslmaster.library\n");
         PutStr("ERROR: Could not open amisslmaster.library.\n");
-        Lowlevelreq("AWeb requires amisslmaster.library version 5.27 or newer "
-                    "for SSL/TLS connections.\nPlease install or update AmiSSL "
-                    "and try again.");
+        AmiSSLupdatehelp(
+            "AWeb requires amisslmaster.library version 5.27 or newer for "
+            "SSL/TLS connections.\nPlease install or update AmiSSL and try "
+            "again.\n\n"
+            "You can download/update AmiSSL from Aminet:\n"
+            AMISSL_UPDATE_URL);
       }
     }
     ReleaseSemaphore(&ssl_init_sema);

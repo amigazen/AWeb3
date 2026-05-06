@@ -700,7 +700,8 @@ static long Settask(struct Atask *task,struct Amset *ams)
    {  Starttask(task);
    }
    if(stop)
-   {  Stoptask(task,async);
+   {
+      Stoptask(task,async);
    }
    if(suspend)
    {  Suspendtask(task,async);

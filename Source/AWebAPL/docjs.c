@@ -507,10 +507,69 @@ long Jsetupdocument(struct Document *doc,struct Amjsetup *amj)
 /* Called when inline or external script is run during parse (e.g. </script> or
  * when external script load completes via AODOC_Docextready). Sync XHR is
  * implemented by blocking in send() until the fetch task signals completion. */
+static BOOL ScriptContainsToken(UBYTE *s, const char *tok)
+{  UBYTE *p;
+   long tl;
+   if(!s || !tok) return FALSE;
+   tl = (long)strlen(tok);
+   if(tl <= 0) return FALSE;
+   for(p = s; *p; p++)
+   {  if(Strnicmp((char *)p, (char *)tok, (ULONG)tl) == 0)
+      {  return TRUE;
+      }
+   }
+   return FALSE;
+}
+
+/* Very conservative gate: AWebJS targets early ECMAScript. Modern scripts (ES6+),
+ * and scripts that dynamically inject external <script src=...> are a frequent
+ * crash vector on today's web. */
+static BOOL ShouldSkipJavascript(struct Document *doc, UBYTE *source)
+{  UBYTE *dochost;
+   long dochostlen;
+   (void)doc;
+   if(!source) return TRUE;
+   /* Common modern language features (not exhaustive). */
+   if(ScriptContainsToken(source, "=>")) return TRUE;
+   if(ScriptContainsToken(source, "const ")) return TRUE;
+   if(ScriptContainsToken(source, "let ")) return TRUE;
+   if(ScriptContainsToken(source, "class ")) return TRUE;
+   if(ScriptContainsToken(source, "async ")) return TRUE;
+   if(ScriptContainsToken(source, "Promise")) return TRUE;
+   if(ScriptContainsToken(source, "Symbol")) return TRUE;
+   if(ScriptContainsToken(source, "BigInt")) return TRUE;
+   if(ScriptContainsToken(source, "??")) return TRUE;
+   if(ScriptContainsToken(source, "?.")) return TRUE;
+   /* Dynamic external script injection patterns. */
+   if(ScriptContainsToken(source, "createElement") && ScriptContainsToken(source, "script"))
+   {  if(ScriptContainsToken(source, ".src") || ScriptContainsToken(source, "src="))
+      {  /* If it smells like it is loading remote JS, skip. */
+         if(ScriptContainsToken(source, "http") || ScriptContainsToken(source, "//"))
+         {  return TRUE;
+         }
+      }
+   }
+   /* If doc has no domain set (shouldn't happen), err on safe side. */
+   dochost = doc ? doc->jdomain : NULL;
+   dochostlen = (dochost ? (long)strlen((char *)dochost) : 0);
+   if(doc && doc->pflags && dochostlen == 0)
+   {  /* nothing */
+   }
+   return FALSE;
+}
+
 void Docjexecute(struct Document *doc,UBYTE *source)
 {  struct Jcontext *jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
    if(jc)
-   {  Jsetlinenumber(jc,doc->jsrcline+1);
+   {  extern BOOL httpdebug;
+      if(ShouldSkipJavascript(doc, source))
+      {  if(httpdebug)
+         {  printf("[JS] Docjexecute: Skipping script execution (filtered) doc=%p frame=%p\n",
+                   doc, doc ? doc->frame : NULL);
+         }
+         return;
+      }
+      Jsetlinenumber(jc,doc->jsrcline+1);
       Runjsnobanners(doc->frame,source,NULL);
       /* GC after each Runjprogram is done in Runjavascriptwith (framejs.c). */
    }

@@ -2173,11 +2173,149 @@ static BOOL Dobase(struct Document *doc,struct Tagattr *ta)
    return TRUE;
 }
 
+/*------------------------------------------------------------------------*/
+/* Same-site domain matching (subdomains allowed)                          */
+/*------------------------------------------------------------------------*/
+
+/* Return TRUE if 'host' ends with 'suffix' and the match is on a label boundary:
+ * either host==suffix or host ends with "." + suffix. Case-insensitive. */
+static BOOL HostHasSuffix(UBYTE *host, long hostlen, UBYTE *suffix, long suffixlen)
+{  if(!host || !suffix || hostlen <= 0 || suffixlen <= 0) return FALSE;
+   if(hostlen < suffixlen) return FALSE;
+   if(hostlen == suffixlen)
+   {  return BOOLVAL(Strnicmp((char *)host, (char *)suffix, (ULONG)suffixlen) == 0);
+   }
+   /* hostlen > suffixlen */
+   if(host[hostlen - suffixlen - 1] != '.') return FALSE;
+   return BOOLVAL(Strnicmp((char *)(host + (hostlen - suffixlen)), (char *)suffix, (ULONG)suffixlen) == 0);
+}
+
+/* Strip optional ":port" from a host string (in-place length). */
+static void StripHostPort(UBYTE *host, long *plen)
+{  long i;
+   if(!host || !plen) return;
+   for(i = 0; i < *plen; i++)
+   {  if(host[i] == ':')
+      {  *plen = i;
+         return;
+      }
+   }
+}
+
+/* Determine an approximate "site base domain" (e.g. amigazen.com) from a host.
+ * This is a heuristic (no PSL) but good enough for our HTML4-era policy: allow
+ * subdomains of the same site, reject other sites. */
+static void SiteBaseDomain(UBYTE *host, long hostlen, UBYTE **out, long *outlen)
+{  long i;
+   long dots;
+   long start;
+   /* Common multi-label public suffixes where base domain needs 3 labels. */
+   static const char *suffixes3[] =
+   {  "co.uk","org.uk","ac.uk","gov.uk",
+      "com.au","net.au","org.au",
+      "co.jp","ne.jp",
+      NULL
+   };
+   const char **s;
+   long sufLen;
+   if(!out || !outlen)
+   {  return;
+   }
+   *out = host;
+   *outlen = hostlen;
+   if(!host || hostlen <= 0)
+   {  return;
+   }
+   /* Basic normalization: ignore port. */
+   StripHostPort(host, &hostlen);
+   *out = host;
+   *outlen = hostlen;
+   if(hostlen <= 0)
+   {  return;
+   }
+   /* If host is an IPv4-ish literal, just use whole host. */
+   for(i = 0; i < hostlen; i++)
+   {  if(!(isdigit((unsigned char)host[i]) || host[i] == '.'))
+      {  break;
+      }
+   }
+   if(i == hostlen)
+   {  return;
+   }
+   /* If host matches a known 3-label suffix, return last 3 labels. */
+   for(s = suffixes3; *s; s++)
+   {  sufLen = (long)strlen(*s);
+      if(HostHasSuffix(host, hostlen, (UBYTE *)*s, sufLen))
+      {  /* Return last 3 labels: find 2 dots before suffix start (or less). */
+         start = hostlen - sufLen;
+         if(start > 0 && host[start - 1] == '.') start--;
+         dots = 0;
+         for(i = start - 1; i >= 0; i--)
+         {  if(host[i] == '.')
+            {  dots++;
+               if(dots == 2)
+               {  *out = host + i + 1;
+                  *outlen = hostlen - (i + 1);
+                  return;
+               }
+            }
+         }
+         /* Not enough dots: fall back to whole host */
+         return;
+      }
+   }
+   /* Default: last 2 labels (everything after the second-to-last dot). */
+   dots = 0;
+   for(i = hostlen - 1; i >= 0; i--)
+   {  if(host[i] == '.')
+      {  dots++;
+         if(dots == 2)
+         {  *out = host + i + 1;
+            *outlen = hostlen - (i + 1);
+            return;
+         }
+      }
+   }
+}
+
+/* True if two hosts are in the same "site" (same base domain), allowing subdomains. */
+static BOOL SameSiteHost(UBYTE *hostA, long lenA, UBYTE *hostB, long lenB)
+{  UBYTE *baseA;
+   UBYTE *baseB;
+   long baseAlen;
+   long baseBlen;
+   if(!hostA || !hostB || lenA <= 0 || lenB <= 0) return FALSE;
+   StripHostPort(hostA, &lenA);
+   StripHostPort(hostB, &lenB);
+   if(lenA <= 0 || lenB <= 0) return FALSE;
+   /* Exact host match */
+   if(lenA == lenB && Strnicmp((char *)hostA, (char *)hostB, (ULONG)lenA) == 0)
+   {  return TRUE;
+   }
+   /* Subdomain match on full host: allow foo.example.com <-> example.com. */
+   if(HostHasSuffix(hostA, lenA, hostB, lenB) || HostHasSuffix(hostB, lenB, hostA, lenA))
+   {  return TRUE;
+   }
+   /* Base domain match */
+   SiteBaseDomain(hostA, lenA, &baseA, &baseAlen);
+   SiteBaseDomain(hostB, lenB, &baseB, &baseBlen);
+   if(baseAlen == baseBlen && baseAlen > 0
+      && Strnicmp((char *)baseA, (char *)baseB, (ULONG)baseAlen) == 0)
+   {  return TRUE;
+   }
+   return FALSE;
+}
+
 /*** <LINK> ***/
 static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
 {  UBYTE *rel=NULL,*title=NULL,*href;
    void *url=NULL;
    UBYTE *extcss;
+   BOOL thirdpartycss;
+   UBYTE *csshost;
+   long csshostlen;
+   UBYTE *docdomain;
+   long docdomainlen;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_REL:
@@ -2202,6 +2340,31 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       if(httpdebug)
       {  printf("[STYLE] Dolink: Found stylesheet link, href=%s, reload=%d, existing stylesheet=%p\n",
                 urlstr ? (char *)urlstr : "NULL", isReload ? 1 : 0, doc->cssstylesheet);
+      }
+      /* Block third-party CSS. AWeb targets an HTML4-era web where same-site CSS is typical;
+       * modern third-party CSS (e.g. Google Fonts) is mostly @font-face and can be expensive
+       * to fetch/parse while adding no value to our renderer. */
+      thirdpartycss = FALSE;
+      docdomain = doc->jdomain;
+      csshost = NULL;
+      csshostlen = 0;
+      if(docdomain && *docdomain)
+      {  docdomainlen = (long)strlen((char *)docdomain);
+         Getjspart(url, UJP_HOST, &csshost, &csshostlen);
+         if(csshost && csshostlen > 0)
+         {  if(!SameSiteHost(docdomain, docdomainlen, csshost, csshostlen))
+            {  thirdpartycss = TRUE;
+            }
+         }
+      }
+      if(thirdpartycss)
+      {  if(httpdebug)
+         {  printf("[CSS] Dolink: Blocking third-party stylesheet: dochost=%s, srchost=%.*s, url=%s\n",
+                   docdomain ? (char *)docdomain : "NULL",
+                   (int)csshostlen, csshost ? (char *)csshost : "",
+                   urlstr ? (char *)urlstr : "NULL");
+         }
+         return TRUE;
       }
       /* Try to load external CSS */
       extcss = Finddocext(doc,url,isReload);
@@ -2235,7 +2398,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                            doc->body, doc->cssstylesheet, doc->frame);
                   }
                   /* Reapply CSS to all existing elements to ensure deterministic application */
-                  ReapplyCSSToAllElements(doc);
+                  ApplyDocCssIfReady(doc);
                   if(doc->win && doc->frame)
                   {  Registerdoccolors(doc);
                   }
@@ -2266,16 +2429,10 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                   }
                }
                if(httpdebug)
-               {  /* Get length safely by copying first (for debug only) */
-                  UBYTE *cssCopy = Dupstr(extcss, -1);
-                  if(cssCopy)
-                  {  printf("[CSS] Dolink: External CSS loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
-                           strlen((char *)cssCopy));
-                     FREE(cssCopy);
-                  }
-                  else
-                  {  printf("[CSS] Dolink: External CSS loaded, calling MergeCSSStylesheet\n");
-                  }
+               {  /* extcss points to a shared/network buffer; it may be chunked or not NUL-terminated.
+                   * Never call strlen()/Dupstr(-1) here: scanning past the buffer can stall the UI
+                   * and/or corrupt memory. */
+                  printf("[CSS] Dolink: External CSS loaded, calling MergeCSSStylesheet\n");
                }
                if(!contentIsCss || !payloadIsCss)
                {  if(httpdebug)
@@ -2519,6 +2676,12 @@ static BOOL Doscript(struct Document *doc,struct Tagattr *ta)
 {  UBYTE *language;
    UBYTE *src=NULL;
    BOOL isjs=FALSE;
+   BOOL thirdparty=FALSE;
+   UBYTE *scrstart;
+   long scrlength;
+   UBYTE *docdomain;
+   long docdomainlen;
+   extern BOOL httpdebug;
    if(doc->pflags&DPF_SCRIPTJS) language="JavaScript";
    else language="";
    for(;ta->next;ta=ta->next)
@@ -2552,6 +2715,35 @@ static BOOL Doscript(struct Document *doc,struct Tagattr *ta)
       {  void *url;
          UBYTE *extsrc;
          url=Findurl(doc->base,src,0);
+         /* Third-party JavaScript is a common crash/compat risk on modern sites.
+          * Since AWeb targets an HTML4/JS1.x era, block executing external scripts
+          * that come from a different host than the document itself. Inline scripts
+          * (no SRC) and same-host scripts are still allowed. */
+         thirdparty=FALSE;
+         docdomain=doc->jdomain;
+         if(url && docdomain && *docdomain)
+         {  docdomainlen=(long)strlen((char *)docdomain);
+            scrstart=NULL;
+            scrlength=0;
+            Getjspart(url,UJP_HOST,&scrstart,&scrlength);
+            if(scrstart && scrlength>0)
+            {  if(!SameSiteHost(docdomain, docdomainlen, scrstart, scrlength))
+               {  thirdparty=TRUE;
+               }
+            }
+         }
+         if(thirdparty)
+         {  if(httpdebug)
+            {  UBYTE *absjs;
+               absjs=(UBYTE *)Agetattr(url,AOURL_Url);
+               printf("[JS] Blocking third-party script: dochost=%s, srchost=%.*s, url=%s\n",
+                      docdomain ? (char *)docdomain : "NULL",
+                      (int)scrlength, scrstart ? (char *)scrstart : "",
+                      absjs ? (char *)absjs : "NULL");
+            }
+            doc->pmode=DPM_SCRIPT;
+            return TRUE;
+         }
          if(extsrc=Finddocext(doc,url,
             (doc->pflags&DPF_RELOADVERIFY) && !(doc->pflags&DPF_NORLDOCEXT)))
          {  if(extsrc==(UBYTE *)~0)
@@ -2834,7 +3026,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
       {  if(httpdebug)
          {  printf("[RENDER] Dobody: Reapplying CSS to all elements (stylesheet=%p)\n", doc->cssstylesheet);
          }
-         ReapplyCSSToAllElements(doc);
+         ApplyDocCssIfReady(doc);
       }
    }
    if(gotcolor && !gotbg)

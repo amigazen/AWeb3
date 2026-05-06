@@ -27,6 +27,7 @@
 #include "winprivate.h"
 #include "jslib.h"
 #include "fetch.h"
+#include "awebprotos.h"
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
@@ -237,15 +238,28 @@ static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
  * Two spaces between major sections; labels keep a space before the size (chip 2MB …).
  */
 static void Memsizefmt(ULONG bytes,UBYTE *out)
-{  if(bytes>=1048576UL)
-   {  sprintf((char *)out,"%luMB",(unsigned long)(bytes/1048576UL));
+{  ULONG val;
+   UBYTE num[24];
+   UBYTE *suffix;
+
+   suffix=NULL;
+   if(bytes>=1048576UL)
+   {  val=bytes/1048576UL;
+      suffix=(UBYTE *)"MB";
    }
    else if(bytes>=1024UL)
-   {  sprintf((char *)out,"%luKB",(unsigned long)(bytes/1024UL));
+   {  val=bytes/1024UL;
+      suffix=(UBYTE *)"KB";
    }
    else
-   {  sprintf((char *)out,"%lu",(unsigned long)bytes);
+   {  val=bytes;
+      suffix=NULL;
    }
+
+   /* Lprintf uses locale.library FormatString() for grouping etc. */
+   Lprintf(num,(UBYTE *)"%ld",(long)val);
+   strcpy((char *)out,(char *)num);
+   if(suffix) strcat((char *)out,(char *)suffix);
 }
 
 /* scheme://authority (before path), or scheme:opaque through ?/#; "-" if unknown. */
@@ -336,7 +350,7 @@ static UBYTE *Makescreentitle(struct Awindow *win)
    Docurlorigin(win,origin,(long)sizeof(origin));
 
    Fetchslotfills(&netactive,&netqueued,NULL,NULL);
-   sprintf((char *)connsec,"%ld/%ld",netactive,netqueued);
+   Lprintf(connsec,(UBYTE *)"%ld/%ld",netactive,netqueued);
 
    if(win->portname && win->portname[0]) portlabel=win->portname;
    else

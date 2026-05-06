@@ -988,10 +988,6 @@ static void Setnewwinhis(struct Frame *fr,void *whis,BOOL noreferer)
          oldurlstr=(UBYTE *)Agetattr(oldurl,AOURL_Url);
          if(oldurlstr) Cancelfetchesbyreferer(oldurlstr);
       }
-      /* Also cancel all fetches for the current winhis to ensure all related connections are terminated */
-      if(fr->whis)
-      {  Asetattrs(fr->whis,AOWHS_Cancel,TRUE,TAG_END);
-      }
       if(fr->inputcopy) Adisposeobject(fr->inputcopy);
       if((fr->flags&FRMF_TOPFRAME) && fr->win)
       {  Asetattrs(fr->win,AOWIN_Activeurl,url,TAG_END);
@@ -1122,10 +1118,6 @@ static void Reloadframe(struct Frame *fr,void *url)
       /* Cancel all fetches that have this URL as their referer (images, CSS, etc.) */
       urlstr=(UBYTE *)Agetattr(url,AOURL_Url);
       if(urlstr) Cancelfetchesbyreferer(urlstr);
-   }
-   /* Also cancel all fetches for the current winhis to ensure all related connections are terminated */
-   if(fr->whis)
-   {  Asetattrs(fr->whis,AOWHS_Cancel,TRUE,TAG_END);
    }
    if(Agetattr(fr->win,AOWIN_Noproxy)) loadflags|=AUMLF_NOPROXY;
    Auload(url,loadflags,url,NULL,fr);

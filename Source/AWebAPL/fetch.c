@@ -418,7 +418,26 @@ static BOOL Isinlist(LIST(Nocache) *list,UBYTE *name)
 
 /* Start the driver subtask */
 static BOOL Dostartdriver(struct Fetch *fch)
-{  if(fch->task=Anewobject(AOTP_TASK,
+{  extern BOOL httpdebug;
+   /* A fetch must never be started twice. If this happens (queue race,
+    * re-entrant completion, or duplicated dequeue), two task lifetimes can end up
+    * tearing down the same Fetchdriver/URL bookkeeping and trigger double frees. */
+   if(!fch) return FALSE;
+   if(fch->flags & FCHF_RUNNING)
+   {  if(httpdebug)
+      {  printf("[FETCH] Dostartdriver: WARNING - already running, refusing restart (task=%p url=%s)\n",
+               fch->task, fch->name ? (char *)fch->name : "(null)");
+      }
+      return TRUE;
+   }
+   if(fch->task)
+   {  if(httpdebug)
+      {  printf("[FETCH] Dostartdriver: WARNING - task already exists, refusing restart (task=%p url=%s)\n",
+               fch->task, fch->name ? (char *)fch->name : "(null)");
+      }
+      return TRUE;
+   }
+   if(fch->task=Anewobject(AOTP_TASK,
       AOTSK_Entry,fch->driverfun,
       AOTSK_Name,"AWeb retrieve",
       AOTSK_Userdata,fch->fd,
@@ -432,16 +451,14 @@ static BOOL Dostartdriver(struct Fetch *fch)
             NWS_STARTED,BOOLVAL(fch->flags&FCHF_NETSLOT));
          if(fch->flags&FCHF_LOCALSLOT) nrlocal++;
          else if(fch->flags&FCHF_NETSLOT) nrnet++;
-         {  extern BOOL httpdebug;
-            if(httpdebug)
-            {  printf("[FETCH] Dostartdriver: STARTED task=%p url=%s netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld\n",
-                  fch->task,
-                  (char *)Agetattr(fch->url,AOURL_Url),
-                  (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
-                  (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
-                  (long)nrnet,(long)prefs.network.maxconnect,
-                  (long)nrlocal,(long)prefs.network.maxdiskread);
-            }
+         if(httpdebug)
+         {  printf("[FETCH] Dostartdriver: STARTED task=%p url=%s netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld\n",
+               fch->task,
+               (char *)Agetattr(fch->url,AOURL_Url),
+               (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
+               (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
+               (long)nrnet,(long)prefs.network.maxconnect,
+               (long)nrlocal,(long)prefs.network.maxdiskread);
          }
       }
       else
@@ -1355,7 +1372,8 @@ static long Setfetch(struct Fetch *fch,struct Amset *ams)
 
 static void Disposefetch(struct Fetch *fch)
 {  if(fch->flags&FCHF_RUNNING)
-   {  Asetattrs(fch->task,
+   {
+      Asetattrs(fch->task,
          AOTSK_Stop,TRUE,
          AOTSK_Async,TRUE,
          TAG_END);
@@ -1454,30 +1472,50 @@ static long Dispatch(struct Fetch *fch,struct Amessage *amsg)
 /* Cancel all fetches that have the specified referer URL string */
 void Cancelfetchesbyreferer(UBYTE *refererurl)
 {  struct Fetch *fch,*next;
+   void *url;
    if(!refererurl) return;
    /* Check all fetch lists: running, netqueue, localqueue, channels */
    for(fch=running.first;fch->next;fch=next)
    {  next=fch->next;
       if(fch->referer && STRIEQUAL(fch->referer,refererurl))
-      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      {  /* Only cancel subordinate fetches (images/CSS/etc.) of the old document.
+          * Do NOT cancel a main document fetch that happens to use that old URL
+          * as its Referer: header. */
+         url=fch->url;
+         if(url && Agetattr(url,AOURL_Input))
+         {  continue;
+         }
+         Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
       }
    }
    for(fch=netqueue.first;fch->next;fch=next)
    {  next=fch->next;
       if(fch->referer && STRIEQUAL(fch->referer,refererurl))
-      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      {  url=fch->url;
+         if(url && Agetattr(url,AOURL_Input))
+         {  continue;
+         }
+         Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
       }
    }
    for(fch=localqueue.first;fch->next;fch=next)
    {  next=fch->next;
       if(fch->referer && STRIEQUAL(fch->referer,refererurl))
-      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      {  url=fch->url;
+         if(url && Agetattr(url,AOURL_Input))
+         {  continue;
+         }
+         Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
       }
    }
    for(fch=channels.first;fch->next;fch=next)
    {  next=fch->next;
       if(fch->referer && STRIEQUAL(fch->referer,refererurl))
-      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      {  url=fch->url;
+         if(url && Agetattr(url,AOURL_Input))
+         {  continue;
+         }
+         Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
       }
    }
 }

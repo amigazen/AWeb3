@@ -3598,11 +3598,17 @@ static BOOL Readdata(struct Httpinfo *hi)
             {  long chunk_header_start;
                long chunk_data_start;
                long chunk_data_end;
+               long chunk_size_start;
                
                chunk_header_start = chunk_pos;
                
-               /* Skip whitespace before chunk size */
-               while(chunk_pos < original_blocklength && 
+               /* RFC 7230: chunks are separated by CRLF. Be tolerant and skip any
+                * leading CR/LF and horizontal whitespace before the chunk size. */
+               while(chunk_pos < original_blocklength &&
+                     (chunk_p[chunk_pos] == '\r' || chunk_p[chunk_pos] == '\n'))
+               {  chunk_pos++;
+               }
+               while(chunk_pos < original_blocklength &&
                      (chunk_p[chunk_pos] == ' ' || chunk_p[chunk_pos] == '\t'))
                {  chunk_pos++;
                }
@@ -3614,6 +3620,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                
                /* Parse chunk size (hexadecimal) */
                chunk_size = 0;
+               chunk_size_start = chunk_pos;
                while(chunk_pos < original_blocklength)
                {  UBYTE c;
                   long digit;
@@ -3632,6 +3639,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   chunk_size = chunk_size * 16 + digit;
                   chunk_pos++;
+               }
+               
+               /* If we didn't parse any hex digits, this isn't a valid chunk header yet.
+                * Do not treat it as a 0-size (final) chunk; wait for more data instead. */
+               if(chunk_pos == chunk_size_start)
+               {  need_more_data = TRUE;
+                  break;
                }
                
                /* Skip chunk extension and CRLF after chunk size */
