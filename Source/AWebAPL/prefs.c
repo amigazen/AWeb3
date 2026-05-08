@@ -548,6 +548,51 @@ static void Processprefs(void)
    if(pcmd&PCMD_DOBGSOUND) Setdobgsound();
 }
 
+/* Synchronize in-memory prefs after external config updates.
+ * Used by ARexx SETCFG, which updates ENV: files but does not update the
+ * running prefs structure directly. */
+void Synccfgprefsfromdisk(void)
+{  ULONG pcmd=0;
+   ObtainSemaphore(&prefssema);
+   pcmd|=Changedbrowser();
+   pcmd|=Changedprogram();
+   pcmd|=Changedgui();
+   pcmd|=Changednetwork();
+   ReleaseSemaphore(&prefssema);
+   if(pcmd&PCMD_NEWMIME)
+   {  Rebuildjmime();
+   }
+   if(pcmd&PCMD_NEWSCREEN)
+   {  Asetattrs(Aweb(),AOAPP_Newprefs,PREFSF_SCREEN,TAG_END);
+      pcmd&=~(PCMD_NEWLINKPENS|PCMD_SHOWBUTTONS|PCMD_NEWBUTTONS);
+      pcmd|=PCMD_LOADIMG;
+   }
+   if(pcmd&PCMD_SHOWBUTTONS)
+   {  Asetattrs(Aweb(),AOAPP_Newprefs,PREFSF_SHOWBUTTONS,TAG_END);
+      pcmd&=~(PCMD_NEWBUTTONS);
+   }
+   if(pcmd&PCMD_NEWBUTTONS)
+   {  Asetattrs(Aweb(),AOAPP_Newprefs,PREFSF_BUTTONS,TAG_END);
+   }
+   if(pcmd&PCMD_BROWSER)
+   {  Asetattrs(Aweb(),AOAPP_Browsersettings,TRUE,TAG_END);
+   }
+   if(pcmd&PCMD_NEWLINKPENS)
+   {  Asetattrs(Aweb(),AOAPP_Browserpens,TRUE,TAG_END);
+   }
+   if(pcmd&PCMD_BLINKRATE)
+   {  Asetattrs(Aweb(),AOAPP_Blink,TRUE,TAG_END);
+   }
+   if(pcmd&PCMD_NEWMENUS) Asetattrs(Aweb(),AOAPP_Menus,NULL,TAG_END);
+   if(pcmd&PCMD_NEWSAVEPATH) Asetattrs(Aweb(),AOAPP_Savepath,NULL,TAG_END);
+   if(pcmd&PCMD_CACHE) Flushcache(CACFT_EXCESS);
+   if(pcmd&PCMD_LOADIMG) Setloadimg();
+   if(pcmd&PCMD_DOCOLORS) Setdocolors();
+   if(pcmd&PCMD_OVERLAP) Asetattrs(Aweb(),AOAPP_Overlapsetting,TRUE,TAG_END);
+   if(pcmd&PCMD_CONTANIM) Asetattrs(Aweb(),AOAPP_Animgadsetting,TRUE,TAG_END);
+   if(pcmd&PCMD_DOBGSOUND) Setdobgsound();
+}
+
 /*-----------------------------------------------------------------------*/
 
 BOOL Initprefs(void)

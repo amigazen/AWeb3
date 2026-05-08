@@ -732,6 +732,9 @@ extern void Saveallsettings(void);
 extern void Savesettingsas(UBYTE *path);
 extern void Loadsettings(UBYTE *path);
 
+   /* Re-read prefs after external config update (e.g. ARexx SETCFG). */
+extern void Synccfgprefsfromdisk(void);
+
 extern void Addtonocookie(UBYTE *name);
 
 extern void Jsetupprefs(struct Jcontext *jc,struct Jobject *jnav);
