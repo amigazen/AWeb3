@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,10 +20,17 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
+#include "jbytecode.h"
 #include <exec/tasks.h>
 #include <math.h>
 #include <stdarg.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include "awebplugin.h"
 #include <proto/utility.h>
+
+extern struct Library *AwebPluginBase;
+extern struct ExecBase *SysBase;
 
 /* Implementations of isnan() and isinf() for systems without them */
 static int isnan(double x)
@@ -46,17 +53,164 @@ static UBYTE *emsg_notallowed="Access to '%s' not allowed";
 static UBYTE *emsg_stackoverflow="Stack overflow";
 static UBYTE *emsg_notobject="Not an object";
 
+/* Log call stack like this ("    at name (source:line:1)").
+ * fh: FPrintf to that handle (debugger file dump). fh==0: Aprintf when awebplugin is available,
+ * or dos Write(Output()) when jc->errconsole (no URL yet — use anonymous:line:1; column is 1).
+ * Innermost frame first. For frame #0, errsite is the Runtimeerror callsite (compiler line);
+ * if errsite is NULL, jc->elt is used. Stack lines use %ld for line (RawDoFmt 32-bit rule).
+ * SNPrintf() return is required buffer size including NUL (utility V47+); never pass it to
+ * Write() — use strlen(stkln) for the byte count (output always NUL-terminated if bufsize!=0). */
+void Dumpjscallstack(struct Jcontext *jc,long fh,struct Element *errsite)
+{
+   struct Function *f;
+   long depth;
+   short ln;
+   UBYTE *fnm;
+   UBYTE *src;
+   BOOL useap;
+   UBYTE stkln[160];
+   LONG wlen;
+   BPTR errfh;
+
+   if(!jc)
+   {
+      return;
+   }
+   useap=BOOLVAL(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt);
+   src=(jc->sourcename && jc->sourcename[0]) ? jc->sourcename : (UBYTE *)"anonymous";
+
+   depth=0;
+   for(f=jc->functions.first;f && f->next;f=f->next)
+   {
+      fnm=NULL;
+      if(f->def && f->def->function && f->def->function->name)
+      {
+         fnm=f->def->function->name;
+      }
+
+      ln=-1;
+      if(depth==0)
+      {
+         if(errsite)
+         {
+            ln=errsite->linenr;
+         }
+         else if(jc->elt)
+         {
+            ln=((struct Element *)jc->elt)->linenr;
+         }
+      }
+
+      if(fh)
+      {
+         if(fnm)
+         {
+            if(ln>=0)
+            {
+               FPrintf((BPTR)fh,"    at %s (%s:%ld:1)\n",fnm,src,(long)ln);
+            }
+            else
+            {
+               FPrintf((BPTR)fh,"    at %s\n",fnm);
+            }
+         }
+         else
+         {
+            if(ln>=0)
+            {
+               FPrintf((BPTR)fh,"    at <anonymous> (%s:%ld:1)\n",src,(long)ln);
+            }
+            else
+            {
+               FPrintf((BPTR)fh,"    at <anonymous>\n");
+            }
+         }
+      }
+      else if(jc->errconsole && jc->jstrace)
+      {
+         errfh=Output();
+         if(errfh)
+         {
+            if(fnm)
+            {
+               if(ln>=0)
+               {
+                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
+                     (CONST_STRPTR)"    at %s (%s:%ld:1)\n",fnm,src,(long)ln);
+               }
+               else
+               {
+                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
+                     (CONST_STRPTR)"    at %s\n",fnm);
+               }
+            }
+            else
+            {
+               if(ln>=0)
+               {
+                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
+                     (CONST_STRPTR)"    at <anonymous> (%s:%ld:1)\n",src,(long)ln);
+               }
+               else
+               {
+                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
+                     (CONST_STRPTR)"    at <anonymous>\n");
+               }
+            }
+            wlen=(LONG)strlen((char *)stkln);
+            if(wlen>0)
+            {
+               Write(errfh,(APTR)stkln,wlen);
+            }
+         }
+      }
+      else if(useap && jc->jstrace)
+      {
+         if(fnm)
+         {
+            if(ln>=0)
+            {
+               Aprintf("    at %s (%s:%ld:1)\n",fnm,src,(long)ln);
+            }
+            else
+            {
+               Aprintf("    at %s\n",fnm);
+            }
+         }
+         else
+         {
+            if(ln>=0)
+            {
+               Aprintf("    at <anonymous> (%s:%ld:1)\n",src,(long)ln);
+            }
+            else
+            {
+               Aprintf("    at <anonymous>\n");
+            }
+         }
+      }
+
+      depth++;
+   }
+}
+
 /* Display the run time error message */
 void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg,...)
 {  struct Jbuffer *jb=NULL;
    BOOL debugger;
+   /* Stack dump: before throw/rethrow; before requester when errors are off; after requester
+    * when EXF_ERRORS so CLI sees message line then stacktrace frames. */
+   if(jc && jc->jstrace && (jc->try || !(jc->flags&EXF_ERRORS)))
+   {
+      Dumpjscallstack(jc,0,elt);
+   }
    if(jc->try)
    {
        struct Jobject *e;
        UBYTE buf[256];
        va_list args;
        va_start(args,msg);
-       VSNPrintf(buf,sizeof(buf),msg,args);
+       VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(CONST_APTR)args);
        va_end(args);
        if(type != NULL)
        {
@@ -76,6 +230,10 @@ void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg
    {  if(jc->flags&EXF_ERRORS)
       {  jb=Jdecompile(jc,elt);
          debugger=Errorrequester(jc,elt->linenr,jb?jb->buffer:NULL,-1,msg,VARARG(msg));
+         if(jc->jstrace)
+         {
+            Dumpjscallstack(jc,0,elt);
+         }
       }
       else
       {  debugger=FALSE;
@@ -722,6 +880,7 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    struct Elementstring *arg;
    struct Function *f;
    struct Variable *var,*avar;
+   struct JBytecodeChunk *bc;
    f=jc->functions.first;
    /* Map formal parameter names to pre-allocated local variables */
    for(enode=func->subs.first,var=f->local.first;
@@ -729,7 +888,13 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
       enode=enode->next,var=var->next)
    {  arg=enode->sub;
       if(arg && arg->type==ET_IDENTIFIER)
-      {  if(var->name) FREE(var->name);
+      {  if(var->name)
+         {  if(!(var->flags&VARF_NAMEATOMSHARED))
+            {  FREE(var->name);
+            }
+            var->name=NULL;
+            var->flags&=~VARF_NAMEATOMSHARED;
+         }
          var->name=Jdupstr(arg->svalue,-1,jc->pool);
       }
    }
@@ -781,7 +946,24 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
          }
       }
    }
-   /* Execute the function body */
+   /* Execute the function body (bytecode when a simple chunk was emitted). */
+   bc=func->bcode;
+   if(bc && bc->code && bc->length)
+   {
+      if(Jexecchunk(jc,bc))
+      {
+         if(jc->complete<=ECO_RETURN)
+         {
+            jc->complete=ECO_NORMAL;
+         }
+         if(avar)
+         {
+            Clearvalue(&avar->val);
+         }
+         Asgvalue(jc->val,&f->retval);
+         return;
+      }
+   }
    Executeelem(jc,func->body);
    if(jc->complete<=ECO_RETURN)
    {  jc->complete=ECO_NORMAL;
@@ -825,6 +1007,11 @@ static void Exetry(struct Jcontext *jc, struct Elementtry *elt)
       {  Asgvalue(&var->val,jc->throwval);
          var->flags |= VARF_DONTDELETE;
          jc->try = oldtry;
+         /* Throw is handled by this catch: Execompound breaks while jc->complete
+          * stays ECO_THROW, so statements after the first in catch would not run
+          * and callers would skip following statements (e.g. return). New throws in
+          * catch set ECO_THROW again via Exethrow. */
+         jc->complete = ECO_NORMAL;
          Executeelem(jc,elt->catch);
       }
       else
@@ -990,35 +1177,169 @@ static void Exenew(struct Jcontext *jc,struct Element *elt)
 
 static void Exedelete(struct Jcontext *jc,struct Element *elt)
 {
-   BOOL result = FALSE;
+   BOOL result;
    struct Variable *rhs;
-   if( ((struct Element *)elt->sub1)->type == ET_IDENTIFIER ||
-       ((struct Element *)elt->sub1)->type == ET_DOT  ||
-       ((struct Element *)elt->sub1)->type == ET_INDEX
-     )
+   struct Element *sub1;
+   struct Jobject *jo;
+   struct Variable *var;
+   struct Value val;
+   struct Value sval;
+   UBYTE *key;
+   struct Element *baseelt;
+   struct Elementstring *mbr;
+   struct Jobject *host;
+   struct Jobject *cand;
+   struct With *wscan;
+   UBYTE *vname;
+
+   result=FALSE;
+   rhs=NULL;
+   jo=NULL;
+   var=NULL;
+   val.type=0;
+   sval.type=0;
+   key=NULL;
+   baseelt=NULL;
+   mbr=NULL;
+   host=NULL;
+   cand=NULL;
+   wscan=NULL;
+   vname=NULL;
+
+   if(!elt || !elt->sub1)
    {
-       jc->flags|=EXF_ASGONLY;
-       Executeelem(jc,elt->sub1);
-       jc->flags&=~EXF_ASGONLY;
-       rhs=jc->varref;
+      Asgboolean(jc->val,TRUE);
+      return;
+   }
+   sub1=(struct Element *)elt->sub1;
+
+   /* Own properties of objects are listed in propidx; raw REMOVE+Disposevar leaves stale
+    * hash entries and can crash on the next Getproperty (illegal address / instruction). */
+   if(sub1->type==ET_DOT)
+   {
+      baseelt=sub1->sub1;
+      mbr=(struct Elementstring *)sub1->sub2;
+      if(baseelt && mbr && mbr->type==ET_IDENTIFIER && mbr->svalue)
+      {
+         Executeelem(jc,baseelt);
+         Toobject(jc->val,jc);
+         jo=jc->val->value.obj.ovalue;
+         if(jo)
+         {
+            var=Getownproperty(jo,mbr->svalue);
+            if(var)
+            {
+               if(var->flags&VARF_DONTDELETE)
+               {
+                  result=FALSE;
+               }
+               else
+               {
+                  result=Deleteownproperty(jo,mbr->svalue);
+               }
+            }
+            else
+            {
+               result=TRUE;
+            }
+         }
+      }
+      Asgboolean(jc->val,result);
+      return;
+   }
+   if(sub1->type==ET_INDEX)
+   {
+      Executeelem(jc,sub1->sub1);
+      Toobject(jc->val,jc);
+      jo=jc->val->value.obj.ovalue;
+      Asgvalue(&val,jc->val);
+      Executeelem(jc,sub1->sub2);
+      Asgvalue(&sval,jc->val);
+      Tostring(&sval,jc);
+      key=sval.value.svalue;
+      if(jo && key)
+      {
+         var=Getownproperty(jo,key);
+         if(var)
+         {
+            if(var->flags&VARF_DONTDELETE)
+            {
+               result=FALSE;
+            }
+            else
+            {
+               result=Deleteownproperty(jo,key);
+            }
+         }
+         else
+         {
+            result=TRUE;
+         }
+      }
+      Clearvalue(&val);
+      Clearvalue(&sval);
+      Asgboolean(jc->val,result);
+      return;
+   }
+
+   if(sub1->type==ET_IDENTIFIER)
+   {
+      vname=((struct Elementstring *)sub1)->svalue;
+      host=NULL;
+      rhs=Findvar(jc,vname,&host);
+      if(rhs)
+      {
+         while((rhs->flags&VARF_SYNONYM) && rhs->hookdata) rhs=rhs->hookdata;
+         if(rhs->flags&VARF_DONTDELETE)
+         {
+            result=FALSE;
+         }
+         else
+         {
+            cand=NULL;
+            if(host && rhs->name && Getownproperty(host,rhs->name)==rhs)
+            {
+               cand=host;
+            }
+            else if((jo=jc->functions.first->fscope) && rhs->name && Getownproperty(jo,rhs->name)==rhs)
+            {
+               cand=jo;
+            }
+            else if((jo=jc->functions.last->fscope) && rhs->name && Getownproperty(jo,rhs->name)==rhs)
+            {
+               cand=jo;
+            }
+            else if(jc->jthis && rhs->name && Getownproperty(jc->jthis,rhs->name)==rhs)
+            {
+               cand=jc->jthis;
+            }
+            else
+            {
+               for(wscan=jc->functions.first->with.first;wscan->next;wscan=wscan->next)
+               {
+                  if(rhs->name && Getownproperty(wscan->jo,rhs->name)==rhs)
+                  {
+                     cand=wscan->jo;
+                     break;
+                  }
+               }
+            }
+            if(cand)
+            {
+               result=Deleteownproperty(cand,rhs->name);
+            }
+            else
+            {
+               REMOVE(rhs);
+               Disposevar(rhs);
+               result=TRUE;
+            }
+         }
+      }
    }
    else
    {
-       rhs = NULL;
-       result = TRUE;
-   }
-   if(rhs)
-   {
-       if(!(rhs->flags & VARF_DONTDELETE))
-       {
-           REMOVE(rhs);
-           Disposevar(rhs);
-           result = TRUE;
-       }
-       else
-       {
-           result = FALSE;
-       }
+      result=TRUE;
    }
    Asgboolean(jc->val,result);
 }
@@ -2803,7 +3124,8 @@ BOOL Newexecute(struct Jcontext *jc)
    && (jc->throw=Newvar(NULL,jc))
    && (jc->jthis=Newobject(jc))
    && (f=Newfunction(jc,NULL)))
-   {  Keepobject(jc->jthis,TRUE);
+   {  jc->jstrace=FALSE;
+      Keepobject(jc->jthis,TRUE);
       jc->val=&jc->valvar->val;
       jc->throwval=&jc->throw->val;
       ADDHEAD(&jc->functions,f);

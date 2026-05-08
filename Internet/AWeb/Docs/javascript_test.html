@@ -68,11 +68,8 @@ function testOpenWindow() {
 }
 
 function testCloseWindow() {
-    if (window.close()) {
-        window.status = "Window close attempted";
-    } else {
-        window.status = "Window cannot be closed (may require user interaction)";
-    }
+    window.close();
+    window.status = "Window close attempted (may be ignored without chrome)";
 }
 
 // Document Object Tests
@@ -214,7 +211,11 @@ function testXHRSend() {
                 window.status = "XHR request completed successfully! Status: " + xhr.status;
                 var resultDiv = document.getElementById("xhrResult");
                 if (resultDiv) {
-                    resultDiv.innerHTML = "<H3>XHR Response:</H3><PRE>" + xhr.responseText + "</PRE>";
+                    try {
+                        resultDiv.innerHTML = "<H3>XHR Response:</H3><PRE>" + xhr.responseText + "</PRE>";
+                    } catch (e1) {
+                        window.status = "XHR ok (no innerHTML); len=" + ("" + xhr.responseText).length;
+                    }
                 }
             } else {
                 window.status = "XHR request failed. Status: " + xhr.status;
@@ -240,7 +241,11 @@ function testXHRJSON() {
                 window.status = "JSON XHR request completed! Status: " + xhr.status;
                 var resultDiv = document.getElementById("xhrJSONResult");
                 if (resultDiv) {
-                    resultDiv.innerHTML = "<H3>JSON Response:</H3><PRE>" + xhr.responseText + "</PRE>";
+                    try {
+                        resultDiv.innerHTML = "<H3>JSON Response:</H3><PRE>" + xhr.responseText + "</PRE>";
+                    } catch (e2) {
+                        window.status = "JSON XHR ok (no innerHTML); len=" + ("" + xhr.responseText).length;
+                    }
                 }
             } else {
                 window.status = "JSON XHR request failed. Status: " + xhr.status;
@@ -261,10 +266,16 @@ function testXHRProperties() {
     }
     
     var info = "XMLHttpRequest Properties:\n";
+    var rtxt;
     info += "readyState: " + xhr.readyState + " (0=UNSENT, 1=OPENED, 2=HEADERS_RECEIVED, 3=LOADING, 4=DONE)\n";
     info += "status: " + xhr.status + "\n";
     info += "statusText: " + xhr.statusText + "\n";
-    info += "responseText: " + (xhr.responseText ? xhr.responseText.substring(0, 50) + "..." : "(empty)");
+    rtxt = xhr.responseText;
+    if (typeof rtxt == "undefined" || rtxt == null) {
+        rtxt = "";
+    }
+    rtxt = "" + rtxt;
+    info += "responseText: " + (rtxt.length > 50 ? rtxt.substring(0, 50) + "..." : rtxt);
     window.alert(info);
 }
 
@@ -528,12 +539,13 @@ function testOnSelect() {
 // Page Load Handler
 window.onload = function() {
     window.defaultStatus = "AWeb JavaScript Compatibility Test - All features loaded";
+    window.status = window.defaultStatus;
 };
 
 //-->
 </SCRIPT>
 </HEAD>
-<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" ONLOAD="window.defaultStatus='JavaScript Test Page Loaded'">
+<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" ONLOAD="window.defaultStatus='JavaScript Test Page Loaded'; window.status='JavaScript Test Page Loaded';">
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; Browser Extensions JavaScript Test</H1>
 
@@ -1320,6 +1332,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <STRONG>Test:</STRONG><BR>
 <FORM METHOD="POST" ACTION="test.cgi" ONSUBMIT="return validateForm()" ONRESET="window.alert('Form reset!')">
 <P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30" ONCHANGE="onInputChange(this)" ONFOCUS="onInputFocus(this)" ONBLUR="onInputBlur(this)" ONSELECT="testOnSelect()"></P>
+<P>Sample SELECT (for select/option API tests): <SELECT NAME="country"><OPTION VALUE="a" SELECTED>Amiga</OPTION><OPTION VALUE="b">Other</OPTION></SELECT></P>
 <P>
 <INPUT TYPE="submit" VALUE="Submit Form">
 <INPUT TYPE="reset" VALUE="Reset Form">
@@ -1332,7 +1345,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <H3>Test 6: ONLOAD</H3>
 <P><STRONG>What it tests:</STRONG> The ONLOAD event handler that triggers when the page finishes loading.</P>
 <P><STRONG>How to run:</STRONG> This test runs automatically when the page loads. Check the status bar.</P>
-<P><STRONG>Expected results:</STRONG> When the page loads, the status bar should show "JavaScript Test Page Loaded" (set by the BODY ONLOAD attribute).</P>
+<P><STRONG>Expected results:</STRONG> When the page loads, the status bar should at least show "JavaScript Test Page Loaded" (BODY ONLOAD). If the host maps <CODE>defaultStatus</CODE> only indirectly, BODY also sets <CODE>window.status</CODE>. After all scripts run, <CODE>window.onload</CODE> may replace the message with the compatibility summary string.</P>
 
 <H3>Test 7: ONUNLOAD</H3>
 <P><STRONG>What it tests:</STRONG> The ONUNLOAD event handler that triggers when the page is unloaded (user navigates away).</P>

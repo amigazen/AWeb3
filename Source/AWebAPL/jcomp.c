@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,11 +20,411 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
+#include "jbytecode.h"
 
 /*-----------------------------------------------------------------------*/
 
 /* Forward declarations */
 static void Disposelt(struct Element *elt);
+
+#define JBC_EM_MAXCODE  512
+#define JBC_EM_MAXCONST 32
+
+struct Jbcemit
+{
+   struct Jcontext *jc;
+   UBYTE buf[JBC_EM_MAXCODE];
+   ULONG len;
+   void *cstore[JBC_EM_MAXCONST];
+   UBYTE ctypes[JBC_EM_MAXCONST];
+   ULONG nconst;
+   ULONG sp;
+   ULONG maxstack;
+};
+
+static BOOL jbc_em_byte(struct Jbcemit *em, UBYTE b)
+{
+   if(!em)
+   {
+      return FALSE;
+   }
+   if(em->len >= JBC_EM_MAXCODE)
+   {
+      return FALSE;
+   }
+   em->buf[em->len] = b;
+   em->len++;
+   return TRUE;
+}
+
+static BOOL jbc_em_u16(struct Jbcemit *em, UWORD u)
+{
+   if(!jbc_em_byte(em, (UBYTE)(u & 0xff)))
+   {
+      return FALSE;
+   }
+   return jbc_em_byte(em, (UBYTE)(u >> 8));
+}
+
+static BOOL jbc_em_number(struct Jbcemit *em, double n)
+{
+   double *dp;
+   UWORD idx;
+
+   if(!em)
+   {
+      return FALSE;
+   }
+   if(em->nconst >= JBC_EM_MAXCONST)
+   {
+      return FALSE;
+   }
+   dp = ALLOCTYPE(double, 1, 0, em->jc->pool);
+   if(!dp)
+   {
+      return FALSE;
+   }
+   *dp = n;
+   em->cstore[em->nconst] = dp;
+   em->ctypes[em->nconst] = JBCC_NUMBER;
+   idx = (UWORD)em->nconst;
+   em->nconst++;
+   if(!jbc_em_byte(em, JBC_OP_NUMBER))
+   {
+      return FALSE;
+   }
+   if(!jbc_em_u16(em, idx))
+   {
+      return FALSE;
+   }
+   em->sp++;
+   if(em->sp > em->maxstack)
+   {
+      em->maxstack = em->sp;
+   }
+   return TRUE;
+}
+
+static BOOL jbc_em_string(struct Jbcemit *em, UBYTE *s)
+{
+   UBYTE *sd;
+   UWORD idx;
+
+   if(!em)
+   {
+      return FALSE;
+   }
+   if(em->nconst >= JBC_EM_MAXCONST)
+   {
+      return FALSE;
+   }
+   sd = Jdupstr(s, -1, em->jc->pool);
+   if(!sd)
+   {
+      return FALSE;
+   }
+   em->cstore[em->nconst] = sd;
+   em->ctypes[em->nconst] = JBCC_STRING;
+   idx = (UWORD)em->nconst;
+   em->nconst++;
+   if(!jbc_em_byte(em, JBC_OP_STRING))
+   {
+      return FALSE;
+   }
+   if(!jbc_em_u16(em, idx))
+   {
+      return FALSE;
+   }
+   em->sp++;
+   if(em->sp > em->maxstack)
+   {
+      em->maxstack = em->sp;
+   }
+   return TRUE;
+}
+
+static void jbc_free_cstore(struct Jbcemit *em)
+{
+   ULONG i;
+
+   if(!em)
+   {
+      return;
+   }
+   for(i = 0; i < em->nconst; i++)
+   {
+      if(em->ctypes[i] == JBCC_NUMBER || em->ctypes[i] == JBCC_STRING)
+      {
+         if(em->cstore[i])
+         {
+            FREE(em->cstore[i]);
+         }
+      }
+      em->cstore[i] = NULL;
+   }
+   em->nconst = 0;
+}
+
+static BOOL jbc_emit_expr(struct Jbcemit *em, void *expr)
+{
+   struct Element *e;
+   struct Elementint *ei;
+   struct Elementfloat *ef;
+   struct Elementstring *es;
+
+   if(!em || !expr)
+   {
+      return FALSE;
+   }
+   e = (struct Element *)expr;
+   switch(e->type)
+   {
+   case ET_INTEGER:
+      ei = (struct Elementint *)e;
+      return jbc_em_number(em, ei->ivalue);
+   case ET_FLOAT:
+      ef = (struct Elementfloat *)e;
+      return jbc_em_number(em, ef->fvalue);
+   case ET_BOOLEAN:
+      ei = (struct Elementint *)e;
+      if(ei->ivalue)
+      {
+         if(!jbc_em_byte(em, JBC_OP_TRUE))
+         {
+            return FALSE;
+         }
+      }
+      else
+      {
+         if(!jbc_em_byte(em, JBC_OP_FALSE))
+         {
+            return FALSE;
+         }
+      }
+      em->sp++;
+      if(em->sp > em->maxstack)
+      {
+         em->maxstack = em->sp;
+      }
+      return TRUE;
+   case ET_STRING:
+      es = (struct Elementstring *)e;
+      if(!es->svalue)
+      {
+         return FALSE;
+      }
+      return jbc_em_string(em, es->svalue);
+   case ET_PLUS:
+      if(!e->sub1 || !e->sub2)
+      {
+         return FALSE;
+      }
+      if(((struct Element *)e->sub1)->type == ET_STRING
+      || ((struct Element *)e->sub2)->type == ET_STRING)
+      {
+         return FALSE;
+      }
+      if(!jbc_emit_expr(em, e->sub1))
+      {
+         return FALSE;
+      }
+      if(!jbc_emit_expr(em, e->sub2))
+      {
+         return FALSE;
+      }
+      if(em->sp < 2)
+      {
+         return FALSE;
+      }
+      if(!jbc_em_byte(em, JBC_OP_ADD))
+      {
+         return FALSE;
+      }
+      em->sp--;
+      return TRUE;
+   default:
+      break;
+   }
+   return FALSE;
+}
+
+static BOOL jbc_finalize(struct Jbcemit *em, struct JBytecodeChunk **out)
+{
+   struct JBytecodeChunk *ch;
+   UBYTE *bc;
+   void **cs;
+   UBYTE *ct;
+   ULONG i;
+
+   if(!em || !out)
+   {
+      return FALSE;
+   }
+   *out = NULL;
+   ch = ALLOCTYPE(struct JBytecodeChunk, 1, 0, em->jc->pool);
+   if(!ch)
+   {
+      jbc_free_cstore(em);
+      return FALSE;
+   }
+   bc = ALLOCTYPE(UBYTE, em->len, 0, em->jc->pool);
+   if(!bc)
+   {
+      FREE(ch);
+      jbc_free_cstore(em);
+      return FALSE;
+   }
+   if(em->len)
+   {
+      CopyMem(em->buf, bc, em->len);
+   }
+   ch->code = bc;
+   ch->length = em->len;
+   ch->maxstack = em->maxstack;
+   ch->numconsts = em->nconst;
+   if(em->nconst)
+   {
+      cs = ALLOCTYPE(void *, em->nconst, 0, em->jc->pool);
+      ct = ALLOCTYPE(UBYTE, em->nconst, 0, em->jc->pool);
+      if(!cs || !ct)
+      {
+         FREE(bc);
+         FREE(cs);
+         FREE(ct);
+         FREE(ch);
+         jbc_free_cstore(em);
+         return FALSE;
+      }
+      for(i = 0; i < em->nconst; i++)
+      {
+         cs[i] = em->cstore[i];
+         ct[i] = em->ctypes[i];
+      }
+      ch->consts = cs;
+      ch->ctypes = ct;
+   }
+   else
+   {
+      ch->consts = NULL;
+      ch->ctypes = NULL;
+   }
+   *out = ch;
+   return TRUE;
+}
+
+/* Emit a bytecode body for functions that are a single return of a simple expression. */
+static void Tryemitfuncbytecode(struct Jcontext *jc, struct Elementfunc *func)
+{
+   struct Elementlist *body;
+   struct Elementnode *enode;
+   struct Element *st;
+   struct Element *ret;
+   struct Jbcemit em;
+   struct JBytecodeChunk *ch;
+   ULONG nst;
+   struct Element *only;
+
+   if(!jc || !func)
+   {
+      return;
+   }
+   if(func->bcode)
+   {
+      return;
+   }
+   if(!func->body)
+   {
+      return;
+   }
+   body = (struct Elementlist *)func->body;
+   if(body->type != ET_COMPOUND)
+   {
+      return;
+   }
+   nst = 0;
+   only = NULL;
+   for(enode = body->subs.first; enode && enode->next; enode = enode->next)
+   {
+      if(enode->sub)
+      {
+         nst++;
+         only = enode->sub;
+      }
+   }
+   em.jc = jc;
+   em.len = 0;
+   em.nconst = 0;
+   em.sp = 0;
+   em.maxstack = 0;
+   if(nst == 0)
+   {
+      if(!jbc_em_byte(&em, JBC_OP_UNDEFINED))
+      {
+         return;
+      }
+      em.sp++;
+      if(em.sp > em.maxstack)
+      {
+         em.maxstack = em.sp;
+      }
+      if(!jbc_em_byte(&em, JBC_OP_RETURN))
+      {
+         return;
+      }
+      if(em.sp != 1)
+      {
+         return;
+      }
+      if(!jbc_finalize(&em, &ch))
+      {
+         return;
+      }
+      func->bcode = ch;
+      return;
+   }
+   if(nst != 1)
+   {
+      return;
+   }
+   st = only;
+   if(!st || st->type != ET_RETURN)
+   {
+      return;
+   }
+   ret = st;
+   if(ret->sub1)
+   {
+      if(!jbc_emit_expr(&em, ret->sub1))
+      {
+         return;
+      }
+   }
+   else
+   {
+      if(!jbc_em_byte(&em, JBC_OP_UNDEFINED))
+      {
+         return;
+      }
+      em.sp++;
+      if(em.sp > em.maxstack)
+      {
+         em.maxstack = em.sp;
+      }
+   }
+   if(em.sp != 1)
+   {
+      return;
+   }
+   if(!jbc_em_byte(&em, JBC_OP_RETURN))
+   {
+      return;
+   }
+   if(!jbc_finalize(&em, &ch))
+   {
+      return;
+   }
+   func->bcode = ch;
+}
 
 /* Create an element */
 static struct Element *Newelement(struct Jcontext *jc,void *pa,UWORD type,
@@ -1082,6 +1482,11 @@ static void *Element(struct Jcontext *jc,void *pa)
         {
             Keepobject(fobj,TRUE);
             fobj->function=func;
+            fobj->type=OBJT_FUNCTION;
+            /* Inherit call/apply and other methods from Function.prototype. */
+            if(jc->function)
+            {  Initconstruct(jc,fobj,NULL,jc->function);
+            }
             if(func->name)
             {
                 if((fprop=Getownproperty(jc->fscope,func->name))
@@ -1098,6 +1503,7 @@ static void *Element(struct Jcontext *jc,void *pa)
         }
          /* Remember current scope with function */
          func->fscope=jc->fscope;
+         Tryemitfuncbytecode(jc,func);
       }
       else
       {  Errormsg(pa,"Out of memory");
@@ -2118,6 +2524,10 @@ static void Dislist(struct Elementlist *elt)
 
 static void Disfunc(struct Elementfunc *elt)
 {  struct Elementnode *enode;
+   if(elt->bcode)
+   {  Jvmfreechunk(elt->bcode);
+      elt->bcode=NULL;
+   }
    while(enode=(struct Elementnode *)RemHead((struct List *)&elt->subs))
    {  if(enode->sub) Disposelt(enode->sub);
       FREE(enode);
@@ -2312,6 +2722,7 @@ struct Jobject *Jcompiletofunction(struct Jcontext *jc,UBYTE *source,UBYTE *name
          }
          /* Remember current scope with function */
          func->fscope=jc->fscope;
+         Tryemitfuncbytecode(jc,func);
       }
    }
    if(!fobj)

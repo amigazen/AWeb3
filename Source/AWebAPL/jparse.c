@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -178,6 +178,106 @@ static UBYTE *Getstring(struct Parser *pa,UBYTE sep)
    return svalue;
 }
 
+/* RegExp literal body: pa->next points at leading '/'; sep is closing '/'. */
+static UBYTE *Getregexp(struct Parser *pa,UBYTE sep)
+{
+   UBYTE *p;
+   UBYTE *q;
+   UBYTE *svalue;
+   BOOL inclass;
+
+   inclass=FALSE;
+   for(p=pa->next+1;*p && (*p!=sep || inclass);p++)
+   {
+      switch(*p)
+      {
+      case '\\':
+         p++;
+         break;
+      case '[':
+         inclass=TRUE;
+         break;
+      case ']':
+         inclass=FALSE;
+         break;
+      default:
+         break;
+      }
+   }
+   if(!(svalue=ALLOCTYPE(UBYTE,(ULONG)(p-pa->next),0,pa->pool)))
+   {
+      Errormsg(pa,"Out of memory");
+      pa->next=p;
+      if(*pa->next==sep)
+      {
+         pa->next++;
+      }
+      return NULL;
+   }
+   inclass=FALSE;
+   for(p=pa->next+1,q=svalue;*p && (*p!=sep || inclass);p++)
+   {
+      switch(*p)
+      {
+      case '\\':
+         *q++=*p++;
+         *q++=*p;
+         break;
+      case '\n':
+      case '\r':
+      case '\0':
+         Errormsg(pa,"Regular expression unterminated");
+         break;
+      case '[':
+         inclass=TRUE;
+         *q++=*p;
+         break;
+      case ']':
+         inclass=FALSE;
+         *q++=*p;
+         break;
+      default:
+         *q++=*p;
+         break;
+      }
+   }
+   if(*p==sep)
+   {
+      p++;
+   }
+   *q='\0';
+   pa->next=p;
+   return svalue;
+}
+
+/* Optional flags after closing '/' (g, i, m, ...); may return NULL. */
+static UBYTE *Getregexpflag(struct Parser *pa)
+{
+   UBYTE *p;
+   UBYTE *q;
+   UBYTE *end;
+   UBYTE *svalue;
+
+   for(p=pa->next;*p && isalpha((int)(unsigned char)*p);p++)
+   {
+   }
+   end=p;
+   if(end==pa->next)
+   {
+      return NULL;
+   }
+   if((svalue=ALLOCTYPE(UBYTE,(ULONG)(end-pa->next)+1,MEMF_CLEAR,pa->pool)))
+   {
+      for(p=pa->next,q=svalue;p<end;p++)
+      {
+         *q++=*p;
+      }
+      *q='\0';
+   }
+   pa->next=end;
+   return svalue;
+}
+
 /* Return integer value, advance parser */
 static long Getint(struct Parser *pa)
 {  long n=0;
@@ -334,6 +434,7 @@ struct Token *Nexttoken(struct Parser *pa)
          }
          pa->line=pa->next;
          pa->linenr++;
+         pa->newexpr=TRUE;
          return tokenp;
       }
       if((pa->next[0]=='\r' && pa->next[1]!='\n') || pa->next[0]=='\n')
@@ -350,7 +451,17 @@ struct Token *Nexttoken(struct Parser *pa)
       case '=':
          pa->next++;
          switch(*pa->next)
-         {  case '=':   token.id=JT_EQ;pa->next++;break;
+         {  case '=':
+               pa->next++;
+               /* === strict equality (ES); else == */
+               if(*pa->next=='=')
+               {  token.id=JT_EXEQ;
+                  pa->next++;
+               }
+               else
+               {  token.id=JT_EQ;
+               }
+               break;
             default:    token.id=JT_ASSIGN;break;
          }
          break;
@@ -399,7 +510,17 @@ struct Token *Nexttoken(struct Parser *pa)
       case '!':
          pa->next++;
          switch(*pa->next)
-         {  case '=':   token.id=JT_NE;pa->next++;break;
+         {  case '=':
+               pa->next++;
+               /* !== strict inequality; else != */
+               if(*pa->next=='=')
+               {  token.id=JT_NEXEQ;
+                  pa->next++;
+               }
+               else
+               {  token.id=JT_NE;
+               }
+               break;
             default:    token.id=JT_NOT;break;
          }
          break;
@@ -453,7 +574,19 @@ struct Token *Nexttoken(struct Parser *pa)
                pa->next++;
                Skipcomment(pa);
                return Nexttoken(pa);
-            default:    token.id=JT_DIV;break;
+            default:
+               if(pa->newexpr)
+               {
+                  pa->next--;
+                  token.id=JT_REGEXPLIT;
+                  token.svalue=Getregexp(pa,'/');
+                  token.svalue2=Getregexpflag(pa);
+               }
+               else
+               {
+                  token.id=JT_DIV;
+               }
+               break;
          }
          break;
       case '%':
@@ -577,6 +710,32 @@ struct Token *Nexttoken(struct Parser *pa)
             pa->next++;
          }
          break;
+   }
+
+   /* InputElementRegExp vs InputElementDiv (ECMA lex goals). After a complete primary,
+    * '/' is division; elsewhere (e.g. after ',' '(' operators) '/' opens RegExpLiteral.
+    * Caveat: after ')' we assume division (`f()/2`); a regexp immediately after `if (...)` without
+    * `{` needs parens, e.g. `if (0) (/re/).test(s)`. */
+   pa->newexpr=TRUE;
+   switch(token.id)
+   {
+   case JT_REGEXPLIT:
+   case JT_STRINGLIT:
+   case JT_INTEGERLIT:
+   case JT_FLOATLIT:
+   case JT_BOOLEANLIT:
+   case JT_NULLLIT:
+   case JT_IDENTIFIER:
+   case JT_THIS:
+   case JT_RIGHTPAR:
+   case JT_RIGHTBRACKET:
+   case JT_INC:
+   case JT_DEC:
+   case JT_DOT:
+      pa->newexpr=FALSE;
+      break;
+   default:
+      break;
    }
 
    return tokenp;

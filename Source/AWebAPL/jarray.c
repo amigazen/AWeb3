@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -224,7 +224,10 @@ static void Joinarray(struct Jcontext *jc,UBYTE *sep)
    len = 0;
    if((length = Getproperty(jo,"length")))
    {  Tonumber(&length->val,jc);
-      len = (unsigned long)length->val.value.nvalue;
+      /* Ignore NaN/invalid .length so a corrupt value cannot hang this loop. */
+      if(length->val.attr == VNA_VALID)
+      {  len = (unsigned long)length->val.value.nvalue;
+      }
    }
    if(buf=Newjbuffer(jc->pool))
    {  for(n=0;n<len;n++)
@@ -376,15 +379,17 @@ static void Arraypop(struct Jcontext *jc)
          if(length->val.attr==VNA_VALID)
          {  len=(long)length->val.value.nvalue;
             if(len>0)
-            {  len--;
-               sprintf(nname,"%d",len);
+            {  sprintf(nname,"%d",(int)(len-1));
                if(elt=Getproperty(jo,nname))
-               {  Asgvalue(&result,&elt->val);
-                  REMOVE(elt);
-                  FREE(elt->name);
-                  FREE(elt);
-                  if(jo->internal && jo->hook==Arrayohook)
-                  {  ((struct Array *)jo->internal)->length--;
+               {  /* Copy out value before Deleteownproperty: dense indices live in
+                * a->array[] only, not in the object's property list; REMOVE(elt)
+                * would corrupt Exec lists and lock the machine. */
+                  Asgvalue(&result,&elt->val);
+                  if(Deleteownproperty(jo,nname))
+                  {  len--;
+                     if(jo->internal && jo->hook==Arrayohook)
+                     {  ((struct Array *)jo->internal)->length=len;
+                     }
                   }
                }
             }
@@ -485,14 +490,11 @@ static void Arrayshift(struct Jcontext *jc)
                   }
                }
                len--;
-               sprintf(nname,"%d",len);
-               if(var=Getproperty(jo,nname))
-               {  REMOVE(var);
-                  FREE(var->name);
-                  FREE(var);
-                  if(jo->internal && jo->hook==Arrayohook)
-                  {  ((struct Array *)jo->internal)->length--;
-                  }
+               sprintf(nname,"%d",(int)len);
+               /* Same as Arraypop: dense slots are not on the property list. */
+               Deleteownproperty(jo,nname);
+               if(jo->internal && jo->hook==Arrayohook)
+               {  ((struct Array *)jo->internal)->length=len;
                }
             }
          }
@@ -838,15 +840,9 @@ static BOOL Arraylhook(struct Varhookdata *v)
                }
                if(newlen < oldlen)
                {  int i;
-                  struct Variable *elt;
                   for(i = newlen; i < oldlen; i++)
                   {  sprintf(nname,"%d",i);
-                     /* Note: Deleteownproperty needs to be added */
-                     if((elt = Getproperty(jo,nname)))
-                     {  REMOVE(elt);
-                        FREE(elt->name);
-                        FREE(elt);
-                     }
+                     Deleteownproperty(jo,nname);
                   }
                }
                a->length = newlen;

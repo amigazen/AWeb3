@@ -471,7 +471,7 @@ awebjs.o:   awebjs.c jslib.h keyfile.h
 
 #- awebjs.aweblib ------------------------------------------------------------
 
-aweblib/awebjs.aweblib:   jslib.o jparse.o jcomp.o jdata.o jexe.o jmemory.o jobject.o jdebug.o
+aweblib/awebjs.aweblib:   jslib.o jparse.o jcomp.o jdata.o jatom.o jexe.o jvm.o jmemory.o jobject.o jdebug.o
 aweblib/awebjs.aweblib:   jarray.o jboolean.o jdate.o jerror.o jfunction.o jmath.o jnumber.o jstring.o jregexp.o
 aweblib/awebjs.aweblib:   regexp/pcre.o
 aweblib/awebjs.aweblib:   jslib.lnk
@@ -488,11 +488,15 @@ jboolean.o: jboolean.c awebjs.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
-jcomp.o:    jcomp.c awebjs.h
+jcomp.o:    jcomp.c awebjs.h jbytecode.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
-jdata.o:    jdata.c awebjs.h
+jatom.o:    jatom.c awebjs.h jatom.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+jdata.o:    jdata.c awebjs.h jatom.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
@@ -505,6 +509,10 @@ jdebug.o:   jdebug.c awebjs.h keyfile.h
    @sc $(DEBUG) $*.c
 
 jexe.o:     jexe.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jvm.o:      jvm.c awebjs.h jbytecode.h jprotos.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 

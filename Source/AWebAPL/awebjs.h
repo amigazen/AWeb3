@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -52,13 +52,13 @@
 #endif
 
 #ifndef ALLOCTYPE
-#define ALLOCTYPE(t,n,f,p)    (t*)Pallocmem((n)*sizeof(t),(f)|MEMF_PUBLIC,p)
+#define ALLOCTYPE(t,n,f,p)    (t*)JPallocmem((n)*sizeof(t),(f)|MEMF_PUBLIC,p)
 #define ALLOCSTRUCT(s,n,f,p)  ALLOCTYPE(struct s,n,f,p)
 #endif
-#define FREE(p)               Freemem(p)
+#define FREE(p)               JFreemem(p)
 
-#define ALLOCOBJECT(jc)      (struct Jobject *)Pallocmem(sizeof(struct Jobject),MEMF_PUBLIC,jc->objpool)
-#define ALLOCVAR(jc)         (struct Variable *)Pallocmem(sizeof(struct Variable),MEMF_PUBLIC,jc->varpool)
+#define ALLOCOBJECT(jc)      (struct Jobject *)JPallocmem(sizeof(struct Jobject),MEMF_PUBLIC,jc->objpool)
+#define ALLOCVAR(jc)         (struct Variable *)JPallocmem(sizeof(struct Variable),MEMF_PUBLIC,jc->varpool)
 
 /* get pointer to first vararg after p */
 #define VARARG(p)          (void *)((ULONG)&p+sizeof(p))
@@ -90,6 +90,25 @@ struct Token
 typedef BOOL Jfeedback(struct Jcontext *jc);
 #define NUM_ERRORTYPES  6
 
+#include "jatom.h"
+
+struct JPropIdxEnt;
+struct JBytecodeChunk;
+
+#define JATOM_NUM_BUCKETS 64
+#define JPROP_IDX_BUCKETS 16
+
+/* JPallocmem/JFreemem session counters for the interpreter pool (see jmemory JmemSessionBind). */
+struct JmemSessionStats
+{
+   ULONG jp_allocs;
+   ULONG jp_frees;
+   LONG outstanding_bytes;
+   ULONG total_alloc_bytes;
+   ULONG total_free_bytes;
+   LONG peak_outstanding_bytes;
+};
+
 struct Jcontext
 {  void *pool;
    void *objpool;
@@ -99,6 +118,8 @@ struct Jcontext
    void *program;
    LIST(Jobject) objects;
    LIST(Jobject) tmp;           /* Temporary object list during function execution */
+   ULONG obj_created;           /* Count of Newobject() calls for this context */
+   ULONG obj_disposed;          /* Count of Disposeobject() calls for this context */
    struct Jcontext *truecontext;      /* If this is a temporary context (eg in an eval) point to true context */
    void *try;                 /* current try block */
    struct Variable *throw;    /* Variable holding last throw or runtime error object */
@@ -117,6 +138,7 @@ struct Jcontext
    ULONG userdata;
    Jfeedback *feedback;
    long linenr;               /* Starting line # of source */
+   UBYTE *sourcename;         /* Optional source name for stack traces (e.g. filename). */
    ULONG fbtime;              /* Time (s) when to give next feedback */
    ULONG warntime;            /* Time (s) when to give warning */
    ULONG warnmem;             /* Memory amount when to give warning */
@@ -141,6 +163,9 @@ struct Jcontext
    struct Jobject *regexp;    /* Standard Regular Expression function */
    struct Jobject *error;      /* Standard Error constructor function */
    struct Jobject *nativeErrors[NUM_ERRORTYPES]; /*Native error constructors */
+   BOOL jstrace;               /* when TRUE, Runtimeerror / Dumpjscallstack may emit stacktrace frames */
+   BOOL errconsole;            /* when TRUE, Errorrequester prints to stderr (CLI hosts) */
+   struct JAtomStr *jatom_buckets[JATOM_NUM_BUCKETS]; /* root context only; see Jatomroot() */
 };
 
 
@@ -226,6 +251,7 @@ struct Variable
 #define VARF_HIDDEN     0x0001   /* Property is hidden (doesn't show up in for(in)) */
 #define VARF_SYNONYM    0x0002   /* Use variable pointed to by hookdata instead. */
 #define VARF_DONTDELETE 0x0004   /* Property cannot be deleted */
+#define VARF_NAMEATOMSHARED 0x0008   /* name points into atom table; do not FREE */
 
 /* Hook function when property is added to object.
  * Returns TRUE if it understands the function, FALSE if default
@@ -252,6 +278,7 @@ struct Jobject
    struct Jobject *constructor;
    struct Jobject *prototype; /* Pointer to the first in this objects prototype chain */
    LIST(Variable) properties;
+   struct JPropIdxEnt *propidx[JPROP_IDX_BUCKETS]; /* generic prop fast path */
    struct Elementfunc *function;
    Objhookfunc *hook;         /* Hook to call when property is added */
    void *internal;
@@ -430,6 +457,7 @@ struct Elementfunc         /* A function [object] definition */
    void *body;             /* Function body */
    struct Jobject *fscope; /* Scope for which function is defined, i.e. scope to look
                             * for global variables used in function body. */
+   struct JBytecodeChunk *bcode; /* optional fast path; NULL if not emitted or unsupported */
 };
 
 struct Elementfuncref      /* Return a function reference */

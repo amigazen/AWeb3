@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,6 +21,7 @@
 #include "awebjs.h"
 #include "jprotos.h"
 #include "keyfile.h"
+#include "awebplugin.h"
 #include <stdarg.h>
 #include <libraries/locale.h>
 #include <intuition/intuition.h>
@@ -79,9 +80,6 @@ __asm __saveds ULONG Extfunclib(void);
 
 __asm __saveds void *Newjcontext(
    register __a0 UBYTE *screenname);
-
-__asm __saveds void Freejcontext(
-   register __a0 struct Jcontext *jc);
 
 __asm __saveds BOOL Runjprogram(
    register __a0 struct Jcontext *jc,
@@ -251,6 +249,14 @@ __asm __saveds void Jallowgc(
    register __a0 struct Jcontext *jc,
    register __d0 BOOL allow);
 
+__asm __saveds void Jsetjstrace(
+   register __a0 struct Jcontext *jc,
+   register __d0 BOOL on);
+
+__asm __saveds void Jseterrconsole(
+   register __a0 struct Jcontext *jc,
+   register __d0 BOOL on);
+
 __asm __saveds void Jsetlinenumber(
    register __a0 struct Jcontext *jc,
    register __d0 long linenr);
@@ -275,7 +281,14 @@ static void Expungeaweblib(struct Library *libbase);
 
 struct Library *AWebJSBase;
 
+/* Set when awebjs.aweblib is opened; required by awebplugin.h pragmas for Aprintf(). */
+struct Library *AwebPluginBase;
+
 static APTR libseglist;
+
+/* Functable slot addresses need plain-C prototypes matching __saveds defs below. */
+__saveds void Freejcontext(struct Jcontext *jc);
+__saveds void Jgetjmemsessionstats(struct JmemSessionStats *st);
 
 LONG __saveds __asm Libstart(void)
 {  return -1;
@@ -332,6 +345,9 @@ static APTR functable[]=
    Jsetscreen,
    Jaddeventhandler,
    Jallowgc,
+   Jsetjstrace,
+   Jseterrconsole,
+   Jgetjmemsessionstats,
    (APTR)-1
 };
 
@@ -380,6 +396,12 @@ __asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase)
 {  libbase->lib_OpenCnt++;
    libbase->lib_Flags&=~LIBF_DELEXP;
+   if(libbase->lib_OpenCnt==1)
+   {  AwebPluginBase=OpenLibrary("awebplugin.library",0);
+      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[JS] Openlib ok\n");
+      }
+   }
    return libbase;
 }
 
@@ -387,7 +409,11 @@ __asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase)
 {  libbase->lib_OpenCnt--;
    if(libbase->lib_OpenCnt==0)
-   {  if(libbase->lib_Flags&LIBF_DELEXP)
+   {  if(AwebPluginBase)
+      {  CloseLibrary(AwebPluginBase);
+         AwebPluginBase=NULL;
+      }
+      if(libbase->lib_Flags&LIBF_DELEXP)
       {  return Expungelib(libbase);
       }
    }
@@ -518,12 +544,56 @@ static long __saveds __asm Idcmphook(register __a0 struct Hook *hook,
    return 0;
 }
 
+/* exec.library RawDoFmt() for "Line ..."; utility.library VSNPrintf() builds requester text.
+ * RawDoFmt integer rules: use %ld and 32-bit words in the data stream (see RawDoFmt autodocs).
+ * VSNPrintf return = full buffer size needed including NUL (V47+); we only need the written
+ * prefix in buf for UI/CLI — do not treat return value as strlen(buf). */
+/* Scratch for RawDoFmt PutCh when formatting the line-number prefix. */
+struct Jerrcon_lnrfmt
+{
+   STRPTR dst;
+   ULONG room;
+};
+
+/* RawDoFmt PutCh: character low 8 bits in D0, userdata in A3; trailing call passes 0 (autodocs).
+ * Preserve D2-D7/A2/A4-A6; SAS/C __asm stub follows Amiga register conventions. */
+static void __saveds __asm Jerrcon_lnrfmt_putch(register __d0 ULONG c,
+   register __a3 struct Jerrcon_lnrfmt *lf)
+{
+   UBYTE b;
+
+   if(!lf || lf->room==0)
+   {
+      return;
+   }
+   b=(UBYTE)(c&0xff);
+   *lf->dst++=b;
+   *lf->dst='\0';
+   lf->room--;
+}
+
+static void Jerrcon_writecstr(BPTR fh, UBYTE *s)
+{
+   LONG n;
+
+   if(!fh || !s)
+   {
+      return;
+   }
+   n=(LONG)strlen((char *)s);
+   if(n>0)
+   {
+      Write(fh,(APTR)s,n);
+   }
+}
+
 /* lnr<0 gives general requester. pos<0 gives runtime, pos>=0 gives parsing requester.
  * Returns TRUE when to ignore, FALSE when to stop.
  * But: lnr<0 && pos>0 gives loop warning requester;
  * returns TRUE when to stop, FALSE when to continue. */
 BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg,va_list args)
 {  struct ClassLibrary *WindowBase=NULL,*LayoutBase=NULL,*ButtonBase=NULL,*LabelBase=NULL;
+   struct Jerrcon_lnrfmt lfmt;
    BOOL ignore=FALSE;
    void *winobj,*buttonrow;
    ULONG sigmask,result;
@@ -533,8 +603,17 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
    BOOL done=FALSE;
    struct TextAttr ta={ 0 };
    struct Screen *screen;
+   BPTR errfh;
+
+   if(!jc)
+   {
+      return FALSE;
+   }
    if(lnr>=0)
-   {  sprintf(lnrbuf,"Line %d\n",lnr);
+   {  lfmt.dst=lnrbuf;
+      lfmt.room=(ULONG)(sizeof(lnrbuf)-1);
+      lnrbuf[0]='\0';
+      RawDoFmt((CONST_STRPTR)"Line %ld\n",(APTR)&lnr,(VOID (*)())Jerrcon_lnrfmt_putch,(APTR)&lfmt);
       if(pos>=0)
       {  if(line)
          {  for(p=line+pos-1;p>=line && *p!='\n' && *p!='\r';p--);
@@ -585,7 +664,43 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
    {  *lnrbuf='\0';
       *src='\0';
    }
-   vsprintf(buf,msg,(va_list)args);
+   /* fmt + args: va_list as RawDoFmt data stream (utility VSNPrintf autodocs). */
+   VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(CONST_APTR)args);
+   if(jc->errconsole)
+   {  errfh=Output();
+      if(!errfh)
+      {
+         if(lnr<0 && pos>0)
+         {
+            return TRUE;
+         }
+         return FALSE;
+      }
+      if(lnr<0 && pos>0)
+      {
+         Jerrcon_writecstr(errfh,(UBYTE *)"JavaScript warning\n");
+      }
+      else
+      {
+         Jerrcon_writecstr(errfh,(UBYTE *)"JavaScript error\n");
+      }
+      if(lnr>=0 && lnrbuf[0])
+      {
+         Jerrcon_writecstr(errfh,lnrbuf);
+      }
+      if(src[0])
+      {
+         Jerrcon_writecstr(errfh,src);
+         Jerrcon_writecstr(errfh,(UBYTE *)"\n");
+      }
+      Jerrcon_writecstr(errfh,buf);
+      Jerrcon_writecstr(errfh,(UBYTE *)"\n");
+      if(lnr<0 && pos>0)
+      {
+         return TRUE;
+      }
+      return FALSE;
+   }
    ta.ta_Name=((struct GfxBase *)GfxBase)->DefaultFont->ln_Name;
    ta.ta_YSize=((struct GfxBase *)GfxBase)->DefaultFont->tf_YSize;
    if(!(screen=LockPubScreen(jc->screenname)))
@@ -724,6 +839,9 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
 {  struct Jcontext *jc=NULL;
    void *pool;
    /* New Jcontext is created in its own pool */
+   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+   {  Aprintf("[JS] Newjcontext enter\n");
+   }
    if(pool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE))
    {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
       {  jc->pool=pool;
@@ -733,24 +851,49 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
          jc->varpool=pool;
          NEWLIST(&jc->objects);
          NEWLIST(&jc->tmp);
+         JmemSessionBind(jc->pool);
+         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+         {  Aprintf("[JS] Newjcontext before Newexecute\n");
+         }
          Newexecute(jc);
+         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+         {  Aprintf("[JS] Newjcontext after Newexecute\n");
+         }
          jc->screenname=screenname;
       }
    }
    if(!jc)
    {  if(pool) DeletePool(pool);
    }
+   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+   {  Aprintf("[JS] Newjcontext exit\n");
+   }
    return jc;
 }
 
-__asm __saveds void Freejcontext(register __a0 struct Jcontext *jc)
-{  if(jc)
-   {  if(jc->pool)
-      {  Freeexecute(jc);
-         DeletePool(jc->pool);
-         /* This deletes jc itself too because it was allocated in the pool */
-      }
+__saveds void Freejcontext(struct Jcontext *jc)
+{
+   if(jc && jc->pool)
+   {
+      Freeexecute(jc);
+      JmemPrintTeardown(jc);
+      JmemSessionUnbind();
+      DeletePool(jc->pool);
    }
+}
+
+__saveds void Jgetjmemsessionstats(struct JmemSessionStats *st)
+{
+   if(!st)
+   {
+      return;
+   }
+   st->total_alloc_bytes=0;
+   st->total_free_bytes=0;
+   st->peak_outstanding_bytes=0;
+   JmemSessionGetStatsEx(
+      &st->jp_allocs,&st->jp_frees,&st->outstanding_bytes,
+      &st->total_alloc_bytes,&st->total_free_bytes,&st->peak_outstanding_bytes);
 }
 
 __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
@@ -767,6 +910,9 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
    LIST(Jobject) temps;
    struct Jobject *jo,*jn;
    unsigned int clock[2]={ 0,0 };
+   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+   {  Aprintf("[JS] Runjprogram enter\n");
+   }
    if(jc && source)
    {  idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
       idcmphook.h_Data=jc;
@@ -802,7 +948,13 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
       }
       jc->warntime=0;
       jc->warnmem=0;
+      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[JS] Runjprogram before Jcompile\n");
+      }
       Jcompile(jc,source);
+      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[JS] Runjprogram after Jcompile\n");
+      }
       jc->linenr=0;
       if(!(jc->flags&JCF_ERROR))
       {  /* Remember existing temporary objects (see comment in jexe.c:Exedot()) */
@@ -829,7 +981,13 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
             jc->warntime=clock[0]+60;
             jc->warnmem=AvailMem(0)/4;
          }
+         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+         {  Aprintf("[JS] Runjprogram before Jexecute\n");
+         }
          Jexecute(jc,jthis,gwtab);
+         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+         {  Aprintf("[JS] Runjprogram after Jexecute\n");
+         }
          if(jc->dflags&DEBF_DOPEN)
          {  Stopdebugger(jc);
          }
@@ -857,6 +1015,9 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
             jc->program=NULL;
          }
       }
+   }
+   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+   {  Aprintf("[JS] Runjprogram exit\n");
    }
    return result;
 }
@@ -1191,6 +1352,9 @@ __asm __saveds void Jsetfeedback(
    register __a1 Jfeedback *jf)
 {  if(jc)
    {  jc->feedback=jf;
+      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[JS] Jsetfeedback\n");
+      }
    }
 }
 
@@ -1203,6 +1367,9 @@ __asm __saveds void Jdebug(
       }
       else
       {  jc->dflags&=~DEBF_DEBUG|DEBF_DBREAK;
+      }
+      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[JS] Jdebug\n");
       }
    }
 }
@@ -1235,6 +1402,9 @@ __asm __saveds void Jerrors(
       }
       else
       {  jc->flags&=~EXF_WARNINGS;
+      }
+      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[JS] Jerrors\n");
       }
    }
 }
@@ -1272,6 +1442,22 @@ __asm __saveds void Jallowgc(
       else
       {  jc->nogc++;
       }
+   }
+}
+
+__asm __saveds void Jsetjstrace(
+   register __a0 struct Jcontext *jc,
+   register __d0 BOOL on)
+{  if(jc)
+   {  jc->jstrace=on;
+   }
+}
+
+__asm __saveds void Jseterrconsole(
+   register __a0 struct Jcontext *jc,
+   register __d0 BOOL on)
+{  if(jc)
+   {  jc->errconsole=on;
    }
 }
 

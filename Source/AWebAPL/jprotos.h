@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,6 +23,7 @@
 /*-----------------------------------------------------------------------*/
 /*-- jslib --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
+/* Jgetjmemsessionstats/JmemSessionStats: see awebjs.h; jslib prototypes in jslib.h */
 
    /* Duplicate string */
 extern UBYTE *Jdupstr(UBYTE *str,long len,void *pool);
@@ -170,8 +171,8 @@ extern void Initerror(struct Jcontext *jc, struct Jobject *jscope);
 extern struct Jobject *Newerror(struct Jcontext *jc,UBYTE *message);
 extern struct Jobject *Newnativeerror(struct Jcontext *jc, STRPTR type, UBYTE *message);
 
-   /* Get the current time in milliseconds */
-extern double Today(void);
+   /* Wall-clock milliseconds since 1970-01-01 (JS Date/Math); not awebplugin Today(). */
+extern double Jmillis(void);
 
 /*-----------------------------------------------------------------------*/
 /*-- jdebug -------------------------------------------------------------*/
@@ -191,6 +192,11 @@ extern void Setdebugger(struct Jcontext *jc,struct Element *elt);
    /* Jexecute a program */
 extern void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab);
 extern void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg,...);
+extern void Dumpjscallstack(struct Jcontext *jc,long fh,struct Element *errsite);
+
+struct JBytecodeChunk;
+extern BOOL Jexecchunk(struct Jcontext *jc, struct JBytecodeChunk *ch);
+extern void Jvmfreechunk(struct JBytecodeChunk *ch);
 
    /* Create a function object for this internal function. */
    /* Varargs are argument names (UBYTE *) terminated by NULL. */
@@ -296,13 +302,22 @@ extern void Pskipnewline(struct Parser *pa, BOOL skip);
 /*-----------------------------------------------------------------------*/
 
    /* allocate in private pool. If pool==NULL, allocate unpooled */
-extern void *Pallocmem(long size,ULONG flags,void *pool);
+extern void *JPallocmem(long size,ULONG flags,void *pool);
 
    /* free memory, works for all pools and unpooled memory */
-extern void Freemem(void *mem);
+extern void JFreemem(void *mem);
 
    /* get the pool used for a given memory block */
-extern void *Getpool(void *p);
+extern void *JGetpool(void *p);
+
+   /* Session stats for one interpreter pool (JPallocmem/JFreemem on jc->pool). */
+extern void JmemSessionBind(void *pool);
+extern void JmemSessionUnbind(void);
+extern void JmemSessionGetStats(ULONG *allocs,ULONG *frees,LONG *outstanding_bytes);
+extern void JmemSessionGetStatsEx(
+   ULONG *allocs,ULONG *frees,LONG *outstanding_bytes,
+   ULONG *total_alloc_bytes,ULONG *total_free_bytes,LONG *peak_outstanding_bytes);
+extern void JmemPrintTeardown(struct Jcontext *jc);
 
 /*-----------------------------------------------------------------------*/
 /*-- number -------------------------------------------------------------*/

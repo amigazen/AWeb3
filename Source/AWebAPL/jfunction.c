@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -44,6 +44,7 @@ static void Functioncall(struct Jcontext *jc)
     struct Jobject *fthis = NULL;
     struct Elementfunc *func;
     UWORD oldflags;
+    struct Jobject *oldthis;
 
     func = jo->function;
     if((args = Findarguments(jc)))
@@ -58,7 +59,9 @@ static void Functioncall(struct Jcontext *jc)
     }
     if(fthis == NULL)
     {
-        fthis = jo;  /* This ought to be the global object according to spec. How do I get that? do we even have one? */
+        /* null/undefined (or non-object) thisArg -> global object */
+        if(jc->fscope) fthis = jc->fscope;
+        else fthis = jo;
     }
     if((f = Newfunction(jc,func)))
     {
@@ -80,9 +83,6 @@ static void Functioncall(struct Jcontext *jc)
                 {
                     AddTail((struct List*)&f->local,(struct Node*)var);
                     Asgvalue(&var->val, &elt->val);
-                    {
-                        Tostring(&var->val,jc);
-                    }
                 }
                 if((var = Addarrayelt(jc,f->arguments)))
                 {
@@ -93,13 +93,14 @@ static void Functioncall(struct Jcontext *jc)
 
         AddHead((struct List *)&jc->functions,(struct Node *)f);
 
+        oldthis    =  jc->jthis;
         jc->jthis  =  fthis;
         oldflags   =  jc->flags;
         jc->flags &= ~EXF_CONSTRUCT;
 
         Executeelem(jc, (struct Element *)func);
 
-        jc->jthis = jo;
+        jc->jthis = oldthis;
         jc->flags = oldflags;
         Remove((struct Node *)f);
         Disposefunction(f);
@@ -120,6 +121,7 @@ static void Functionapply(struct Jcontext *jc)
     struct Jobject *fargs = NULL;
     struct Elementfunc *func;
     UWORD oldflags;
+    struct Jobject *oldthis;
 
     func = jo->function;
     if((args = Findarguments(jc)))
@@ -141,7 +143,9 @@ static void Functionapply(struct Jcontext *jc)
     }
     if(fthis == NULL)
     {
-        fthis = jo;  /* This ought to be the global object according to spec. How do I get that? do we even have one? */
+        /* null/undefined (or non-object) thisArg -> global object */
+        if(jc->fscope) fthis = jc->fscope;
+        else fthis = jo;
     }
     if((f = Newfunction(jc,func)))
     {
@@ -163,9 +167,6 @@ static void Functionapply(struct Jcontext *jc)
                 {
                     AddTail((struct List*)&f->local,(struct Node*)var);
                     Asgvalue(&var->val, &elt->val);
-                    {
-                        Tostring(&var->val,jc);
-                    }
                 }
                 if((var = Addarrayelt(jc,f->arguments)))
                 {
@@ -176,13 +177,14 @@ static void Functionapply(struct Jcontext *jc)
 
         AddHead((struct List *)&jc->functions,(struct Node *)f);
 
+        oldthis    =  jc->jthis;
         jc->jthis  =  fthis;
         oldflags   =  jc->flags;
         jc->flags &= ~EXF_CONSTRUCT;
 
         Executeelem(jc, (struct Element *)func);
 
-        jc->jthis = jo;
+        jc->jthis = oldthis;
         jc->flags = oldflags;
         Remove((struct Node *)f);
         Disposefunction(f);

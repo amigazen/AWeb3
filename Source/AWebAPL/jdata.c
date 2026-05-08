@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,6 +22,109 @@
 #include "jprotos.h"
 
 struct Array;  /* Forward declaration */
+
+struct JPropIdxEnt
+{
+   struct JPropIdxEnt *next;
+   struct JAtomStr *key;
+   struct Variable *var;
+};
+
+/*-----------------------------------------------------------------------*/
+/* Per-object property hash (generic objects); keys are interned atoms. */
+
+static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
+{
+   struct Jcontext *root;
+   struct JAtomStr *key;
+   struct JPropIdxEnt *ent;
+   ULONG b;
+
+   if(!jo || !var || !var->name)
+   {
+      return;
+   }
+   root=Jatomroot(jo->jc);
+   if(!root)
+   {
+      return;
+   }
+   key=JatomIntern(root,var->name);
+   if(!key)
+   {
+      return;
+   }
+   ent=ALLOCSTRUCT(JPropIdxEnt,1,0,root->pool);
+   if(!ent)
+   {
+      return;
+   }
+   ent->key=key;
+   ent->var=var;
+   b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
+   ent->next=jo->propidx[b];
+   jo->propidx[b]=ent;
+}
+
+static void JpropidxRemove(struct Jobject *jo, struct Variable *var)
+{
+   struct Jcontext *root;
+   struct JAtomStr *key;
+   struct JPropIdxEnt *e;
+   struct JPropIdxEnt **pp;
+   ULONG b;
+
+   if(!jo || !var || !var->name)
+   {
+      return;
+   }
+   root=Jatomroot(jo->jc);
+   if(!root)
+   {
+      return;
+   }
+   key=JatomIntern(root,var->name);
+   if(!key)
+   {
+      return;
+   }
+   b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
+   pp=&jo->propidx[b];
+   while(*pp)
+   {
+      e=*pp;
+      if(e->var==var)
+      {
+         *pp=e->next;
+         FREE(e);
+         return;
+      }
+      pp=&e->next;
+   }
+}
+
+static void JpropidxClear(struct Jobject *jo)
+{
+   ULONG i;
+   struct JPropIdxEnt *e;
+   struct JPropIdxEnt *n;
+
+   if(!jo)
+   {
+      return;
+   }
+   for(i=0;i<(ULONG)JPROP_IDX_BUCKETS;i++)
+   {
+      e=jo->propidx[i];
+      while(e)
+      {
+         n=e->next;
+         FREE(e);
+         e=n;
+      }
+      jo->propidx[i]=NULL;
+   }
+}
 
 /*-----------------------------------------------------------------------*/
 
@@ -75,7 +178,7 @@ void Asgvalue(struct Value *to,struct Value *from)
       case VTP_STRING:
          /* Defensive: prevent crashes on invalid/low pointers. */
          if(from->value.svalue && (ULONG)from->value.svalue >= 256)
-         {  to->value.svalue=Jdupstr(from->value.svalue,-1,Getpool(from->value.svalue));
+         {  to->value.svalue=Jdupstr(from->value.svalue,-1,JGetpool(from->value.svalue));
          }
          else
          {  to->value.svalue=NULL;
@@ -349,13 +452,27 @@ void Defaulttostring(struct Jcontext *jc)
 /* Create a new variable */
 struct Variable *Newvar(UBYTE *name,struct Jcontext *jc)
 {  struct Variable *var;
+   struct Jcontext *root;
+   struct JAtomStr *at;
+
    if(!jc)
    {  return NULL;
    }
    if(var=ALLOCVAR(jc))
    {
       if(name)
-      {  var->name=Jdupstr(name,-1,jc->pool);
+      {
+         root=Jatomroot(jc);
+         at=root?JatomIntern(root,name):NULL;
+         if(at && at->str)
+         {
+            var->name=at->str;
+            var->flags|=VARF_NAMEATOMSHARED;
+         }
+         else
+         {
+            var->name=Jdupstr(name,-1,jc->pool);
+         }
       }
       var->val.type=0;
    }
@@ -367,7 +484,11 @@ void Disposevar(struct Variable *var)
 {  if(var)
    {  if(var->name)
       {
-          FREE(var->name);
+          if(!(var->flags&VARF_NAMEATOMSHARED))
+          {
+             FREE(var->name);
+          }
+          var->name=NULL;
       }
       Clearvalue(&var->val);
       FREE(var);
@@ -399,6 +520,7 @@ struct Jobject *Newobject(struct Jcontext *jc)
 
       if(jc->nogc <= 0)jc->gc--;
       AddTail((struct List *)&jc->objects,(struct Node *)jo);
+      jo->jc->obj_created++;
    }
    //adebug("NEW OBJECT: %08lx\n",jo);
    return jo;
@@ -409,10 +531,17 @@ void Disposeobject(struct Jobject *jo)
 {  struct Variable *var;
    if(jo)
    {
+      if(jo->jc)
+      {
+         jo->jc->obj_disposed++;
+      }
+      jo->notdisposed=FALSE;
       while(var=(struct Variable *)RemHead((struct List *)&jo->properties))
       {
-          Disposevar(var);
+         JpropidxRemove(jo,var);
+         Disposevar(var);
       }
+      JpropidxClear(jo);
       if(jo->internal && jo->dispose)
       {
                                 jo->dispose(jo->internal);
@@ -443,6 +572,7 @@ void Clearobject(struct Jobject *jo,UBYTE **except)
          if(!p || !*p)
          {  /* not in exception list */
             Remove((struct Node *)var);
+            JpropidxRemove(jo,var);
 /*
             if(var->val.type==VTP_OBJECT && var->val.value.obj.ovalue)
             {  Clearobject(jo,NULL);
@@ -462,6 +592,7 @@ BOOL _Generic_Deleteownproperty(struct Jobject *jo, STRPTR name)
     if((var = Getownproperty(jo,name)))
     {
         Remove((struct Node *)var);
+        JpropidxRemove(jo,var);
         Disposevar(var);
         return TRUE;
     }
@@ -491,6 +622,7 @@ struct Variable *_Generic_Addproperty(struct Jobject *jo, STRPTR name)
    if(jo)
    {  if(var=Newvar(name,jo->jc))
       {  AddTail((struct List *)&jo->properties,(struct Node *)var);
+         JpropidxAdd(jo,var);
       }
    }
    return var;
@@ -521,9 +653,34 @@ struct Variable *Addproperty(struct Jobject *jo, STRPTR name)
 
 struct Variable *_Generic_Getownproperty(struct Jobject *jo, STRPTR name)
 {  struct Variable *var;
-   if(jo)
-   {  for(var=jo->properties.first;var && var->next;var=var->next)
-      {  if(STREQUAL(var->name,name)) return var;
+   struct Jcontext *root;
+   struct JAtomStr *key;
+   struct JPropIdxEnt *e;
+   ULONG b;
+
+   if(!jo)
+   {  return NULL;
+   }
+   if(name)
+   {  root=Jatomroot(jo->jc);
+      if(root)
+      {  key=JatomIntern(root,(UBYTE *)name);
+         if(key)
+         {  b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
+            for(e=jo->propidx[b];e;e=e->next)
+            {  if(e->key==key && e->var)
+               {  return e->var;
+               }
+            }
+         }
+      }
+   }
+   for(var=jo->properties.first;var && var->next;var=var->next)
+   {  if(name)
+      {  if(var->name && STREQUAL(var->name,name)) return var;
+      }
+      else
+      {  if(!var->name) return var;
       }
    }
    return NULL;
@@ -722,7 +879,6 @@ void Dumpobjects(struct Jcontext *jc)
 }
 
 /*-----------------------------------------------------------------------*/
-static int depth = 0;
 struct Array            /* Used as internal object value */
 {
     long length;            /* current array length of data*/
@@ -733,57 +889,52 @@ struct Array            /* Used as internal object value */
 
 static void Garbagemark(struct Jobject *jo)
 {  struct Variable *v;
-   depth ++;
-   if(jo && !(jo->flags&OBJF_USED))
-   {  jo->flags|=OBJF_USED;
-             if(jo->notdisposed != TRUE)  //FALSE)
-             {
-                //adebug("attempt to mark disposed object %08lx %08lx %s\n",jo,jo->notdisposed,(jo->var && jo->var->name)?jo->var->name:"NULL");
-                // Dumpjobject(jo);
-                //adebug("marking constructor\n");
-             }
-      else
+   int i;
+
+   if(!jo || (jo->flags&OBJF_USED))
+   {  return;
+   }
+   if(jo->notdisposed != TRUE)
+   {  return;
+   }
+   jo->flags |= OBJF_USED;
+   Garbagemark(jo->prototype);
+   for(v=jo->properties.first;v && v->next;v=v->next)
+   {
+      if(v->val.type==VTP_OBJECT)
       {
-          for(v=jo->properties.first;v && v->next;v=v->next)
-          {
-
-             if(v->val.type==VTP_OBJECT)
-             {
-                Garbagemark(v->val.value.obj.ovalue);
-                if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
-             }
-          }
-          Garbagemark(jo->constructor);
-          if(jo->function)
-          {  Garbagemark(jo->function->fscope);
-          }
-          if(jo->type == OBJT_ARRAY)
-          {
-              if(jo->internal)
-              {
-                struct Array *a = jo->internal;
-                if(a->length && a->array_length)
-                {
-                    int i;
-
-                    for(i = 0; i< a->length && i < a->array_length;i++)
-                    {
-                        if(a->array && a->array[i])
-                        {
-                            if(a->array[i]->val.type == VTP_OBJECT)
-                            {
-                                Garbagemark(a->array[i]->val.value.obj.ovalue);
-                                if(a->array[i]->val.value.obj.fthis)
-                                Garbagemark(a->array[i]->val.value.obj.fthis);
-                            }
-                        }
-                    }
-                }
-              }
-          }
+         Garbagemark(v->val.value.obj.ovalue);
+         if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
       }
    }
-   depth--;
+   Garbagemark(jo->constructor);
+   if(jo->function)
+   {  Garbagemark(jo->function->fscope);
+   }
+   if(jo->type == OBJT_ARRAY)
+   {
+      if(jo->internal)
+      {
+         struct Array *a;
+
+         a = (struct Array *)jo->internal;
+         if(a->length && a->array_length)
+         {
+            for(i=0;i< (int)a->length && i<(int)a->array_length;i++)
+            {
+               if(a->array && a->array[i])
+               {
+                  if(a->array[i]->val.type == VTP_OBJECT)
+                  {
+                     Garbagemark(a->array[i]->val.value.obj.ovalue);
+                     if(a->array[i]->val.value.obj.fthis)
+                     Garbagemark(a->array[i]->val.value.obj.fthis);
+                  }
+               }
+            }
+         }
+      }
+   }
 }
 
 void Garbagecollect(struct Jcontext *jc)
@@ -794,15 +945,17 @@ void Garbagecollect(struct Jcontext *jc)
    struct List *objectlist;
    struct List *jlist;
    struct This *this;
-   int scanned = 0;
+   int scanned;
+   int i;
    objectlist = (struct List *)(&jc->objects);
 
    jlist = (struct List *)(&jc->thislist);
 
-    for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
-    {  jo->flags&=~OBJF_USED;
-       scanned ++;
-    }
+   scanned = 0;
+   for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
+   {  jo->flags&=~OBJF_USED;
+      scanned ++;
+   }
 
     /* No point garbage collecting if no objects in list */
    if(scanned > 0)
@@ -819,11 +972,83 @@ void Garbagecollect(struct Jcontext *jc)
           if(jc->throwval->value.obj.fthis)Garbagemark(jc->throwval->value.obj.fthis);
 
        }
+       if(jc->result && jc->result->val.type == VTP_OBJECT)
+       {
+          if(jc->result->val.value.obj.ovalue)Garbagemark(jc->result->val.value.obj.ovalue);
+          if(jc->result->val.value.obj.fthis)Garbagemark(jc->result->val.value.obj.fthis);
+       }
+       if(jc->varref && jc->varref->val.type == VTP_OBJECT)
+       {
+          if(jc->varref->val.value.obj.ovalue)Garbagemark(jc->varref->val.value.obj.ovalue);
+          if(jc->varref->val.value.obj.fthis)Garbagemark(jc->varref->val.value.obj.fthis);
+       }
 
        if(jc->jthis)
        {
            jc->jthis->flags &=~OBJF_USED;
            Garbagemark(jc->jthis);
+       }
+       if(jc->o)
+       {
+           Garbagemark(jc->o);
+       }
+       if(jc->tostring)
+       {
+           jc->tostring->flags &=~OBJF_USED;
+           Garbagemark(jc->tostring);
+       }
+       if(jc->eval)
+       {
+           jc->eval->flags &=~OBJF_USED;
+           Garbagemark(jc->eval);
+       }
+       if(jc->object)
+       {
+           jc->object->flags &=~OBJF_USED;
+           Garbagemark(jc->object);
+       }
+       if(jc->boolean)
+       {
+           jc->boolean->flags &=~OBJF_USED;
+           Garbagemark(jc->boolean);
+       }
+       if(jc->function)
+       {
+           jc->function->flags &=~OBJF_USED;
+           Garbagemark(jc->function);
+       }
+       if(jc->number)
+       {
+           jc->number->flags &=~OBJF_USED;
+           Garbagemark(jc->number);
+       }
+       if(jc->string)
+       {
+           jc->string->flags &=~OBJF_USED;
+           Garbagemark(jc->string);
+       }
+       if(jc->array)
+       {
+           jc->array->flags &=~OBJF_USED;
+           Garbagemark(jc->array);
+       }
+       if(jc->regexp)
+       {
+           jc->regexp->flags &=~OBJF_USED;
+           Garbagemark(jc->regexp);
+       }
+       if(jc->error)
+       {
+           jc->error->flags &=~OBJF_USED;
+           Garbagemark(jc->error);
+       }
+       for(i=0;i<NUM_ERRORTYPES;i++)
+       {
+          if(jc->nativeErrors[i])
+          {
+             jc->nativeErrors[i]->flags &=~OBJF_USED;
+             Garbagemark(jc->nativeErrors[i]);
+          }
        }
        if(jc->fscope)
        {
