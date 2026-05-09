@@ -59,7 +59,7 @@ function testTimeout() {
 // Note: setInterval/clearInterval are not supported in AWeb - only setTimeout/clearTimeout are available
 
 function testOpenWindow() {
-    var newWin = window.open("test.html", "newwin", "width=400,height=300");
+    var newWin = window.open("marquee_test.html", "newwin", "width=400,height=300");
     if (newWin) {
         window.status = "New window opened";
     } else {
@@ -549,7 +549,7 @@ window.onload = function() {
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; Browser Extensions JavaScript Test</H1>
 
-<P>This page tests AWeb's browser extension JavaScript APIs (window, document, forms, events, etc.). For ECMAScript 3 core language tests, see <A HREF="ecmascript_test.html">ecmascript_test.html</A>. Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself.</P>
+<P>This page tests AWeb's browser extension JavaScript APIs (window, document, forms, events, etc.). For ECMAScript 3 core language tests, see <A HREF="ecmascript_test.html">ecmascript_test.html</A>. Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself. Deliberately broken handlers and scripts are in <A HREF="#negative">Graceful Failure</A>.</P>
 
 <HR>
 
@@ -566,6 +566,7 @@ window.onload = function() {
 <A HREF="#image">Image Constructor</A> |
 <A HREF="#xhr">XMLHttpRequest</A> |
 <A HREF="#events">Event Handlers</A> |
+<A HREF="#negative">Graceful Failure</A> |
 <A HREF="#compatibility">Compatibility Notes</A>
 </CENTER>
 
@@ -645,7 +646,7 @@ window.onload = function() {
 <H3>JS7: window.open()</H3>
 <P><STRONG>What it tests:</STRONG> The window.open() method opens a new browser window.</P>
 <P><STRONG>How to run:</STRONG> Click the "Open New Window" button below.</P>
-<P><STRONG>Expected results:</STRONG> A new window should open (if not blocked by browser settings). The status bar should show "New window opened" if successful, or "Window blocked or failed" if the window could not be opened. Note: AWeb may block popup windows depending on settings.</P>
+<P><STRONG>Expected results:</STRONG> A new window should open loading <CODE>marquee_test.html</CODE> (if not blocked by browser settings). The status bar should show "New window opened" if successful, or "Window blocked or failed" if the window could not be opened. Note: AWeb may block popup windows depending on settings.</P>
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -1395,6 +1396,68 @@ window.onunload = testOnUnload;
 
 <HR>
 
+<A NAME="negative"></A>
+<H2>Graceful Failure (Browser Extension APIs)</H2>
+<P>These tests use deliberately broken handlers or scripts. The browser should not crash; content after an error should still load. Interactive rows describe the expected (non-fatal) outcome.</P>
+
+<H3>JS55: Invalid ONCLICK attribute expression — EXPECT: no crash; button may do nothing</H3>
+<P><STRONG>What it tests:</STRONG> Event handler attribute with JavaScript syntax errors.</P>
+<P><STRONG>Expected results:</STRONG> Clicking the button must not hang or crash the browser. Status text may be unchanged.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" VALUE="Broken ONCLICK (syntax)" ONCLICK="var x = );">
+</TD>
+</TR>
+</TABLE>
+
+<H3>JS56: Valid ONCLICK after invalid neighbor — EXPECT: this handler still runs</H3>
+<P><STRONG>What it tests:</STRONG> Isolation between adjacent controls when one handler is invalid.</P>
+<P><STRONG>Expected results:</STRONG> This button should set the status bar to a known message when clicked.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" VALUE="Working ONCLICK (status)" ONCLICK="window.status='JS56 OK';">
+</TD>
+</TR>
+</TABLE>
+
+<H3>JS57: SCRIPT block with parse error — EXPECT: later markup still renders</H3>
+<P><STRONG>What it tests:</STRONG> A SCRIPT element whose source does not parse; following BODY content must still appear.</P>
+<P><STRONG>Expected results:</STRONG> You must see the green confirmation line below even though the script above is invalid.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var js57_parse_failure = );
+//-->
+</SCRIPT>
+<P STYLE="color: #006600;"><STRONG>If this line is visible, markup after the broken SCRIPT rendered successfully.</STRONG></P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>JS58: Missing SCRIPT SRC — EXPECT: no crash (network error handled)</H3>
+<P><STRONG>What it tests:</STRONG> SCRIPT with SRC pointing at a non-existent file.</P>
+<P><STRONG>Expected results:</STRONG> Page remains usable; optional console or status noise is acceptable.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<SCRIPT LANGUAGE="JavaScript" SRC="no_such_aweb_negative_test_43729.js"></SCRIPT>
+<P STYLE="color: #006600;"><STRONG>JS58 footer: body content after missing SCRIPT SRC.</STRONG></P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
 <A NAME="compatibility"></A>
 <H2>Compatibility Summary</H2>
 
@@ -1447,10 +1510,6 @@ window.onunload = testOnUnload;
 <H3>Browser Extension Features Not Supported</H3>
 <UL>
 <LI>window.setInterval() and window.clearInterval() - Not supported (only setTimeout/clearTimeout are available)</LI>
-</UL>
-
-<H3>Browser Extension Features Not Supported</H3>
-<UL>
 <LI>Full DOM Level 1 - Very limited implementation</LI>
 <LI>document.createElement() and DOM manipulation - Not supported</LI>
 <LI>Event bubbling and capturing - Not supported</LI>

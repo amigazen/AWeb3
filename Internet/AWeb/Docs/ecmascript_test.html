@@ -35,7 +35,7 @@ var x = 1;
 </HEAD>
 <BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; ECMAScript 3 Core Language Test</H1>
-<P>This page tests AWeb's ECMAScript 3 (JavaScript 1.5) core language features. These tests focus on the JavaScript language itself, not browser-specific extensions.</P>
+<P>This page tests AWeb's ECMAScript 3 (JavaScript 1.5) core language features. These tests focus on the JavaScript language itself, not browser-specific extensions. Rows under <A HREF="#negative">Graceful Failure</A> use intentional faults to verify stable error handling.</P>
 <HR>
 <A NAME="top"></A>
 <CENTER>
@@ -44,6 +44,7 @@ var x = 1;
 <A HREF="#control">Control Flow</A> |
 <A HREF="#operators">Operators</A> |
 <A HREF="#objects">Built-in Objects</A> |
+<A HREF="#negative">Graceful Failure</A> |
 <A HREF="#compatibility">Compatibility Notes</A>
 </CENTER>
 <HR>
@@ -1980,6 +1981,67 @@ var substr3 = str.substr(6, 3);
 <P>substr(0, 5): Expected:<SPAN CLASS="expected"> [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(substr1);</SCRIPT></SPAN></P>
 <P>substr(6): Expected:<SPAN CLASS="expected"> [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(substr2);</SCRIPT></SPAN></P>
 <P>substr(6, 3): Expected:<SPAN CLASS="expected"> [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(substr3);</SCRIPT></SPAN></P>
+
+<A NAME="negative"></A>
+<H2>Graceful Failure (ECMAScript)</H2>
+<P>These rows document deliberate faults. Many are <STRONG>EXPECTED</STRONG> to report failure or to skip code; the browser must remain stable and later sections of this page must still run.</P>
+
+<H2>ES131: SCRIPT parse error isolated — EXPECT: following paragraph still appears</H2>
+<P>The next SCRIPT block contains a syntax error. If this explanation text is visible after loading, the parser did not abort the entire document.</P>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var es131_only_this_block_broken = );
+//-->
+</SCRIPT>
+<P STYLE="color: #006600;"><STRONG>ES131 recovery line: visible means markup after broken SCRIPT still rendered.</STRONG></P>
+
+<H2>ES132: SCRIPT after broken SCRIPT — EXPECT: variable neg_es132_ok is 1</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var neg_es132_ok = 1;
+//-->
+</SCRIPT>
+<P>neg_es132_ok = Expected:<SPAN CLASS="expected"> 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(neg_es132_ok);</SCRIPT></SPAN></P>
+
+<H2>ES133: eval() syntax error caught — EXPECT: Reference or Syntax error name</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var es133_msg = "";
+try {
+    eval("var q = );");
+} catch (e133) {
+    es133_msg = e133.name;
+}
+//-->
+</SCRIPT>
+<P>Error name: Expected:<SPAN CLASS="expected"> SyntaxError</SPAN> (or similar) | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(es133_msg);</SCRIPT></SPAN></P>
+
+<H2>ES134: ReferenceError caught — EXPECT: ReferenceError</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var es134_msg = "";
+try {
+    var t134 = noSuchIdentifierEs134;
+} catch (e134) {
+    es134_msg = e134.name;
+}
+//-->
+</SCRIPT>
+<P>Error name: Expected:<SPAN CLASS="expected"> ReferenceError</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(es134_msg);</SCRIPT></SPAN></P>
+
+<H2>ES135: TypeError caught — EXPECT: TypeError</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var es135_msg = "";
+try {
+    var t135 = null;
+    var u135 = t135.es135FakeMember;
+} catch (e135) {
+    es135_msg = e135.name;
+}
+//-->
+</SCRIPT>
+<P>Error name: Expected:<SPAN CLASS="expected"> TypeError</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(es135_msg);</SCRIPT></SPAN></P>
 
 <HR>
 <A NAME="compatibility"></A>

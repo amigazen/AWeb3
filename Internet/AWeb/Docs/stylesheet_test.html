@@ -29,7 +29,7 @@
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; External Stylesheet CSS1/CSS2 Compatibility Test</H1>
 
-<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via <STRONG>external stylesheets</STRONG> loaded via <CODE>&lt;LINK rel="stylesheet"&gt;</CODE>. The styles are defined in <CODE>css_test.css</CODE> and applied using CSS classes. These tests mirror the inline style tests in <A HREF="css_test.html">css_test.html</A> to verify that external stylesheets work correctly.</P>
+<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via <STRONG>external stylesheets</STRONG> loaded via <CODE>&lt;LINK rel="stylesheet"&gt;</CODE>. The styles are defined in <CODE>css_test.css</CODE> and applied using CSS classes. These tests mirror the inline style tests in <A HREF="css_test.html">css_test.html</A> to verify that external stylesheets work correctly. Parser stress tests are under <A HREF="#negative">Graceful Failure</A> (SS31).</P>
 
 <HR>
 
@@ -42,7 +42,8 @@
 <A HREF="#tables" CLASS="nav-link">Table Cell Styles</A> |
 <A HREF="#links" CLASS="nav-link">Link Styles</A> |
 <A HREF="#lists" CLASS="nav-link">List Styles</A> |
-<A HREF="#grid" CLASS="nav-link">Grid Layout</A>
+<A HREF="#grid" CLASS="nav-link">Grid Layout</A> |
+<A HREF="#negative" CLASS="nav-link">Graceful Failure</A>
 </CENTER>
 
 <HR>
@@ -618,6 +619,25 @@
 <DT CLASS="grid-term">Large Gap</DT>
 <DD CLASS="grid-description">This grid has grid-gap: 8px 32px (large row gap, large column gap).</DD>
 </DL>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" CLASS="nav-link">Back to top</A></P>
+
+<HR>
+
+<A NAME="negative"></A>
+<H2>Graceful Failure (External stylesheet)</H2>
+<P>The linked stylesheet includes intentionally invalid declarations above the class below. The browser must ignore the junk property and still apply the visible styling.</P>
+
+<H3>SS31: Unknown property in external CSS — EXPECT: valid declarations on same rule apply</H3>
+<P><STRONG>What you should see:</STRONG> Dark green text on pale green with border (CLASS <CODE>ss-css-neg-junk</CODE>).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P CLASS="ss-css-neg-junk">SS31: external stylesheet recovery after unknown property name.</P>
 </TD>
 </TR>
 </TABLE>

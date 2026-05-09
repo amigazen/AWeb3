@@ -22,7 +22,7 @@
 <TITLE>AWeb HTML 3.2 Compatibility Test Page</TITLE>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
 <META NAME="Description" CONTENT="Comprehensive HTML 3.2 compatibility test for AWeb">
-<ISINDEX PROMPT="Search this page:">
+<ISINDEX PROMPT="Test for ISINDEX in HEAD element - this text input will trigger a search">
 </HEAD>
 <BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
 
@@ -42,6 +42,7 @@
 <A HREF="#links">Links & Images</A> |
 <A HREF="#tables">Tables</A> |
 <A HREF="#forms">Forms</A> |
+<A HREF="#graceful">Graceful Failure</A> |
 <A HREF="#compatibility">Compatibility Notes</A>
 </CENTER>
 
@@ -976,6 +977,40 @@ Comments:<BR>
 </P>
 <INPUT TYPE="hidden" NAME="formid" VALUE="html3_test">
 </FORM>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="graceful"></A>
+<H2>Graceful Failure (Malformed HTML 3.2)</H2>
+<P>These samples deliberately violate markup conventions; layout must survive them.</P>
+
+<H3>HT12: Unclosed inline emphasis — EXPECT: following blocks still render</H3>
+<P><STRONG>What it tests:</STRONG> Opening <CODE>&lt;I&gt;</CODE> without closing before a following <CODE>&lt;P&gt;</CODE>.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P>HT12 intro <I>italic start without end-tag before next paragraph.
+<P>HT12 second paragraph must remain visible (recovery).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>HT13: Table cells without explicit ROW — EXPECT: tolerant recovery</H3>
+<P><STRONG>What it tests:</STRONG> Adjacent <CODE>&lt;TD&gt;</CODE> elements appear without wrapping <CODE>&lt;TR&gt;</CODE> (invalid structure).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" WIDTH="80%">
+<TD>HT13 cell A</TD><TD>HT13 cell B</TD>
+</TABLE>
+<P>HT13 footer line after sick TABLE.</P>
 </TD>
 </TR>
 </TABLE>

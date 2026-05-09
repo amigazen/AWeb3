@@ -45,6 +45,7 @@
 <A HREF="#htmlcomments">HTML comments</A> |
 <A HREF="#scripting">Scripting</A> |
 <A HREF="#xhtml">XHTML Support</A> |
+<A HREF="#graceful">Graceful Failure</A> |
 <A HREF="#compatibility">Compatibility Notes</A>
 </CENTER>
 
@@ -942,6 +943,34 @@ Example XML declaration:
 <LI>Self-closing tag syntax works in both HTML and XHTML modes for compatibility</LI>
 <LI>CDATA sections are properly extracted and displayed as text content</LI>
 </UL>
+
+<A NAME="graceful"></A>
+<H2>Graceful Failure (Malformed HTML)</H2>
+<P>These examples violate nesting rules or use nonsense attribute values. The browser must not trap/crash; recovery behavior may vary.</P>
+
+<H4>HF18: Mis-nested emphasis — EXPECT: partial styling or recovery without crash</H4>
+<P><STRONG>What it tests:</STRONG> Overlapping instead of proper inner nesting (<CODE>&lt;B&gt;&lt;I&gt;&lt;/B&gt;&lt;/I&gt;</CODE>).</P>
+<P><STRONG>Expected:</STRONG> Page remains responsive; text below still renders.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P><B><I>Bold-open italic-open</B> after premature /B before /I</I></P>
+<P>This paragraph must appear after the malformed nesting.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H4>HF19: Unknown MARQUEE-style attribute value — EXPECT: fallback / ignore</H4>
+<P><STRONG>Note:</STRONG> MARQUEE is non-standard; invalid BEHAVIOR tests attribute parsing tolerance similar to <A HREF="marquee_test.html#mq15">MQ15</A>.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<MARQUEE BEHAVIOR="nosuch_aweb_value">HF19: invalid BEHAVIOR — browser must not crash.</MARQUEE>
+</TD>
+</TR>
+</TABLE>
 
 <P><A HREF="#top">Back to top</A></P>
 

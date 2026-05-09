@@ -28,7 +28,7 @@
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; CSS1/CSS2 Compatibility Test</H1>
 
-<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see. Note that some properties have limitations due to AWeb's layout engine architecture - see the Summary section for details.</P>
+<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see. Note that some properties have limitations due to AWeb's layout engine architecture - see the Summary section for details. Intentionally invalid CSS appears under <A HREF="#negative">Graceful Failure</A> (CS46-CS47).</P>
 
 <HR>
 
@@ -44,6 +44,7 @@
 <A HREF="#block" STYLE="text-decoration: none; color: #0000ff;">Block Elements</A> |
 <A HREF="#grid" STYLE="text-decoration: none; color: #0000ff;">Grid Layout</A> |
 <A HREF="#misc" STYLE="text-decoration: none; color: #0000ff;">Additional Properties</A> |
+<A HREF="#negative" STYLE="text-decoration: none; color: #0000ff;">Graceful Failure</A> |
 <A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A>
 </CENTER>
 
@@ -949,6 +950,43 @@ Web: www.example.com<BR>
 <P STYLE="background-position: top right; background-color: #e8e8e8; padding: 20px;">This paragraph has background-position: top right.</P>
 <P STYLE="background-attachment: scroll; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: scroll (default, scrolls with content).</P>
 <P STYLE="background-attachment: fixed; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: fixed (viewport-relative, may not work fully).</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="negative"></A>
+<H2>Graceful Failure (CSS)</H2>
+<P>These tests embed intentionally invalid CSS. The layout engine should discard bad declarations or rules without crashing; valid rules in the same sheet must still apply.</P>
+
+<STYLE TYPE="text/css">
+<!--
+.css_neg_bad_rule { color: ; }
+.css_neg_good_after_bad { color: #004400; background-color: #f5fff5; border: 1px solid #004400; padding: 8px; }
+-->
+</STYLE>
+
+<H3>CS46: Invalid declaration followed by valid rule — EXPECT: green box styling applies</H3>
+<P><STRONG>What you should see:</STRONG> A bordered box with dark green text on a pale green background. The invalid <CODE>color: ;</CODE> rule above must not prevent <CODE>.css_neg_good_after_bad</CODE> from applying.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P CLASS="css_neg_good_after_bad">CS46: If this paragraph matches the described colors and border, recovery after a bad declaration succeeded.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS47: Unknown property name — EXPECT: ignored; valid properties on same element still apply</H3>
+<P><STRONG>What you should see:</STRONG> Blue-gray bar using only supported declarations; unknown property must not crash parsing.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="aweb-negative-unknown-prop-test: bogus_value; background-color: #ddeeff; color: #003366; padding: 8px; border: 1px solid #003366;">CS47: mixed unknown and valid inline declarations.</P>
 </TD>
 </TR>
 </TABLE>
