@@ -2367,6 +2367,17 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             {  PUTATTR(tag,NULL);
             }
             break;
+         case AOBDY_Fontdepth:
+            {  short depth = 0;
+               struct Fontinfo *fi;
+               if(bd->bld)
+               {  for(fi = bd->bld->font.first; fi && fi->next; fi = fi->next)
+                  {  depth++;
+                  }
+               }
+               PUTATTR(tag, depth);
+            }
+            break;
          case AOBDY_Bgupdate:
             PUTATTR(tag,bd->bgupdate);
             break;

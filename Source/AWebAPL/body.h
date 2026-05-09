@@ -241,6 +241,10 @@
 #define AOBDY_MarqueeScrollY (AOBDY_Dummy+74)  /* SET,GET */
    /* (long) Current vertical scroll position */
 
+#define AOBDY_Fontdepth    (AOBDY_Dummy+75)  /* GET */
+   /* (short) GET current font stack depth. Used to scope inline constructs like SPAN. */
+
+
 /*--- body support structures ---*/
 
 /* Forward declaration of Body structure (defined in body.c) */

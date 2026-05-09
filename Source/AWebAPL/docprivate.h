@@ -66,6 +66,17 @@ struct Docext
 
 #define DIV_ANCESTOR_STACK_MAX 64
 
+/* Span state stack to scope CSS/font mutations applied at <SPAN> open. */
+#define SPAN_STACK_MAX 64
+
+struct Spanstate
+{  USHORT style;      /* AOBDY_Style bitfield snapshot (includes hardstyle) */
+   short fontdepth;   /* AOBDY_Fontdepth snapshot */
+   UBYTE *tagname;    /* Previous AOBDY_TagName (owned by Body when restored) */
+   UBYTE *class;      /* Previous AOBDY_Class (owned by Body when restored) */
+   UBYTE *id;         /* Previous AOBDY_Id (owned by Body when restored) */
+};
+
 struct Divancestor
 {  UBYTE *tagname;  /* Always "DIV" for now */
    UBYTE *class;
@@ -176,6 +187,9 @@ struct Document
    long marqueeheight;        /* Viewport height */
    struct Divancestor divanc[DIV_ANCESTOR_STACK_MAX];
    short divancsp;
+
+   struct Spanstate spanstate[SPAN_STACK_MAX];
+   short spansp;
 };
 
 /* Document character encoding.

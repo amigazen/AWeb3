@@ -1176,6 +1176,7 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->hoveredElement=NULL;
       doc->activeElement=NULL;
       doc->divancsp=0;
+      doc->spansp=0;
       if(doc->body)
       {
          Anotifyset(doc->body,AOBJ_Nobackground,FALSE,TAG_END);
@@ -1203,6 +1204,7 @@ static struct Document *Newdocument(struct Amset *ams)
       doc->hoveredElement=NULL;
       doc->activeElement=NULL;
       doc->divancsp=0;
+      doc->spansp=0;
       /* Initialize parse flags for new document. Clear all flags first,
        * then set only the ones we need. This prevents garbage values
        * from uninitialized memory (if Allocobject doesn't clear memory)

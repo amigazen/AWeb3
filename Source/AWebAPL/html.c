@@ -585,15 +585,13 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
       return;
    }
    
-   /* If class/id/tagname are NULL, try to retrieve them from the body element */
-   if(!class)
-   {  class = (UBYTE *)Agetattr(body, AOBDY_Class);
-      if(httpdebug && class)
-      {  printf("[CSS] ApplyCSSToBody: Retrieved class='%s' from body=%p\n", (char *)class, body);
-      }
+   /* IMPORTANT: Do not fall back to AOBDY_Class/AOBDY_Id when callers pass NULL.
+    * Many tag handlers only set these attributes when present, so the Body can
+    * retain stale class/id values from prior elements (e.g. SPAN), which would
+    * make class/id selectors match unrelated later content and cause "style bleed". */
+   if(!tagname)
+   {  tagname = (UBYTE *)Agetattr(body, AOBDY_TagName);
    }
-   if(!id) id = (UBYTE *)Agetattr(body, AOBDY_Id);
-   if(!tagname) tagname = (UBYTE *)Agetattr(body, AOBDY_TagName);
    
    if(httpdebug)
    {  printf("[CSS] ApplyCSSToBody: Called - tagname=%s, class=%s, id=%s, body=%p\n",
@@ -3736,6 +3734,12 @@ static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
    UBYTE *class=NULL;
    UBYTE *id=NULL;
    struct Tagattr *tap;  /* Save original ta pointer for Checkid */
+   void *body;
+   short depth;
+   USHORT style;
+   UBYTE *prevTag;
+   UBYTE *prevClass;
+   UBYTE *prevId;
    
    /* Save original ta pointer (sentinel) for Checkid */
    tap = ta;
@@ -3759,6 +3763,26 @@ static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
    
    /* Ensure body exists */
    if(!Ensurebody(doc)) return FALSE;
+
+   /* Snapshot style state so </SPAN> can restore it. Note that SPAN is inline and we
+    * apply CSS onto the current body; without an explicit restore, CSS font styles
+    * bleed into subsequent content. */
+   if(doc->doctype==DOCTP_BODY)
+   {  body = Docbody(doc);
+      if(doc->spansp < SPAN_STACK_MAX)
+      {  style = (USHORT)Agetattr(body, AOBDY_Style);
+         depth = (short)Agetattr(body, AOBDY_Fontdepth);
+         doc->spanstate[doc->spansp].style = style;
+         doc->spanstate[doc->spansp].fontdepth = depth;
+         prevTag = (UBYTE *)Agetattr(body, AOBDY_TagName);
+         prevClass = (UBYTE *)Agetattr(body, AOBDY_Class);
+         prevId = (UBYTE *)Agetattr(body, AOBDY_Id);
+         doc->spanstate[doc->spansp].tagname = prevTag ? Dupstrp(prevTag, -1, doc->pool) : NULL;
+         doc->spanstate[doc->spansp].class = prevClass ? Dupstrp(prevClass, -1, doc->pool) : NULL;
+         doc->spanstate[doc->spansp].id = prevId ? Dupstrp(prevId, -1, doc->pool) : NULL;
+         doc->spansp++;
+      }
+   }
    
    /* Apply inline styles if present */
    if(styleAttr && doc->doctype==DOCTP_BODY)
@@ -3784,8 +3808,62 @@ static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
 
 /*** </SPAN> ***/
 static BOOL Dospanend(struct Document *doc)
-{  /* SPAN is inline, no special end handling needed */
-   /* CSS styles applied at start tag are automatically scoped */
+{  void *body;
+   short curdepth;
+   short targetdepth;
+   USHORT curstyle;
+   USHORT savestyle;
+   USHORT mask;
+   UBYTE *prevTag;
+   UBYTE *prevClass;
+   UBYTE *prevId;
+
+   if(doc->doctype==DOCTP_BODY && doc->spansp > 0)
+   {  doc->spansp--;
+      savestyle = doc->spanstate[doc->spansp].style;
+      targetdepth = doc->spanstate[doc->spansp].fontdepth;
+      prevTag = doc->spanstate[doc->spansp].tagname;
+      prevClass = doc->spanstate[doc->spansp].class;
+      prevId = doc->spanstate[doc->spansp].id;
+      body = Docbody(doc);
+
+      /* Unwind any font pushes that occurred inside the span. */
+      curdepth = (short)Agetattr(body, AOBDY_Fontdepth);
+      while(curdepth > targetdepth)
+      {  Asetattrs(body, AOBDY_Fontend, TRUE, TAG_END);
+         curdepth = (short)Agetattr(body, AOBDY_Fontdepth);
+      }
+
+      /* Restore hardstyle bits that might have been set by CSS (bold/italic/underline/strike). */
+      curstyle = (USHORT)Agetattr(body, AOBDY_Style);
+      mask = (USHORT)(FSF_BOLD | FSF_ITALIC | FSF_UNDERLINED | FSF_STRIKE);
+      /* Only touch the hardstyle bits; leave other style bits alone. */
+      if((curstyle & mask) != (savestyle & mask))
+      {  /* Bold */
+         if(savestyle & FSF_BOLD) Asetattrs(body, AOBDY_Sethardstyle, FSF_BOLD, TAG_END);
+         else Asetattrs(body, AOBDY_Unsethardstyle, FSF_BOLD, TAG_END);
+         /* Italic */
+         if(savestyle & FSF_ITALIC) Asetattrs(body, AOBDY_Sethardstyle, FSF_ITALIC, TAG_END);
+         else Asetattrs(body, AOBDY_Unsethardstyle, FSF_ITALIC, TAG_END);
+         /* Underline */
+         if(savestyle & FSF_UNDERLINED) Asetattrs(body, AOBDY_Sethardstyle, FSF_UNDERLINED, TAG_END);
+         else Asetattrs(body, AOBDY_Unsethardstyle, FSF_UNDERLINED, TAG_END);
+         /* Strike */
+         if(savestyle & FSF_STRIKE) Asetattrs(body, AOBDY_Sethardstyle, FSF_STRIKE, TAG_END);
+         else Asetattrs(body, AOBDY_Unsethardstyle, FSF_STRIKE, TAG_END);
+      }
+
+      /* Restore tag/class/id to what they were before this SPAN. This is critical because
+       * the CSS matcher will fall back to AOBDY_Class/AOBDY_Id/AOBDY_TagName when hints are
+       * not provided; leaving SPAN values behind causes selector matches to "bleed" into
+       * subsequent elements. */
+      Asetattrs(body,
+         AOBDY_TagName, prevTag,
+         AOBDY_Class, prevClass,
+         AOBDY_Id, prevId,
+         TAG_END);
+   }
+
    return TRUE;
 }
 
