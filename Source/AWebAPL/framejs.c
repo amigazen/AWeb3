@@ -1111,6 +1111,7 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
    UBYTE jshead[64];
    long slen;
    long k;
+   UBYTE c;
    BPTR jsfh;
    LONG jsn;
    if(fr && script && prefs.browser.dojs && Openjslib())
@@ -1138,7 +1139,7 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
          k=0;
          while(k < (long)sizeof(jshead)-1 && k < slen)
          {
-            UBYTE c=script[k];
+            c=script[k];
             if(c=='\r' || c=='\n' || c=='\t') c=' ';
             if(c<32) c='.';
             jshead[k]=c;
@@ -1164,15 +1165,22 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
             if(jsn>0) Write(jsfh,(APTR)jsdbg,jsn);
          }
       }
-      /* Avoid global application-wide Ajsetup() here: during inline script execution (while parsing),
-       * walking all windows/frames can hit half-built objects. Set up only the current frame/copy. */
-      if(fr && fr->copy && jc && fr->jobject)
-      {
-         Ajsetup(fr->copy,jc,fr->jobject,fr->jobject);
+      /* Ensure a JS scope exists before running. The Frame's JS "window" object
+       * (fr->jobject) is created by the Frame's AOM_JSETUP handler (Jsetupframe),
+       * so we must run setup on the Frame itself when fr->jobject is NULL. */
+      if(jc && fr && !fr->jobject)
+      {  Ajsetup((struct Aobject *)fr,jc,NULL,NULL);
       }
-      else
-      {
-         Ajsetup(Aweb(),NULL,NULL,NULL);
+      /* Avoid global application-wide Ajsetup() as the common path: during inline
+       * script execution (while parsing), walking all windows/frames can hit
+       * half-built objects. Prefer setting up only the current frame/copy once
+       * the frame JS objects exist. */
+      if(fr && fr->copy && jc && fr->jobject)
+      {  Ajsetup(fr->copy,jc,fr->jobject,fr->jobject);
+      }
+      else if(jc && fr && fr->jobject)
+      {  /* If there is no copy yet, at least ensure the frame object is set up. */
+         Ajsetup((struct Aobject *)fr,jc,NULL,NULL);
       }
       if(httpdebug)
       {
