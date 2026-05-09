@@ -21,8 +21,105 @@
 #include "awebjs.h"
 #include "jprotos.h"
 #include "jbytecode.h"
+#include <proto/dos.h>
 
 /*-----------------------------------------------------------------------*/
+
+/* Same flag as jdata.c GC traces (defined in jslib.c). */
+extern BOOL httpdebug;
+
+/* GC/disposal breadcrumbs: DOS Write only (see jdata.c). */
+static void Jcomp_log_line(UBYTE *s)
+{
+   BPTR fh;
+   LONG n;
+
+   if(!httpdebug)
+   {
+      return;
+   }
+   if(!s)
+   {
+      return;
+   }
+   fh=Output();
+   if(!fh)
+   {
+      return;
+   }
+   n=(LONG)strlen((char *)s);
+   if(n>0)
+   {
+      Write(fh,(APTR)s,n);
+   }
+}
+
+/* Dispose-safety: Elements may be reachable through multiple parents (shared subtree).
+ * Disposing the same Element* twice is a double-free/use-after-free. We prevent that
+ * by tracking Element* addresses per Jdispose() run.
+ *
+ * This is a functional fix (not just debug logging): the first visit owns disposal,
+ * later visits are ignored. */
+#ifndef JCOMP_DISPOSE_SEEN_SIZE
+#define JCOMP_DISPOSE_SEEN_SIZE 2048
+#endif
+
+struct Jcomp_seen_ent
+{
+   ULONG ptr;
+   ULONG runid;
+};
+
+static struct Jcomp_seen_ent jcomp_seen[JCOMP_DISPOSE_SEEN_SIZE];
+static ULONG jcomp_dispose_runid;
+
+static void Jcomp_dispose_newrun(void)
+{
+   jcomp_dispose_runid++;
+   if(jcomp_dispose_runid==0UL)
+   {
+      /* Avoid zero as a sentinel. */
+      jcomp_dispose_runid=1UL;
+   }
+}
+
+static ULONG Jcomp_hash_ptr(ULONG p)
+{
+   /* Simple pointer hash (alignment-heavy) */
+   p ^= (p >> 4);
+   p ^= (p >> 9);
+   return p;
+}
+
+static BOOL Jcomp_seen_or_mark(struct Element *elt)
+{
+   ULONG p;
+   ULONG h;
+   ULONG i;
+
+   if(!elt)
+   {
+      return TRUE;
+   }
+   p=(ULONG)elt;
+   h=Jcomp_hash_ptr(p) & (JCOMP_DISPOSE_SEEN_SIZE-1UL);
+   for(i=0;i<JCOMP_DISPOSE_SEEN_SIZE;i++)
+   {
+      ULONG idx=(h + i) & (JCOMP_DISPOSE_SEEN_SIZE-1UL);
+      if(jcomp_seen[idx].runid!=jcomp_dispose_runid)
+      {
+         jcomp_seen[idx].ptr=p;
+         jcomp_seen[idx].runid=jcomp_dispose_runid;
+         return FALSE; /* first time */
+      }
+      if(jcomp_seen[idx].ptr==p)
+      {
+         return TRUE; /* already seen in this run */
+      }
+   }
+   /* Table full for this run; fail safe: treat as seen to avoid double free. */
+   return TRUE;
+}
 
 /* Forward declarations */
 static void Disposelt(struct Element *elt);
@@ -2523,23 +2620,72 @@ static void Dislist(struct Elementlist *elt)
 }
 
 static void Disfunc(struct Elementfunc *elt)
-{  struct Elementnode *enode;
+{
+   struct Elementnode *enode;
+   UBYTE dbgt[192];
+
+   if(httpdebug && elt)
+   {
+      sprintf((char *)dbgt,"[JSGC] DISFUNC_ENTER elt=%08lx bcode=%08lx body=%08lx\n",
+         (unsigned long)(ULONG)elt,
+         (unsigned long)(ULONG)elt->bcode,
+         (unsigned long)(ULONG)elt->body);
+      Jcomp_log_line(dbgt);
+   }
    if(elt->bcode)
-   {  Jvmfreechunk(elt->bcode);
+   {
+      if(httpdebug)
+      {
+         sprintf((char *)dbgt,"[JSGC] DISFUNC_BEFORE_JVMFREE elt=%08lx\n",(unsigned long)(ULONG)elt);
+         Jcomp_log_line(dbgt);
+      }
+      Jvmfreechunk(elt->bcode);
+      if(httpdebug)
+      {
+         sprintf((char *)dbgt,"[JSGC] DISFUNC_AFTER_JVMFREE elt=%08lx\n",(unsigned long)(ULONG)elt);
+         Jcomp_log_line(dbgt);
+      }
       elt->bcode=NULL;
    }
    while(enode=(struct Elementnode *)RemHead((struct List *)&elt->subs))
-   {  if(enode->sub) Disposelt(enode->sub);
+   {
+      if(enode->sub)
+      {
+         Disposelt(enode->sub);
+      }
       FREE(enode);
    }
+   if(httpdebug && elt)
+   {
+      sprintf((char *)dbgt,"[JSGC] DISFUNC_AFTER_SUBS elt=%08lx\n",(unsigned long)(ULONG)elt);
+      Jcomp_log_line(dbgt);
+   }
    if(elt->body)
-   {  Disposelt(elt->body);
+   {
+      if(httpdebug)
+      {
+         sprintf((char *)dbgt,"[JSGC] DISFUNC_BEFORE_BODY elt=%08lx body=%08lx\n",
+            (unsigned long)(ULONG)elt,(unsigned long)(ULONG)elt->body);
+         Jcomp_log_line(dbgt);
+      }
+      Disposelt(elt->body);
+      if(httpdebug)
+      {
+         sprintf((char *)dbgt,"[JSGC] DISFUNC_AFTER_BODY elt=%08lx\n",(unsigned long)(ULONG)elt);
+         Jcomp_log_line(dbgt);
+      }
       elt->body=NULL;
    }
    if(elt->name)
-   {  FREE(elt->name);
+   {
+      FREE(elt->name);
    }
    elt->fscope=NULL;
+   if(httpdebug && elt)
+   {
+      sprintf((char *)dbgt,"[JSGC] DISFUNC_BEFORE_FREE elt=%08lx\n",(unsigned long)(ULONG)elt);
+      Jcomp_log_line(dbgt);
+   }
    FREE(elt);
 }
 
@@ -2678,8 +2824,40 @@ static Diselementf *distab[]=
 };
 
 static void Disposelt(struct Element *elt)
-{  if(elt && distab[elt->type])
-   {  distab[elt->type](elt);
+{
+   ULONG ntab;
+   UBYTE buf[160];
+
+   if(!elt)
+   {
+      return;
+   }
+   if(Jcomp_seen_or_mark(elt))
+   {
+      if(httpdebug)
+      {
+         sprintf((char *)buf,"[JSGC] DISPOSE_REPEAT elt=%08lx\n",(unsigned long)(ULONG)elt);
+         Jcomp_log_line(buf);
+      }
+      return;
+   }
+   ntab=(ULONG)(sizeof(distab)/sizeof(distab[0]));
+   /* Element.type indexes distab; out-of-range reads were undefined and could fault. */
+   if((ULONG)elt->type==0UL || (ULONG)elt->type>=ntab)
+   {
+      if(httpdebug)
+      {
+         sprintf((char *)buf,"[JSGC] DISPOSE_BADTYPE elt=%08lx type=%lu tab=%lu\n",
+            (unsigned long)(ULONG)elt,
+            (unsigned long)(ULONG)elt->type,
+            (unsigned long)ntab);
+         Jcomp_log_line(buf);
+      }
+      return;
+   }
+   if(distab[elt->type])
+   {
+      distab[elt->type](elt);
    }
 }
 
@@ -2741,6 +2919,8 @@ struct Jbuffer *Jdecompile(struct Jcontext *jc,struct Element *elt)
 
 void Jdispose(struct Element *elt)
 {  if(elt)
-   {  Disposelt(elt);
+   {
+      Jcomp_dispose_newrun();
+      Disposelt(elt);
    }
 }

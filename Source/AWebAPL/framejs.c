@@ -1106,6 +1106,13 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
    struct Jobject *jgscope[4];
    short i;
    long jerr;
+   extern BOOL httpdebug;
+   UBYTE jsdbg[160];
+   UBYTE jshead[64];
+   long slen;
+   long k;
+   BPTR jsfh;
+   LONG jsn;
    if(fr && script && prefs.browser.dojs && Openjslib())
    {  fr=Bodyframe(fr);
       if(!fr)
@@ -1114,13 +1121,85 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
       /* Get jc first, then call Ajsetup - the reentrancy guard in Jsetupapplication
        * will prevent deadlocks from recursive calls */
       jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
-      Ajsetup(Aweb(),NULL,NULL,NULL);
+      if(httpdebug)
+      {  printf("[JS] Runjavascriptwith: enter fr=%p bodyfr=%p jc=%p script=%p len=%ld win=%p jobj=%p jdscope=%p with=%p\n",
+            fr, fr, jc, script, (long)strlen((char *)script),
+            (fr ? fr->win : NULL),
+            (fr ? fr->jobject : NULL),
+            (fr ? fr->jdscope : NULL),
+            with);
+      }
+      /* Extra crash-localization: show a short preview of the script.
+       * Don't dereference jc here (framejs.c doesn't know struct Jcontext layout). */
+      if(httpdebug && jc && script)
+      {
+         slen=(long)strlen((char *)script);
+         if(slen < 0) slen=0;
+         k=0;
+         while(k < (long)sizeof(jshead)-1 && k < slen)
+         {
+            UBYTE c=script[k];
+            if(c=='\r' || c=='\n' || c=='\t') c=' ';
+            if(c<32) c='.';
+            jshead[k]=c;
+            k++;
+         }
+         jshead[k]='\0';
+         sprintf((char *)jsdbg,"[JS] Runjavascriptwith: slen=%ld head=\"%s\"\n",
+            (long)slen,(char *)jshead);
+         jsfh=Output();
+         if(jsfh)
+         {
+            jsn=(LONG)strlen((char *)jsdbg);
+            if(jsn>0) Write(jsfh,(APTR)jsdbg,jsn);
+         }
+      }
+      if(httpdebug)
+      {
+         strcpy((char *)jsdbg,"[JS] Runjavascriptwith: stage=before_Ajsetup\n");
+         jsfh=Output();
+         if(jsfh)
+         {
+            jsn=(LONG)strlen((char *)jsdbg);
+            if(jsn>0) Write(jsfh,(APTR)jsdbg,jsn);
+         }
+      }
+      /* Avoid global application-wide Ajsetup() here: during inline script execution (while parsing),
+       * walking all windows/frames can hit half-built objects. Set up only the current frame/copy. */
+      if(fr && fr->copy && jc && fr->jobject)
+      {
+         Ajsetup(fr->copy,jc,fr->jobject,fr->jobject);
+      }
+      else
+      {
+         Ajsetup(Aweb(),NULL,NULL,NULL);
+      }
+      if(httpdebug)
+      {
+         strcpy((char *)jsdbg,"[JS] Runjavascriptwith: stage=after_Ajsetup\n");
+         jsfh=Output();
+         if(jsfh)
+         {
+            jsn=(LONG)strlen((char *)jsdbg);
+            if(jsn>0) Write(jsfh,(APTR)jsdbg,jsn);
+         }
+      }
       if(!jc) jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
       if(jc) Jsetfeedback(jc,Feedback);
       if(jthisp && *jthisp) jthis=*jthisp;
       else if(fr && fr->jobject) jthis=fr->jobject;
       else
       {  return FALSE;
+      }
+      if(httpdebug)
+      {
+         strcpy((char *)jsdbg,"[JS] Runjavascriptwith: stage=after_jthis_select\n");
+         jsfh=Output();
+         if(jsfh)
+         {
+            jsn=(LONG)strlen((char *)jsdbg);
+            if(jsn>0) Write(jsfh,(APTR)jsdbg,jsn);
+         }
       }
       /* If (jthis) is our own object, only use us as global scope, not the
        * document. */
@@ -1158,11 +1237,31 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
 #ifndef DEMOVERSION
          Jdebug(jc,Agetattr(fr->win,AOWIN_Jsdebug));
 #endif
+         if(httpdebug)
+         {  printf("[JS] Runjavascriptwith: before Runjprogram fr=%p jc=%p fscope=%p jthis=%p prot=%lu\n",
+               fr, jc, (fr ? fr->jobject : NULL), jthis, (unsigned long)fr->jprotect);
+         }
          result=Runjprogram(jc,fr->jobject,script,jthis,jgscope,fr->jprotect,(ULONG)fr);
+         if(httpdebug)
+         {  printf("[JS] Runjavascriptwith: after Runjprogram fr=%p jc=%p result=%ld\n",
+               fr, jc, (long)result);
+         }
+         if(httpdebug)
+         {  printf("[JS] Runjavascriptwith: before GC fr=%p jc=%p AWebJSBase=%p\n",
+               fr, jc, AWebJSBase);
+         }
          /* Original AWeb 3.4 code only GC'd when timer seconds advanced; many short scripts never
           * collected and awebjs allocations showed up as leaks. Fix by collecting after each run. */
          if(AWebJSBase) Jgarbagecollect(jc);
+         if(httpdebug)
+         {  printf("[JS] Runjavascriptwith: after GC fr=%p jc=%p\n",
+               fr, jc);
+         }
          if(!animon) Setanimgads(FALSE);
+         if(httpdebug)
+         {  printf("[JS] Runjavascriptwith: exit fr=%p jc=%p result=%ld\n",
+               fr, jc, (long)result);
+         }
       }
    }
    return result;

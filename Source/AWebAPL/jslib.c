@@ -51,6 +51,8 @@
 #define TRESHSIZE          4*1024
 
 struct ExecBase *SysBase;
+/* jdata.c GC traces use this; host aweb.c has its own BOOL httpdebug — they are not wired together yet. */
+BOOL httpdebug = TRUE;
 struct Locale *locale;
 struct Hook idcmphook;
 
@@ -1417,7 +1419,27 @@ __asm __saveds void Jkeepobject(
 
 __asm __saveds void Jgarbagecollect(
    register __a0 struct Jcontext *jc)
-{  if(jc) Garbagecollect(jc);
+{
+   BPTR fh;
+   static const char entermsg[] = "[JS] Jgarbagecollect enter\n";
+   static const char exitmsg[]  = "[JS] Jgarbagecollect exit\n";
+
+   /* Use DOS Output() breadcrumbs here (not Aprintf):
+    * this runs exactly at the hang site and must not depend on awebplugin.library. */
+   fh=Output();
+   if(fh)
+   {
+      Write(fh,(APTR)entermsg,(LONG)sizeof(entermsg)-1);
+   }
+   if(jc)
+   {
+      Garbagecollect(jc);
+   }
+   fh=Output();
+   if(fh)
+   {
+      Write(fh,(APTR)exitmsg,(LONG)sizeof(exitmsg)-1);
+   }
 }
 
 __asm __saveds struct Variable *Jaddproperty(

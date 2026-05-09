@@ -286,41 +286,54 @@ static void Domethodwrite(struct Jcontext *jc,BOOL ln)
    UBYTE *s;
    long n;
    struct Document *doc=Jointernal(Jthis(jc));
-   if(doc)
-   {  for(n=0;jv=Jfargument(jc,n);n++)
-      {  s=Jtostring(jc,jv);
-         if(s) Addtobuffer(&doc->jout,s,strlen(s));
+   if(!jc)
+   {  return;
+   }
+   if(!doc)
+   {  return;
+   }
+   /* Defensive: document.write must never crash; treat missing/NULL args as empty string. */
+   for(n=0; (jv=Jfargument(jc,n)); n++)
+   {  s=Jtostring(jc,jv);
+      if(!s) s=(UBYTE *)"";
+      Addtobuffer(&doc->jout,s,strlen((char *)s));
+   }
+   if(ln) Addtobuffer(&doc->jout,"\n",1);
+   if(doc->pflags&DPF_JRUN)
+   {  /* Called while parsing. Parse generated text now as far as it goes. */
+      if(doc->joutpos < 0) doc->joutpos=0;
+      if(doc->joutpos > doc->jout.length) doc->joutpos=doc->jout.length;
+      Parsehtml(doc,&doc->jout,FALSE,&doc->joutpos);
+      if(doc->copy)
+      {  Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
       }
-      if(ln) Addtobuffer(&doc->jout,"\n",1);
-      if(doc->pflags&DPF_JRUN)
-      {  /* Called while parsing. Parse generated text now as far as it goes. */
-         Parsehtml(doc,&doc->jout,FALSE,&doc->joutpos);
-         Asetattrs(doc->copy,AOBJ_Changedchild,doc,TAG_END);
+      Changedlayout();
+      /* Set up JS again, since new elements may have been added that are referenced in following code.
+       * Never do a global Ajsetup() while parsing; only setup the current frame/copy if possible. */
+      if(doc->copy && doc->jobject)
+      {  Ajsetup((struct Aobject *)doc->copy,jc,doc->jobject,NULL);
+      }
+   }
+   else if(doc->source && (doc->source->flags&DOSF_JSOPEN))
+   {  /* If called while the JS generated source is still open, send output to our source. */
+      s=Dupstr(doc->jout.buffer,n=doc->jout.length);
+      Freebuffer(&doc->jout);
+      if(s && doc->source)
+      {  Asrcupdatetags(doc->source,NULL,
+            AOURL_Data,s,
+            AOURL_Datalength,n,
+            TAG_END);
+         FREE(s);
          Changedlayout();
-         /* Set up JS again, since new elements may have been added that are
-          * referenced in following source code */
-         Ajsetup(Aweb(),NULL,NULL,NULL);
       }
-      else if(doc->source->flags&DOSF_JSOPEN)
-      {  /* If called while the JS generated source is still open,
-          * send the output to our source. First make a copy of the
-          * output, then clear the jout buffer just in case a
-          * JS script was written. */
-         s=Dupstr(doc->jout.buffer,n=doc->jout.length);
-         Freebuffer(&doc->jout);
-         if(s)
-         {  Asrcupdatetags(doc->source,NULL,
-               AOURL_Data,s,
-               AOURL_Datalength,n,
-               TAG_END);
-            FREE(s);
-            Changedlayout();
-         }
+      else if(s)
+      {  FREE(s);
       }
-      else
-      {  /* Else store the output and let frame start a fetch for
-          * this output afterwards. */
-         Asetattrs(doc->frame,
+   }
+   else
+   {  /* Else store output and let frame start a fetch for this output afterwards. */
+      if(doc->frame)
+      {  Asetattrs((struct Aobject *)doc->frame,
             AOFRM_Jgenerated,&doc->jout,
             AOFRM_Jsopen,TRUE,
             TAG_END);
@@ -562,6 +575,14 @@ void Docjexecute(struct Document *doc,UBYTE *source)
 {  struct Jcontext *jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
    if(jc)
    {  extern BOOL httpdebug;
+      if(httpdebug)
+      {  printf("[JS] Docjexecute: enter doc=%p frame=%p jcontext=%p jsrcline=%ld srclen=%ld\n",
+            doc,
+            (doc ? doc->frame : NULL),
+            jc,
+            (long)(doc ? doc->jsrcline : 0),
+            (long)(source ? strlen((char *)source) : 0));
+      }
       if(ShouldSkipJavascript(doc, source))
       {  if(httpdebug)
          {  printf("[JS] Docjexecute: Skipping script execution (filtered) doc=%p frame=%p\n",
@@ -570,7 +591,15 @@ void Docjexecute(struct Document *doc,UBYTE *source)
          return;
       }
       Jsetlinenumber(jc,doc->jsrcline+1);
+      if(httpdebug)
+      {  printf("[JS] Docjexecute: before Runjsnobanners doc=%p frame=%p line=%ld\n",
+            doc, (doc ? doc->frame : NULL), (long)(doc ? (doc->jsrcline+1) : 0));
+      }
       Runjsnobanners(doc->frame,source,NULL);
+      if(httpdebug)
+      {  printf("[JS] Docjexecute: after Runjsnobanners doc=%p frame=%p\n",
+            doc, (doc ? doc->frame : NULL));
+      }
       /* GC after each Runjprogram is done in Runjavascriptwith (framejs.c). */
    }
 

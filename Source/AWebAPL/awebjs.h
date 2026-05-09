@@ -36,11 +36,16 @@
 #include <pragmas/exec_pragmas.h>
 #include <pragmas/locale_pragmas.h>
 
+/* Aprintf() debug output comes from awebplugin.library. Never use KPrintF()
+ * (serial-port debug) in normal builds. */
+#include "awebplugin.h"
+
 /* #define JSDEBUG */
 /* #define JSADDRESS */
 
-// #define debug KPrintF
-#define debug KPrintF
+/* Debug trace helper used by a few JS diagnostics (e.g. Dumpobjects).
+ * Keep it routed through AWeb's standard debug channel. */
+#define debug Aprintf
 
 #define STRNIEQUAL(a,b,n)  !strnicmp(a,b,n)
 #define STRNEQUAL(a,b,n)   !strncmp(a,b,n)
@@ -57,8 +62,10 @@
 #endif
 #define FREE(p)               JFreemem(p)
 
-#define ALLOCOBJECT(jc)      (struct Jobject *)JPallocmem(sizeof(struct Jobject),MEMF_PUBLIC,jc->objpool)
-#define ALLOCVAR(jc)         (struct Variable *)JPallocmem(sizeof(struct Variable),MEMF_PUBLIC,jc->varpool)
+/* Objects/vars must start fully zeroed: newer GC paths (propidx, atom-shared names)
+ * assume NULL/0 defaults for fields that older code never touched. */
+#define ALLOCOBJECT(jc)      (struct Jobject *)JPallocmem(sizeof(struct Jobject),MEMF_PUBLIC|MEMF_CLEAR,jc->objpool)
+#define ALLOCVAR(jc)         (struct Variable *)JPallocmem(sizeof(struct Variable),MEMF_PUBLIC|MEMF_CLEAR,jc->varpool)
 
 /* get pointer to first vararg after p */
 #define VARARG(p)          (void *)((ULONG)&p+sizeof(p))

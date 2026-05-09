@@ -21,6 +21,21 @@
 #include "awebjs.h"
 #include "jprotos.h"
 
+/* GC breadcrumbs: Write(Output()) only — do not use Aprintf() in this file’s GC path
+ * (varargs + plugin glue faulted with address errors inside awebjs.aweblib). */
+#include <proto/exec.h>
+#include <exec/execbase.h>
+#include <proto/dos.h>
+#include <stdio.h>
+#include <string.h>
+
+/* Storage lives in jslib.c (Opened with awebjs.aweblib). */
+extern struct ExecBase *SysBase;
+/* Required for debug()/Aprintf pragmas in awebplugin.h when Dumpobjects() uses debug(). */
+extern struct Library *AwebPluginBase;
+/* Mirrored copy for aweblib (see jslib.c); host aweb.c also has BOOL httpdebug — not the same symbol. */
+extern BOOL httpdebug;
+
 struct Array;  /* Forward declaration */
 
 struct JPropIdxEnt
@@ -33,8 +48,146 @@ struct JPropIdxEnt
 /*-----------------------------------------------------------------------*/
 /* Per-object property hash (generic objects); keys are interned atoms. */
 
+/* Property index enable switch (default on). */
+#ifndef JPROP_IDX_ENABLE
+#define JPROP_IDX_ENABLE 1
+#endif
+
+/* Do not test TDNestCnt/IDNestCnt here: Jgarbagecollect() uses Write(Output()) without that guard,
+ * and skipping writes during nested Forbid made GC look "silent" while [JS] printf (main binary)
+ * still appeared. Route all GC diagnostics through Write(Output()), not stdio printf. */
+static void Jgc_write(UBYTE *s)
+{
+   BPTR fh;
+   LONG n;
+
+   if(!s) return;
+   if(!SysBase) return;
+   fh=Output();
+   if(!fh) return;
+   n=(LONG)strlen((char *)s);
+   if(n>0) Write(fh,(APTR)s,n);
+}
+
+static void Jgc_mark(UBYTE *tag)
+{
+   BPTR fh;
+   LONG n;
+
+   if(!tag) return;
+   if(!SysBase) return;
+   fh=Output();
+   if(!fh) return;
+   n=(LONG)strlen((char *)tag);
+   if(n>0) Write(fh,(APTR)tag,n);
+}
+
+/* sprintf into a buffer then DOS Write — printf from awebjs.aweblib does not share the main exe stdio. */
+static void Jgc_trace_enter(struct Jcontext *jc, long oldnogc)
+{
+   UBYTE buf[120];
+
+   if(!httpdebug) return;
+   sprintf((char *)buf,"[JSGC] phase=ENTER jc=%08lx nogc=%ld\n",(unsigned long)(ULONG)jc,(long)oldnogc);
+   Jgc_write(buf);
+}
+
+static void Jgc_trace_clear(int scanned)
+{
+   UBYTE buf[96];
+
+   if(!httpdebug) return;
+   sprintf((char *)buf,"[JSGC] phase=CLEAR scanned=%d\n",scanned);
+   Jgc_write(buf);
+}
+
+static void Jgc_trace_plain(const char *line)
+{
+   if(!httpdebug) return;
+   if(!line) return;
+   Jgc_write((UBYTE *)line);
+}
+
+static void Jgc_trace_sweep_list(long unlinked)
+{
+   UBYTE buf[96];
+
+   if(!httpdebug) return;
+   sprintf((char *)buf,"[JSGC] phase=SWEEP_LIST unlinked=%ld\n",(long)unlinked);
+   Jgc_write(buf);
+}
+
+static void Jgc_trace_disposed(long disposed)
+{
+   UBYTE buf[96];
+
+   if(!httpdebug) return;
+   sprintf((char *)buf,"[JSGC] phase=DISPOSE_DONE disposed=%ld\n",(long)disposed);
+   Jgc_write(buf);
+}
+
+/* One line per dead object immediately before Disposeobject(). If a crash/hang happens inside
+ * disposal, the last line names jo pointer, type (OBJT_* / OBJT_USER bits), flags, destructor. */
+static void Jgc_trace_dispose_before(long ordinal, struct Jobject *jo)
+{
+   UBYTE buf[192];
+
+   if(!httpdebug) return;
+   if(!jo) return;
+   sprintf((char *)buf,
+      "[JSGC] DISPOSE_BEFORE n=%ld jo=%08lx type=%08lx flags=%04x disposefn=%08lx internal=%08lx\n",
+      (long)ordinal,
+      (unsigned long)(ULONG)jo,
+      (unsigned long)jo->type,
+      (unsigned int)(jo->flags & 0xffffU),
+      (unsigned long)(ULONG)jo->dispose,
+      (unsigned long)(ULONG)jo->internal);
+   Jgc_write(buf);
+}
+
+/* Sub-steps inside Disposeobject(): last line before a crash pinpoints the teardown phase. */
+static void Jgc_trace_dispose_step(struct Jobject *jo, const char *tag)
+{
+   UBYTE buf[160];
+
+   if(!httpdebug) return;
+   if(!jo) return;
+   if(!tag) return;
+   sprintf((char *)buf,"[JSGC] DISPOSE_STEP jo=%08lx %s\n",(unsigned long)(ULONG)jo,tag);
+   Jgc_write(buf);
+}
+
+static void Jgc_log(struct Jcontext *jc, UBYTE *tag, long a, long b, long c, ULONG p0, ULONG p1)
+{
+   if(!jc) return;
+   if(!tag) return;
+   /* Console breadcrumbs only: never call Aprintf() here — inside awebjs.aweblib it can fault
+    * (address error) depending on stack/register conventions at the call site. */
+   (void)a;
+   (void)b;
+   (void)c;
+   (void)p0;
+   (void)p1;
+   Jgc_mark((UBYTE *)"[JSGC] ");
+   Jgc_mark(tag);
+   Jgc_mark((UBYTE *)"\n");
+}
+
+#ifndef JGC_DUMP_DEAD_LIMIT
+#define JGC_DUMP_DEAD_LIMIT 48  /* maximum dead objects to dump per GC */
+#endif
+
+static void Jgc_dump_object(struct Jobject *jo, UBYTE *tag)
+{
+   if(!jo) return;
+   (void)tag;
+   /* One fixed line only — avoid Aprintf/%s on possibly stale pointers during sweep. */
+   Jgc_mark((UBYTE *)"[JSGC] DEAD\n");
+}
+
 static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
 {
+#if JPROP_IDX_ENABLE
    struct Jcontext *root;
    struct JAtomStr *key;
    struct JPropIdxEnt *ent;
@@ -64,10 +217,15 @@ static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
    b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
    ent->next=jo->propidx[b];
    jo->propidx[b]=ent;
+#else
+   (void)jo;
+   (void)var;
+#endif
 }
 
 static void JpropidxRemove(struct Jobject *jo, struct Variable *var)
 {
+#if JPROP_IDX_ENABLE
    struct Jcontext *root;
    struct JAtomStr *key;
    struct JPropIdxEnt *e;
@@ -101,10 +259,15 @@ static void JpropidxRemove(struct Jobject *jo, struct Variable *var)
       }
       pp=&e->next;
    }
+#else
+   (void)jo;
+   (void)var;
+#endif
 }
 
 static void JpropidxClear(struct Jobject *jo)
 {
+#if JPROP_IDX_ENABLE
    ULONG i;
    struct JPropIdxEnt *e;
    struct JPropIdxEnt *n;
@@ -124,6 +287,9 @@ static void JpropidxClear(struct Jobject *jo)
       }
       jo->propidx[i]=NULL;
    }
+#else
+   (void)jo;
+#endif
 }
 
 /*-----------------------------------------------------------------------*/
@@ -542,14 +708,21 @@ void Disposeobject(struct Jobject *jo)
          Disposevar(var);
       }
       JpropidxClear(jo);
+      Jgc_trace_dispose_step(jo,"props_cleared");
       if(jo->internal && jo->dispose)
       {
-                                jo->dispose(jo->internal);
+         Jgc_trace_dispose_step(jo,"before_internal_dispose");
+         jo->dispose(jo->internal);
+         Jgc_trace_dispose_step(jo,"after_internal_dispose");
       }
       if(jo->function)
-      {  Jdispose((struct Element *)jo->function);
+      {
+         Jgc_trace_dispose_step(jo,"before_jdispose");
+         Jdispose((struct Element *)jo->function);
+         Jgc_trace_dispose_step(jo,"after_jdispose");
       }
 
+      Jgc_trace_dispose_step(jo,"before_free");
       FREE(jo);
    }
 }
@@ -887,29 +1060,56 @@ struct Array            /* Used as internal object value */
 };
 
 
-static void Garbagemark(struct Jobject *jo)
-{  struct Variable *v;
-   int i;
+/* Depth limit prevents stack blow-up if pointers form a very deep or corrupt graph. */
+#ifndef GARBAGEMARK_MAXDEPTH
+#define GARBAGEMARK_MAXDEPTH 4096U
+#endif
 
-   if(!jo || (jo->flags&OBJF_USED))
-   {  return;
+static void Garbagemark_depth(struct Jobject *jo, ULONG depth)
+{
+   struct Variable *v;
+   int i;
+   ULONG jp;
+
+   if(!jo)
+   {
+      return;
+   }
+   jp=(ULONG)jo;
+   if(jp < 0x00001000UL || jp > 0xFFFFFFF0UL)
+   {
+      return;
+   }
+   if(depth >= GARBAGEMARK_MAXDEPTH)
+   {
+      return;
+   }
+   if((jo->flags&OBJF_USED))
+   {
+      return;
    }
    if(jo->notdisposed != TRUE)
-   {  return;
+   {
+      return;
    }
    jo->flags |= OBJF_USED;
-   Garbagemark(jo->prototype);
+
+   Garbagemark_depth(jo->prototype, depth + 1U);
    for(v=jo->properties.first;v && v->next;v=v->next)
    {
       if(v->val.type==VTP_OBJECT)
       {
-         Garbagemark(v->val.value.obj.ovalue);
-         if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
+         Garbagemark_depth(v->val.value.obj.ovalue, depth + 1U);
+         if(v->val.value.obj.fthis)
+         {
+            Garbagemark_depth(v->val.value.obj.fthis, depth + 1U);
+         }
       }
    }
-   Garbagemark(jo->constructor);
+   Garbagemark_depth(jo->constructor, depth + 1U);
    if(jo->function)
-   {  Garbagemark(jo->function->fscope);
+   {
+      Garbagemark_depth(jo->function->fscope, depth + 1U);
    }
    if(jo->type == OBJT_ARRAY)
    {
@@ -926,15 +1126,22 @@ static void Garbagemark(struct Jobject *jo)
                {
                   if(a->array[i]->val.type == VTP_OBJECT)
                   {
-                     Garbagemark(a->array[i]->val.value.obj.ovalue);
+                     Garbagemark_depth(a->array[i]->val.value.obj.ovalue, depth + 1U);
                      if(a->array[i]->val.value.obj.fthis)
-                     Garbagemark(a->array[i]->val.value.obj.fthis);
+                     {
+                        Garbagemark_depth(a->array[i]->val.value.obj.fthis, depth + 1U);
+                     }
                   }
                }
             }
          }
       }
    }
+}
+
+static void Garbagemark(struct Jobject *jo)
+{
+   Garbagemark_depth(jo, 0U);
 }
 
 void Garbagecollect(struct Jcontext *jc)
@@ -947,19 +1154,46 @@ void Garbagecollect(struct Jcontext *jc)
    struct This *this;
    int scanned;
    int i;
+   LIST(Jobject) dead;
+   long oldnogc;
+   long steps;
+   long unlinked;
+   long disposed;
+   long dumpdead;
    objectlist = (struct List *)(&jc->objects);
 
    jlist = (struct List *)(&jc->thislist);
 
    scanned = 0;
+   unlinked = 0;
+   disposed = 0;
+   steps = 0;
+   dumpdead = 0;
+   oldnogc = jc->nogc;
+   /* Prevent any re-entrant GC while we are collecting.
+    * Finalizers / dispose hooks may allocate objects; Newobject() must not
+    * trigger another Garbagecollect() while we walk lists. */
+   jc->nogc = oldnogc + 1;
+   NEWLIST(&dead);
+   Jgc_log(jc,(UBYTE *)"ENTER",0,0,0,(ULONG)objectlist->lh_Head,(ULONG)objectlist->lh_TailPred);
+   Jgc_trace_enter(jc,oldnogc);
    for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
    {  jo->flags&=~OBJF_USED;
       scanned ++;
+      steps++;
+      if(steps > 200000L)
+      {
+         Jgc_log(jc,(UBYTE *)"PANIC_CLEAR_LOOP",scanned,0,0,(ULONG)jo,(ULONG)jo->next);
+         break;
+      }
    }
+   Jgc_trace_clear(scanned);
 
     /* No point garbage collecting if no objects in list */
    if(scanned > 0)
    {
+       Jgc_log(jc,(UBYTE *)"ROOTS_BEGIN",scanned,0,0,(ULONG)jc->val,(ULONG)jc->throwval);
+       Jgc_trace_plain("[JSGC] phase=ROOTS_BEGIN\n");
        if(jc->val && jc->val->type == VTP_OBJECT)
        {
           if(jc->val->value.obj.ovalue)Garbagemark(jc->val->value.obj.ovalue);
@@ -1057,8 +1291,11 @@ void Garbagecollect(struct Jcontext *jc)
        }
        for(this=(struct This *)jlist->lh_Head;this && this->next;this=(struct This *)this->next)
        {
-           this->this->flags &=~OBJF_USED;
-           Garbagemark(this->this);
+           if(this->this)
+           {
+              this->this->flags &=~OBJF_USED;
+              Garbagemark(this->this);
+           }
        }
 
        for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
@@ -1066,7 +1303,7 @@ void Garbagecollect(struct Jcontext *jc)
            if(jo->keepnr > 0) Garbagemark(jo);
        }
 
-       for(f=jc->functions.first;f->next;f=f->next)
+       for(f=jc->functions.first;f && f->next;f=f->next)
        {
 
           Garbagemark(f->arguments);
@@ -1079,26 +1316,61 @@ void Garbagecollect(struct Jcontext *jc)
           {  Garbagemark(f->retval.value.obj.ovalue);
              if(f->retval.value.obj.fthis) Garbagemark(f->retval.value.obj.fthis);
           }
-          for(v=f->local.first;v->next;v=v->next)
+          for(v=f->local.first;v && v->next;v=v->next)
           {  if(v->val.type==VTP_OBJECT)
              {
                 Garbagemark(v->val.value.obj.ovalue);
                 if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
              }
           }
-          for(w=f->with.first;w->next;w=w->next)
+          for(w=f->with.first;w && w->next;w=w->next)
           {  Garbagemark(w->jo);
           }
        }
+       Jgc_trace_plain("[JSGC] phase=MARK_DONE\n");
+       Jgc_log(jc,(UBYTE *)"SWEEP_BEGIN",scanned,0,0,(ULONG)objectlist->lh_Head,(ULONG)objectlist->lh_TailPred);
+       Jgc_trace_plain("[JSGC] phase=SWEEP_BEGIN\n");
+       /* Sweep in two phases:
+        * 1) unlink dead objects from jc->objects into a local dead list
+        * 2) dispose them outside the main list walk
+        * This prevents disposal hooks from perturbing the list we're iterating. */
+       steps = 0;
        for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=jonext)
        {  jonext=(struct Jobject *)jo->next;
           if(!(jo->flags&OBJF_USED))
           {
+             if(dumpdead < (long)JGC_DUMP_DEAD_LIMIT)
+             {
+                Jgc_dump_object(jo,(UBYTE *)"DEAD");
+                dumpdead++;
+             }
              Remove((struct Node *)jo);
-             Disposeobject(jo);
+             AddTail((struct List *)&dead,(struct Node *)jo);
+             unlinked++;
+          }
+          steps++;
+          if(steps > 200000L)
+          {
+             Jgc_log(jc,(UBYTE *)"PANIC_SWEEP_LOOP",unlinked,0,0,(ULONG)jo,(ULONG)jonext);
+             break;
           }
        }
+       Jgc_trace_sweep_list(unlinked);
+       while((jo=(struct Jobject *)REMHEAD(&dead)))
+       {
+          Jgc_trace_dispose_before(disposed + 1L, jo);
+          Disposeobject(jo);
+          disposed++;
+          if((disposed & 63L) == 0L)
+          {
+             Jgc_log(jc,(UBYTE *)"DISPOSE_PROGRESS",unlinked,disposed,0,(ULONG)jo,0);
+          }
+       }
+       Jgc_trace_disposed(disposed);
+       Jgc_log(jc,(UBYTE *)"EXIT",scanned,unlinked,disposed,(ULONG)objectlist->lh_Head,(ULONG)objectlist->lh_TailPred);
+       Jgc_trace_plain("[JSGC] phase=EXIT\n");
    }
+   jc->nogc = oldnogc;
 }
 
 void Keepobject(struct Jobject *jo,BOOL used)
