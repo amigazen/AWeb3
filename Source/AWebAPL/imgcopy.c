@@ -52,7 +52,7 @@ static void Newbitmap(struct Imgcopy *img)
    {  if(img->bitmap) FreeBitMap(img->bitmap);
    }
    if(img->flags&IMGF_OURMASK)
-   {  if(img->mask) FreeVec(img->mask);
+   {  if(img->mask) Freemem(img->mask);
    }
    img->flags&=~IMGF_OURBITMAP;
    img->flags&=~IMGF_OURMASK;
@@ -121,7 +121,7 @@ static void Newbitmap(struct Imgcopy *img)
             if(sbm.BytesPerRow && dbm.BytesPerRow)
             {  int width=dbm.BytesPerRow;
                int height=dbm.Rows;
-               if(img->mask=(UBYTE *)AllocVec(width*height,memfchip|MEMF_CLEAR))
+               if(img->mask=(UBYTE *)Allocmem((long)(width*height),memfchip|MEMF_CLEAR))
                {  sbm.Depth=1;
                   sbm.Planes[0]=img->source->mask;
                   dbm.Depth=1;
@@ -243,7 +243,7 @@ static long Renderimgcopy(struct Imgcopy *img,struct Amrender *amr)
                            ULONG mbytes;
                            if(GetBitMapAttr(tbm,BMA_FLAGS)&BMF_STANDARD) memfchip=MEMF_CHIP;
                            mbytes=(ULONG)(GetBitMapAttr(tbm,BMA_WIDTH)/8)*(ULONG)h;
-                           tmask=(UBYTE *)AllocVec(mbytes,memfchip|MEMF_CLEAR);
+                           tmask=(UBYTE *)Allocmem((long)mbytes,memfchip|MEMF_CLEAR);
                            if(tmask)
                            {  sbm.BytesPerRow=GetBitMapAttr(img->source->bitmap,BMA_WIDTH)/8;
                               sbm.Rows=GetBitMapAttr(img->source->bitmap,BMA_HEIGHT);
@@ -280,7 +280,7 @@ static long Renderimgcopy(struct Imgcopy *img,struct Amrender *amr)
                   }
                }
                if(tbm) FreeBitMap(tbm);
-               if(tmask) FreeVec(tmask);
+               if(tmask) Freemem(tmask);
             }
             else if(img->mask)
 	         {  BltMaskBitMapRastPort(img->bitmap,dx,dy,coo->rp,
@@ -360,7 +360,7 @@ static void Disposeimgcopy(struct Imgcopy *img)
    {  if(img->bitmap) FreeBitMap(img->bitmap);
    }
    if(img->flags&IMGF_OURMASK)
-   {  if(img->mask) FreeVec(img->mask);
+   {  if(img->mask) Freemem(img->mask);
    }
    Amethodas(AOTP_COPYDRIVER,img,AOM_DISPOSE);
 }

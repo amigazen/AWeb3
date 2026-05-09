@@ -93,7 +93,7 @@ void Registercidpart(UBYTE *referer_url, UBYTE *part_id,
       }
    }
    
-   part = (struct CidPart *)AllocVec(sizeof(struct CidPart), MEMF_CLEAR);
+   part = (struct CidPart *)Allocmem((long)sizeof(struct CidPart), MEMF_CLEAR);
    if(part)
    {
       part->referer_url = Dupstr(referer_url, -1);
@@ -216,7 +216,7 @@ void Unregistercidparts(UBYTE *referer_url)
          if(part->part_id) FREE(part->part_id);
          if(part->content_type) FREE(part->content_type);
          if(part->data) FREE(part->data);
-         FreeVec(part);
+         Freemem(part);
       }
    }
    
@@ -238,7 +238,7 @@ void Cleanupcidregistry(void)
       if(part->part_id) FREE(part->part_id);
       if(part->content_type) FREE(part->content_type);
       if(part->data) FREE(part->data);
-      FreeVec(part);
+      Freemem(part);
    }
    
    ReleaseSemaphore(&cid_sema);

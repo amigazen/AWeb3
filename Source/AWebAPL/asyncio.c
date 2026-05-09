@@ -25,9 +25,7 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 
-#include <proto/exec.h>
-#include <proto/dos.h>
-
+#include "aweb.h"
 #include "asyncio.h"
 
 
@@ -216,7 +214,7 @@ D_S(struct InfoData,infoData);
          * quad-longword alignement of the buffers
          */
 
-        if (file = AllocVec(sizeof(struct AsyncFile) + bufferSize + 15,MEMF_ANY))
+        if (file = Allocmem((long)(sizeof(struct AsyncFile) + bufferSize + 15),MEMF_ANY))
         {
             file->af_File      = handle;
             file->af_ReadMode  = (accessMode == MODE_READ);
@@ -325,7 +323,7 @@ LONG result;
         }
 
         Close(file->af_File);
-        FreeVec(file);
+        Freemem(file);
     }
     else
     {

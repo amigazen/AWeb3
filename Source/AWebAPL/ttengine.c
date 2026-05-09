@@ -309,17 +309,17 @@ static void JkffFree(void)
 {
    if(jkff_templ16)
    {
-      FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2));
+      Freemem(jkff_templ16);
       jkff_templ16=NULL;
    }
    if(jkff_templ8)
    {
-      FreeMem(jkff_templ8,(ULONG)JKFF_SCAN);
+      Freemem(jkff_templ8);
       jkff_templ8=NULL;
    }
    if(jkff_buf)
    {
-      FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+      Freemem(jkff_buf);
       jkff_buf=NULL;
    }
    jkff_tried=FALSE;
@@ -389,16 +389,16 @@ static void JkffEnsureLoaded(void)
    /* Blitter source must be in CHIP memory for BltTemplate/BltBitMap*.
     * Allocate font data in CHIP to keep rendering correct on classic systems. */
    memflags=(ULONG)(MEMF_CHIP|MEMF_CLEAR);
-   jkff_buf=(UBYTE *)AllocMem((ULONG)JKFF_BUFSIZE,memflags);
+   jkff_buf=(UBYTE *)Allocmem((ULONG)JKFF_BUFSIZE,memflags);
    if(!jkff_buf) return;
 
-   jkff_templ8=(UBYTE *)AllocMem((ULONG)JKFF_SCAN,(ULONG)(MEMF_CHIP|MEMF_CLEAR));
-   jkff_templ16=(UBYTE *)AllocMem((ULONG)(JKFF_SCAN*2),(ULONG)(MEMF_CHIP|MEMF_CLEAR));
+   jkff_templ8=(UBYTE *)Allocmem((ULONG)JKFF_SCAN,(ULONG)(MEMF_CHIP|MEMF_CLEAR));
+   jkff_templ16=(UBYTE *)Allocmem((ULONG)(JKFF_SCAN*2),(ULONG)(MEMF_CHIP|MEMF_CLEAR));
    if(!jkff_templ8 || !jkff_templ16)
    {
-      if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
-      if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
-      FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+      if(jkff_templ8) { Freemem(jkff_templ8); jkff_templ8=NULL; }
+      if(jkff_templ16) { Freemem(jkff_templ16); jkff_templ16=NULL; }
+      Freemem(jkff_buf);
       jkff_buf=NULL;
       return;
    }
@@ -416,9 +416,9 @@ static void JkffEnsureLoaded(void)
    }
    if(!fh)
    {
-      if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
-      if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
-      FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+      if(jkff_templ8) { Freemem(jkff_templ8); jkff_templ8=NULL; }
+      if(jkff_templ16) { Freemem(jkff_templ16); jkff_templ16=NULL; }
+      Freemem(jkff_buf);
       jkff_buf=NULL;
       return;
    }
@@ -431,9 +431,9 @@ static void JkffEnsureLoaded(void)
       if(got != expect)
       {
          Close(fh);
-         if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
-         if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
-         FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+         if(jkff_templ8) { Freemem(jkff_templ8); jkff_templ8=NULL; }
+         if(jkff_templ16) { Freemem(jkff_templ16); jkff_templ16=NULL; }
+         Freemem(jkff_buf);
          jkff_buf=NULL;
          return;
       }
@@ -450,9 +450,9 @@ static void JkffEnsureLoaded(void)
          if(got != 2)
          {
             Close(fh);
-            if(jkff_templ8) { FreeMem(jkff_templ8,(ULONG)JKFF_SCAN); jkff_templ8=NULL; }
-            if(jkff_templ16) { FreeMem(jkff_templ16,(ULONG)(JKFF_SCAN*2)); jkff_templ16=NULL; }
-            FreeMem(jkff_buf,(ULONG)JKFF_BUFSIZE);
+            if(jkff_templ8) { Freemem(jkff_templ8); jkff_templ8=NULL; }
+            if(jkff_templ16) { Freemem(jkff_templ16); jkff_templ16=NULL; }
+            Freemem(jkff_buf);
             jkff_buf=NULL;
             return;
          }

@@ -310,14 +310,14 @@ static BOOL IncrementTaskRef(void) {
 
   /* Not found - create new entry */
   ref =
-      (struct TaskRefCount *)AllocMem(sizeof(struct TaskRefCount), MEMF_CLEAR);
+      (struct TaskRefCount *)Allocmem((long)sizeof(struct TaskRefCount), MEMF_CLEAR);
   if (ref) {
     /* Allocate per-task errno variable for thread-safe errno access */
     /* Each task must have its own errno as AmiSSL maintains per-task state */
-    ref->task_errno = (int *)AllocMem(sizeof(int), MEMF_CLEAR);
+    ref->task_errno = (int *)Allocmem((long)sizeof(int), MEMF_CLEAR);
     if (!ref->task_errno) {
       /* Failed to allocate errno - free the refcount entry and return */
-      FreeMem(ref, sizeof(struct TaskRefCount));
+      Freemem(ref);
       ReleaseSemaphore(&task_ref_sema);
       return FALSE;
     }
@@ -372,10 +372,10 @@ static BOOL DecrementTaskRef(struct Task *task) {
         }
         /* Free per-task errno before freeing the refcount entry */
         if (ref->task_errno) {
-          FreeMem(ref->task_errno, sizeof(int));
+          Freemem(ref->task_errno);
           ref->task_errno = NULL;
         }
-        FreeMem(ref, sizeof(struct TaskRefCount));
+        Freemem(ref);
       }
       ReleaseSemaphore(&task_ref_sema);
       return is_last;
@@ -2227,9 +2227,9 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
 
     /* If we have a hostname, store it for certificate validation */
     if (assl->hostname) {
-      FreeVec(assl->hostname);
+      Freemem(assl->hostname);
     }
-    hostname_copy = (UBYTE *)AllocVec(strlen((char *)hostname) + 1, MEMF_ANY);
+    hostname_copy = (UBYTE *)Allocmem((long)(strlen((char *)hostname) + 1), MEMF_ANY);
     if (hostname_copy) {
       strcpy((char *)hostname_copy, (char *)hostname);
       assl->hostname = hostname_copy;

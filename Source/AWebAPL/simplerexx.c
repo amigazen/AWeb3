@@ -38,6 +38,9 @@
 
 #include <proto/exec.h>
 
+extern void *Allocmem(long size, ULONG flags);
+extern void Freemem(void *mem);
+
 #include <rexx/storage.h>
 #include <rexx/errors.h>
 #include <rexx/rxslib.h>
@@ -402,7 +405,7 @@ register struct   RexxMsg  *rmsg;
       /*
        * Free the memory of the RexxContext
        */
-      FreeMem(RexxContext,sizeof(struct ARexxContext));
+      Freemem(RexxContext);
    }
 }
 
@@ -428,7 +431,7 @@ register short    loop;
 register short    count;
 register char     *tmp;
 
-   if (RexxContext=AllocMem(sizeof(struct ARexxContext),
+   if (RexxContext=Allocmem((long)sizeof(struct ARexxContext),
                MEMF_PUBLIC|MEMF_CLEAR))
    {
 /*

@@ -324,7 +324,7 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
    
    /* Allocate buffer for ExAll data (enough for 256 entries) */
    buffer_size=MAX_DIR_ENTRIES*sizeof(struct ExAllData)+4096;
-   exall_data=AllocMem(buffer_size,MEMF_CLEAR|MEMF_PUBLIC);
+   exall_data=Allocmem(buffer_size,MEMF_CLEAR|MEMF_PUBLIC);
    if(!exall_data)
    {  FreeDosObject(DOS_EXALLCONTROL,eac);
       return;
@@ -343,9 +343,9 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
    {  /* Root case - just "file:///" */
       url_base_len=8+1; /* "file:///" (7) + null terminator (1) */
    }
-   url_base=AllocMem(url_base_len,MEMF_PUBLIC);
+   url_base=Allocmem(url_base_len,MEMF_PUBLIC);
    if(!url_base)
-   {  FreeMem(exall_data,buffer_size);
+   {  Freemem(exall_data);
       FreeDosObject(DOS_EXALLCONTROL,eac);
       return;
    }
@@ -359,10 +359,10 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
    
    /* Allocate HTML buffer for incremental output - need enough for header + rows */
    html_buf_size=4096;
-   html_buf=AllocMem(html_buf_size,MEMF_PUBLIC);
+   html_buf=Allocmem(html_buf_size,MEMF_PUBLIC);
    if(!html_buf)
-   {  FreeMem(url_base,url_base_len);
-      FreeMem(exall_data,buffer_size);
+   {  Freemem(url_base);
+      Freemem(exall_data);
       FreeDosObject(DOS_EXALLCONTROL,eac);
       return;
    }
@@ -525,13 +525,13 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
                {  new_size*=2;
                   if(new_size>65536) break; /* Safety limit */
                }
-               new_buf=AllocMem(new_size,MEMF_PUBLIC);
+               new_buf=Allocmem(new_size,MEMF_PUBLIC);
                if(new_buf)
                {  /* html_len should be 0 after header, but copy just in case */
                   if(html_buf && html_len>0)
                   {  memcpy(new_buf,html_buf,html_len);
                   }
-                  if(html_buf) FreeMem(html_buf,html_buf_size);
+                  if(html_buf) Freemem(html_buf);
                   html_buf=new_buf;
                   html_buf_size=new_size;
                   max_remaining=html_buf_size-1;
@@ -631,9 +631,9 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
    }
 
    /* Cleanup - free in reverse order of allocation */
-   if(html_buf) FreeMem(html_buf,html_buf_size);
-   if(url_base) FreeMem(url_base,url_base_len);
-   if(exall_data) FreeMem(exall_data,buffer_size);
+   if(html_buf) Freemem(html_buf);
+   if(url_base) Freemem(url_base);
+   if(exall_data) Freemem(exall_data);
    if(eac) FreeDosObject(DOS_EXALLCONTROL,eac);
 }
 
@@ -663,7 +663,7 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
    
    /* Allocate HTML buffer */
    html_buf_size=4096;
-   html_buf=AllocMem(html_buf_size,MEMF_PUBLIC);
+   html_buf=Allocmem(html_buf_size,MEMF_PUBLIC);
    if(!html_buf)
    {
       UnLockDosList(LDF_VOLUMES|LDF_READ);
@@ -671,10 +671,10 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
    }
    
    /* Build base URL for links */
-   url_base=AllocMem(9,MEMF_PUBLIC); /* "file:///" + null */
+   url_base=Allocmem(9,MEMF_PUBLIC); /* "file:///" + null */
    if(!url_base)
    {
-      FreeMem(html_buf,html_buf_size);
+      Freemem(html_buf);
       UnLockDosList(LDF_VOLUMES|LDF_READ);
       return;
    }
@@ -844,12 +844,12 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
                {  new_size*=2;
                   if(new_size>65536) break;
                }
-               new_buf=AllocMem(new_size,MEMF_PUBLIC);
+               new_buf=Allocmem(new_size,MEMF_PUBLIC);
                if(new_buf)
                {  if(html_buf && html_len>0)
                   {  memcpy(new_buf,html_buf,html_len);
                   }
-                  if(html_buf) FreeMem(html_buf,html_buf_size);
+                  if(html_buf) Freemem(html_buf);
                   html_buf=new_buf;
                   html_buf_size=new_size;
                   max_remaining=html_buf_size-1;
@@ -962,8 +962,8 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
    }
 
    /* Cleanup */
-   if(html_buf) FreeMem(html_buf,html_buf_size);
-   if(url_base) FreeMem(url_base,9);
+   if(html_buf) Freemem(html_buf);
+   if(url_base) Freemem(url_base);
    UnLockDosList(LDF_VOLUMES|LDF_READ);
 }
 

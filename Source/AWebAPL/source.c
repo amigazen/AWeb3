@@ -503,8 +503,8 @@ static void Flushexcess(void)
    long minfast=prefs.network.minfreefast*1024;
    long minchip=prefs.network.minfreechip*1024;
    if(AvailMem(MEMF_CHIP)<minchip || AvailMem(MEMF_FAST)<minfast)
-   {  void *p=AllocVec(AvailMem(MEMF_TOTAL),0);
-      if(p) FreeVec(p);
+   {  void *p=Allocmem((long)AvailMem(MEMF_TOTAL),0);
+      if(p) Freemem(p);
    }
    for(src=sources.first;src->next &&
       (totalmemory>max || AvailMem(MEMF_CHIP)<minchip || AvailMem(MEMF_FAST)<minfast);

@@ -499,20 +499,33 @@ long Jsetupdocument(struct Document *doc,struct Amjsetup *amj)
          Jaddeventhandler(amj->jc,amj->parent,"onunload",doc->onunload);
       }
    }
-   if(doc->jobject) 
-   {  /* .location is actually a reference to frame.location. Since that is
+   if(doc->jobject)
+   {  jprotkey=Getjprotkey(doc);
+      /* .location is actually a reference to frame.location. Since that is
        * renewed every time, assign the new object here. */
       if(jv=Jproperty(amj->jc,doc->jobject,"location"))
       {  Setjproperty(jv,JPROPHOOK_SYNONYM,Jproperty(amj->jc,amj->parent,"location"));
          Jpprotect(jv,jprotkey);
       }
+      /* Same as form.c: avoid nested Ajsetup() for each child — use AmethodA so one
+       * outer Ajsetup(copy) owns Jallowgc/GC bracketing; deep Ajsetup nesting deadlocked
+       * the UI when httpdebug drove GC logging during setup. */
       for(p=doc->forms.first;p->next;p=p->next)
-      {  Ajsetup(p,amj->jc,doc->jobject,amj->parentframe);
+      {  AmethodA(p,(struct Amessage *)amj);
       }
       for(p=doc->links.first;p->next;p=p->next)
-      {  Ajsetup(p,amj->jc,doc->jobject,amj->parentframe);
+      {  AmethodA(p,(struct Amessage *)amj);
       }
-      Ajsetup(doc->body,amj->jc,doc->jobject,amj->parentframe);
+      AmethodA(doc->body,(struct Amessage *)amj);
+   }
+   /* Re-bind document JSObject to the frame after every JSETUP pass: Clearjframe() nulls
+    * jdscope but leaves doc->jobject; the !doc->jobject branch is skipped on later passes
+    * so AOFRM_Jdocument would otherwise never be restored. */
+   if(doc->jobject && doc->frame)
+   {  Asetattrs(doc->frame,
+         AOFRM_Jdocument,doc->jobject,
+         AOFRM_Jprotect,Getjprotkey(doc),
+         TAG_END);
    }
    return 0;
 }
@@ -573,32 +586,31 @@ static BOOL ShouldSkipJavascript(struct Document *doc, UBYTE *source)
 
 void Docjexecute(struct Document *doc,UBYTE *source)
 {  struct Jcontext *jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
+   long line;
+   long nbytes;
+
    if(jc)
    {  extern BOOL httpdebug;
+      line=0L;
+      nbytes=0L;
+      if(doc) line=(long)(doc->jsrcline+1);
+      if(source) nbytes=(long)strlen((char *)source);
       if(httpdebug)
-      {  printf("[JS] Docjexecute: enter doc=%p frame=%p jcontext=%p jsrcline=%ld srclen=%ld\n",
-            doc,
-            (doc ? doc->frame : NULL),
-            jc,
-            (long)(doc ? doc->jsrcline : 0),
-            (long)(source ? strlen((char *)source) : 0));
+      {  printf("[js] DocumentScript baseLine=%ld sourceBytes=%ld ctx=%p\n",
+            line,nbytes,(void *)jc);
       }
       if(ShouldSkipJavascript(doc, source))
       {  if(httpdebug)
-         {  printf("[JS] Docjexecute: Skipping script execution (filtered) doc=%p frame=%p\n",
-                   doc, doc ? doc->frame : NULL);
+         {  printf("[js] DocumentScript skipped policyFiltered baseLine=%ld ctx=%p\n",
+               line,(void *)jc);
          }
          return;
       }
       Jsetlinenumber(jc,doc->jsrcline+1);
-      if(httpdebug)
-      {  printf("[JS] Docjexecute: before Runjsnobanners doc=%p frame=%p line=%ld\n",
-            doc, (doc ? doc->frame : NULL), (long)(doc ? (doc->jsrcline+1) : 0));
-      }
       Runjsnobanners(doc->frame,source,NULL);
       if(httpdebug)
-      {  printf("[JS] Docjexecute: after Runjsnobanners doc=%p frame=%p\n",
-            doc, (doc ? doc->frame : NULL));
+      {  printf("[js] DocumentScript finished baseLine=%ld ctx=%p\n",
+            line,(void *)jc);
       }
       /* GC after each Runjprogram is done in Runjavascriptwith (framejs.c). */
    }

@@ -20,6 +20,8 @@
 
 #include "aweb.h"
 
+#include <string.h>
+
 #include <proto/exec.h>
 
 static struct SignalSemaphore memsema;
@@ -41,9 +43,13 @@ static ULONG awebmem_peak_fast=0;
 
 BOOL Initmemory(void)
 {  InitSemaphore(&memsema);
-   if(!(fastpool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE)))
+   /* CreatePool memFlags: avoid MEMF_CLEAR on the pool (Exec autodocs). Clearing
+    * on the pool zeros each new puddle and again on every AllocPooled, which is
+    * slower than one explicit memset per block in Pallocmem(). Puddle/threshold
+    * (PUDDLESIZE, TRESHSIZE in aweb.h) satisfy threshSize <= puddleSize; */
+   if(!(fastpool=CreatePool(MEMF_PUBLIC,PUDDLESIZE,TRESHSIZE)))
       return FALSE;
-   if(!(chippool=CreatePool(MEMF_CHIP|MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE)))
+   if(!(chippool=CreatePool(MEMF_CHIP|MEMF_PUBLIC,PUDDLESIZE,TRESHSIZE)))
       return FALSE;
    return TRUE;
 }
@@ -67,7 +73,11 @@ void *Pallocmem(long size,ULONG flags,void *pool)
    else mem=AllocMem(asize,flags|MEMF_PUBLIC|MEMF_CLEAR);
    ReleaseSemaphore(&memsema);
    if(mem)
-   {  *(void **)mem=pool;
+   {  /* Pooled path: match prior MEMF_CLEAR-on-pool behaviour (user buffer always
+       * zeroed; callers often pass MEMF_PUBLIC/MEMF_ANY only). Single memset replaces
+       * Exec double-clear when memFlags included MEMF_CLEAR on CreatePool. */
+      if(pool) memset(mem,0,(size_t)asize);
+      *(void **)mem=pool;
       *(long *)((ULONG)mem+4)=size+8;
       ObtainSemaphore(&memsema);
       awebmem_used+=asize;

@@ -404,14 +404,14 @@ void AddtagstrA(struct Buffer *buf,UBYTE *keywd,USHORT f,ULONG value)
 long Copypathlist(void)
 {  struct PathList *pl,*plfirst=NULL,*pllast=NULL,*plnew;
    for(pl=ourpathlist;pl;pl=(struct PathList *)BADDR(pl->next))
-   {  if(plnew=(struct PathList *)AllocVec(sizeof(struct PathList),MEMF_PUBLIC))
+   {  if(plnew=(struct PathList *)Allocmem((long)sizeof(struct PathList),MEMF_PUBLIC))
       {  if(plnew->lock=DupLock(pl->lock))
          {  plnew->next=NULL;
             if(pllast) pllast->next=MKBADDR(plnew);
             else plfirst=plnew;
             pllast=plnew;
          }
-         else FreeVec(plnew);
+         else Freemem(plnew);
       }
    }
    return MKBADDR(plfirst);
@@ -422,7 +422,7 @@ void Freepathlist(long plbptr)
    for(pl=BADDR(plbptr);pl;pl=plnext)
    {  plnext=BADDR(pl->next);
       if(pl->lock) UnLock(pl->lock);
-      FreeVec(pl);
+      Freemem(pl);
    }
 }
 
@@ -1693,14 +1693,14 @@ int main(int fromcli,struct WBStartup *wbs)
    }
    else
    {  UBYTE *msg=AWEBSTR(MSG_ERROR_NEEDOS30);
-      UBYTE *buf=(UBYTE *)AllocVec(strlen(msg)+1,MEMF_PUBLIC);
+      UBYTE *buf=(UBYTE *)Allocmem((long)(strlen(msg)+1),MEMF_PUBLIC);
       if(buf)
       {  UBYTE *p;
          strcpy(buf,msg);
          for(p=buf;*p && strncmp(p,"3.0",3);p++);
          if(*p) p[2]='5';
          Lowlevelreq(buf);
-         FreeVec(buf);
+         Freemem(buf);
       }
       return 0;
    }

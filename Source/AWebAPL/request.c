@@ -554,7 +554,7 @@ void Aboutreq(UBYTE *portname)
             strcat(buf,": " EMAILADDRESS "\n");
             strcat(buf,AWEBSTR(MSG_ABOUT_WWW));
             strcat(buf,": " WWWADDRESS);
-            if(abstr) FreeVec(abstr);
+            if(abstr) Freemem(abstr);
             if(haiku) strcpy(buf,HAIKU1);
             if(cb=Openclasses())
             {  Makeawebrequest(screen,Aboutlabel(buf),

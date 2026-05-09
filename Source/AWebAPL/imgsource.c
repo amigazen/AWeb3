@@ -154,7 +154,7 @@ static void Makealphamask(struct Imgprocess *imp,void *dto)
    chunkrows=8;
    if(chunkrows>height) chunkrows=height;
    if(chunkrows<1) return;
-   pixeldata=AllocMem(rowstride*chunkrows,MEMF_PUBLIC|MEMF_CLEAR);
+   pixeldata=Allocmem(rowstride*chunkrows,MEMF_PUBLIC|MEMF_CLEAR);
    if(!pixeldata) return;
    
    /* Read first chunk to determine pixel format */
@@ -173,7 +173,7 @@ static void Makealphamask(struct Imgprocess *imp,void *dto)
       pbpa.pbpa_PixelFormat=PBPAFMT_ARGB;
       ok=BOOLVAL(DoMethodA(dto,(Msg)&pbpa));
       if(!ok)
-      {  FreeMem(pixeldata,rowstride*chunkrows);
+      {  Freemem(pixeldata);
          return;
       }
       pixelformat=PBPAFMT_ARGB;
@@ -238,7 +238,7 @@ static void Makealphamask(struct Imgprocess *imp,void *dto)
       imp->ourmask=TRUE;
    }
    
-   FreeMem(pixeldata,rowstride*chunkrows);
+   Freemem(pixeldata);
 }
 
 /* Make a transparent mask if the dt didn't create it */
@@ -355,7 +355,7 @@ static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
    if(selimg)
    {  maskrowbytes=(imp->width+7)/8;
       maskbytesperrow=GetBitMapAttr(tempbitmap,BMA_WIDTH)/8;
-      if(maskdata=AllocMem(maskrowbytes*imp->height,MEMF_PUBLIC|MEMF_CLEAR))
+      if(maskdata=Allocmem(maskrowbytes*imp->height,MEMF_PUBLIC|MEMF_CLEAR))
       {  struct RastPort maskrp;
          struct BitMap maskbm;
          InitRastPort(&maskrp);
@@ -369,7 +369,7 @@ static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
          DrawImage(&maskrp,selimg,0,0);
          
          /* Allocate mask buffer matching bitmap row size */
-         imp->mask=AllocMem(maskbytesperrow*imp->height,MEMF_PUBLIC|MEMF_CLEAR);
+         imp->mask=Allocmem(maskbytesperrow*imp->height,MEMF_PUBLIC|MEMF_CLEAR);
          if(imp->mask)
          {  /* Copy 1-bit mask data, expanding to match bitmap row width */
             src=maskdata;
@@ -388,7 +388,7 @@ static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
             imp->ourmask=TRUE;
             imp->memsize+=maskbytesperrow*imp->height;
          }
-         FreeMem(maskdata,maskrowbytes*imp->height);
+         Freemem(maskdata);
       }
    }
    
@@ -581,7 +581,7 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
       return FALSE;
    }
    
-   imagedata=AllocMem(imagesize,MEMF_PUBLIC|MEMF_CLEAR);
+   imagedata=Allocmem(imagesize,MEMF_PUBLIC|MEMF_CLEAR);
    if(!imagedata)
    {  FREE(entries);
       Close(fh);
@@ -589,7 +589,7 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    }
    
    if(Read(fh,imagedata,imagesize)!=imagesize)
-   {  FreeMem(imagedata,imagesize);
+   {  Freemem(imagedata);
       FREE(entries);
       Close(fh);
       return FALSE;
@@ -602,13 +602,13 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    if(imagesize>=8 && imagedata[0]==0x89 && imagedata[1]==0x50 &&
       imagedata[2]==0x4e && imagedata[3]==0x47)
    {  /* PNG data in ICO - fall back to DataTypes */
-      FreeMem(imagedata,imagesize);
+      Freemem(imagedata);
       return FALSE;
    }
    
    /* Parse BMP/DIB header */
    if(imagesize<sizeof(struct BmpInfoHeader))
-   {  FreeMem(imagedata,imagesize);
+   {  Freemem(imagedata);
       return FALSE;
    }
    
@@ -629,7 +629,7 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    
    /* Handle different BMP header sizes */
    if(bmpinfo.size<sizeof(struct BmpInfoHeader))
-   {  FreeMem(imagedata,imagesize);
+   {  Freemem(imagedata);
       return FALSE;
    }
    
@@ -686,9 +686,9 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
       palettesize,bmprowbytes,bmpsize,maskoffset);
    
    /* Create complete BMP file: file header + DIB data */
-   bmpdata=AllocMem(sizeof(struct BmpFileHeader)+bmpsize,MEMF_PUBLIC|MEMF_CLEAR);
+   bmpdata=Allocmem(sizeof(struct BmpFileHeader)+bmpsize,MEMF_PUBLIC|MEMF_CLEAR);
    if(!bmpdata)
-   {  FreeMem(imagedata,imagesize);
+   {  Freemem(imagedata);
       return FALSE;
    }
    
@@ -899,8 +899,8 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    }
    
    /* Free bmpdata only if we didn't store it for later cleanup */
-   if(bmpdata) FreeMem(bmpdata,sizeof(struct BmpFileHeader)+bmpsize);
-   FreeMem(imagedata,imagesize);
+   if(bmpdata) Freemem(bmpdata);
+   Freemem(imagedata);
    
    return result;
 }
@@ -1068,7 +1068,7 @@ static void Disposedto(struct Imgsource *ims)
    }
    /* Free BMP data if it was allocated for ICO decoder */
    if(ims->bmpdata)
-   {  FreeMem(ims->bmpdata,ims->bmpdatasize);
+   {  Freemem(ims->bmpdata);
       ims->bmpdata=NULL;
       ims->bmpdatasize=0;
    }
