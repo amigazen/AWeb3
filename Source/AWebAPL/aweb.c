@@ -1118,6 +1118,12 @@ static void Cleanup(void)
 
    Freeapplication();   /* after Freeobject because it frees the JS context */
    Freearexx();   /* after Freeobject() because it waits for scripts to complete */
+   /* Close JS library as soon as the JS context + scripts are gone.
+    * This avoids leaving awebplugin.library held open if later cleanup aborts. */
+   if(AWebJSBase)
+   {  CloseLibrary(AWebJSBase);
+      AWebJSBase=NULL;
+   }
    Freehttp();    /* after Freeobject() because tasks must be stopped */
    Freenameserv();/* after Freeobject() because network tasks use hent structures freed here */
    Freeamissl();  /* after Freehttp() because all SSL connections must be closed first */
@@ -1125,7 +1131,6 @@ static void Cleanup(void)
    Freesupport();
    if(locale) CloseLocale(locale);
    if(localeinfo.li_Catalog) CloseCatalog(localeinfo.li_Catalog);
-   if(AWebJSBase) CloseLibrary(AWebJSBase);
    if(ButtonBase) CloseLibrary((struct Library *)ButtonBase);
    if(openedca)
    {  if(BitMapBase) CloseLibrary((struct Library *)BitMapBase);

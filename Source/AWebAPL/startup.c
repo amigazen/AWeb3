@@ -198,6 +198,11 @@ __asm __saveds struct SegList *Expungelib(
    {  ULONG size=libbase->lib_NegSize+libbase->lib_PosSize;
       UBYTE *ptr=(UBYTE *)libbase-libbase->lib_NegSize;
       Remove((struct Node *)libbase);
+      /* Safety: if Expunge happens without Closelib(), ensure awebplugin.library is closed. */
+      if(AwebPluginBase)
+      {  CloseLibrary(AwebPluginBase);
+         AwebPluginBase=NULL;
+      }
       Expungeaweblib(libbase);
       FreeMem(ptr,size);
       return libseglist;

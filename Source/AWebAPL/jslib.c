@@ -286,6 +286,30 @@ struct Library *AWebJSBase;
 /* Set when awebjs.aweblib is opened; required by awebplugin.h pragmas for Aprintf(). */
 struct Library *AwebPluginBase;
 
+static void Jslib_write(UBYTE *s)
+{
+   BPTR fh;
+   LONG n;
+
+   if(!s) return;
+   fh=Output();
+   if(!fh) return;
+   n=(LONG)strlen((char *)s);
+   if(n>0) Write(fh,(APTR)s,n);
+}
+
+static void Jslib_trace_cnt(const char *tag, struct Library *libbase)
+{
+   UBYTE buf[128];
+   ULONG oc;
+
+   if(!tag) return;
+   oc = (libbase ? (ULONG)libbase->lib_OpenCnt : 0UL);
+   sprintf((char *)buf,"[JS] awebjs: %s OpenCnt=%lu PluginBase=%08lx\n",
+      tag,(unsigned long)oc,(ULONG)AwebPluginBase);
+   Jslib_write(buf);
+}
+
 static APTR libseglist;
 
 /* Functable slot addresses need plain-C prototypes matching __saveds defs below. */
@@ -398,27 +422,40 @@ __asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase)
 {  libbase->lib_OpenCnt++;
    libbase->lib_Flags&=~LIBF_DELEXP;
+   Jslib_trace_cnt("Openlib enter",libbase);
    if(libbase->lib_OpenCnt==1)
    {  AwebPluginBase=OpenLibrary("awebplugin.library",0);
+      Jslib_trace_cnt("Openlib opened plugin",libbase);
       if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
       {  Aprintf("[JS] Openlib ok\n");
       }
+      else if(httpdebug)
+      {  UBYTE buf[96];
+         sprintf((char *)buf,"[JS] awebjs: Aprintf disabled (AwebPluginBase=%08lx)\n",(ULONG)AwebPluginBase);
+         Jslib_write(buf);
+      }
    }
+   Jslib_trace_cnt("Openlib exit",libbase);
    return libbase;
 }
 
 __asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase)
 {  libbase->lib_OpenCnt--;
+   Jslib_trace_cnt("Closelib enter",libbase);
    if(libbase->lib_OpenCnt==0)
    {  if(AwebPluginBase)
       {  CloseLibrary(AwebPluginBase);
          AwebPluginBase=NULL;
       }
+      else if(httpdebug)
+      {  Jslib_write((UBYTE *)"[JS] awebjs: Closelib with no AwebPluginBase\n");
+      }
       if(libbase->lib_Flags&LIBF_DELEXP)
       {  return Expungelib(libbase);
       }
    }
+   Jslib_trace_cnt("Closelib exit",libbase);
    return NULL;
 }
 
@@ -428,6 +465,12 @@ __asm __saveds struct SegList *Expungelib(
    {  ULONG size=libbase->lib_NegSize+libbase->lib_PosSize;
       UBYTE *ptr=(UBYTE *)libbase-libbase->lib_NegSize;
       Remove((struct Node *)libbase);
+      Jslib_trace_cnt("Expungelib enter",libbase);
+      /* Safety: if Expunge happens without Closelib(), ensure awebplugin.library is closed. */
+      if(AwebPluginBase)
+      {  CloseLibrary(AwebPluginBase);
+         AwebPluginBase=NULL;
+      }
       Expungeaweblib(libbase);
       FreeMem(ptr,size);
       return libseglist;

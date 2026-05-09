@@ -180,7 +180,10 @@ static void Disposewhiswindow(struct Whiswindow *whw)
 }
 
 static void Deinstallwhiswindow(void)
-{  if(whiswindow) Adisposeobject(whiswindow);
+{  struct Whiswindow *whw;
+   whw=whiswindow;
+   whiswindow=NULL;
+   if(whw) Adisposeobject(whw);
 }
 
 static long Dispatch(struct Whiswindow *whw,struct Amessage *amsg)
@@ -196,6 +199,9 @@ static long Dispatch(struct Whiswindow *whw,struct Amessage *amsg)
          result=Updatewhiswindow(whw,(struct Amset *)amsg);
          break;
       case AOM_DISPOSE:
+         /* If this is the global instance, clear it before disposal so
+          * late callers (e.g. leak tests / shutdown) don't inspect freed memory. */
+         if(whw==whiswindow) whiswindow=NULL;
          Disposewhiswindow(whw);
          break;
       case AOM_DEINSTALL:

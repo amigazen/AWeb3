@@ -1489,6 +1489,10 @@ static void Closewindow(struct Awindow *win)
    if(win->unsecureimg) DisposeObject(win->unsecureimg);win->unsecureimg=NULL;
    if(win->secureimg) DisposeObject(win->secureimg);win->secureimg=NULL;
    if(win->wintitle) FREE(win->wintitle);win->wintitle=NULL;
+
+   /* Free URL popup chooser labels whenever the UI is closed.
+    * These nodes are (re)built in Openwindow() and must not persist beyond the UI lifetime. */
+   while((node=RemHead(&win->urlpoplist))) FreeChooserNode(node);
 }
 
 /* Process the App Message */
@@ -1937,8 +1941,14 @@ static long Jsetupwindow(struct Awindow *win,struct Amjsetup *amj)
 }
 
 static void Deinstallwindow(void)
-{  void *p;
-   while(p=REMHEAD(&windows)) Adisposeobject(p);
+{  struct Awindow *win;
+   struct Node *node;
+   while((win=(struct Awindow *)REMHEAD(&windows)))
+   {  /* free popup label nodes even if the window object
+       * doesn't reach Disposewindow() for any reason. */
+      while((node=RemHead(&win->urlpoplist))) FreeChooserNode(node);
+      Adisposeobject(win);
+   }
 }
 
 static long Dispatch(struct Awindow *win,struct Amessage *amsg)
