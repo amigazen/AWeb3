@@ -1022,7 +1022,7 @@ void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent)
             Jasgnumber(jc,jv,XHR_DONE);
          }
          Jsetprototype(jc,jo,proto);
-         Freejobject(proto);
+         /* proto referenced from jo prototype; do not Freejobject. */
       }
    }
    else

@@ -147,7 +147,7 @@ void Addimageconstructor(struct Jcontext *jc,struct Jobject *parent)
          {  Jasgobject(jc,jv,NULL);
          }
          Jsetprototype(jc,jo,proto);
-         Freejobject(proto);
+         /* proto is referenced from jo's prototype property; do not Freejobject(proto). */
       }
    }
 }

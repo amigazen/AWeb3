@@ -984,7 +984,9 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
                Addjfunction(amj->jc,loc,"reload",Methodlocreload,"trueReload",NULL);
                Addjfunction(amj->jc,loc,"replace",Methodlocreplace,"URL",NULL);
                Addjfunction(amj->jc,loc,"toString",Methodloctostring,NULL);
-               Freejobject(loc);
+               /* loc is already the live value of window.location; Freejobject(loc) freed it while
+                * jv still pointed here (UAF). Second JSETUP then corrupts the pool and can hang in
+                * Disposeobject/FREE — see shell log stopping at before_free. */
             }
          }
          if(jv=Jproperty(amj->jc,fr->jobject,"history"))
@@ -995,7 +997,7 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
             Jpprotect(jv,fr->jprotect);
             if(his=Makehistory(fr,amj->jc))
             {  Jasgobject(amj->jc,jv,his);
-               Freejobject(his);
+               /* Same as location: his is referenced from window.history; must not Freejobject. */
             }
          }
          Addjfunction(amj->jc,fr->jobject,"alert",Methodalert,"message",NULL);
@@ -1119,8 +1121,8 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
       if(!fr)
       {  return FALSE;
       }
-      /* Get jc first, then call Ajsetup - the reentrancy guard in Jsetupapplication
-       * will prevent deadlocks from recursive calls */
+      /* Get jc first, then call Ajsetup; object.c blocks only re-entry on the same
+       * Aobject (e.g. document.write) so nested frame->copy and form->field setup run. */
       jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
       if(httpdebug)
       {  printf("[JS] Runjavascriptwith: enter fr=%p bodyfr=%p jc=%p script=%p len=%ld win=%p jobj=%p jdscope=%p with=%p\n",
@@ -1259,13 +1261,16 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
                fr, jc, AWebJSBase);
          }
          /* Original AWeb 3.4 code only GC'd when timer seconds advanced; many short scripts never
-          * collected and awebjs allocations showed up as leaks. Fix by collecting after each run. */
+          * collected and awebjs allocations showed up as leaks. Fix by collecting after each run.
+          * Restore anim gadget state before GC, not after: Setanimgads(FALSE) uses Setgadgetattrs()
+          * on Intuition gadgets; doing that immediately after Jgarbagecollect() (shell shows exit
+          * line then freeze) deadlocks the system when the JS stack is still deep inside awebjs. */
+         if(!animon) Setanimgads(FALSE);
          if(AWebJSBase) Jgarbagecollect(jc);
          if(httpdebug)
          {  printf("[JS] Runjavascriptwith: after GC fr=%p jc=%p\n",
                fr, jc);
          }
-         if(!animon) Setanimgads(FALSE);
          if(httpdebug)
          {  printf("[JS] Runjavascriptwith: exit fr=%p jc=%p result=%ld\n",
                fr, jc, (long)result);

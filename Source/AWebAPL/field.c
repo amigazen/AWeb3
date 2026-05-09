@@ -174,7 +174,7 @@ static long Jsetupfield(struct Field *fld,struct Amjsetup *amj)
                         Jasgobject(amj->jc,jva,jo);
                      }
                      Jasgobject(amj->jc,jv,jarray);
-                     Freejobject(jarray);
+                     /* jarray is now the form property value; Freejobject would UAF the parent. */
                   }
                }
                if(jva=Jnewarrayelt(amj->jc,jarray))

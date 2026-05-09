@@ -2879,11 +2879,25 @@ struct Jobject *Jcompiletofunction(struct Jcontext *jc,UBYTE *source,UBYTE *name
 {  struct Elementfunc *func;
    struct Jobject *fobj=NULL;
    struct Jcontext jc2={0};
+   /* Jcompile() allocates parser/compiler state through jc->objpool and jc->varpool
+    * (see Jeval() in jexe.c). A bare jc2 with only pool left those NULL so Compileprogram
+    * could fail quietly; Jaddeventhandler() then stored the raw attribute string instead
+    * of a function object, and DOM0 wrappers testing this.onclick never invoked it. */
+   if(!jc || !source || !name)
+   {
+      return NULL;
+   }
+   jc2.truecontext=jc;
+   jc->nogc++;
    jc2.pool=jc->pool;
+   jc2.objpool=jc->objpool;
+   jc2.varpool=jc->varpool;
+   jc2.nogc++;
    NewList((struct List *)&jc2.objects);
    NewList((struct List *)&jc2.functions);
    jc2.generation=jc->generation;
    Jcompile(&jc2,source);
+   jc->nogc--;
    if(!(jc2.flags&JCF_ERROR))
    {  if(func=ALLOCSTRUCT(Elementfunc,1,0,jc->pool))
       {  func->type=ET_FUNCTION;

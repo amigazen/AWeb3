@@ -975,10 +975,8 @@ static BOOL Propertyoptionelt(struct Varhookdata *vd);
 static void Makejoption(struct Jcontext *jc,struct Select *sel,struct Option *opt,long i)
 {  UBYTE buf[16];
    struct Jvar *jv;
-   BOOL newjo=FALSE;
    if(!opt->jobject)
    {  opt->jobject=Newjobject(jc);
-      newjo=TRUE;
    }
    if(opt->jobject)
    {  Setjobject(opt->jobject,NULL,opt,Seljdisposeoption);
@@ -1003,7 +1001,7 @@ static void Makejoption(struct Jcontext *jc,struct Select *sel,struct Option *op
       if(jv=Jproperty(jc,opt->jobject,"selected"))
       {  Setjproperty(jv,Propertyselected,opt);
       }
-      if(newjo) Freejobject(opt->jobject);
+      /* opt->jobject is stored on sel->jobject via Jasgobject above; do not Freejobject. */
    }
 }
 
@@ -1690,7 +1688,7 @@ void Addoptionconstructor(struct Jcontext *jc,struct Jobject *parent)
    {  if(proto=Newjobject(jc))
       {  /* All properties have hooks so can't be set here */
          Jsetprototype(jc,jo,proto);
-         Freejobject(proto);
+         /* proto remains owned via constructor prototype link; do not Freejobject. */
       }
    }
 }

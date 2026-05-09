@@ -681,8 +681,11 @@ static long Jsetupform(struct Form *frm,struct Amjsetup *amj)
       }
    }
    if(frm->jobject)
-   {  for(fld=frm->fields.first;fld->next;fld=fld->next)
-      {  Ajsetup(fld->object,amj->jc,frm->jobject,amj->parentframe);
+   {  /* Deliver AOM_JSETUP with AmethodA, not Ajsetup(): nested Ajsetup() per field
+    * stacked Jallowgc/GC and re-entrant copy setup (document.write) into deadlocks
+    * under heavy logging; subtree propagation does not need a new Ajsetup frame. */
+      for(fld=frm->fields.first;fld->next;fld=fld->next)
+      {  AmethodA(fld->object,(struct Amessage *)amj);
       }
    }
    return 0;

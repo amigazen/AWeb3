@@ -1337,7 +1337,9 @@ __asm __saveds void Freejobject(
     * jc->objects. Callers (e.g. prefs.c) use Freejobject() to discard temporary
     * objects after copying their properties into a longer-lived object.
     *
-    * If this is left empty, those temporaries stay linked and leak. */
+    * Never call Freejobject(jo) on a jo that is still referenced from any Value
+    * (e.g. immediately after Jasgobject/Jsetprototype stored jo in a property):
+    * that use-after-free corrupts the pool and the next Disposeobject/FREE can hang. */
    if(jo)
    {  /* NODE(Jobject) comes from ezlists.h (next/prev), not Exec's struct Node.
        * Use the matching list macros to unlink. */
@@ -1560,20 +1562,26 @@ __asm __saveds void Jaddeventhandler(
    register __a3 UBYTE *source)
 {  struct Variable *var;
    struct Jobject *jeventh;
-   if(jc && jo && !Getownproperty(jo,name))
-   {  if(var=Addproperty(jo,name))
-      {  if(source)
-         {  jc->generation++;
-            if(jeventh=Jcompiletofunction(jc,source,name))
-            {  Asgfunction(&var->val,jeventh,jo);
-            }
-            else
-            {  Asgstring(&var->val,source,jc->pool);
-            }
+   /* Older logic skipped entirely when an own property already existed. A first pass
+    * with source==NULL installs an own slot (e.g. onfocus=null); a later pass with the
+    * real attribute string must replace it, or DOM0 wrappers never see a callable handler. */
+   if(jc && jo && name)
+   {  if(!(var=Getownproperty(jo,name)))
+      {  if(!(var=Addproperty(jo,name)))
+         {  return;
+         }
+      }
+      if(source)
+      {  jc->generation++;
+         if(jeventh=Jcompiletofunction(jc,source,name))
+         {  Asgfunction(&var->val,jeventh,jo);
          }
          else
-         {  Asgobject(&var->val,NULL);
+         {  Asgstring(&var->val,source,jc->pool);
          }
+      }
+      else
+      {  Asgobject(&var->val,NULL);
       }
    }
 }

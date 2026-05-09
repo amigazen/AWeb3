@@ -592,20 +592,41 @@ ULONG Adragcopy(struct Aobject *ao,void *startobject,ULONG startobjpos,
    return AmethodA(ao,&amd);
 }
 
+#define AJSETUP_STACK 48
+
 ULONG Ajsetup(struct Aobject *ao,struct Jcontext *jc,struct Jobject *parent,
    struct Jobject *parentframe)
 {  struct Amjsetup amj;
    ULONG result;
-   static long ajsetup_nest = 0;
-   /* Ajsetup() can be triggered re-entrantly (e.g. document.write() while parsing calls Parsehtml()
-    * which causes object setup). The old global Ajsetup(Aweb()) path was guarded in higher layers,
-    * but now we call Ajsetup() more locally and can hit recursion. Avoid deadlocks by skipping
-    * nested Ajsetup calls; callers will re-run setup at the next safe point. */
-   if(ajsetup_nest > 0)
+   int i;
+   int dup;
+   static struct Aobject *ajsetup_stack[AJSETUP_STACK];
+   static int ajsetup_sp;
+   /* document.write() during copy JSETUP can call Ajsetup(copy) again; same (ao) on the
+    * stack must be skipped or we recurse without bound. A flat nest>0 guard also blocked
+    * frame->copy and was wrong; docjs.c / form.c now propagate JSETUP with AmethodA() for
+    * document children and form fields so Ajsetup is not nested once per DOM node. */
+   if(!ao)
    {
       return 0;
    }
-   ajsetup_nest++;
+   dup=0;
+   for(i=0;i<ajsetup_sp;i++)
+   {  if(ajsetup_stack[i]==ao)
+      {  dup=1;
+         break;
+      }
+   }
+   if(dup)
+   {
+      return 0;
+   }
+   if(ajsetup_sp>=AJSETUP_STACK)
+   {
+      return 0;
+   }
+   ajsetup_stack[ajsetup_sp]=ao;
+   ajsetup_sp++;
    amj.amsg.method=AOM_JSETUP;
    amj.jc=jc;
    amj.parent=parent;
@@ -618,7 +639,7 @@ ULONG Ajsetup(struct Aobject *ao,struct Jcontext *jc,struct Jobject *parent,
    if(jc && AWebJSBase)
    {  Jallowgc(jc,TRUE);
    }
-   ajsetup_nest--;
+   ajsetup_sp--;
    return result;
 }
 
