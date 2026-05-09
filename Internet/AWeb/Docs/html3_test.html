@@ -3,7 +3,7 @@
  * 
  * This file is part of the AWeb distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -747,7 +747,7 @@ It is usually rendered in italics and may be indented.
 <A NAME="forms"></A>
 <H2>Forms</H2>
 
-<H3>Test 1: Form Container with METHOD and ACTION</H3>
+<H3>HT1: Form Container with METHOD and ACTION</H3>
 <P><STRONG>What it tests:</STRONG> The FORM element with METHOD (GET/POST) and ACTION attributes.</P>
 <P><STRONG>How to run:</STRONG> This is a demonstration form. The form below uses METHOD="GET" which appends form data to the URL.</P>
 <P><STRONG>Expected results:</STRONG> The form should be displayed. When submitted, it should send data using the GET method to test.cgi.</P>
@@ -764,7 +764,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 2: Form with METHOD="POST"</H3>
+<H3>HT2: Form with METHOD="POST"</H3>
 <P><STRONG>What it tests:</STRONG> The FORM element with METHOD="POST" which sends data in the HTTP request body.</P>
 <P><STRONG>How to run:</STRONG> Fill out the form below and click Submit.</P>
 <P><STRONG>Expected results:</STRONG> The form should send data using POST method. The data is sent in the request body, not in the URL.</P>
@@ -780,7 +780,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 3: Text Input Fields</H3>
+<H3>HT3: Text Input Fields</H3>
 <P><STRONG>What it tests:</STRONG> INPUT TYPE="text", TYPE="password", and TYPE="hidden" with SIZE, MAXLENGTH, and VALUE attributes.</P>
 <P><STRONG>How to run:</STRONG> Type in the text field, try typing in the password field (characters should be masked), and note the hidden field is not visible.</P>
 <P><STRONG>Expected results:</STRONG> Text field should accept input up to MAXLENGTH characters. Password field should mask characters. Hidden field should not be visible but will be submitted with the form.</P>
@@ -798,7 +798,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 4: Checkboxes</H3>
+<H3>HT4: Checkboxes</H3>
 <P><STRONG>What it tests:</STRONG> INPUT TYPE="checkbox" with CHECKED attribute. Multiple checkboxes can be selected.</P>
 <P><STRONG>How to run:</STRONG> Click the checkboxes below. You should be able to select multiple options.</P>
 <P><STRONG>Expected results:</STRONG> Checkboxes should toggle on/off when clicked. Option 1 should be checked by default. Multiple checkboxes can be selected simultaneously.</P>
@@ -817,7 +817,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 5: Radio Buttons</H3>
+<H3>HT5: Radio Buttons</H3>
 <P><STRONG>What it tests:</STRONG> INPUT TYPE="radio" with CHECKED attribute. Only one radio button in a group can be selected.</P>
 <P><STRONG>How to run:</STRONG> Click different radio buttons below. Only one should be selected at a time.</P>
 <P><STRONG>Expected results:</STRONG> Radio buttons should allow only one selection per group (same NAME). Choice A should be selected by default. Clicking another radio button should deselect the previous one.</P>
@@ -836,7 +836,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 6: File Upload</H3>
+<H3>HT6: File Upload</H3>
 <P><STRONG>What it tests:</STRONG> INPUT TYPE="file" with ENCTYPE="multipart/form-data" for file uploads.</P>
 <P><STRONG>How to run:</STRONG> Click the file input field below. A file requester should open to select a file.</P>
 <P><STRONG>Expected results:</STRONG> The file input should display a field and button. Clicking it should open a file requester. The form must use ENCTYPE="multipart/form-data" for file uploads to work.</P>
@@ -852,7 +852,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 7: Select Dropdown (Single Selection)</H3>
+<H3>HT7: Select Dropdown (Single Selection)</H3>
 <P><STRONG>What it tests:</STRONG> SELECT element with OPTION elements and SELECTED attribute for single selection dropdowns.</P>
 <P><STRONG>How to run:</STRONG> Click the dropdown below and select different options.</P>
 <P><STRONG>Expected results:</STRONG> The dropdown should show a list of options. Option 1 should be selected by default. Only one option can be selected at a time.</P>
@@ -874,7 +874,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 8: Select Multiple</H3>
+<H3>HT8: Select Multiple</H3>
 <P><STRONG>What it tests:</STRONG> SELECT element with MULTIPLE attribute and SIZE attribute for multiple selection lists.</P>
 <P><STRONG>How to run:</STRONG> Click on options in the list below. Hold Ctrl (or Cmd on Mac) and click to select multiple options.</P>
 <P><STRONG>Expected results:</STRONG> The list should display multiple options. Option 1 and Option 3 should be selected by default. You should be able to select multiple options by holding Ctrl/Cmd while clicking.</P>
@@ -896,7 +896,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 9: Textarea</H3>
+<H3>HT9: Textarea</H3>
 <P><STRONG>What it tests:</STRONG> TEXTAREA element with ROWS and COLS attributes for multi-line text input.</P>
 <P><STRONG>How to run:</STRONG> Type multiple lines of text in the textarea below. Try pressing Enter to create new lines.</P>
 <P><STRONG>Expected results:</STRONG> The textarea should display a multi-line text input field. You should be able to type multiple lines and press Enter to create line breaks. The field should be scrollable if content exceeds the visible area.</P>
@@ -914,7 +914,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 10: Submit and Reset Buttons</H3>
+<H3>HT10: Submit and Reset Buttons</H3>
 <P><STRONG>What it tests:</STRONG> INPUT TYPE="submit", TYPE="reset", and TYPE="button" elements.</P>
 <P><STRONG>How to run:</STRONG> Fill out the form below, then try the Submit button (sends form data), Reset button (clears form), and Button (no default action).</P>
 <P><STRONG>Expected results:</STRONG> Submit button should send the form data to the ACTION URL. Reset button should clear all form fields to their initial values. Button element has no default action (typically used with ONCLICK handlers).</P>
@@ -934,7 +934,7 @@ It is usually rendered in italics and may be indented.
 </TR>
 </TABLE>
 
-<H3>Test 11: Comprehensive Form Test</H3>
+<H3>HT11: Comprehensive Form Test</H3>
 <P><STRONG>What it tests:</STRONG> A complete form with all HTML 3.2 form elements and attributes working together.</P>
 <P><STRONG>How to run:</STRONG> Fill out all fields in the form below, then click Submit to test form submission, or Reset to clear all fields.</P>
 <P><STRONG>Expected results:</STRONG> All form elements should work correctly. Submit should send all form data. Reset should clear all fields to their initial state. The form should demonstrate all HTML 3.2 form capabilities.</P>
@@ -1027,7 +1027,7 @@ Comments:<BR>
 <HR>
 
 <CENTER>
-<P><SMALL>Last Updated: 2025 - AWeb 3 HTML 3.2 Compatibility Test</SMALL></P>
+<P><SMALL>Last Updated: 2026 - AWeb 3 HTML 3.2 Compatibility Test</SMALL></P>
 <P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
 </CENTER>
 

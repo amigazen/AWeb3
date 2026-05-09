@@ -314,7 +314,7 @@ Your browser does not support inline frames.
 
 <H3>Test Examples</H3>
 
-<H4>Test 1: Form with TARGET Attribute</H4>
+<H4>HF1: Form with TARGET Attribute</H4>
 <P><STRONG>What it tests:</STRONG> FORM element with TARGET attribute to submit form results to a specific frame or window.</P>
 <P><STRONG>How to run:</STRONG> Fill out the form below and click Submit. The result should open in a new window or the specified target frame.</P>
 <P><STRONG>Expected results:</STRONG> The form should submit to test.cgi and display results in a new window (TARGET="_blank") or the specified frame.</P>
@@ -330,7 +330,7 @@ Your browser does not support inline frames.
 </TR>
 </TABLE>
 
-<H4>Test 2: Form with NAME Attribute</H4>
+<H4>HF2: Form with NAME Attribute</H4>
 <P><STRONG>What it tests:</STRONG> FORM element with NAME attribute for JavaScript access.</P>
 <P><STRONG>How to run:</STRONG> This form has a NAME attribute that allows JavaScript to access it via document.forms['namedform'].</P>
 <P><STRONG>Expected results:</STRONG> The form should be accessible via JavaScript using document.forms['namedform'] or document.forms[0].</P>
@@ -346,7 +346,7 @@ Your browser does not support inline frames.
 </TR>
 </TABLE>
 
-<H4>Test 3: BUTTON Element (HTML 4.0)</H4>
+<H4>HF3: BUTTON Element (HTML 4.0)</H4>
 <P><STRONG>What it tests:</STRONG> BUTTON element with TYPE="submit", TYPE="reset", and TYPE="button" attributes. This is an HTML 4.0 feature that provides more flexibility than INPUT buttons.</P>
 <P><STRONG>How to run:</STRONG> Click each button below to test their functionality.</P>
 <P><STRONG>Expected results:</STRONG> Submit button should submit the form. Reset button should clear form fields. Button element should trigger any ONCLICK handler but not submit the form.</P>
@@ -364,7 +364,7 @@ Your browser does not support inline frames.
 </TR>
 </TABLE>
 
-<H4>Test 4: All INPUT Types</H4>
+<H4>HF4: All INPUT Types</H4>
 <P><STRONG>What it tests:</STRONG> All supported INPUT types: text, password, hidden, checkbox, radio, submit, reset, button, and file.</P>
 <P><STRONG>How to run:</STRONG> Interact with each input type below. Try typing in text fields, selecting checkboxes/radios, clicking buttons, and selecting a file.</P>
 <P><STRONG>Expected results:</STRONG> All input types should display and function correctly. Text fields should accept input, checkboxes/radios should toggle, buttons should work, and file input should open a file requester.</P>
@@ -401,7 +401,7 @@ Your browser does not support inline frames.
 </TR>
 </TABLE>
 
-<H4>Test 5: SELECT with SIZE Attribute</H4>
+<H4>HF5: SELECT with SIZE Attribute</H4>
 <P><STRONG>What it tests:</STRONG> SELECT element with SIZE attribute to control whether it displays as a dropdown (SIZE=1 or omitted) or a list box (SIZE>1).</P>
 <P><STRONG>How to run:</STRONG> Compare the two select elements below - one is a dropdown, the other is a list box.</P>
 <P><STRONG>Expected results:</STRONG> The first SELECT should display as a dropdown menu. The second SELECT with SIZE="3" should display as a list box showing 3 options at once.</P>
@@ -432,7 +432,7 @@ Your browser does not support inline frames.
 </TR>
 </TABLE>
 
-<H4>Test 6: SELECT with MULTIPLE Attribute</H4>
+<H4>HF6: SELECT with MULTIPLE Attribute</H4>
 <P><STRONG>What it tests:</STRONG> SELECT element with MULTIPLE attribute for selecting multiple options simultaneously.</P>
 <P><STRONG>How to run:</STRONG> Hold Ctrl (or Cmd on Mac) and click multiple options in the list below.</P>
 <P><STRONG>Expected results:</STRONG> You should be able to select multiple options by holding Ctrl/Cmd while clicking. Selected options should be highlighted.</P>
@@ -456,7 +456,7 @@ Your browser does not support inline frames.
 </TR>
 </TABLE>
 
-<H4>Test 7: TEXTAREA with ROWS and COLS</H4>
+<H4>HF7: TEXTAREA with ROWS and COLS</H4>
 <P><STRONG>What it tests:</STRONG> TEXTAREA element with ROWS and COLS attributes to control the visible size of the text area.</P>
 <P><STRONG>How to run:</STRONG> Type multiple lines of text in the textarea below. Try pressing Enter to create new lines.</P>
 <P><STRONG>Expected results:</STRONG> The textarea should display with the specified number of rows and columns. It should be scrollable if content exceeds the visible area. Line breaks should be preserved.</P>
@@ -476,7 +476,7 @@ You can type multiple lines of text.</TEXTAREA>
 </TR>
 </TABLE>
 
-<H4>Test 8: Comprehensive HTML 4.0 Form</H4>
+<H4>HF8: Comprehensive HTML 4.0 Form</H4>
 <P><STRONG>What it tests:</STRONG> A complete HTML 4.0 form with all supported elements and attributes working together, including FORM TARGET, NAME, BUTTON elements, and all input types.</P>
 <P><STRONG>How to run:</STRONG> Fill out all fields in the comprehensive form below, then test Submit, Reset, and Button elements.</P>
 <P><STRONG>Expected results:</STRONG> All form elements should work correctly. Submit should send all form data. Reset should clear all fields. The form demonstrates all HTML 4.0 form capabilities supported by AWeb.</P>
@@ -617,7 +617,7 @@ Your browser does not support OBJECT tags.
 
 <H3>Test Examples</H3>
 
-<H4>Test 1: data: URLs for Images</H4>
+<H4>HF9: data: URLs for Images</H4>
 <P><STRONG>What it tests:</STRONG> data: URL scheme allows embedding image data directly in HTML using base64 encoding or URL encoding. This eliminates the need for separate image files.</P>
 <P><STRONG>How to run:</STRONG> View this page - the images below should display correctly using data: URLs.</P>
 <P><STRONG>Expected results:</STRONG> All images should display correctly. The data: URLs should be parsed and the embedded image data should be rendered.</P>
@@ -632,7 +632,7 @@ Your browser does not support OBJECT tags.
 </TR>
 </TABLE>
 
-<H4>Test 2: data: URLs in Different HTML Attributes</H4>
+<H4>HF10: data: URLs in Different HTML Attributes</H4>
 <P><STRONG>What it tests:</STRONG> data: URLs should work in various HTML attributes that accept URLs, such as SRC and BACKGROUND.</P>
 <P><STRONG>How to run:</STRONG> View this page and check that data: URLs work in different contexts.</P>
 <P><STRONG>Expected results:</STRONG> Data URLs should be recognized and processed correctly in IMG SRC, TABLE BACKGROUND, and other URL-accepting attributes. Note: data: URLs cannot be opened in new windows as they only exist within the document context.</P>
@@ -651,7 +651,7 @@ Your browser does not support OBJECT tags.
 </TR>
 </TABLE>
 
-<H4>Test 3: cid: URLs (Content-ID References)</H4>
+<H4>HF11: cid: URLs (Content-ID References)</H4>
 <P><STRONG>What it tests:</STRONG> cid: URL scheme allows referencing embedded content by Content-ID in multipart MIME messages. This is commonly used in email HTML where images and other resources are embedded as MIME parts.</P>
 <P><STRONG>How to run:</STRONG> Click the link below to open a multipart MIME test file. The cid: URLs in that file will reference embedded MIME parts with matching Content-ID headers.</P>
 <P><STRONG>Expected results:</STRONG> When you open the MIME test file, all cid: URLs should be recognized and resolved to the corresponding MIME parts. Images and background images should display correctly.</P>
@@ -675,7 +675,7 @@ Your browser does not support OBJECT tags.
 </TR>
 </TABLE>
 
-<H4>Test 4: data: URLs with Different MIME Types</H4>
+<H4>HF12: data: URLs with Different MIME Types</H4>
 <P><STRONG>What it tests:</STRONG> data: URLs support various MIME types. This test demonstrates different content types embedded via data: URLs.</P>
 <P><STRONG>How to run:</STRONG> View this page - different content types should be handled correctly.</P>
 <P><STRONG>Expected results:</STRONG> Each data: URL should be parsed correctly based on its MIME type, and the content should be displayed or processed appropriately. Note: data: URLs cannot be opened in new windows as they only exist within the document context.</P>
@@ -691,7 +691,7 @@ Your browser does not support OBJECT tags.
 </TR>
 </TABLE>
 
-<H4>Test 5: Multipart MIME Integration</H4>
+<H4>HF13: Multipart MIME Integration</H4>
 <P><STRONG>What it tests:</STRONG> In multipart MIME messages (like HTML email), cid: URLs reference embedded parts, and data: URLs can be used as fallbacks or for inline content. This test demonstrates the integration of both schemes.</P>
 <P><STRONG>How to run:</STRONG> This test shows how cid: and data: URLs can work together. The cid: URLs will work in the MIME test file, while data: URLs work in regular HTML.</P>
 <P><STRONG>Expected results:</STRONG> Both URL schemes should be recognized and processed correctly. cid: URLs should resolve to MIME parts (see <A HREF="cid_test.mime">cid_test.mime</A>), and data: URLs should embed content directly in regular HTML documents.</P>
@@ -864,7 +864,7 @@ document.write("<P>JavaScript is enabled! This text was written by JavaScript.</
 
 <H3>Test Examples</H3>
 
-<H4>Test 1: Self-Closing Tags (XHTML Syntax)</H4>
+<H4>HF14: Self-Closing Tags (XHTML Syntax)</H4>
 <P><STRONG>What it tests:</STRONG> XHTML self-closing tag syntax where empty elements must be closed with <CODE>/&gt;</CODE>.</P>
 <P><STRONG>How to run:</STRONG> View this page - the self-closing tags below should render correctly.</P>
 <P><STRONG>Expected results:</STRONG> All self-closing tags should display properly. Line breaks, horizontal rules, and images should render correctly.</P>
@@ -881,7 +881,7 @@ document.write("<P>JavaScript is enabled! This text was written by JavaScript.</
 </TR>
 </TABLE>
 
-<H4>Test 2: CDATA Sections</H4>
+<H4>HF15: CDATA Sections</H4>
 <P><STRONG>What it tests:</STRONG> CDATA sections allow embedding content that contains characters like <CODE>&lt;</CODE> and <CODE>&amp;</CODE> without them being parsed as markup.</P>
 <P><STRONG>How to run:</STRONG> View this page - the CDATA content below should appear as literal text.</P>
 <P><STRONG>Expected results:</STRONG> The content inside CDATA should appear as plain text, with HTML tags visible as text rather than being parsed.</P>
@@ -902,7 +902,7 @@ The browser should display this as literal text.
 </TR>
 </TABLE>
 
-<H4>Test 3: CDATA in Script Context</H4>
+<H4>HF16: CDATA in Script Context</H4>
 <P><STRONG>What it tests:</STRONG> CDATA sections are commonly used in XHTML script tags to avoid parsing issues with <CODE>&lt;</CODE> and <CODE>&amp;</CODE> characters in JavaScript.</P>
 <P><STRONG>How to run:</STRONG> View the page source or check if JavaScript executes correctly.</P>
 <P><STRONG>Expected results:</STRONG> The JavaScript should execute correctly, and CDATA content should be handled properly.</P>
@@ -923,7 +923,7 @@ function testCDATA() {
 </TR>
 </TABLE>
 
-<H4>Test 4: XHTML Document Detection</H4>
+<H4>HF17: XHTML Document Detection</H4>
 <P><STRONG>What it tests:</STRONG> AWeb automatically detects XHTML documents via DOCTYPE or XML declaration and applies strict parsing mode.</P>
 <P><STRONG>How to run:</STRONG> This test requires viewing an actual XHTML document. Create a file with XHTML DOCTYPE to test.</P>
 <P><STRONG>Expected results:</STRONG> Documents with XHTML DOCTYPEs should be automatically detected and parsed in strict mode.</P>
@@ -998,7 +998,7 @@ Example XML declaration:
 <HR>
 
 <CENTER>
-<P><SMALL>Last Updated: 2025 - AWeb 3 HTML 4.0 Compatibility Test</SMALL></P>
+<P><SMALL>Last Updated: 2026 - AWeb 3 HTML 4.0 Compatibility Test</SMALL></P>
 <P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
 </CENTER>
 

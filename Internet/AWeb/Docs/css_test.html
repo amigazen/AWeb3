@@ -3,7 +3,7 @@
  * 
  * This file is part of the AWeb distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -52,7 +52,7 @@
 <A NAME="text"></A>
 <H2>Text Properties</H2>
 
-<H3>text-align - PASS</H3>
+<H3>CS1: text-align - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Three paragraphs with different text alignment - left, center, and right.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -66,7 +66,7 @@
 </TR>
 </TABLE>
 
-<H3>font-family - PASS</H3>
+<H3>CS2: font-family - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text rendered in different font families. If the specified font is not available, AWeb should fall back to a default font.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -80,7 +80,7 @@
 </TR>
 </TABLE>
 
-<H3>font-size - PASS</H3>
+<H3>CS3: font-size - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text in various sizes using both absolute and relative font size keywords.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -102,7 +102,7 @@
 </TR>
 </TABLE>
 
-<H3>font-style - PASS</H3>
+<H3>CS4: font-style - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Normal and italic text styles.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -115,7 +115,7 @@
 </TR>
 </TABLE>
 
-<H3>font-weight - PASS</H3>
+<H3>CS5: font-weight - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Normal and bold text weights.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -132,7 +132,7 @@
 </TR>
 </TABLE>
 
-<H3>text-decoration - PASS</H3>
+<H3>CS6: text-decoration - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text with line-through decoration.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -145,7 +145,7 @@
 </TR>
 </TABLE>
 
-<H3>text-transform - PASS</H3>
+<H3>CS7: text-transform - PASS</H3>
 <P><STRONG>Note:</STRONG> text-transform is parsed and stored, but full rendering support may be limited. The property is applied to document-level text transformation.</P>
 <P><STRONG>What you should see:</STRONG> Text transformed to uppercase, lowercase, and capitalize.</P>
 
@@ -160,7 +160,7 @@
 </TR>
 </TABLE>
 
-<H3>white-space - PASS</H3>
+<H3>CS8: white-space - PASS</H3>
 <P><STRONG>Note:</STRONG> white-space: nowrap is fully supported via the AOBDY_Nobr attribute.</P>
 <P><STRONG>What you should see:</STRONG> Text with nowrap preventing line breaks.</P>
 
@@ -173,7 +173,7 @@
 </TR>
 </TABLE>
 
-<H3>line-height - PASS</H3>
+<H3>CS9: line-height - PASS</H3>
 <P><STRONG>Note:</STRONG> line-height is parsed and stored. Rendering behavior may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Text with different line heights. Higher line-height values create more space between lines.</P>
 
@@ -195,7 +195,7 @@
 <A NAME="colors"></A>
 <H2>Color Properties</H2>
 
-<H3>color - PASS</H3>
+<H3>CS10: color - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text in various colors specified using hex color codes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -211,7 +211,7 @@
 </TR>
 </TABLE>
 
-<H3>background-color - PASS</H3>
+<H3>CS11: background-color - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text with different background colors. Each paragraph should have a distinct background color.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -227,7 +227,7 @@
 </TR>
 </TABLE>
 
-<H3>color (hex vs names) - PASS</H3>
+<H3>CS12: color (hex vs names) - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text colors using both hex values and CSS color names. Each pair should show the same color.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -248,7 +248,7 @@
 </TR>
 </TABLE>
 
-<H3>background-color (hex vs names) - PASS</H3>
+<H3>CS13: background-color (hex vs names) - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Background colors using both hex values and CSS color names. Each pair should show the same background color.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -272,7 +272,7 @@
 <A NAME="layout"></A>
 <H2>Layout & Positioning Properties</H2>
 
-<H3>padding - PASS</H3>
+<H3>CS14: padding - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with different padding amounts. More padding should create more space around the text.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -286,7 +286,7 @@
 </TR>
 </TABLE>
 
-<H3>position, top, left, right, bottom - PASS (parsed and stored)</H3>
+<H3>CS15: position, top, left, right, bottom - PASS (parsed and stored)</H3>
 <P><STRONG>Note:</STRONG> Position properties are parsed and stored. position: fixed is viewport-relative (uses window dimensions). Right and bottom positioning are now supported.</P>
 <P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Fixed positioning should be relative to the viewport (window), not the parent container.</P>
 
@@ -303,7 +303,7 @@
 </TR>
 </TABLE>
 
-<H3>margin shorthand - PASS (top/left only)</H3>
+<H3>CS16: margin shorthand - PASS (top/left only)</H3>
 <P><STRONG>Note:</STRONG> Margin shorthand is parsed and applied. Top and left margins are fully supported. Right and bottom margins are parsed but not directly used in rendering.</P>
 <P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property. The margin property can accept 1-4 values to set all margins at once. Top and left margins should be visible.</P>
 
@@ -320,7 +320,7 @@
 </TR>
 </TABLE>
 
-<H3>margin-top, margin-left - PASS</H3>
+<H3>CS17: margin-top, margin-left - PASS</H3>
 <P><STRONG>Note:</STRONG> margin-top and margin-left are fully supported. margin-right and margin-bottom are parsed but not directly used in rendering.</P>
 <P><STRONG>What you should see:</STRONG> Paragraphs with different margin values creating space around elements. Top and left margins should be visible.</P>
 
@@ -338,7 +338,7 @@
 </TR>
 </TABLE>
 
-<H3>padding individual sides - PASS</H3>
+<H3>CS18: padding individual sides - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with different padding on individual sides.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -354,7 +354,7 @@
 </TR>
 </TABLE>
 
-<H3>border - PASS</H3>
+<H3>CS19: border - PASS</H3>
 <P><STRONG>Note:</STRONG> Border properties are parsed and stored. Border rendering may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles.</P>
 
@@ -374,7 +374,7 @@
 </TR>
 </TABLE>
 
-<H3>display property - PASS</H3>
+<H3>CS20: display property - PASS</H3>
 <P><STRONG>Note:</STRONG> display: none may not fully hide elements. display: inline, display: block, and display: grid are supported.</P>
 <P><STRONG>What you should see:</STRONG> Elements with different display values.</P>
 
@@ -391,7 +391,7 @@
 </TR>
 </TABLE>
 
-<H3>background-image - PASS (parsed)</H3>
+<H3>CS21: background-image - PASS (parsed)</H3>
 <P><STRONG>Note:</STRONG> background-image is parsed. Background image rendering may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Elements with background images. Note: Requires a valid image URL to test.</P>
 
@@ -412,7 +412,7 @@
 <A NAME="tables"></A>
 <H2>Table Cell Styles</H2>
 
-<H3>width and height - PASS</H3>
+<H3>CS22: width and height - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different widths and heights. Cells should be sized according to the CSS width and height properties.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -435,7 +435,7 @@
 </TR>
 </TABLE>
 
-<H3>text-align in table cells - PASS</H3>
+<H3>CS23: text-align in table cells - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different text alignment - left, center, and right.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -457,7 +457,7 @@
 </TR>
 </TABLE>
 
-<H3>vertical-align in table cells - PASS</H3>
+<H3>CS24: vertical-align in table cells - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different vertical alignment - top, middle, bottom, and baseline.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -476,7 +476,7 @@
 </TR>
 </TABLE>
 
-<H3>background-color in table cells - PASS</H3>
+<H3>CS25: background-color in table cells - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different background colors. Each cell should have a distinct background color.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -497,7 +497,7 @@
 </TR>
 </TABLE>
 
-<H3>Combined table cell styles - PASS</H3>
+<H3>CS26: Combined table cell styles - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with multiple CSS properties applied simultaneously - width, height, alignment, background color, padding, and vertical-align.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -513,7 +513,7 @@
 </TR>
 </TABLE>
 
-<H3>border-color - PASS</H3>
+<H3>CS27: border-color - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Tables with different border colors specified via CSS.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -542,7 +542,7 @@
 <A NAME="links"></A>
 <H2>Link Styles</H2>
 
-<H3>text-decoration: none - PASS</H3>
+<H3>CS28: text-decoration: none - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Links without underlines. The links should be clickable but not have the typical underline decoration.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -556,7 +556,7 @@
 </TR>
 </TABLE>
 
-<H3>color on links - PASS</H3>
+<H3>CS29: color on links - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Links with custom text colors. The link text should appear in the specified color instead of the default link color.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -571,7 +571,7 @@
 </TR>
 </TABLE>
 
-<H3>a:hover pseudo-class - PASS</H3>
+<H3>CS30: a:hover pseudo-class - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Links that change color when you hover over them. Hover styles are applied via CSS :hover pseudo-class using embedded stylesheets.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -600,7 +600,7 @@
 <A NAME="lists"></A>
 <H2>List Styles</H2>
 
-<H3>list-style-type for unordered lists - PASS</H3>
+<H3>CS31: list-style-type for unordered lists - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles - disc, circle, square, and none.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -627,7 +627,7 @@
 </TR>
 </TABLE>
 
-<H3>display: inline for horizontal lists - PASS</H3>
+<H3>CS32: display: inline for horizontal lists - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Unordered lists displayed horizontally (inline) instead of vertically. List items should appear on the same line with spacing between them, and bullets should be removed.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -644,7 +644,7 @@
 </TR>
 </TABLE>
 
-<H3>list-style-type for ordered lists - PASS except for the 'no numbering' style which still shows numbering</H3>
+<H3>CS33: list-style-type for ordered lists - PASS except for the 'no numbering' style which still shows numbering</H3>
 <P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles - decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, and none.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -679,7 +679,7 @@
 </TR>
 </TABLE>
 
-<H3>list-style-image - PASS</H3>
+<H3>CS34: list-style-image - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Lists with custom bullet images specified via CSS list-style-image property. The image should appear as the bullet for each list item.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -713,7 +713,7 @@
 
 <P>This section tests CSS class and id selector support for HTML4 block-level elements that were recently enhanced with CSS support.</P>
 
-<H3>OL and UL with class/id selectors - PASS</H3>
+<H3>CS35: OL and UL with class/id selectors - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Ordered and unordered lists with CSS styles applied via class and id selectors from embedded stylesheets.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -749,7 +749,7 @@
 </TR>
 </TABLE>
 
-<H3>CENTER element with class/id selectors - PASS</H3>
+<H3>CS36: CENTER element with class/id selectors - PASS</H3>
 <P><STRONG>What you should see:</STRONG> CENTER elements with CSS styles applied via class and id selectors from embedded stylesheets.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -765,7 +765,7 @@
 <P>This CENTER element has class="centered-content" with gray background, padding, and border.</P>
 </CENTER>
 <CENTER ID="page-title">
-<H3>This CENTER element has id="page-title" with blue background and bold blue text.</H3>
+<H3>CS37: This CENTER element has id="page-title" with blue background and bold blue text.</H3>
 </CENTER>
 <CENTER CLASS="centered-note">
 <P>This CENTER element has class="centered-note" with yellow background and brown border.</P>
@@ -775,7 +775,7 @@
 </TR>
 </TABLE>
 
-<H3>ADDRESS element with class/id selectors - PASS</H3>
+<H3>CS38: ADDRESS element with class/id selectors - PASS</H3>
 <P><STRONG>What you should see:</STRONG> ADDRESS elements with CSS styles applied via class and id selectors from embedded stylesheets.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -818,7 +818,7 @@ Web: www.example.com<BR>
 <A NAME="grid"></A>
 <H2>Grid Layout Properties</H2>
 
-<H3>display: grid</H3>
+<H3>CS39: display: grid</H3>
 <P><STRONG>What you should see:</STRONG> Definition lists (DL) displayed as a grid layout. The DT (term) elements should appear in the first column, and DD (description) elements with grid-column-start: 2 should appear in the second column.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -838,7 +838,7 @@ Web: www.example.com<BR>
 </TR>
 </TABLE>
 
-<H3>grid-gap</H3>
+<H3>CS40: grid-gap</H3>
 <P><STRONG>What you should see:</STRONG> Grid layouts with different gap spacing between rows and columns.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -861,7 +861,7 @@ Web: www.example.com<BR>
 </TR>
 </TABLE>
 
-<H3>grid-template-columns</H3>
+<H3>CS41: grid-template-columns</H3>
 <P><STRONG>What you should see:</STRONG> Grid layouts with different column template definitions. The max-content value sizes columns based on their content.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -879,7 +879,7 @@ Web: www.example.com<BR>
 </TR>
 </TABLE>
 
-<H3>grid-column-start, grid-column-end, grid-row-start, grid-row-end</H3>
+<H3>CS42: grid-column-start, grid-column-end, grid-row-start, grid-row-end</H3>
 <P><STRONG>What you should see:</STRONG> Grid items positioned using grid-column-start and grid-row-start properties. grid-column-start: 2 places items in the second column.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -904,7 +904,7 @@ Web: www.example.com<BR>
 <A NAME="misc"></A>
 <H2>Additional Supported Properties</H2>
 
-<H3>overflow - PASS (hidden)</H3>
+<H3>CS43: overflow - PASS (hidden)</H3>
 <P><STRONG>Note:</STRONG> overflow: hidden is supported. overflow: scroll is not implemented.</P>
 <P><STRONG>What you should see:</STRONG> Elements with overflow: hidden should clip content that extends beyond the element boundaries.</P>
 
@@ -918,7 +918,7 @@ Web: www.example.com<BR>
 </TR>
 </TABLE>
 
-<H3>z-index - PASS (parsed and stored)</H3>
+<H3>CS44: z-index - PASS (parsed and stored)</H3>
 <P><STRONG>Note:</STRONG> z-index is parsed and stored. Stacking context handling may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Elements with different z-index values. Higher z-index elements should appear above lower z-index elements.</P>
 
@@ -933,7 +933,7 @@ Web: www.example.com<BR>
 </TR>
 </TABLE>
 
-<H3>background-repeat, background-position, background-attachment - PASS (parsed and stored)</H3>
+<H3>CS45: background-repeat, background-position, background-attachment - PASS (parsed and stored)</H3>
 <P><STRONG>Note:</STRONG> These background properties are parsed and stored, but rendering may not fully use them yet.</P>
 <P><STRONG>What you should see:</STRONG> Elements with different background repeat, position, and attachment values.</P>
 

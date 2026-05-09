@@ -3,7 +3,7 @@
  * 
  * This file is part of the AWeb distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -574,7 +574,7 @@ window.onload = function() {
 <A NAME="window"></A>
 <H2>Window Object</H2>
 
-<H3>Test 1: window.alert()</H3>
+<H3>JS1: window.alert()</H3>
 <P><STRONG>What it tests:</STRONG> The window.alert() method displays a modal alert dialog with a message.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Alert" button below.</P>
 <P><STRONG>Expected results:</STRONG> A dialog box should appear with the message "This is a JavaScript alert dialog!". Click OK to dismiss it.</P>
@@ -587,7 +587,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 2: window.confirm()</H3>
+<H3>JS2: window.confirm()</H3>
 <P><STRONG>What it tests:</STRONG> The window.confirm() method displays a modal confirmation dialog with OK and Cancel buttons.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Confirm" button below.</P>
 <P><STRONG>Expected results:</STRONG> A dialog box should appear asking "Do you want to continue?" with OK and Cancel buttons. After clicking either button, check the status bar at the bottom of the browser window - it should show "You clicked OK" or "You clicked Cancel" depending on your choice.</P>
@@ -600,7 +600,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 3: window.prompt()</H3>
+<H3>JS3: window.prompt()</H3>
 <P><STRONG>What it tests:</STRONG> The window.prompt() method displays a modal dialog with a text input field.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Prompt" button below.</P>
 <P><STRONG>Expected results:</STRONG> A dialog box should appear asking "What is your name?" with a text field pre-filled with "Guest". Enter a name and click OK, or click Cancel. The status bar should show "Hello, [your name]!" if you entered a name, or "No name entered" if you clicked Cancel.</P>
@@ -613,12 +613,12 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 4: window.status and window.defaultStatus</H3>
+<H3>JS4: window.status and window.defaultStatus</H3>
 <P><STRONG>What it tests:</STRONG> The window.status property controls the status bar text, and window.defaultStatus sets the default status bar text.</P>
 <P><STRONG>How to run:</STRONG> Look at the status bar at the bottom of the browser window. It should show "JavaScript Test Page Loaded" when the page loads.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should display the default message. When you hover over links or interact with elements that change the status, the status bar text should update accordingly.</P>
 
-<H3>Test 5: window.setTimeout()</H3>
+<H3>JS5: window.setTimeout()</H3>
 <P><STRONG>What it tests:</STRONG> The window.setTimeout() method executes a function after a specified delay in milliseconds.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Timeout" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should immediately show "Status will clear in 3 seconds...". After 3 seconds, the status bar should clear (become empty).</P>
@@ -631,7 +631,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 6: window.setInterval() and window.clearInterval()</H3>
+<H3>JS6: window.setInterval() and window.clearInterval()</H3>
 <P><STRONG>What it tests:</STRONG> The window.setInterval() method repeatedly executes a function at specified intervals, and window.clearInterval() stops the interval.</P>
 <P><STRONG>Status:</STRONG> <STRONG>NOT SUPPORTED</STRONG> - AWeb only supports setTimeout() and clearTimeout(). setInterval() and clearInterval() are not available.</P>
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -642,7 +642,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 7: window.open()</H3>
+<H3>JS7: window.open()</H3>
 <P><STRONG>What it tests:</STRONG> The window.open() method opens a new browser window.</P>
 <P><STRONG>How to run:</STRONG> Click the "Open New Window" button below.</P>
 <P><STRONG>Expected results:</STRONG> A new window should open (if not blocked by browser settings). The status bar should show "New window opened" if successful, or "Window blocked or failed" if the window could not be opened. Note: AWeb may block popup windows depending on settings.</P>
@@ -655,7 +655,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 8: window.close()</H3>
+<H3>JS8: window.close()</H3>
 <P><STRONG>What it tests:</STRONG> The window.close() method attempts to close the current window.</P>
 <P><STRONG>How to run:</STRONG> Click the "Close Window" button below.</P>
 <P><STRONG>Expected results:</STRONG> The window may or may not close depending on browser security settings. The status bar should show "Window close attempted" or "Window cannot be closed (may require user interaction)". Note: AWeb typically only allows closing windows that were opened by JavaScript.</P>
@@ -684,7 +684,7 @@ window.onload = function() {
 <A NAME="document"></A>
 <H2>Document Object</H2>
 
-<H3>Test 1: document.write()</H3>
+<H3>JS9: document.write()</H3>
 <P><STRONG>What it tests:</STRONG> The document.write() method writes HTML content to the document.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test document.write()" button below.</P>
 <P><STRONG>Expected results:</STRONG> The current page should be replaced with new content showing "Dynamic Content" as a heading, a paragraph explaining it was written by JavaScript, and the current date and time. This demonstrates that document.write() can dynamically generate HTML content.</P>
@@ -697,7 +697,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 2: Document Properties</H3>
+<H3>JS10: Document Properties</H3>
 <P><STRONG>What it tests:</STRONG> The document.title, document.URL, document.lastModified properties, and the document.forms[], document.images[], document.links[] arrays.</P>
 <P><STRONG>How to run:</STRONG> Click the "Show Document Info" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the document title, URL, last modified date, and counts of forms, images, and links on the page.</P>
@@ -710,7 +710,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 3: Document Element Arrays</H3>
+<H3>JS11: Document Element Arrays</H3>
 <P><STRONG>What it tests:</STRONG> The document.forms[], document.images[], and document.links[] arrays that contain references to all forms, images, and links on the page.</P>
 <P><STRONG>How to run:</STRONG> Click the "Count Elements" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the number of images, forms, and links found on this page. The counts should match the actual elements present.</P>
@@ -723,7 +723,7 @@ window.onload = function() {
 </TR>
 </TABLE>
 
-<H3>Test 4: document.getElementById()</H3>
+<H3>JS12: document.getElementById()</H3>
 <P><STRONG>What it tests:</STRONG> The document.getElementById() method retrieves an element by its ID attribute.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test getElementById" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "Element found (getElementById is supported)" if the method works, or "Element not found (getElementById may not be supported)" if it doesn't. Note: getElementById() may have limited support in AWeb's JavaScript implementation.</P>
@@ -739,7 +739,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 5: document.writeln()</H3>
+<H3>JS13: document.writeln()</H3>
 <P><STRONG>What it tests:</STRONG> The document.writeln() method writes HTML content to the document with a newline after each write.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test document.writeln()" button below.</P>
 <P><STRONG>Expected results:</STRONG> The current page should be replaced with new content written using writeln(). This is similar to document.write() but adds newlines.</P>
@@ -752,7 +752,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 6: document.cookie</H3>
+<H3>JS14: document.cookie</H3>
 <P><STRONG>What it tests:</STRONG> The document.cookie property for reading and writing cookies.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test document.cookie" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that a cookie was set and then read back. The cookie value should match what was set.</P>
@@ -765,7 +765,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 7: Document Collections (anchors, applets, embeds)</H3>
+<H3>JS15: Document Collections (anchors, applets, embeds)</H3>
 <P><STRONG>What it tests:</STRONG> The document.anchors[], document.applets[], and document.embeds[] arrays.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Document Collections" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the count of forms, links, images, anchors, applets, and embeds on the page.</P>
@@ -794,7 +794,7 @@ This is a test div element. Click the button to test getElementById.
 <A NAME="history"></A>
 <H2>History Object</H2>
 
-<H3>Test 1: history.back()</H3>
+<H3>JS16: history.back()</H3>
 <P><STRONG>What it tests:</STRONG> The history.back() method navigates to the previous page in the browser history.</P>
 <P><STRONG>How to run:</STRONG> First navigate to another page, then come back to this page. Then click the "History Back" button below.</P>
 <P><STRONG>Expected results:</STRONG> The browser should navigate to the previous page in the history (if one exists). This is equivalent to clicking the browser's back button.</P>
@@ -807,7 +807,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 2: history.forward()</H3>
+<H3>JS17: history.forward()</H3>
 <P><STRONG>What it tests:</STRONG> The history.forward() method navigates to the next page in the browser history.</P>
 <P><STRONG>How to run:</STRONG> After using history.back(), click the "History Forward" button below.</P>
 <P><STRONG>Expected results:</STRONG> The browser should navigate to the next page in the history (if one exists). This is equivalent to clicking the browser's forward button.</P>
@@ -820,7 +820,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 3: history.go()</H3>
+<H3>JS18: history.go()</H3>
 <P><STRONG>What it tests:</STRONG> The history.go() method navigates to a specific position in the browser history. Positive numbers go forward, negative numbers go back.</P>
 <P><STRONG>How to run:</STRONG> Click either "Go Back 2" or "Go Forward 2" button below.</P>
 <P><STRONG>Expected results:</STRONG> The browser should navigate 2 pages back or forward in the history (if those pages exist).</P>
@@ -833,7 +833,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 4: history.length</H3>
+<H3>JS19: history.length</H3>
 <P><STRONG>What it tests:</STRONG> The history.length property returns the number of entries in the browser history.</P>
 <P><STRONG>How to run:</STRONG> Click the "Show History Info" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the number of pages in the browser history. The number should be greater than 0.</P>
@@ -853,7 +853,7 @@ This is a test div element. Click the button to test getElementById.
 <A NAME="navigator"></A>
 <H2>Navigator Object</H2>
 
-<H3>Test 1: Navigator Properties</H3>
+<H3>JS20: Navigator Properties</H3>
 <P><STRONG>What it tests:</STRONG> The navigator object properties that provide information about the browser and platform.</P>
 <P><STRONG>How to run:</STRONG> Click the "Show Navigator Info" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
@@ -876,7 +876,7 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
-<H3>Test 2: navigator.userAgent (Displayed)</H3>
+<H3>JS21: navigator.userAgent (Displayed)</H3>
 <P><STRONG>What it tests:</STRONG> The navigator.userAgent property displayed directly in the page.</P>
 <P><STRONG>How to run:</STRONG> Look at the text below - it displays automatically when the page loads.</P>
 <P><STRONG>Expected results:</STRONG> You should see the user agent string displayed in the test area below.</P>
@@ -896,7 +896,7 @@ User Agent: <SCRIPT LANGUAGE="JavaScript">document.write(navigator.userAgent);</
 <A NAME="location"></A>
 <H2>Location Object</H2>
 
-<H3>Test 1: Location Properties</H3>
+<H3>JS22: Location Properties</H3>
 <P><STRONG>What it tests:</STRONG> The location object properties that provide information about the current page URL.</P>
 <P><STRONG>How to run:</STRONG> Click the "Show Location Info" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
@@ -920,7 +920,7 @@ User Agent: <SCRIPT LANGUAGE="JavaScript">document.write(navigator.userAgent);</
 </TR>
 </TABLE>
 
-<H3>Test 2: location.href (Displayed)</H3>
+<H3>JS23: location.href (Displayed)</H3>
 <P><STRONG>What it tests:</STRONG> The location.href property displayed directly in the page.</P>
 <P><STRONG>How to run:</STRONG> Look at the text below - it displays automatically when the page loads.</P>
 <P><STRONG>Expected results:</STRONG> You should see the current page URL displayed in the test area below.</P>
@@ -933,7 +933,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 3: location.reload()</H3>
+<H3>JS24: location.reload()</H3>
 <P><STRONG>What it tests:</STRONG> The location.reload() method reloads the current page.</P>
 <P><STRONG>How to run:</STRONG> Click the "Reload Page" button below.</P>
 <P><STRONG>Expected results:</STRONG> A confirmation dialog should appear asking "Reload this page?". If you click OK, the page should reload. If you click Cancel, nothing should happen.</P>
@@ -946,7 +946,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 4: location.replace()</H3>
+<H3>JS25: location.replace()</H3>
 <P><STRONG>What it tests:</STRONG> The location.replace() method replaces the current page in history (doesn't create a new history entry).</P>
 <P><STRONG>How to run:</STRONG> Click the "Test location.replace()" button below.</P>
 <P><STRONG>Expected results:</STRONG> A confirmation dialog should appear. If you click OK, the page should reload using replace() instead of reload(). This means the back button won't go to the previous page.</P>
@@ -972,7 +972,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <A NAME="forms"></A>
 <H2>HTML Forms</H2>
 
-<H3>Test 1: Form Properties</H3>
+<H3>JS26: Form Properties</H3>
 <P><STRONG>What it tests:</STRONG> Form object properties including name, action, method, encoding, target, and length.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Form Properties" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the values of all form properties for the first form on the page.</P>
@@ -985,7 +985,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2: Form Methods</H3>
+<H3>JS27: Form Methods</H3>
 <P><STRONG>What it tests:</STRONG> Form object methods including reset() and submit().</P>
 <P><STRONG>How to run:</STRONG> Click either the "Test Form.reset()" or "Test Form.submit()" button below.</P>
 <P><STRONG>Expected results:</STRONG> 
@@ -1004,7 +1004,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 3: Input Properties</H3>
+<H3>JS28: Input Properties</H3>
 <P><STRONG>What it tests:</STRONG> Input object properties including type, value, and defaultValue.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Input Properties" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the type, value, and defaultValue of the first input field in the form.</P>
@@ -1017,7 +1017,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 4: Input Methods</H3>
+<H3>JS29: Input Methods</H3>
 <P><STRONG>What it tests:</STRONG> Input object methods including focus(), blur(), and select().</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Input Methods" button below.</P>
 <P><STRONG>Expected results:</STRONG> The first input field should receive focus, and after 1 second, its text should be selected. Check the status bar for messages.</P>
@@ -1030,7 +1030,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 5: Select Properties</H3>
+<H3>JS30: Select Properties</H3>
 <P><STRONG>What it tests:</STRONG> Select object properties including length and selectedIndex.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Select Properties" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the length and selectedIndex of the first SELECT element in the form.</P>
@@ -1043,7 +1043,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 6: Option Properties</H3>
+<H3>JS31: Option Properties</H3>
 <P><STRONG>What it tests:</STRONG> Option object properties including text, value, selected, defaultSelected, and index.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Option Properties" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the properties of the first option in the first SELECT element.</P>
@@ -1063,7 +1063,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <A NAME="windowmethods"></A>
 <H2>Window Methods</H2>
 
-<H3>Test 1: window.focus()</H3>
+<H3>JS32: window.focus()</H3>
 <P><STRONG>What it tests:</STRONG> The window.focus() method brings the window to the front and gives it focus.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test window.focus()" button below.</P>
 <P><STRONG>Expected results:</STRONG> The window should receive focus and the status bar should show "Window focus() method called".</P>
@@ -1076,7 +1076,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2: window.blur()</H3>
+<H3>JS33: window.blur()</H3>
 <P><STRONG>What it tests:</STRONG> The window.blur() method removes focus from the window.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test window.blur()" button below.</P>
 <P><STRONG>Expected results:</STRONG> The window should lose focus and the status bar should show "Window blur() method called".</P>
@@ -1089,7 +1089,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 3: window.scroll()</H3>
+<H3>JS34: window.scroll()</H3>
 <P><STRONG>What it tests:</STRONG> The window.scroll() method scrolls the window to a specific position.</P>
 <P><STRONG>How to run:</STRONG> Scroll down the page, then click the "Test window.scroll()" button below.</P>
 <P><STRONG>Expected results:</STRONG> The window should scroll to the top (position 0,0) and the status bar should show "Window scroll(0, 0) method called".</P>
@@ -1109,7 +1109,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <A NAME="image"></A>
 <H2>Image Constructor</H2>
 
-<H3>Test 1: Image() Constructor</H3>
+<H3>JS35: Image() Constructor</H3>
 <P><STRONG>What it tests:</STRONG> The Image() constructor creates a new Image object that can be used to preload images.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Image Constructor" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that an Image object was created with properties for src, width, and height.</P>
@@ -1131,7 +1131,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 
 <P><STRONG>Note:</STRONG> XMLHttpRequest is a browser extension API that allows JavaScript to make HTTP requests without reloading the page. This enables AJAX (Asynchronous JavaScript and XML) functionality.</P>
 
-<H3>Test 1: XMLHttpRequest Constructor</H3>
+<H3>JS36: XMLHttpRequest Constructor</H3>
 <P><STRONG>What it tests:</STRONG> The XMLHttpRequest() constructor creates a new XMLHttpRequest object.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XMLHttpRequest Constructor" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "XMLHttpRequest opened (GET xhr_test_data.html)" if the constructor works. This demonstrates that XMLHttpRequest is available as a global constructor.</P>
@@ -1144,7 +1144,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2: XMLHttpRequest GET Request</H3>
+<H3>JS37: XMLHttpRequest GET Request</H3>
 <P><STRONG>What it tests:</STRONG> The XMLHttpRequest open(), send(), and onreadystatechange methods for making asynchronous GET requests.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XHR GET Request" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "XHR request sent..." immediately, then "XHR request completed successfully! Status: 200" when the request completes. The response content should appear in the result area below.</P>
@@ -1161,7 +1161,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 3: XMLHttpRequest JSON Request</H3>
+<H3>JS38: XMLHttpRequest JSON Request</H3>
 <P><STRONG>What it tests:</STRONG> XMLHttpRequest can fetch JSON data files.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XHR JSON Request" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "JSON XHR request sent..." then "JSON XHR request completed! Status: 200" when done. The JSON content should appear in the result area below.</P>
@@ -1178,7 +1178,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 4: XMLHttpRequest Properties</H3>
+<H3>JS39: XMLHttpRequest Properties</H3>
 <P><STRONG>What it tests:</STRONG> The readyState, status, statusText, and responseText properties of XMLHttpRequest.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XHR Properties" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the current values of XHR properties. readyState should be 0 (UNSENT) before opening, and status/statusText may be 0/empty until a request is made.</P>
@@ -1191,7 +1191,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 5: XMLHttpRequest readyState Changes</H3>
+<H3>JS40: XMLHttpRequest readyState Changes</H3>
 <P><STRONG>What it tests:</STRONG> The onreadystatechange event handler and the readyState property transitions (0=UNSENT, 1=OPENED, 2=HEADERS_RECEIVED, 3=LOADING, 4=DONE).</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XHR readyState" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "XHR readyState test started...". When the request completes, an alert should appear showing all readyState transitions that occurred (typically 1, 2, 3, 4).</P>
@@ -1204,7 +1204,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 6: XMLHttpRequest Response Headers</H3>
+<H3>JS41: XMLHttpRequest Response Headers</H3>
 <P><STRONG>What it tests:</STRONG> The getAllResponseHeaders() method to retrieve all HTTP response headers.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XHR Headers" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "XHR headers test started...". When the request completes, an alert should appear showing all HTTP response headers (Content-Type, Content-Length, etc.).</P>
@@ -1217,7 +1217,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 7: XMLHttpRequest abort()</H3>
+<H3>JS42: XMLHttpRequest abort()</H3>
 <P><STRONG>What it tests:</STRONG> The abort() method to cancel an in-progress XMLHttpRequest.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test XHR Abort" button below.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "XHR request sent, will abort in 1 second..." immediately, then "XHR request aborted!" after 1 second. The request should be cancelled before it completes.</P>
@@ -1246,7 +1246,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <A NAME="events"></A>
 <H2>Event Handlers</H2>
 
-<H3>Test 1: ONMOUSEOVER and ONMOUSEOUT</H3>
+<H3>JS43: ONMOUSEOVER and ONMOUSEOUT</H3>
 <P><STRONG>What it tests:</STRONG> Mouse event handlers that trigger when the mouse moves over or away from an element.</P>
 <P><STRONG>How to run:</STRONG> Move your mouse over the link below, then move it away.</P>
 <P><STRONG>Expected results:</STRONG> When you move the mouse over the link, the status bar should show "Mouse is over the link!". When you move the mouse away, the status bar should clear.</P>
@@ -1259,12 +1259,12 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2: ONCLICK</H3>
+<H3>JS44: ONCLICK</H3>
 <P><STRONG>What it tests:</STRONG> The ONCLICK event handler that triggers when an element is clicked.</P>
 <P><STRONG>How to run:</STRONG> Click any of the test buttons on this page - they all use ONCLICK handlers.</P>
 <P><STRONG>Expected results:</STRONG> When you click a button, the associated JavaScript function should execute. For example, clicking "Test Alert" should show an alert dialog.</P>
 
-<H3>Test 2a: ONCLICK for Buttons Outside Forms</H3>
+<H3>JS45: ONCLICK for Buttons Outside Forms</H3>
 <P><STRONG>What it tests:</STRONG> The ONCLICK event handler works for input buttons that are not inside a form element.</P>
 <P><STRONG>How to run:</STRONG> Click the button below (it's outside any form).</P>
 <P><STRONG>Expected results:</STRONG> The status bar should show "Formless input button clicked! This button works outside a form." This demonstrates that AWeb supports formless input elements for JavaScript events.</P>
@@ -1277,7 +1277,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2b: ONCLICK for Images</H3>
+<H3>JS46: ONCLICK for Images</H3>
 <P><STRONG>What it tests:</STRONG> The ONCLICK event handler works for IMG elements.</P>
 <P><STRONG>How to run:</STRONG> Click the image below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear saying "Image onclick handler works! This demonstrates onclick support for IMG tags."</P>
@@ -1291,7 +1291,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2c: ONCLICK for Objects</H3>
+<H3>JS47: ONCLICK for Objects</H3>
 <P><STRONG>What it tests:</STRONG> The ONCLICK event handler works for OBJECT elements.</P>
 <P><STRONG>How to run:</STRONG> Click the object below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear saying "Object onclick handler works! This demonstrates onclick support for OBJECT tags."</P>
@@ -1307,17 +1307,17 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 3: ONFOCUS and ONBLUR</H3>
+<H3>JS48: ONFOCUS and ONBLUR</H3>
 <P><STRONG>What it tests:</STRONG> Focus event handlers that trigger when a form field gains or loses keyboard focus.</P>
-<P><STRONG>How to run:</STRONG> Click in the text field in Test 5 below, then click outside of it.</P>
+<P><STRONG>How to run:</STRONG> Click in the text field in JS50 below, then click outside of it.</P>
 <P><STRONG>Expected results:</STRONG> When you click in the field (giving it focus), the status bar should show "Field focused: name". When you click outside (blur), the status bar should show "Field blurred: name".</P>
 
-<H3>Test 4: ONCHANGE</H3>
+<H3>JS49: ONCHANGE</H3>
 <P><STRONG>What it tests:</STRONG> The ONCHANGE event handler that triggers when a form field value changes.</P>
-<P><STRONG>How to run:</STRONG> Type something in the text field in Test 5 below, then click outside the field or press Tab.</P>
+<P><STRONG>How to run:</STRONG> Type something in the text field in JS50 below, then click outside the field or press Tab.</P>
 <P><STRONG>Expected results:</STRONG> After you change the text and move away from the field, the status bar should show "Field changed: [your text]".</P>
 
-<H3>Test 5: ONSUBMIT and ONRESET</H3>
+<H3>JS50: ONSUBMIT and ONRESET</H3>
 <P><STRONG>What it tests:</STRONG> Form event handlers that trigger when a form is submitted or reset.</P>
 <P><STRONG>How to run:</STRONG> Try submitting the form below (leave the name field empty to test validation), or click the Reset button.</P>
 <P><STRONG>Expected results:</STRONG> 
@@ -1342,12 +1342,12 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 6: ONLOAD</H3>
+<H3>JS51: ONLOAD</H3>
 <P><STRONG>What it tests:</STRONG> The ONLOAD event handler that triggers when the page finishes loading.</P>
 <P><STRONG>How to run:</STRONG> This test runs automatically when the page loads. Check the status bar.</P>
 <P><STRONG>Expected results:</STRONG> When the page loads, the status bar should at least show "JavaScript Test Page Loaded" (BODY ONLOAD). If the host maps <CODE>defaultStatus</CODE> only indirectly, BODY also sets <CODE>window.status</CODE>. After all scripts run, <CODE>window.onload</CODE> may replace the message with the compatibility summary string.</P>
 
-<H3>Test 7: ONUNLOAD</H3>
+<H3>JS52: ONUNLOAD</H3>
 <P><STRONG>What it tests:</STRONG> The ONUNLOAD event handler that triggers when the page is unloaded (user navigates away).</P>
 <P><STRONG>How to run:</STRONG> Navigate away from this page (click a link or use the back button).</P>
 <P><STRONG>Expected results:</STRONG> When you leave the page, the onunload handler should execute. Check the status bar or look for any alert that appears.</P>
@@ -1357,7 +1357,7 @@ window.onunload = testOnUnload;
 //-->
 </SCRIPT>
 
-<H3>Test 8: ONERROR and ONABORT (Image Events)</H3>
+<H3>JS53: ONERROR and ONABORT (Image Events)</H3>
 <P><STRONG>What it tests:</STRONG> The ONERROR and ONABORT event handlers for image loading errors and aborts.</P>
 <P><STRONG>How to run:</STRONG> The test image below has onerror and onabort handlers. If the image fails to load, onerror will trigger. If loading is aborted, onabort will trigger.</P>
 <P><STRONG>Expected results:</STRONG> If the image fails to load, the status bar should show "Image onerror handler triggered" (instead of an alert to avoid interrupting page load). If loading is aborted, the status bar should show "Image onabort handler triggered".</P>
@@ -1371,9 +1371,9 @@ window.onunload = testOnUnload;
 </TR>
 </TABLE>
 
-<H3>Test 9: ONSELECT</H3>
+<H3>JS54: ONSELECT</H3>
 <P><STRONG>What it tests:</STRONG> The ONSELECT event handler that triggers when text in an input field is selected.</P>
-<P><STRONG>How to run:</STRONG> Select text in the input field in Test 5 above (click and drag to select).</P>
+<P><STRONG>How to run:</STRONG> Select text in the input field in JS50 above (click and drag to select).</P>
 <P><STRONG>Expected results:</STRONG> When you select text in the input field, the status bar should show "onselect event triggered - text was selected".</P>
 
 <H3>Partially Supported</H3>
@@ -1465,7 +1465,7 @@ window.onunload = testOnUnload;
 <HR>
 
 <CENTER>
-<P><SMALL>Last Updated: 2025 - AWeb 3 Browser Extensions JavaScript Test</SMALL></P>
+<P><SMALL>Last Updated: 2026 - AWeb 3 Browser Extensions JavaScript Test</SMALL></P>
 <P><A HREF="ecmascript_test.html">ECMAScript 3 Core Language Tests</A> | <A HREF="aweb.html">Back to AWeb documentation index</A></P>
 </CENTER>
 
