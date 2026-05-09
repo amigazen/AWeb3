@@ -160,9 +160,9 @@
 #define AOAPP_Tooltippen   (AOAPP_Dummy+44)  /* GET */
    /* (long) Pen number for that pale yellow tooltip background */
 
+/* MARQUEE broadcast tag disabled (see application.c / body.c)
 #define AOAPP_Marquee       (AOAPP_Dummy+45)
-   /* (BOOL) Update marquee scroll position. SET to childs in AOREL_APP_WANT_MARQUEE
-    * relationship when timer fires. */
+*/
 
 
 #define AOAPP_    (AOAPP_Dummy+)
@@ -194,8 +194,9 @@
 #define AOREL_APP_WANT_BLINK     (AOREL_APP_DUMMY+5)
    /* Child wants blink events */
 
+/* MARQUEE relation disabled
 #define AOREL_APP_WANT_MARQUEE   (AOREL_APP_DUMMY+6)
-   /* Child wants marquee scroll events */
+*/
 
 
 /*--- Application functions ---*/

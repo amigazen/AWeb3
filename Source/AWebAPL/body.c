@@ -119,16 +119,17 @@ struct Body
    long leftpercent;       /* CSS left position as percentage (0-10000 for 0-100%) */
    long marginright;       /* CSS margin-right value (can be negative) */
    long marginbottom;      /* CSS margin-bottom value (can be negative) */
-   /* Marquee support */
-   UBYTE *marqueedirection;  /* "left", "right", "up", "down" */
-   UBYTE *marqueebehavior;   /* "scroll", "slide", "alternate" */
-   long marqueescrollamount; /* Pixels per scroll (default 6) */
-   long marqueescrolldelay;  /* Milliseconds between scrolls (default 85) */
-   long marqueeloop;          /* Number of loops (-1 for infinite) */
-   long marqueescrollx;       /* Current horizontal scroll position */
-   long marqueescrolly;       /* Current vertical scroll position */
-   long marqueeloopcount;     /* Current loop count */
-   BOOL marqueereversing;     /* TRUE if in alternate mode and reversing */
+   /* MARQUEE fields disabled
+   UBYTE *marqueedirection;
+   UBYTE *marqueebehavior;
+   long marqueescrollamount;
+   long marqueescrolldelay;
+   long marqueeloop;
+   long marqueescrollx;
+   long marqueescrolly;
+   long marqueeloopcount;
+   BOOL marqueereversing;
+   */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -1556,6 +1557,7 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          Erasebg(bd->cframe,coo,clipMinX,MAX(y,clipMinY),clipMaxX,clipMaxY);
          flags|=AMRF_CLEARBG;
       }
+#if 0 /* MARQUEE: scroll offset render path (struct Body marquee fields removed) */
       /* Apply marquee scroll offset if this is a marquee */
       if(bd->marqueedirection)
       {  /* Create modified coordinate structure with scroll offset */
@@ -1609,7 +1611,8 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          }
       }
       else
-      {  /* Normal rendering without scroll offset */
+#endif
+      {  /* Normal rendering (MARQUEE path disabled) */
          for(;child->next;child=child->next)
          {  /* Apply overflow clipping to child rendering */
             if(child->aox<=clipMaxX && child->aox+child->aow>clipMinX 
@@ -1704,6 +1707,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBJ_Cframe:
             bd->cframe=(void *)tag->ti_Data;
+#if 0 /* MARQUEE app timer registration */
             /* Register marquee for animation when it becomes visible */
             if(tag->ti_Data && bd->marqueedirection)
             {  Aaddchild(Aweb(),bd,AOREL_APP_WANT_MARQUEE);
@@ -1711,6 +1715,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             else if(!tag->ti_Data && bd->marqueedirection)
             {  Aremchild(Aweb(),bd,AOREL_APP_WANT_MARQUEE);
             }
+#endif
             break;
          case AOBJ_Frame:
             /* AOBJ_Frame is set/cleared when in/out display.
@@ -2076,6 +2081,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
          case AOBDY_MarginBottom:
             bd->marginbottom = tag->ti_Data;
             break;
+#if 0 /* MARQUEE AOM_SET tags (AOBDY_Dummy+68 .. AOAPP marquee tick) */
          case AOBDY_MarqueeDirection:
             if(bd->marqueedirection && bd->marqueedirection != (UBYTE *)tag->ti_Data)
             {  FREE(bd->marqueedirection);
@@ -2204,6 +2210,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
                }
             }
             break;
+#endif
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -2245,8 +2252,10 @@ static void Disposebody(struct Body *bd)
    if(bd->backgroundposition) FREE(bd->backgroundposition);
    if(bd->backgroundattachment) FREE(bd->backgroundattachment);
    if(bd->transform) FREE(bd->transform);
+#if 0 /* MARQUEE string fields */
    if(bd->marqueedirection) FREE(bd->marqueedirection);
    if(bd->marqueebehavior) FREE(bd->marqueebehavior);
+#endif
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -2299,6 +2308,7 @@ static struct Body *Newbody(struct Amset *ams)
       bd->marginleftauto = FALSE;
       bd->marginrightauto = FALSE;
       bd->lineheight = 0.0;  /* 0 means use default (no line-height specified) */
+#if 0 /* MARQUEE defaults */
       bd->marqueedirection = NULL;
       bd->marqueebehavior = NULL;
       bd->marqueescrollamount = 6;
@@ -2308,6 +2318,7 @@ static struct Body *Newbody(struct Amset *ams)
       bd->marqueescrolly = 0;
       bd->marqueeloopcount = 0;
       bd->marqueereversing = FALSE;
+#endif
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;

@@ -62,7 +62,7 @@ enum MARKUP_TYPES
    MARKUP_NOSCRIPT,
    MARKUP_IFRAME,
    MARKUP_INS,MARKUP_DEL,
-   MARKUP_MARQUEE,
+   MARKUP_MARQUEE,  /* unused while MARQUEE is disabled; keeps following enum values stable */
 };
 
 #define MARKUP_MASK        0x7fff   /* identifying part */

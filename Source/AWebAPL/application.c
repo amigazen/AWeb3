@@ -69,10 +69,10 @@ struct Application
    LIST(Child) usebrowser;
    LIST(Child) useoverlap;
    LIST(Child) wantblink;
-   LIST(Child) wantmarquee;
+   /* LIST(Child) wantmarquee; */  /* unused while MARQUEE support is disabled */
    UBYTE *savepath;
    void *blinktimer;
-   void *marqueetimer;
+   /* void *marqueetimer; */  /* unused while MARQUEE support is disabled */
    void *animtimer;
    struct SignalSemaphore semaphore;
    short imagewidth,imageheight;
@@ -124,8 +124,9 @@ static LIST(Animgad) animgads;
 #define AOAPP_Blinktimer      (AOAPP_Dummy+128)
    /* (BOOL) Toggle blink status */
 
+/* MARQUEE timer tag disabled
 #define AOAPP_Marqueetimer    (AOAPP_Dummy+130)
-   /* (BOOL) Update marquee scroll positions */
+*/
 
 #define AOAPP_Animtimer       (AOAPP_Dummy+129)
    /* (BOOL) Step continuous transfer anim */
@@ -135,10 +136,12 @@ static struct TagItem blinktimermap[]=
    TAG_END,
 };
 
+/* MARQUEE timer map disabled
 static struct TagItem marqueetimermap[]=
 {  AOTIM_Ready,AOAPP_Marqueetimer,
    TAG_END,
 };
+*/
 
 static struct TagItem animtimermap[]=
 {  AOTIM_Ready,AOAPP_Animtimer,
@@ -378,9 +381,11 @@ static LIST(Child) *Childlist(struct Application *app,long relation)
       case AOREL_APP_WANT_BLINK:
          list=&app->wantblink;
          break;
+      /* MARQUEE disabled
       case AOREL_APP_WANT_MARQUEE:
          list=&app->wantmarquee;
          break;
+      */
    }
    return list;
 }
@@ -1232,7 +1237,7 @@ static struct Application *Newapplication(struct Amset *ams)
       NEWLIST(&app->usebrowser);
       NEWLIST(&app->useoverlap);
       NEWLIST(&app->wantblink);
-      NEWLIST(&app->wantmarquee);
+      /* NEWLIST(&app->wantmarquee); */
       InitSemaphore(&app->semaphore);
       app->pubsignum=-1;
       app->bgpen=-1;
@@ -1427,19 +1432,19 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
                AOAPP_Blink,BOOLVAL(app->flags&APPF_BLINKON),
                TAG_END);
             break;
+         /* MARQUEE timer tick disabled
          case AOAPP_Marqueetimer:
-            /* Update all marquee elements (timer is only created when needed) */
             if(app->marqueetimer && !ISEMPTY(&app->wantmarquee))
             {  Broadcastsafe(app,AOREL_APP_WANT_MARQUEE,
                   AOAPP_Marquee,TRUE,
                   TAG_END);
-               /* Re-arm one-shot timer */
                Asetattrs(app->marqueetimer,
                   AOTIM_Waitseconds,0,
                   AOTIM_Waitmicros,50000,
                   TAG_END);
             }
             break;
+         */
          case AOAPP_Animtimer:
             if(prefs.network.contanim && (app->flags&APPF_ANIMON))
             {  Asetattrs(app->animtimer,
@@ -1461,6 +1466,7 @@ static long Addchildapplication(struct Application *app,struct Amadd *ama)
    {  if(ch=ALLOCSTRUCT(Child,1,MEMF_CLEAR))
       {  ch->object=ama->child;
          ADDTAIL(list,ch);
+         /* MARQUEE registration disabled
          if(ama->relation==AOREL_APP_WANT_MARQUEE)
          {  if(!app->marqueetimer)
             {  app->marqueetimer=Anewobject(AOTP_TIMER,
@@ -1471,6 +1477,7 @@ static long Addchildapplication(struct Application *app,struct Amadd *ama)
                   TAG_END);
             }
          }
+         */
       }
    }
    return 0;
@@ -1487,12 +1494,14 @@ static long Remchildapplication(struct Application *app,struct Amadd *ama)
             break;
          }
       }
+      /* MARQUEE timer teardown disabled
       if(ama->relation==AOREL_APP_WANT_MARQUEE)
       {  if(app->marqueetimer && ISEMPTY(&app->wantmarquee))
          {  Adisposeobject(app->marqueetimer);
             app->marqueetimer=NULL;
          }
       }
+      */
    }
    return 0;
 }
@@ -1621,13 +1630,15 @@ static void Disposeapplication(struct Application *app)
    {  Asetattrs(ch->object,AOBJ_Application,NULL,TAG_END);
       FREE(ch);
    }
+   /* MARQUEE list drain disabled (list never populated)
    while(ch=REMHEAD(&app->wantmarquee))
    {  Asetattrs(ch->object,AOBJ_Application,NULL,TAG_END);
       FREE(ch);
    }
+   */
    if(app->animtimer) Adisposeobject(app->animtimer);
    if(app->blinktimer) Adisposeobject(app->blinktimer);
-   if(app->marqueetimer) Adisposeobject(app->marqueetimer);
+   /* if(app->marqueetimer) Adisposeobject(app->marqueetimer); */
    if(app->systemfont) CloseFont(app->systemfont);
    if(app->menus) Freemenus(app);
    if(app->windowport)

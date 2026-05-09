@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -160,9 +160,11 @@ static void *Docbodync(struct Document *doc)
    if(!body && !ISEMPTY(&doc->tables))
    {  body=(void *)Agetattr(doc->tables.first->table,AOTAB_Bodync);
    }
+   /* MARQUEE disabled: was Docbodync target for nested marquee body
    if(!body && (doc->pflags&DPF_MARQUEE) && doc->marqueebody)
    {  body=doc->marqueebody;
    }
+   */
    if(!body) body=doc->body;
    return body;
 }
@@ -3064,6 +3066,7 @@ static BOOL Doblinkend(struct Document *doc)
 }
 
 /*** <MARQUEE> ***/
+#if 0
 static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
 {  void *body;
    long width=-1,height=-1;
@@ -3188,6 +3191,7 @@ static BOOL Domarqueeend(struct Document *doc)
    }
    return TRUE;
 }
+#endif
 
 /*** <BR> ***/
 static BOOL Dobr(struct Document *doc,struct Tagattr *ta)
@@ -7736,12 +7740,14 @@ BOOL Processhtml(struct Document *doc,USHORT tagtype,struct Tagattr *ta)
             case MARKUP_BLINK|MARKUP_END:
                result=Doblinkend(doc);
                break;
+            /* MARQUEE disabled (Domarquee/Domarqueeend #if 0)
             case MARKUP_MARQUEE:
                result=Domarquee(doc,ta);
                break;
             case MARKUP_MARQUEE|MARKUP_END:
                result=Domarqueeend(doc);
                break;
+            */
             case MARKUP_BR:
                result=Dobr(doc,ta);
                break;

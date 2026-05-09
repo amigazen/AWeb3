@@ -98,7 +98,7 @@ static struct Tagdes tags[]=
    "LINK",     MARKUP_LINK,         FALSE,
    "LISTING",  MARKUP_LISTING,      TRUE,
    "MAP",      MARKUP_MAP,          TRUE,
-   "MARQUEE",  MARKUP_MARQUEE,      TRUE,
+   /* "MARQUEE",  MARKUP_MARQUEE,      TRUE, */
    "MENU",     MARKUP_MENU,         TRUE,
    "META",     MARKUP_META,         FALSE,
    "NOBR",     MARKUP_NOBR,         TRUE,
