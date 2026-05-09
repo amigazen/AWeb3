@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -596,6 +596,16 @@ ULONG Ajsetup(struct Aobject *ao,struct Jcontext *jc,struct Jobject *parent,
    struct Jobject *parentframe)
 {  struct Amjsetup amj;
    ULONG result;
+   static long ajsetup_nest = 0;
+   /* Ajsetup() can be triggered re-entrantly (e.g. document.write() while parsing calls Parsehtml()
+    * which causes object setup). The old global Ajsetup(Aweb()) path was guarded in higher layers,
+    * but now we call Ajsetup() more locally and can hit recursion. Avoid deadlocks by skipping
+    * nested Ajsetup calls; callers will re-run setup at the next safe point. */
+   if(ajsetup_nest > 0)
+   {
+      return 0;
+   }
+   ajsetup_nest++;
    amj.amsg.method=AOM_JSETUP;
    amj.jc=jc;
    amj.parent=parent;
@@ -608,6 +618,7 @@ ULONG Ajsetup(struct Aobject *ao,struct Jcontext *jc,struct Jobject *parent,
    if(jc && AWebJSBase)
    {  Jallowgc(jc,TRUE);
    }
+   ajsetup_nest--;
    return result;
 }
 
