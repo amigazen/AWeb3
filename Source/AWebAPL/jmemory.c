@@ -27,6 +27,7 @@
 /* Storage lives in jslib.c (Opened with awebjs.aweblib). */
 extern struct Library *AwebPluginBase;
 extern struct ExecBase *SysBase;
+extern BOOL httpdebug;
 
 /*-----------------------------------------------------------------------*/
 
@@ -79,6 +80,7 @@ static LONG jmem_session_peak_bytes;
 
 static BOOL Jmem_canlog(void)
 {
+   if(!httpdebug) return FALSE;
    if(!AwebPluginBase) return FALSE;
    if(!SysBase) return FALSE;
    if(SysBase->TDNestCnt) return FALSE;
@@ -109,7 +111,7 @@ static void Jmem_log_alloc(struct Jmemhdr *h, void *user)
    {
       if(JMEM_LOG_TRY_LOCK())
       {
-      Aprintf("[JSMEM] #%ld ALLOC user=%08lx hdr=%08lx req=%ld total=%ld pool=%08lx flags=%08lx\n",
+      Aprintf("[js:mem] #%ld ALLOC user=%08lx hdr=%08lx req=%ld total=%ld pool=%08lx flags=%08lx\n",
          (long)jmem_op,(ULONG)user,(ULONG)h,(long)h->reqsize,(long)h->totalsize,(ULONG)h->pool,(ULONG)h->flags);
          JMEM_LOG_UNLOCK();
       }
@@ -123,7 +125,7 @@ static void Jmem_log_free(struct Jmemhdr *h, void *user, ULONG totalsz)
    {
       if(JMEM_LOG_TRY_LOCK())
       {
-      Aprintf("[JSMEM] #%ld FREE  user=%08lx hdr=%08lx req=%ld total=%ld pool=%08lx flags=%08lx\n",
+      Aprintf("[js:mem] #%ld FREE  user=%08lx hdr=%08lx req=%ld total=%ld pool=%08lx flags=%08lx\n",
          (long)jmem_op,(ULONG)user,(ULONG)h,(long)h->reqsize,(long)totalsz,(ULONG)h->pool,(ULONG)h->flags);
          JMEM_LOG_UNLOCK();
       }
@@ -137,7 +139,7 @@ static void Jmem_log_quar_evict(struct Jmemhdr *oh, ULONG oldsz)
    {
       if(JMEM_LOG_TRY_LOCK())
       {
-      Aprintf("[JSMEM] #%ld QEVCT hdr=%08lx total=%ld pool=%08lx magic=%08lx state=%08lx oh_total=%ld\n",
+      Aprintf("[js:mem] #%ld QEVCT hdr=%08lx total=%ld pool=%08lx magic=%08lx state=%08lx oh_total=%ld\n",
          (long)jmem_op,(ULONG)oh,(long)oldsz,(ULONG)oh->pool,(ULONG)oh->magic,(ULONG)oh->state,(long)oh->totalsize);
          JMEM_LOG_UNLOCK();
       }
@@ -151,7 +153,7 @@ static void Jmem_log_quar_insert(struct Jmemhdr *h, ULONG idx)
    {
       if(JMEM_LOG_TRY_LOCK())
       {
-      Aprintf("[JSMEM] #%ld QINS  hdr=%08lx idx=%ld total=%ld pool=%08lx\n",
+      Aprintf("[js:mem] #%ld QINS  hdr=%08lx idx=%ld total=%ld pool=%08lx\n",
          (long)jmem_op,(ULONG)h,(long)idx,(long)h->totalsize,(ULONG)h->pool);
          JMEM_LOG_UNLOCK();
       }
@@ -165,7 +167,7 @@ static void Jmem_log_tail(struct Jmemhdr *h, void *user, ULONG t0, ULONG t1)
    {
       if(JMEM_LOG_TRY_LOCK())
       {
-      Aprintf("[JSMEM] #%ld TAIL  user=%08lx hdr=%08lx t0=%08lx t1=%08lx req=%ld\n",
+      Aprintf("[js:mem] #%ld TAIL  user=%08lx hdr=%08lx t0=%08lx t1=%08lx req=%ld\n",
          (long)jmem_op,(ULONG)user,(ULONG)h,(ULONG)t0,(ULONG)t1,(long)h->reqsize);
          JMEM_LOG_UNLOCK();
       }
@@ -180,7 +182,7 @@ static void Jmem_log_stack(ULONG *sp, const char *tag)
 
    /* Best-effort: dump a few stack words (often return addresses). */
    if(!JMEM_LOG_TRY_LOCK()) return;
-   Aprintf("[JSMEM] #%ld %s SP=%08lx [%08lx %08lx %08lx %08lx %08lx %08lx]\n",
+   Aprintf("[js:mem] #%ld %s SP=%08lx [%08lx %08lx %08lx %08lx %08lx %08lx]\n",
       (long)jmem_op,
       (tag ? (char *)tag : (char *)"STACK"),
       (ULONG)sp,
@@ -210,7 +212,7 @@ static void Jmem_init(void)
    {
       if(JMEM_LOG_TRY_LOCK())
       {
-         Aprintf("[JSMEM] INIT done\n");
+         Aprintf("[js:mem] INIT done\n");
          JMEM_LOG_UNLOCK();
       }
    }
@@ -251,7 +253,7 @@ void *JPallocmem(long size,ULONG flags,void *pool)
       {
          if(JMEM_LOG_TRY_LOCK())
          {
-            Aprintf("[JSMEM] #%ld ALLOCFAIL req=%ld total=%ld pool=%08lx flags=%08lx\n",
+            Aprintf("[js:mem] #%ld ALLOCFAIL req=%ld total=%ld pool=%08lx flags=%08lx\n",
                (long)jmem_op,(long)size,(long)asize,(ULONG)pool,(ULONG)flags);
             JMEM_LOG_UNLOCK();
          }
@@ -326,7 +328,7 @@ void JFreemem(void *mem)
       {
          if(JMEM_LOG_TRY_LOCK())
          {
-            Aprintf("[JSMEM] #%ld BADMAGIC user=%08lx hdr=%08lx magic=%08lx state=%08lx\n",
+            Aprintf("[js:mem] #%ld BADMAGIC user=%08lx hdr=%08lx magic=%08lx state=%08lx\n",
                (long)jmem_op,(ULONG)mem,(ULONG)h,(ULONG)h->magic,(ULONG)h->state);
             JMEM_LOG_UNLOCK();
          }
@@ -340,7 +342,7 @@ void JFreemem(void *mem)
       {
          if(JMEM_LOG_TRY_LOCK())
          {
-            Aprintf("[JSMEM] #%ld DOUBLEFREE user=%08lx hdr=%08lx magic=%08lx state=%08lx\n",
+            Aprintf("[js:mem] #%ld DOUBLEFREE user=%08lx hdr=%08lx magic=%08lx state=%08lx\n",
                (long)jmem_op,(ULONG)mem,(ULONG)h,(ULONG)h->magic,(ULONG)h->state);
             JMEM_LOG_UNLOCK();
          }
@@ -358,7 +360,7 @@ void JFreemem(void *mem)
       {
          if(JMEM_LOG_TRY_LOCK())
          {
-            Aprintf("[JSMEM] #%ld TAILCORRUPT user=%08lx hdr=%08lx req=%ld\n",
+            Aprintf("[js:mem] #%ld TAILCORRUPT user=%08lx hdr=%08lx req=%ld\n",
                (long)jmem_op,(ULONG)mem,(ULONG)h,(long)h->reqsize);
             JMEM_LOG_UNLOCK();
          }
@@ -507,7 +509,7 @@ void JmemPrintTeardown(struct Jcontext *jc)
    if(AwebPluginBase && Jmem_canlog() && JMEM_LOG_TRY_LOCK())
    {
       Aprintf(
-         "awebjs: teardown JPalloc=%lu JFreemem=%lu net_blocks=%ld outstanding_bytes=%ld objects_left=%lu%s\n",
+         "[js:mem] sessionTeardown JPalloc=%lu JFreemem=%lu netBlocks=%ld outstandingBytes=%ld objectsLeft=%lu%s\n",
          (unsigned long)a,(unsigned long)f,(long)net,(long)b,(unsigned long)objc,
          (objc!=0) ? " (objects_left after Freeexecute)" : "");
       JMEM_LOG_UNLOCK();

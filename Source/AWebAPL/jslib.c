@@ -51,8 +51,10 @@
 #define TRESHSIZE          4*1024
 
 struct ExecBase *SysBase;
-/* jdata.c GC traces use this; host aweb.c has its own BOOL httpdebug — they are not wired together yet. */
-BOOL httpdebug = TRUE;
+/* jdata.c / jmemory.c use this symbol when linked into awebjs.aweblib. The main binary has a
+ * separate httpdebug in aweb.c (HTTPDEBUG tooltype); that does not toggle this copy unless we
+ * add an API. Default FALSE for quiet production; set TRUE here for deep aweblib-only tracing. */
+BOOL httpdebug = FALSE;
 struct Locale *locale;
 struct Hook idcmphook;
 
@@ -303,10 +305,11 @@ static void Jslib_trace_cnt(const char *tag, struct Library *libbase)
    UBYTE buf[128];
    ULONG oc;
 
+   if(!httpdebug) return;
    if(!tag) return;
    oc = (libbase ? (ULONG)libbase->lib_OpenCnt : 0UL);
-   sprintf((char *)buf,"[JS] awebjs: %s OpenCnt=%lu PluginBase=%08lx\n",
-      tag,(unsigned long)oc,(ULONG)AwebPluginBase);
+   sprintf((char *)buf,"[js] awebjs.aweblib openCount=%lu event=%s pluginBase=%08lx\n",
+      (unsigned long)oc,tag,(ULONG)AwebPluginBase);
    Jslib_write(buf);
 }
 
@@ -426,12 +429,12 @@ __asm __saveds struct Library *Openlib(
    if(libbase->lib_OpenCnt==1)
    {  AwebPluginBase=OpenLibrary("awebplugin.library",0);
       Jslib_trace_cnt("Openlib opened plugin",libbase);
-      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-      {  Aprintf("[JS] Openlib ok\n");
+      if(httpdebug && AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+      {  Aprintf("[js] awebplugin.library opened (engine trace Aprintf path ok)\n");
       }
       else if(httpdebug)
       {  UBYTE buf[96];
-         sprintf((char *)buf,"[JS] awebjs: Aprintf disabled (AwebPluginBase=%08lx)\n",(ULONG)AwebPluginBase);
+         sprintf((char *)buf,"[js] awebplugin.library missing trace Aprintf disabled pluginBase=%08lx\n",(ULONG)AwebPluginBase);
          Jslib_write(buf);
       }
    }
@@ -449,7 +452,7 @@ __asm __saveds struct SegList *Closelib(
          AwebPluginBase=NULL;
       }
       else if(httpdebug)
-      {  Jslib_write((UBYTE *)"[JS] awebjs: Closelib with no AwebPluginBase\n");
+      {  Jslib_write((UBYTE *)"[js] awebjs.library close last openCount (awebplugin was not loaded)\n");
       }
       if(libbase->lib_Flags&LIBF_DELEXP)
       {  return Expungelib(libbase);
@@ -884,9 +887,6 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
 {  struct Jcontext *jc=NULL;
    void *pool;
    /* New Jcontext is created in its own pool */
-   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-   {  Aprintf("[JS] Newjcontext enter\n");
-   }
    if(pool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE))
    {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
       {  jc->pool=pool;
@@ -897,21 +897,20 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
          NEWLIST(&jc->objects);
          NEWLIST(&jc->tmp);
          JmemSessionBind(jc->pool);
-         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-         {  Aprintf("[JS] Newjcontext before Newexecute\n");
-         }
          Newexecute(jc);
-         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-         {  Aprintf("[JS] Newjcontext after Newexecute\n");
-         }
          jc->screenname=screenname;
       }
    }
    if(!jc)
    {  if(pool) DeletePool(pool);
    }
-   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-   {  Aprintf("[JS] Newjcontext exit\n");
+   if(httpdebug && AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
+   {  if(jc)
+      {  Aprintf("[js] NewContext ctx=%08lx builtinsReady=1\n",(ULONG)jc);
+      }
+      else
+      {  Aprintf("[js] NewContext failed\n");
+      }
    }
    return jc;
 }
@@ -951,13 +950,13 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
 {  BOOL result=TRUE;
    ULONG olduserdata,oldprotkey,olddflags;
    long oldwarnmem;
+   long srcbytes;
    struct Value val={0};
    LIST(Jobject) temps;
    struct Jobject *jo,*jn;
    unsigned int clock[2]={ 0,0 };
-   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-   {  Aprintf("[JS] Runjprogram enter\n");
-   }
+   srcbytes=0L;
+   if(jc && source) srcbytes=(long)strlen((char *)source);
    if(jc && source)
    {  idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
       idcmphook.h_Data=jc;
@@ -993,12 +992,12 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
       }
       jc->warntime=0;
       jc->warnmem=0;
-      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-      {  Aprintf("[JS] Runjprogram before Jcompile\n");
-      }
       Jcompile(jc,source);
-      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-      {  Aprintf("[JS] Runjprogram after Jcompile\n");
+      if(httpdebug && AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt && jc)
+      {  Aprintf("[js] CompileScript ctx=%08lx sourceBytes=%ld compileOk=%d jcfFlags=0x%04lx\n",
+            (ULONG)jc,srcbytes,
+            (int)((jc->flags&JCF_ERROR)?0:1),
+            (unsigned long)(jc->flags&0xffffUL));
       }
       jc->linenr=0;
       if(!(jc->flags&JCF_ERROR))
@@ -1026,13 +1025,7 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
             jc->warntime=clock[0]+60;
             jc->warnmem=AvailMem(0)/4;
          }
-         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-         {  Aprintf("[JS] Runjprogram before Jexecute\n");
-         }
          Jexecute(jc,jthis,gwtab);
-         if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-         {  Aprintf("[JS] Runjprogram after Jexecute\n");
-         }
          if(jc->dflags&DEBF_DOPEN)
          {  Stopdebugger(jc);
          }
@@ -1061,8 +1054,11 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
          }
       }
    }
-   if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-   {  Aprintf("[JS] Runjprogram exit\n");
+   if(httpdebug && AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt && jc)
+   {  Aprintf("[js] RunScript ctx=%08lx sourceBytes=%ld jcfError=%d returnBool=%d\n",
+         (ULONG)jc,srcbytes,
+         (int)((jc->flags&JCF_ERROR)?1:0),
+         (int)result);
    }
    return result;
 }
@@ -1399,9 +1395,6 @@ __asm __saveds void Jsetfeedback(
    register __a1 Jfeedback *jf)
 {  if(jc)
    {  jc->feedback=jf;
-      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-      {  Aprintf("[JS] Jsetfeedback\n");
-      }
    }
 }
 
@@ -1414,9 +1407,6 @@ __asm __saveds void Jdebug(
       }
       else
       {  jc->dflags&=~DEBF_DEBUG|DEBF_DBREAK;
-      }
-      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-      {  Aprintf("[JS] Jdebug\n");
       }
    }
 }
@@ -1450,9 +1440,6 @@ __asm __saveds void Jerrors(
       else
       {  jc->flags&=~EXF_WARNINGS;
       }
-      if(AwebPluginBase && SysBase && !SysBase->TDNestCnt && !SysBase->IDNestCnt)
-      {  Aprintf("[JS] Jerrors\n");
-      }
    }
 }
 
@@ -1465,25 +1452,10 @@ __asm __saveds void Jkeepobject(
 __asm __saveds void Jgarbagecollect(
    register __a0 struct Jcontext *jc)
 {
-   BPTR fh;
-   static const char entermsg[] = "[JS] Jgarbagecollect enter\n";
-   static const char exitmsg[]  = "[JS] Jgarbagecollect exit\n";
-
-   /* Use DOS Output() breadcrumbs here (not Aprintf):
-    * this runs exactly at the hang site and must not depend on awebplugin.library. */
-   fh=Output();
-   if(fh)
-   {
-      Write(fh,(APTR)entermsg,(LONG)sizeof(entermsg)-1);
-   }
+   /* Detailed GC trace is emitted from jdata.c (Write(Output)) when httpdebug is on. */
    if(jc)
    {
       Garbagecollect(jc);
-   }
-   fh=Output();
-   if(fh)
-   {
-      Write(fh,(APTR)exitmsg,(LONG)sizeof(exitmsg)-1);
    }
 }
 

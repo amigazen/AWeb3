@@ -33,7 +33,7 @@
 extern struct ExecBase *SysBase;
 /* Required for debug()/Aprintf pragmas in awebplugin.h when Dumpobjects() uses debug(). */
 extern struct Library *AwebPluginBase;
-/* Mirrored copy for aweblib (see jslib.c); host aweb.c also has BOOL httpdebug — not the same symbol. */
+/* BOOL httpdebug is defined in jslib.c (aweblib). Host aweb.c has a separate httpdebug; see jslib.c. */
 extern BOOL httpdebug;
 
 struct Array;  /* Forward declaration */
@@ -53,9 +53,8 @@ struct JPropIdxEnt
 #define JPROP_IDX_ENABLE 1
 #endif
 
-/* Do not test TDNestCnt/IDNestCnt here: Jgarbagecollect() uses Write(Output()) without that guard,
- * and skipping writes during nested Forbid made GC look "silent" while [JS] printf (main binary)
- * still appeared. Route all GC diagnostics through Write(Output()), not stdio printf. */
+/* Do not test TDNestCnt/IDNestCnt here: diagnostics use Write(Output()); when httpdebug is off,
+ * Jgc_* and Jgc_log are no-ops. Prefix lines with [js] and key=value fields (trace-gc style); never printf from aweblib GC. */
 static void Jgc_write(UBYTE *s)
 {
    BPTR fh;
@@ -88,7 +87,7 @@ static void Jgc_trace_enter(struct Jcontext *jc, long oldnogc)
    UBYTE buf[120];
 
    if(!httpdebug) return;
-   sprintf((char *)buf,"[JSGC] phase=ENTER jc=%08lx nogc=%ld\n",(unsigned long)(ULONG)jc,(long)oldnogc);
+   sprintf((char *)buf,"[js] phase=ENTER jc=%08lx nogc=%ld\n",(unsigned long)(ULONG)jc,(long)oldnogc);
    Jgc_write(buf);
 }
 
@@ -97,7 +96,7 @@ static void Jgc_trace_clear(int scanned)
    UBYTE buf[96];
 
    if(!httpdebug) return;
-   sprintf((char *)buf,"[JSGC] phase=CLEAR scanned=%d\n",scanned);
+   sprintf((char *)buf,"[js] phase=CLEAR scanned=%d\n",scanned);
    Jgc_write(buf);
 }
 
@@ -108,12 +107,24 @@ static void Jgc_trace_plain(const char *line)
    Jgc_write((UBYTE *)line);
 }
 
+static void Jgc_trace_gc_summary(struct Jcontext *jc,long scanned,long unlinked,long disposed)
+{
+   UBYTE buf[128];
+
+   if(!httpdebug) return;
+   if(!jc) return;
+   sprintf((char *)buf,
+      "[js] CollectGarbage ctx=%08lx scannedObjects=%ld sweepUnlinked=%ld finalized=%ld\n",
+      (unsigned long)(ULONG)jc,scanned,unlinked,disposed);
+   Jgc_write(buf);
+}
+
 static void Jgc_trace_sweep_list(long unlinked)
 {
    UBYTE buf[96];
 
    if(!httpdebug) return;
-   sprintf((char *)buf,"[JSGC] phase=SWEEP_LIST unlinked=%ld\n",(long)unlinked);
+   sprintf((char *)buf,"[js] phase=SWEEP_LIST unlinked=%ld\n",(long)unlinked);
    Jgc_write(buf);
 }
 
@@ -122,7 +133,7 @@ static void Jgc_trace_disposed(long disposed)
    UBYTE buf[96];
 
    if(!httpdebug) return;
-   sprintf((char *)buf,"[JSGC] phase=DISPOSE_DONE disposed=%ld\n",(long)disposed);
+   sprintf((char *)buf,"[js] phase=DISPOSE_DONE disposed=%ld\n",(long)disposed);
    Jgc_write(buf);
 }
 
@@ -135,7 +146,7 @@ static void Jgc_trace_dispose_before(long ordinal, struct Jobject *jo)
    if(!httpdebug) return;
    if(!jo) return;
    sprintf((char *)buf,
-      "[JSGC] DISPOSE_BEFORE n=%ld jo=%08lx type=%08lx flags=%04x disposefn=%08lx internal=%08lx\n",
+      "[js] DISPOSE_BEFORE n=%ld jo=%08lx type=%08lx flags=%04x disposefn=%08lx internal=%08lx\n",
       (long)ordinal,
       (unsigned long)(ULONG)jo,
       (unsigned long)jo->type,
@@ -153,22 +164,21 @@ static void Jgc_trace_dispose_step(struct Jobject *jo, const char *tag)
    if(!httpdebug) return;
    if(!jo) return;
    if(!tag) return;
-   sprintf((char *)buf,"[JSGC] DISPOSE_STEP jo=%08lx %s\n",(unsigned long)(ULONG)jo,tag);
+   sprintf((char *)buf,"[js] DISPOSE_STEP jo=%08lx %s\n",(unsigned long)(ULONG)jo,tag);
    Jgc_write(buf);
 }
 
 static void Jgc_log(struct Jcontext *jc, UBYTE *tag, long a, long b, long c, ULONG p0, ULONG p1)
 {
+   if(!httpdebug) return;
    if(!jc) return;
    if(!tag) return;
-   /* Console breadcrumbs only: never call Aprintf() here — inside awebjs.aweblib it can fault
-    * (address error) depending on stack/register conventions at the call site. */
    (void)a;
    (void)b;
    (void)c;
    (void)p0;
    (void)p1;
-   Jgc_mark((UBYTE *)"[JSGC] ");
+   Jgc_mark((UBYTE *)"[js] ");
    Jgc_mark(tag);
    Jgc_mark((UBYTE *)"\n");
 }
@@ -179,10 +189,11 @@ static void Jgc_log(struct Jcontext *jc, UBYTE *tag, long a, long b, long c, ULO
 
 static void Jgc_dump_object(struct Jobject *jo, UBYTE *tag)
 {
+   if(!httpdebug) return;
    if(!jo) return;
    (void)tag;
    /* One fixed line only — avoid Aprintf/%s on possibly stale pointers during sweep. */
-   Jgc_mark((UBYTE *)"[JSGC] DEAD\n");
+   Jgc_mark((UBYTE *)"[js] DEAD\n");
 }
 
 static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
@@ -1193,7 +1204,7 @@ void Garbagecollect(struct Jcontext *jc)
    if(scanned > 0)
    {
        Jgc_log(jc,(UBYTE *)"ROOTS_BEGIN",scanned,0,0,(ULONG)jc->val,(ULONG)jc->throwval);
-       Jgc_trace_plain("[JSGC] phase=ROOTS_BEGIN\n");
+       Jgc_trace_plain("[js] phase=ROOTS_BEGIN\n");
        if(jc->val && jc->val->type == VTP_OBJECT)
        {
           if(jc->val->value.obj.ovalue)Garbagemark(jc->val->value.obj.ovalue);
@@ -1327,9 +1338,9 @@ void Garbagecollect(struct Jcontext *jc)
           {  Garbagemark(w->jo);
           }
        }
-       Jgc_trace_plain("[JSGC] phase=MARK_DONE\n");
+       Jgc_trace_plain("[js] phase=MARK_DONE\n");
        Jgc_log(jc,(UBYTE *)"SWEEP_BEGIN",scanned,0,0,(ULONG)objectlist->lh_Head,(ULONG)objectlist->lh_TailPred);
-       Jgc_trace_plain("[JSGC] phase=SWEEP_BEGIN\n");
+       Jgc_trace_plain("[js] phase=SWEEP_BEGIN\n");
        /* Sweep in two phases:
         * 1) unlink dead objects from jc->objects into a local dead list
         * 2) dispose them outside the main list walk
@@ -1367,8 +1378,8 @@ void Garbagecollect(struct Jcontext *jc)
           }
        }
        Jgc_trace_disposed(disposed);
+       Jgc_trace_gc_summary(jc,(long)scanned,unlinked,disposed);
        Jgc_log(jc,(UBYTE *)"EXIT",scanned,unlinked,disposed,(ULONG)objectlist->lh_Head,(ULONG)objectlist->lh_TailPred);
-       Jgc_trace_plain("[JSGC] phase=EXIT\n");
    }
    jc->nogc = oldnogc;
 }

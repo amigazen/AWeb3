@@ -2736,7 +2736,7 @@ static BOOL Doscript(struct Document *doc,struct Tagattr *ta)
          {  if(httpdebug)
             {  UBYTE *absjs;
                absjs=(UBYTE *)Agetattr(url,AOURL_Url);
-               printf("[JS] Blocking third-party script: dochost=%s, srchost=%.*s, url=%s\n",
+               printf("[js] blocked third-party script dochost=%s srchost=%.*s url=%s\n",
                       docdomain ? (char *)docdomain : "NULL",
                       (int)scrlength, scrstart ? (char *)scrstart : "",
                       absjs ? (char *)absjs : "NULL");

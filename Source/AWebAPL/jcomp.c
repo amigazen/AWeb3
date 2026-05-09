@@ -2626,7 +2626,7 @@ static void Disfunc(struct Elementfunc *elt)
 
    if(httpdebug && elt)
    {
-      sprintf((char *)dbgt,"[JSGC] DISFUNC_ENTER elt=%08lx bcode=%08lx body=%08lx\n",
+      sprintf((char *)dbgt,"[js] DISFUNC_ENTER elt=%08lx bcode=%08lx body=%08lx\n",
          (unsigned long)(ULONG)elt,
          (unsigned long)(ULONG)elt->bcode,
          (unsigned long)(ULONG)elt->body);
@@ -2636,13 +2636,13 @@ static void Disfunc(struct Elementfunc *elt)
    {
       if(httpdebug)
       {
-         sprintf((char *)dbgt,"[JSGC] DISFUNC_BEFORE_JVMFREE elt=%08lx\n",(unsigned long)(ULONG)elt);
+         sprintf((char *)dbgt,"[js] DISFUNC_BEFORE_JVMFREE elt=%08lx\n",(unsigned long)(ULONG)elt);
          Jcomp_log_line(dbgt);
       }
       Jvmfreechunk(elt->bcode);
       if(httpdebug)
       {
-         sprintf((char *)dbgt,"[JSGC] DISFUNC_AFTER_JVMFREE elt=%08lx\n",(unsigned long)(ULONG)elt);
+         sprintf((char *)dbgt,"[js] DISFUNC_AFTER_JVMFREE elt=%08lx\n",(unsigned long)(ULONG)elt);
          Jcomp_log_line(dbgt);
       }
       elt->bcode=NULL;
@@ -2657,21 +2657,21 @@ static void Disfunc(struct Elementfunc *elt)
    }
    if(httpdebug && elt)
    {
-      sprintf((char *)dbgt,"[JSGC] DISFUNC_AFTER_SUBS elt=%08lx\n",(unsigned long)(ULONG)elt);
+      sprintf((char *)dbgt,"[js] DISFUNC_AFTER_SUBS elt=%08lx\n",(unsigned long)(ULONG)elt);
       Jcomp_log_line(dbgt);
    }
    if(elt->body)
    {
       if(httpdebug)
       {
-         sprintf((char *)dbgt,"[JSGC] DISFUNC_BEFORE_BODY elt=%08lx body=%08lx\n",
+         sprintf((char *)dbgt,"[js] DISFUNC_BEFORE_BODY elt=%08lx body=%08lx\n",
             (unsigned long)(ULONG)elt,(unsigned long)(ULONG)elt->body);
          Jcomp_log_line(dbgt);
       }
       Disposelt(elt->body);
       if(httpdebug)
       {
-         sprintf((char *)dbgt,"[JSGC] DISFUNC_AFTER_BODY elt=%08lx\n",(unsigned long)(ULONG)elt);
+         sprintf((char *)dbgt,"[js] DISFUNC_AFTER_BODY elt=%08lx\n",(unsigned long)(ULONG)elt);
          Jcomp_log_line(dbgt);
       }
       elt->body=NULL;
@@ -2683,7 +2683,7 @@ static void Disfunc(struct Elementfunc *elt)
    elt->fscope=NULL;
    if(httpdebug && elt)
    {
-      sprintf((char *)dbgt,"[JSGC] DISFUNC_BEFORE_FREE elt=%08lx\n",(unsigned long)(ULONG)elt);
+      sprintf((char *)dbgt,"[js] DISFUNC_BEFORE_FREE elt=%08lx\n",(unsigned long)(ULONG)elt);
       Jcomp_log_line(dbgt);
    }
    FREE(elt);
@@ -2836,7 +2836,7 @@ static void Disposelt(struct Element *elt)
    {
       if(httpdebug)
       {
-         sprintf((char *)buf,"[JSGC] DISPOSE_REPEAT elt=%08lx\n",(unsigned long)(ULONG)elt);
+         sprintf((char *)buf,"[js] DISPOSE_REPEAT elt=%08lx\n",(unsigned long)(ULONG)elt);
          Jcomp_log_line(buf);
       }
       return;
@@ -2847,7 +2847,7 @@ static void Disposelt(struct Element *elt)
    {
       if(httpdebug)
       {
-         sprintf((char *)buf,"[JSGC] DISPOSE_BADTYPE elt=%08lx type=%lu tab=%lu\n",
+         sprintf((char *)buf,"[js] DISPOSE_BADTYPE elt=%08lx type=%lu tab=%lu\n",
             (unsigned long)(ULONG)elt,
             (unsigned long)(ULONG)elt->type,
             (unsigned long)ntab);
