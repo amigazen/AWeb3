@@ -88,20 +88,21 @@ static BOOL Jmem_canlog(void)
    return TRUE;
 }
 
-/* Some early-init/teardown paths may run under Forbid() or other contexts
- * where blocking semaphore waits are unsafe. Keep semaphore usage optional. */
+/* Serialize JPallocmem/JFreemem on the same pool (Exec requires arbitration when a
+ * pool can be used from more than one task). Same lock guards session counters and
+ * quarantine state. Logging uses jmem_log_sema separately to avoid deadlocking on Aprintf. */
 #define JMEM_USE_SEMA 1
 
 #if JMEM_USE_SEMA
-#define JMEM_TRY_LOCK()    AttemptSemaphore(&jmem_sema)
-#define JMEM_UNLOCK()      ReleaseSemaphore(&jmem_sema)
-#define JMEM_LOG_TRY_LOCK() AttemptSemaphore(&jmem_log_sema)
-#define JMEM_LOG_UNLOCK()  ReleaseSemaphore(&jmem_log_sema)
+#define JMEM_LOCK()          ObtainSemaphore(&jmem_sema)
+#define JMEM_UNLOCK()        ReleaseSemaphore(&jmem_sema)
+#define JMEM_LOG_TRY_LOCK()  AttemptSemaphore(&jmem_log_sema)
+#define JMEM_LOG_UNLOCK()    ReleaseSemaphore(&jmem_log_sema)
 #else
-#define JMEM_TRY_LOCK()    TRUE
-#define JMEM_UNLOCK()      ((void)0)
-#define JMEM_LOG_TRY_LOCK() TRUE
-#define JMEM_LOG_UNLOCK()  ((void)0)
+#define JMEM_LOCK()          ((void)0)
+#define JMEM_UNLOCK()        ((void)0)
+#define JMEM_LOG_TRY_LOCK()  TRUE
+#define JMEM_LOG_UNLOCK()    ((void)0)
 #endif
 
 static void Jmem_log_alloc(struct Jmemhdr *h, void *user)
@@ -221,6 +222,7 @@ static void Jmem_init(void)
 void *JPallocmem(long size,ULONG flags,void *pool)
 {
    void *mem;
+   void *ret;
    ULONG asize;
    BOOL use_pool;
    BOOL do_clear;
@@ -231,6 +233,7 @@ void *JPallocmem(long size,ULONG flags,void *pool)
    ULONG t0;
    ULONG t1;
 
+   ret=NULL;
    Jmem_init();
    jmem_op++;
 
@@ -242,6 +245,7 @@ void *JPallocmem(long size,ULONG flags,void *pool)
    do_clear=TRUE;
    asize=(ULONG)size + (ULONG)sizeof(struct Jmemhdr) + JMEM_TAILSIZE;
 
+   JMEM_LOCK();
    if(use_pool)
       mem=AllocPooled(pool,asize);
    else
@@ -249,6 +253,7 @@ void *JPallocmem(long size,ULONG flags,void *pool)
 
    if(!mem)
    {
+      JMEM_UNLOCK();
       if(Jmem_canlog())
       {
          if(JMEM_LOG_TRY_LOCK())
@@ -283,10 +288,6 @@ void *JPallocmem(long size,ULONG flags,void *pool)
    t=(ULONG *)(user + (ULONG)size);
    t[0]=JMEM_TAIL_MAGIC;
    t[1]=(ULONG)size;
-   t0=t[0];
-   t1=t[1];
-   Jmem_log_alloc(h,(void *)user);
-   Jmem_log_tail(h,(void *)user,t0,t1);
    if(use_pool && pool==jmem_session_pool)
    {
       jmem_session_allocs++;
@@ -297,7 +298,14 @@ void *JPallocmem(long size,ULONG flags,void *pool)
          jmem_session_peak_bytes=jmem_session_bytes;
       }
    }
-   return (void *)user;
+   ret=(void *)user;
+   JMEM_UNLOCK();
+
+   t0=t[0];
+   t1=t[1];
+   Jmem_log_alloc(h,(void *)user);
+   Jmem_log_tail(h,(void *)user,t0,t1);
+   return ret;
 }
 
 void JFreemem(void *mem)
@@ -305,7 +313,6 @@ void JFreemem(void *mem)
    struct Jmemhdr *h;
    UBYTE *user;
    ULONG *t;
-   ULONG i2;
    ULONG totalsz;
    void *old;
    ULONG oldsz;
@@ -320,10 +327,13 @@ void JFreemem(void *mem)
    if(!mem)
       return;
 
+   JMEM_LOCK();
+
    user=(UBYTE *)mem;
    h=(struct Jmemhdr *)(user - sizeof(struct Jmemhdr));
    if(h->magic!=JMEM_MAGIC_ALLOC)
    {
+      JMEM_UNLOCK();
       if(Jmem_canlog())
       {
          if(JMEM_LOG_TRY_LOCK())
@@ -338,6 +348,7 @@ void JFreemem(void *mem)
    }
    if(h->state!=JMEM_STATE_ALLOC)
    {
+      JMEM_UNLOCK();
       if(Jmem_canlog())
       {
          if(JMEM_LOG_TRY_LOCK())
@@ -383,60 +394,56 @@ void JFreemem(void *mem)
    }
 
 #if JMEM_QUARANTINE
-   if(JMEM_TRY_LOCK())
+   idx=jmem_quaridx;
+   old=jmem_quar[idx];
+   oldsz=jmem_quarsz[idx];
+   jmem_quar[idx]=(void *)h;
+   jmem_quarsz[idx]=totalsz;
+   jmem_quaridx=idx+1;
+   if(jmem_quaridx>=32)
+      jmem_quaridx=0;
+   Jmem_log_quar_insert(h,idx);
+   if(old)
    {
-      idx=jmem_quaridx;
-      old=jmem_quar[idx];
-      oldsz=jmem_quarsz[idx];
-      jmem_quar[idx]=(void *)h;
-      jmem_quarsz[idx]=totalsz;
-      jmem_quaridx=idx+1;
-      if(jmem_quaridx>=32)
-         jmem_quaridx=0;
-      Jmem_log_quar_insert(h,idx);
-      if(old)
-      {
-         oh=(struct Jmemhdr *)old;
-         Jmem_log_quar_evict(oh,oldsz);
-         if(oh->pool)
-            FreePooled(oh->pool,oh,oldsz);
-         else
-            FreeMem(oh,oldsz);
-      }
-      JMEM_UNLOCK();
-   }
-   else
-   {
-      if(h->pool)
-         FreePooled(h->pool,h,totalsz);
+      oh=(struct Jmemhdr *)old;
+      Jmem_log_quar_evict(oh,oldsz);
+      if(oh->pool)
+         FreePooled(oh->pool,oh,oldsz);
       else
-         FreeMem(h,totalsz);
+         FreeMem(oh,oldsz);
    }
 #else
-   /* Free immediately. */
+   /* Free immediately (already holding jmem_sema). */
    if(h->pool)
       FreePooled(h->pool,h,totalsz);
    else
       FreeMem(h,totalsz);
 #endif
+
+   JMEM_UNLOCK();
 }
 
 void *JGetpool(void *p)
 {
    struct Jmemhdr *h;
+   void *pool;
 
+   pool=NULL;
    if(!p)
       return NULL;
+   JMEM_LOCK();
    h=(struct Jmemhdr *)((UBYTE *)p - sizeof(struct Jmemhdr));
-   if(h->magic!=JMEM_MAGIC_ALLOC)
-      return NULL;
-   return h->pool;
+   if(h->magic==JMEM_MAGIC_ALLOC)
+      pool=h->pool;
+   JMEM_UNLOCK();
+   return pool;
 }
 
 /*-----------------------------------------------------------------------*/
 
 void JmemSessionBind(void *pool)
 {
+   JMEM_LOCK();
    jmem_session_pool=pool;
    jmem_session_allocs=0;
    jmem_session_frees=0;
@@ -444,15 +451,19 @@ void JmemSessionBind(void *pool)
    jmem_session_total_alloc_bytes=0;
    jmem_session_total_free_bytes=0;
    jmem_session_peak_bytes=0;
+   JMEM_UNLOCK();
 }
 
 void JmemSessionUnbind(void)
 {
+   JMEM_LOCK();
    jmem_session_pool=NULL;
+   JMEM_UNLOCK();
 }
 
 void JmemSessionGetStats(ULONG *allocs,ULONG *frees,LONG *outstanding_bytes)
 {
+   JMEM_LOCK();
    if(allocs)
    {
       *allocs=jmem_session_allocs;
@@ -465,13 +476,26 @@ void JmemSessionGetStats(ULONG *allocs,ULONG *frees,LONG *outstanding_bytes)
    {
       *outstanding_bytes=jmem_session_bytes;
    }
+   JMEM_UNLOCK();
 }
 
 void JmemSessionGetStatsEx(
    ULONG *allocs,ULONG *frees,LONG *outstanding_bytes,
    ULONG *total_alloc_bytes,ULONG *total_free_bytes,LONG *peak_outstanding_bytes)
 {
-   JmemSessionGetStats(allocs,frees,outstanding_bytes);
+   JMEM_LOCK();
+   if(allocs)
+   {
+      *allocs=jmem_session_allocs;
+   }
+   if(frees)
+   {
+      *frees=jmem_session_frees;
+   }
+   if(outstanding_bytes)
+   {
+      *outstanding_bytes=jmem_session_bytes;
+   }
    if(total_alloc_bytes)
    {
       *total_alloc_bytes=jmem_session_total_alloc_bytes;
@@ -484,6 +508,7 @@ void JmemSessionGetStatsEx(
    {
       *peak_outstanding_bytes=jmem_session_peak_bytes;
    }
+   JMEM_UNLOCK();
 }
 
 /* After Freeexecute(): jc->objects must be empty; print JP session and sanity counts. */

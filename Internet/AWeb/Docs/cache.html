@@ -4,6 +4,7 @@
  * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -126,9 +127,9 @@ mode.
 All documents and inlined images <em>from the net</em> are stored in
 the cache. The following objects will <em>not</em> go into the cache:
 <ul>
-<li>Objects from your own machine (<code>file://localhost</code>). Because these
-   objects already reside on your harddisk, there is no reason to store them
-   again in the cache.
+<li>Objects loaded via <code>file://</code> URLs (local volumes and paths). These
+   already reside on your machine; AWeb does not copy them into the disk cache
+   unnecessarily.
 <li>Downloaded objects, they are stored at the location where you save them.
 <li>Objects from sites listed in the <a href=settings/nwcache.html#nocache>do
    not cache these sites list</a>.

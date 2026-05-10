@@ -1,0 +1,36 @@
+/* protoweb.awebrx - Toggle Protoweb proxy setting
+ *
+ * This script toggles the HTTP proxy between wayback.protoweb.org:7851
+ * and no proxy (disabled).
+ *
+ * Uses GETCFG/SETCFG ITEM HTTPPROXY (arexx.aweblib reads/writes prefs.network.httpproxy).
+ */
+
+/* Ensure we're addressing an AWeb port */
+if left(address(),5)~="AWEB." then do
+   ports=show("P")
+   parse var ports dummy "AWEB." portnr .
+   if portnr="" then do
+      address command "run >NIL: <NIL: AWeb:AWeb"
+      address command "WaitForPort AWEB.1"
+      portnr=1
+   end
+   address value "AWEB."portnr
+   'get activeport'
+   address value result
+end
+
+/* Get current proxy setting */
+'GETCFG HTTPPROXY current_proxy'
+
+/* Check if current proxy contains "protoweb" (case-insensitive) */
+if pos('protoweb', translate(current_proxy)) > 0 then do
+    /* Currently set to Protoweb - disable it */
+    'SETCFG HTTPPROXY ""'
+end
+else do
+    /* Not Protoweb - enable it */
+    'SETCFG HTTPPROXY "http://wayback.protoweb.org:7851"'
+end
+
+exit 0

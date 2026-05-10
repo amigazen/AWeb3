@@ -1,0 +1,25 @@
+{
+  "status": "success",
+  "message": "This is a test JSON response for XMLHttpRequest testing",
+  "timestamp": "2025-01-01T00:00:00Z",
+  "data": {
+    "test": true,
+    "items": [
+      {"id": 1, "name": "Item One"},
+      {"id": 2, "name": "Item Two"},
+      {"id": 3, "name": "Item Three"}
+    ]
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+

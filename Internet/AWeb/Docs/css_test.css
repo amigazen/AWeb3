@@ -3,7 +3,7 @@
  * 
  * This file is part of the AWeb distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -752,6 +752,15 @@
 .test-container {
     background-color: #e8e8e8;
     padding: 10px;
+}
+
+/* Negative parsing test (graceful failure): unknown declaration ignored; remainder of rule applies */
+.ss-css-neg-junk {
+    aweb-negative-unknown-prop-test: junk;
+    color: #003300;
+    background-color: #eeffee;
+    border: 1px solid #003300;
+    padding: 4px;
 }
 
 

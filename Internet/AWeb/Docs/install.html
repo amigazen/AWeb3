@@ -4,7 +4,7 @@
  * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -26,61 +26,92 @@ Installation
 <body background=awebbg.iff>
 <h1><img src=aweb.iff alt=(logo) width=192 height=93>&nbsp; Installation</h1>
 
-<h2>Installing AWeb</h2>
-Installing AWeb is straightforward. Just double-click the Install icon.
+<h2>No installer</h2>
 <p>
-The archive contains three different Workbench icons for AWeb: for the
-standard Workbench, for MagicWB, and for NewIcons. The installation process
-will ask you which you want to install. The other icons are saved in a
-separate drawer so you can switch icons later.
+AWeb 3.6 does <strong>not</strong> use an installer script. Unpack the archive to any
+drawer you like and run AWeb from that folder.
+</p>
 <p>
-AWeb needs some <a href=classact.html>ClassAct</a> classes.
-These are
-included in the archive, and the installation process will ask you if
-you want to install them. You are strongly encouraged to do so. If you
-do not install ClassAct, you have to make sure that AWeb can find its
-classes, for instance by executing the <code>MakeAssign</code> script
-before you start AWeb. If you <em>do</em> install ClassAct, you don't
-have to worry about this.
+If the assign <code><b>AWeb:</b></code> does not already exist, AWeb will create a
+<strong>temporary</strong> assign pointing at the directory you started it from, and
+remove that assign when it exits. That way the program can find its own
+<code>Docs</code>, aweblib, and awebplugin drawers next to the executable.
+If you have permanently assigned <code>AWeb:</code> elsewhere, AWeb will use that
+location instead.
+</p>
+<p>
+For distribution-specific notes (default CONFIG profile, disk cache location,
+AmiSSL, and debugging options), see the release
+<a href="../ReadMe.html">ReadMe.html</a> in this archive and
+<a href=requirements.html>System requirements</a>.
+</p>
+
+<h2>Preferences and CONFIG</h2>
+<p>
+Saved preferences from older AWeb releases are not guaranteed to be compatible
+with AWeb 3.6. A fresh configuration is recommended. You can keep a separate
+prefs profile using the <code>CONFIG</code> ToolType or Shell argument (see
+<a href=../ReadMe.html>ReadMe.html</a> for the default profile name used with
+this build).
+</p>
+
+<h2>ReAction and system software</h2>
+<p>
+AWeb 3.6 is built for the <strong>ReAction</strong> GUI framework. 
+Legacy ClassAct-only setups from the original AWeb
+3.4 installer are no longer the supported path; see
+<a href=classact.html>ClassAct and ReAction</a> and
+<a href=requirements.html>System requirements</a> for details.
+</p>
+
 <h2>Configuring the JFIF datatype</h2>
-<em>If you use the JFIF datatype (by Christoph Feck, TowerSystems), then 
+<p>
+<em>If you use the JFIF datatype (by Christoph Feck, TowerSystems), then
 please read this:</em>
+</p>
 <p>
 The JFIF datatype doesn't seem to handle shareable pens on public screens
 correctly under all circumstances.
-You have to install AWeb in the datatype or else AWeb will not be able to
+You must register AWeb in the datatype preferences or AWeb will not be able to
 show inline JPEG images.
+</p>
 <p>
 In the JFIF preference editor, you must add an application named
 <code><b>AWebIP</b></code> (AWeb Image Processing), and then select
 <em>Single-Pass Quantization</em> (in the GadTools version of the
 preference editor) or <em>One-pass</em> (in the MUI version).
+</p>
 
-<h2>Image Format Plugins</h2>
-AWeb includes three image format plugins that are preinstalled but need to be
-configured before use:
+<h2>Image format plugins</h2>
+<p>
+AWeb includes three image format plugins that are shipped with the distribution
+but must be enabled and configured for their MIME types if you want to use them
+instead of (or in addition to) DataTypes:
+</p>
 <ul>
-<li><a href=awebpng.html>AWeb PNG plugin</a> - for viewing PNG images
-<li><a href=awebgif.html>AWeb GIF plugin</a> - for viewing GIF images (including animated GIFs)
-<li><a href=awebjfif.html>AWeb JFIF plugin</a> - for viewing JPEG/JFIF images
+<li><a href=awebpng.html>AWeb PNG plugin</a> &mdash; PNG images
+<li><a href=awebgif.html>AWeb GIF plugin</a> &mdash; GIF images (including animated GIFs)
+<li><a href=awebjfif.html>AWeb JFIF plugin</a> &mdash; JPEG/JFIF images
 </ul>
 <p>
-These plugins are located in the <code>awebplugins</code> drawer where AWeb is
-installed. To use them, you need to configure them in AWeb's browser settings
-(Viewers page) for their respective MIME types. See the individual plugin
-documentation pages for detailed configuration instructions and available
-parameters.
+These plugins live in the <code>awebplugins</code> drawer next to the main AWeb
+binary (under the same root as this <code>Docs</code> folder once unpacked).
+Configure them from AWeb's settings (Viewers page). See each plugin's
+documentation for parameters.
+</p>
 <p>
 <em>Note:</em> These plugins are bundled with AWeb. Patent restrictions on
 these image formats have long since expired, allowing these plugins to be
 included in the standard distribution.
+</p>
 
 <h2>The AWebLib drawer</h2>
-In order to reduce the size of the executable, some less frequently used parts
-of AWeb are located in separate files. AWeb expects these files to be found
-in the <code>AWebLib</code> subdrawer. 
-You must not move these files out of their drawer, or else some functions
-of AWeb may cease to work.
+<p>
+To keep the main executable smaller, some less frequently used parts of AWeb are
+loaded from separate modules. They are expected in the <code>aweblib</code>
+drawer. If you move or delete files out of that drawer the associated
+features will stop working.
+</p>
 
 <p>
 <hr>
