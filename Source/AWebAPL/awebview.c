@@ -360,6 +360,13 @@ void AddtagstrA(struct Buffer *buf,UBYTE *keywd,USHORT f,ULONG value)
    }
 }
 
+/* See aweb.c for the long version of this comment. Path list nodes passed
+ * via NP_Path to an asynchronously spawned process are freed by dos.library
+ * with FreeVec on process exit, so they must be allocated with AllocVec to
+ * match. AWeb 3.6a7 used AllocVec/FreeVec here and worked correctly; using
+ * the AWeb memory pool or raw AllocMem/FreeMem caused the system to crash
+ * when MultiView exited because dos.library's FreeVec read 4 bytes before
+ * the node as a (garbage) size and freed an arbitrary region. */
 long Copypathlist(void)
 {  struct PathList *pl,*plfirst=NULL,*pllast=NULL,*plnew;
    for(pl=ourpathlist;pl;pl=(struct PathList *)BADDR(pl->next))

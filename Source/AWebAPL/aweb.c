@@ -418,17 +418,29 @@ void AddtagstrA(struct Buffer *buf,UBYTE *keywd,USHORT f,ULONG value)
    }
 }
 
+/* The path list nodes built here are passed to the asynchronously spawned
+ * shell process via SystemTags(SYS_Asynch,TRUE,NP_Path,pl,...). The child
+ * process owns the chain and dos.library frees each node when that process
+ * exits. AmigaDOS performs that cleanup with FreeVec, NOT FreeMem, so the
+ * nodes MUST be allocated with AllocVec to match. Using AWeb's pool
+ * (Allocmem/Freemem) or raw AllocMem/FreeMem caused a system-wide crash
+ * when MultiView exited after a "View Source" because dos.library's
+ * FreeVec read 4 bytes before the node as a (garbage) size and freed an
+ * arbitrary region, corrupting the system free list. AWeb 3.6a7 used
+ * AllocVec/FreeVec here and worked correctly; the b56e158 mass migration
+ * to the pool, and the subsequent attempt to switch to AllocMem/FreeMem,
+ * both broke the contract dos.library expects. */
 long Copypathlist(void)
 {  struct PathList *pl,*plfirst=NULL,*pllast=NULL,*plnew;
    for(pl=ourpathlist;pl;pl=(struct PathList *)BADDR(pl->next))
-   {  if(plnew=(struct PathList *)Allocmem((long)sizeof(struct PathList),MEMF_PUBLIC))
+   {  if(plnew=(struct PathList *)AllocVec(sizeof(struct PathList),MEMF_PUBLIC))
       {  if(plnew->lock=DupLock(pl->lock))
          {  plnew->next=NULL;
             if(pllast) pllast->next=MKBADDR(plnew);
             else plfirst=plnew;
             pllast=plnew;
          }
-         else Freemem(plnew);
+         else FreeVec(plnew);
       }
    }
    return MKBADDR(plfirst);
@@ -439,7 +451,7 @@ void Freepathlist(long plbptr)
    for(pl=BADDR(plbptr);pl;pl=plnext)
    {  plnext=BADDR(pl->next);
       if(pl->lock) UnLock(pl->lock);
-      Freemem(pl);
+      FreeVec(pl);
    }
 }
 
@@ -508,6 +520,8 @@ BOOL Spawn(BOOL del,UBYTE *cmd,UBYTE *args,UBYTE *argspec,...)
    long lock;
    __aligned struct FileInfoBlock fib={0};
    BOOL script=FALSE;
+   AwebLog("spawn","Spawn: cmd=\"%s\" args=\"%s\" del=%ld",
+      cmd?(char *)cmd:"(null)",args?(char *)args:"(null)",(long)del);
    if(lock=Lock(cmd,SHARED_LOCK))
    {  if(Examine(lock,&fib))
       {  if(fib.fib_Protection&FIBF_SCRIPT) script=TRUE;
@@ -545,6 +559,8 @@ BOOL Spawn(BOOL del,UBYTE *cmd,UBYTE *args,UBYTE *argspec,...)
    }
    if(buffer) FREE(buffer);
    if(conbuf) FREE(conbuf);
+   AwebLog("spawn","Spawn: EXIT result=%s pl(BPTR)=%p (owned by spawned shell on success)",
+      result?"TRUE":"FALSE",(void *)pl);
    return result;
 }
 
