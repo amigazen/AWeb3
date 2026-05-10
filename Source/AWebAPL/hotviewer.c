@@ -22,6 +22,7 @@
 #include "task.h"
 #include "hotlist.h"
 #include "hotlisttask.h"
+#define NOCFGLOCALE 1
 #include "awebcfg.h"
 #include <intuition/intuition.h>
 #include <reaction/reaction.h>

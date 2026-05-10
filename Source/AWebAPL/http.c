@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Original Copyright (C) 2002 Yvon Rozijn
- * Rewrite Copyright (C) 2025 amigazen project
+ * Rewrite Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -45,6 +45,28 @@
 
 #include "/zlib/zconf.h"
 #include "/zlib/zlib.h"
+
+/* zlib default zcalloc uses malloc; route gzip inflate internal blocks through
+ * AWeb Allocmem/Freemem (same pools as the rest of the browser). */
+static voidpf aweb_http_zalloc(voidpf opaque, uInt items, uInt size)
+{
+   unsigned long nbytes;
+
+   (void)opaque;
+   if(items == 0U || size == 0U)
+      return (voidpf)0;
+   nbytes = (unsigned long)items * (unsigned long)size;
+   if(nbytes / (unsigned long)items != (unsigned long)size)
+      return (voidpf)0;
+   return (voidpf)Allocmem((long)nbytes, MEMF_PUBLIC);
+}
+
+static void aweb_http_zfree(voidpf opaque, voidpf ptr)
+{
+   (void)opaque;
+   if(ptr)
+      Freemem((void *)ptr);
+}
 
 /* Socket option constants if not already defined */
 #ifndef SO_RCVTIMEO
@@ -2655,8 +2677,8 @@ static BOOL Readdata(struct Httpinfo *hi)
             debug_printf("DEBUG: Starting gzip decompression, blocklength=%ld, gziplength=%ld\n", hi->blocklength, gziplength);
             
             /* Initialize zlib for gzip decompression */
-            d_stream.zalloc=Z_NULL;
-            d_stream.zfree=Z_NULL;
+            d_stream.zalloc=aweb_http_zalloc;
+            d_stream.zfree=aweb_http_zfree;
             d_stream.opaque=Z_NULL;
             d_stream.avail_in=0;
             d_stream.next_in=Z_NULL;
