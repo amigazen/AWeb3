@@ -794,9 +794,8 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->name=upath+9;
       else fch->fd->name=upath;
       fch->flags|=FCHF_LOCALSLOT;
-      if(!prefs.network.cachelocalhost)
-      {  Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
-      }
+      /* Source bytes already live on disk; never duplicate into AWCD regardless of CALH pref */
+      Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
    }
    else if(STRNIEQUAL(fch->name,"JAVASCRIPT:",11))
    {  struct Jcontext *jc;

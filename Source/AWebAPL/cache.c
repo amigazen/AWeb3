@@ -769,6 +769,22 @@ static long Getcache(struct Cache *cac,struct Amset *ams)
    return 0;
 }
 
+/* URL already maps to a host file — avoid writing a second copy under Cache:AWCD */
+static BOOL Cacheurlislocalfile(struct Cache *cac)
+{  UBYTE *u;
+   long ulen;
+
+   if(!cac || !cac->url) return FALSE;
+   u=(UBYTE *)Agetattr(cac->url,AOURL_Url);
+   if(!u) return FALSE;
+   if(STRNIEQUAL(u,"FILE:///",8)) return TRUE;
+   if(STRNIEQUAL(u,"FILE://LOCALHOST/",17)) return TRUE;
+   ulen=(long)strlen((char *)u);
+   if(ulen>=16 && STRNIEQUAL(u,"FILE://LOCALHOST",16) && (!u[16] || u[16]=='/'))
+      return TRUE;
+   return FALSE;
+}
+
 static long Srcupdatecache(struct Cache *cac,struct Amsrcupdate *ams)
 {  struct TagItem *tag,*tstate=ams->tags;
    UBYTE *data=NULL;
@@ -804,7 +820,7 @@ static long Srcupdatecache(struct Cache *cac,struct Amsrcupdate *ams)
       }
    }
    if(data || eof)
-   {  if(!cac->name) Opencacfile(cac);
+   {  if(!cac->name && !Cacheurlislocalfile(cac)) Opencacfile(cac);
    }
    if(data)
    {  if(length && cac->fh)
