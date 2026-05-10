@@ -15,7 +15,7 @@
 #-----------------------------------------------------------------------------
 
 all:        aweb
-all:        awebview
+#all:        awebview
 all:        awebcfg
 all:        aweblib/arexx.aweblib
 all:        aweblib/about.aweblib
@@ -37,7 +37,7 @@ all:        docs/searchindex
 
 #- AWeb ----------------------------------------------------------------------
 
-aweb:       aweb.o locale.o memory.o version.o boopsi.o support.o
+aweb:       aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
 aweb:       request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
 aweb:       prefs.o defprefs.o
 #  General objects
@@ -78,6 +78,10 @@ author.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h aut
     @sc idir=netinclude: $*.c to $*.o
 
 aweb.o:     aweb.c aweb.h url.h application.h window.h profile.h source.h frame.h startup.h task.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+aweblog.o:  aweblog.c aweblog.h aweb.h
     @echo "        Compiling $*.c..."
     @sc $(DEBUG) $*.c to $*.o
 

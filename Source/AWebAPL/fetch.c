@@ -425,16 +425,14 @@ static BOOL Dostartdriver(struct Fetch *fch)
    if(!fch) return FALSE;
    if(fch->flags & FCHF_RUNNING)
    {  if(httpdebug)
-      {  printf("[FETCH] Dostartdriver: WARNING - already running, refusing restart (task=%p url=%s)\n",
+         AwebLog("fetch", "Dostartdriver: WARNING - already running, refusing restart (task=%p url=%s)",
                fch->task, fch->name ? (char *)fch->name : "(null)");
-      }
       return TRUE;
    }
    if(fch->task)
    {  if(httpdebug)
-      {  printf("[FETCH] Dostartdriver: WARNING - task already exists, refusing restart (task=%p url=%s)\n",
+         AwebLog("fetch", "Dostartdriver: WARNING - task already exists, refusing restart (task=%p url=%s)",
                fch->task, fch->name ? (char *)fch->name : "(null)");
-      }
       return TRUE;
    }
    if(fch->task=Anewobject(AOTP_TASK,
@@ -452,14 +450,13 @@ static BOOL Dostartdriver(struct Fetch *fch)
          if(fch->flags&FCHF_LOCALSLOT) nrlocal++;
          else if(fch->flags&FCHF_NETSLOT) nrnet++;
          if(httpdebug)
-         {  printf("[FETCH] Dostartdriver: STARTED task=%p url=%s netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld\n",
+            AwebLog("fetch", "Dostartdriver: STARTED task=%p url=%s netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld",
                fch->task,
                (char *)Agetattr(fch->url,AOURL_Url),
                (long)BOOLVAL(fch->flags&FCHF_NETSLOT),
                (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
                (long)nrnet,(long)prefs.network.maxconnect,
                (long)nrlocal,(long)prefs.network.maxdiskread);
-         }
       }
       else
       {  Adisposeobject(fch->task);
@@ -535,10 +532,9 @@ static void Checkqueues(struct Fetch *tfch)
       fch->flags&=~FCHF_QUEUED;
       {  extern BOOL httpdebug;
          if(httpdebug)
-         {  printf("[FETCH] Checkqueues: DEQUEUE-NET url=%s nrnet=%ld/%ld\n",
+            AwebLog("fetch", "Checkqueues: DEQUEUE-NET url=%s nrnet=%ld/%ld",
                fch->name? (char *)fch->name : "(null)",
                (long)nrnet,(long)prefs.network.maxconnect);
-         }
       }
       if(!Dostartdriver(fch))
       {  Asrcupdatetags(fch->url,fch,
@@ -552,10 +548,9 @@ static void Checkqueues(struct Fetch *tfch)
       fch->flags&=~FCHF_QUEUED;
       {  extern BOOL httpdebug;
          if(httpdebug)
-         {  printf("[FETCH] Checkqueues: DEQUEUE-LOCAL url=%s nrlocal=%ld/%ld\n",
+            AwebLog("fetch", "Checkqueues: DEQUEUE-LOCAL url=%s nrlocal=%ld/%ld",
                fch->name? (char *)fch->name : "(null)",
                (long)nrlocal,(long)prefs.network.maxdiskread);
-         }
       }
       if(!Dostartdriver(fch))
       {  Asrcupdatetags(fch->url,fch,
@@ -959,7 +954,7 @@ static BOOL Startdriver(struct Fetch *fch)
    Driverfunction(fch);
    ReleaseSemaphore(&prefssema);
    if(httpdebug)
-   {  printf("[FETCH] Startdriver: url=%s flags=0x%08lX driverfun=%p netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld\n",
+      AwebLog("fetch", "Startdriver: url=%s flags=0x%08lX driverfun=%p netslot=%ld localslot=%ld nrnet=%ld/%ld nrlocal=%ld/%ld",
          fch->name? (char *)fch->name : "(null)",
          (ULONG)fch->flags,
          fch->driverfun,
@@ -967,7 +962,6 @@ static BOOL Startdriver(struct Fetch *fch)
          (long)BOOLVAL(fch->flags&FCHF_LOCALSLOT),
          (long)nrnet,(long)prefs.network.maxconnect,
          (long)nrlocal,(long)prefs.network.maxdiskread);
-   }
    if(fch->driverfun)
    {  if((fch->flags&FCHF_LOCALSLOT) && nrlocal>=prefs.network.maxdiskread)
       {  REMOVE(fch);
@@ -976,10 +970,9 @@ static BOOL Startdriver(struct Fetch *fch)
          if(fch->netstat) Chgnetstat(fch->netstat,NWS_QUEUED,0,0);
          else fch->netstat=Addnetstat(fch,(UBYTE *)Agetattr(fch->url,AOURL_Url),NWS_QUEUED,FALSE);
          if(httpdebug)
-         {  printf("[FETCH] Startdriver: QUEUED-LOCAL url=%s nrlocal=%ld/%ld\n",
+            AwebLog("fetch", "Startdriver: QUEUED-LOCAL url=%s nrlocal=%ld/%ld",
                fch->name? (char *)fch->name : "(null)",
                (long)nrlocal,(long)prefs.network.maxdiskread);
-         }
          result=TRUE;
       }
       else if((fch->flags&FCHF_NETSLOT) && nrnet>=prefs.network.maxconnect)
@@ -989,10 +982,9 @@ static BOOL Startdriver(struct Fetch *fch)
          if(fch->netstat) Chgnetstat(fch->netstat,NWS_QUEUED,0,0);
          else fch->netstat=Addnetstat(fch,(UBYTE *)Agetattr(fch->url,AOURL_Url),NWS_QUEUED,TRUE);
          if(httpdebug)
-         {  printf("[FETCH] Startdriver: QUEUED-NET url=%s nrnet=%ld/%ld\n",
+            AwebLog("fetch", "Startdriver: QUEUED-NET url=%s nrnet=%ld/%ld",
                fch->name? (char *)fch->name : "(null)",
                (long)nrnet,(long)prefs.network.maxconnect);
-         }
          result=TRUE;
       }
       else

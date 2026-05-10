@@ -239,7 +239,7 @@ static BOOL Addelement(struct Document *doc,void *elt)
                class = (UBYTE *)Agetattr(elt, AOBDY_Class);
                id = (UBYTE *)Agetattr(elt, AOBDY_Id);
                if(httpdebug)
-               {  printf("[CSS] Addelement: Applying CSS to BODY element, tagname=%s, class=%s, id=%s\n",
+               {  AwebLog("css", "Addelement: Applying CSS to BODY element, tagname=%s, class=%s, id=%s",
                         tagname ? (char *)tagname : "NULL",
                         class ? (char *)class : "NULL",
                         id ? (char *)id : "NULL");
@@ -249,7 +249,7 @@ static BOOL Addelement(struct Document *doc,void *elt)
             else
             {  /* Regular element - use ApplyCSSToElement */
                if(httpdebug)
-               {  printf("[CSS] Addelement: Applying CSS to element, type=%d, stylesheet=%p\n",
+               {  AwebLog("css", "Addelement: Applying CSS to element, type=%d, stylesheet=%p",
                         objtype, doc->cssstylesheet);
                }
                ApplyCSSToElement(doc, elt);
@@ -581,7 +581,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    
    if(!doc || !body || !doc->cssstylesheet)
    {  if(httpdebug)
-      {  printf("[CSS] ApplyCSSToBody: Skipped - doc=%p body=%p stylesheet=%p\n",
+      {  AwebLog("css", "ApplyCSSToBody: Skipped - doc=%p body=%p stylesheet=%p",
                 doc, body, (doc ? doc->cssstylesheet : NULL));
       }
       return;
@@ -596,7 +596,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    }
    
    if(httpdebug)
-   {  printf("[CSS] ApplyCSSToBody: Called - tagname=%s, class=%s, id=%s, body=%p\n",
+   {  AwebLog("css", "ApplyCSSToBody: Called - tagname=%s, class=%s, id=%s, body=%p",
              (tagname ? (char *)tagname : "NULL"),
              (class ? (char *)class : "NULL"),
              (id ? (char *)id : "NULL"),
@@ -638,7 +638,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          if(matches)
          {  extern BOOL httpdebug;
             if(httpdebug)
-            {  printf("[CSS] ApplyCSSToBody: Selector matched - element=%s, class=%s, id=%s, tagname=%s\n",
+            {  AwebLog("css", "ApplyCSSToBody: Selector matched - element=%s, class=%s, id=%s, tagname=%s",
                      (sel->name ? (char *)sel->name : "any"),
                      (sel->class ? (char *)sel->class : "none"),
                      (sel->id ? (char *)sel->id : "none"),
@@ -650,7 +650,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
             {  if(prop->name && prop->value && prop->value[0] != '\0')
                {  extern BOOL httpdebug;
                   if(httpdebug)
-                  {  printf("[CSS] ApplyCSSToBody: Applying property %s = %s to tagname=%s\n",
+                  {  AwebLog("css", "ApplyCSSToBody: Applying property %s = %s to tagname=%s",
                            prop->name ? (char *)prop->name : "NULL",
                            prop->value ? (char *)prop->value : "NULL",
                            tagname ? (char *)tagname : "NULL");
@@ -691,7 +691,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      fontFace = NULL;
                      fontValue = prop->value;
                      if(httpdebug)
-                     {  printf("[CSS] font-family: raw='%s' tagname=%s body=%p\n",
+                     {  AwebLog("css", "font-family: raw='%s' tagname=%s body=%p",
                            fontValue ? (char *)fontValue : "(null)",
                            tagname ? (char *)tagname : "(null)", body);
                      }
@@ -797,7 +797,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                            *q = '\0';
                            
                            if(httpdebug)
-                           {  printf("[CSS] font-family: AOBDY_Fontface='%s' tagname=%s body=%p\n",
+                           {  AwebLog("css", "font-family: AOBDY_Fontface='%s' tagname=%s body=%p",
                                  (char *)fontFace,
                                  tagname ? (char *)tagname : "(null)", body);
                            }
@@ -807,7 +807,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         }
                         else
                         {  if(httpdebug)
-                           {  printf("[CSS] font-family: alloc failed for raw='%s' tagname=%s\n",
+                           {  AwebLog("css", "font-family: alloc failed for raw='%s' tagname=%s",
                                  fontValue ? (char *)fontValue : "(null)",
                                  tagname ? (char *)tagname : "(null)");
                            }
@@ -815,7 +815,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      }
                      else
                      {  if(httpdebug)
-                        {  printf("[CSS] font-family: empty value tagname=%s\n",
+                        {  AwebLog("css", "font-family: empty value tagname=%s",
                               tagname ? (char *)tagname : "(null)");
                         }
                      }
@@ -1262,7 +1262,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      if(dispStr)
                      {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
                         if(httpdebug)
-                        {  printf("[CSS] ApplyCSSToBody display=%s body=%p tag=%s class=%s id=%s\n",
+                        {  AwebLog("css", "ApplyCSSToBody display=%s body=%p tag=%s class=%s id=%s",
                                   (char *)dispStr,
                                   body,
                                   tagname ? (char *)tagname : "NULL",
@@ -2338,7 +2338,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
       isReload = (doc->pflags&DPF_RELOADVERIFY) && !(doc->pflags&DPF_NORLDOCEXT);
       if(httpdebug)
-      {  printf("[STYLE] Dolink: Found stylesheet link, href=%s, reload=%d, existing stylesheet=%p\n",
+      {  AwebLog("css", "Dolink: Found stylesheet link, href=%s, reload=%d, existing stylesheet=%p",
                 urlstr ? (char *)urlstr : "NULL", isReload ? 1 : 0, doc->cssstylesheet);
       }
       /* Block third-party CSS. AWeb targets an HTML4-era web where same-site CSS is typical;
@@ -2359,7 +2359,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       }
       if(thirdpartycss)
       {  if(httpdebug)
-         {  printf("[CSS] Dolink: Blocking third-party stylesheet: dochost=%s, srchost=%.*s, url=%s\n",
+         {  AwebLog("css", "Dolink: Blocking third-party stylesheet: dochost=%s, srchost=%.*s, url=%s",
                    docdomain ? (char *)docdomain : "NULL",
                    (int)csshostlen, csshost ? (char *)csshost : "",
                    urlstr ? (char *)urlstr : "NULL");
@@ -2372,7 +2372,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       {  if(extcss == (UBYTE *)~0)
          {  extern BOOL httpdebug;
             if(httpdebug)
-            {  printf("[CSS] Dolink: External CSS load error, skipping\n");
+            {  AwebLog("css", "Dolink: External CSS load error, skipping");
             }
             /* External CSS is in error, skip it */
          }
@@ -2389,12 +2389,12 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
              * If stylesheet is NULL, the flag might be from a previous document, so merge anyway. */
             if((doc->pflags&DPF_NORLDOCEXT) && doc->cssstylesheet)
             {  if(httpdebug)
-               {  printf("[STYLE] Dolink: CSS already merged via AODOC_Docextready, skipping duplicate merge\n");
+               {  AwebLog("css", "Dolink: CSS already merged via AODOC_Docextready, skipping duplicate merge");
                }
                /* CSS was already merged, just apply to body if needed */
                if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
-                  {  printf("[STYLE] Dolink: Re-applying CSS to all elements (already merged), body=%p, stylesheet=%p, frame=%p\n",
+                  {  AwebLog("css", "Dolink: Re-applying CSS to all elements (already merged), body=%p, stylesheet=%p, frame=%p",
                            doc->body, doc->cssstylesheet, doc->frame);
                   }
                   /* Reapply CSS to all existing elements to ensure deterministic application */
@@ -2432,11 +2432,11 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                {  /* extcss points to a shared/network buffer; it may be chunked or not NUL-terminated.
                    * Never call strlen()/Dupstr(-1) here: scanning past the buffer can stall the UI
                    * and/or corrupt memory. */
-                  printf("[CSS] Dolink: External CSS loaded, calling MergeCSSStylesheet\n");
+                  AwebLog("css", "Dolink: External CSS loaded, calling MergeCSSStylesheet");
                }
                if(!contentIsCss || !payloadIsCss)
                {  if(httpdebug)
-                  {  printf("[STYLE] Dolink: Stylesheet content is not CSS (content-type=%s), skipping merge\n",
+                  {  AwebLog("css", "Dolink: Stylesheet content is not CSS (content-type=%s), skipping merge",
                            contenttype ? (char *)contenttype : "NULL");
                   }
                }
@@ -2445,13 +2445,13 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                /* On reload, free existing stylesheet first to start fresh */
                if((doc->pflags & DPF_RELOADVERIFY) && doc->cssstylesheet)
                {  if(httpdebug)
-                  {  printf("[STYLE] Dolink: Reload detected, freeing existing stylesheet before merge\n");
+                  {  AwebLog("css", "Dolink: Reload detected, freeing existing stylesheet before merge");
                   }
                   FreeCSSStylesheet(doc);
                }
                /* Merge external CSS with existing stylesheet */
                if(httpdebug)
-               {  printf("[STYLE] Dolink: Merging CSS into stylesheet (existing=%p)\n", doc->cssstylesheet);
+               {  AwebLog("css", "Dolink: Merging CSS into stylesheet (existing=%p)", doc->cssstylesheet);
                }
                MergeCSSStylesheet(doc,extcss);
                /* Prevent duplicate merge if AODOC_Docextready is called later */
@@ -2461,7 +2461,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                /* Always re-apply CSS to body when external CSS loads */
                if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
-                  {  printf("[STYLE] Dolink: Re-applying CSS to all elements after external CSS load, body=%p, stylesheet=%p, frame=%p\n",
+                  {  AwebLog("css", "Dolink: Re-applying CSS to all elements after external CSS load, body=%p, stylesheet=%p, frame=%p",
                             doc->body, doc->cssstylesheet, doc->frame);
                   }
                   ApplyDocCssIfReady(doc);
@@ -2471,7 +2471,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                   }
                }
                else if(httpdebug)
-               {  printf("[STYLE] Dolink: Cannot apply CSS - body=%p, stylesheet=%p, frame=%p\n", doc->body, doc->cssstylesheet, doc->frame);
+               {  AwebLog("css", "Dolink: Cannot apply CSS - body=%p, stylesheet=%p, frame=%p", doc->body, doc->cssstylesheet, doc->frame);
                }
                }
             }
@@ -2480,7 +2480,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       else
       {  extern BOOL httpdebug;
          if(httpdebug)
-         {  printf("[STYLE] Dolink: External CSS not yet available, suspending parsing\n");
+         {  AwebLog("css", "Dolink: External CSS not yet available, suspending parsing");
          }
          Docsetloadstatus(doc,(UBYTE *)"Fetching CSS",urlstr);
          /* External CSS not yet available, suspend parsing. Only then defer
@@ -2818,14 +2818,14 @@ static BOOL Docssend(struct Document *doc)
       if(css)
       {  BOOL hadExistingSheet = (doc->cssstylesheet != NULL);
          if(httpdebug)
-         {  printf("[STYLE] Docssend: Processing inline CSS, length=%ld bytes, existing stylesheet=%p\n",
+         {  AwebLog("css", "Docssend: Processing inline CSS, length=%ld bytes, existing stylesheet=%p",
                    doc->csssrc.length, doc->cssstylesheet);
          }
          /* Parse and apply CSS stylesheet */
          /* Pass known text length (excluding the added NUL) so ParseCSS never scans past buffer. */
          ParseCSSStylesheet(doc,css,(long)doc->csssrc.length-1);
          if(httpdebug)
-         {  printf("[STYLE] Docssend: CSS parsed, stylesheet=%p, body=%p\n",
+         {  AwebLog("css", "Docssend: CSS parsed, stylesheet=%p, body=%p",
                    doc->cssstylesheet, doc->body);
          }
          /* Apply link colors from CSS (a:link, a:visited) */
@@ -2833,7 +2833,7 @@ static BOOL Docssend(struct Document *doc)
          /* Apply CSS to body if it already exists, or if we merged with existing sheet */
          if(doc->body && doc->cssstylesheet)
          {  if(httpdebug)
-            {  printf("[STYLE] Docssend: Applying CSS to all elements\n");
+            {  AwebLog("css", "Docssend: Applying CSS to all elements");
             }
             ApplyDocCssIfReady(doc);
             /* Re-register colors if we merged (to ensure link colors are updated) */
@@ -2842,7 +2842,7 @@ static BOOL Docssend(struct Document *doc)
             }
          }
          else if(httpdebug)
-         {  printf("[STYLE] Docssend: Cannot apply CSS - body=%p, stylesheet=%p\n", doc->body, doc->cssstylesheet);
+         {  AwebLog("css", "Docssend: Cannot apply CSS - body=%p, stylesheet=%p", doc->body, doc->cssstylesheet);
          }
       }
       Freebuffer(&doc->csssrc);
@@ -3015,7 +3015,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
    if(doc->body)
    {  extern BOOL httpdebug;
       if(httpdebug)
-      {  printf("[RENDER] Dobody: Applying CSS to body, stylesheet=%p, body=%p\n",
+      {  AwebLog("render", "Dobody: Applying CSS to body, stylesheet=%p, body=%p",
                 doc->cssstylesheet, doc->body);
       }
       if(doc->cssstylesheet) ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
@@ -3024,7 +3024,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
       /* (New children will get CSS applied via Addelement) */
       if(doc->cssstylesheet)
       {  if(httpdebug)
-         {  printf("[RENDER] Dobody: Reapplying CSS to all elements (stylesheet=%p)\n", doc->cssstylesheet);
+         {  AwebLog("render", "Dobody: Reapplying CSS to all elements (stylesheet=%p)", doc->cssstylesheet);
          }
          ApplyDocCssIfReady(doc);
       }
@@ -3038,7 +3038,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
    {  extern BOOL httpdebug;
       Registerdoccolors(doc);
       if(httpdebug)
-      {  printf("[RENDER] Dobody: Registered document colors (linkcolor=%p vlinkcolor=%p)\n",
+      {  AwebLog("render", "Dobody: Registered document colors (linkcolor=%p vlinkcolor=%p)",
                 doc->linkcolor, doc->vlinkcolor);
       }
    }

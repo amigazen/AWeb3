@@ -979,14 +979,14 @@ void Localfiletask(struct Fetchdriver *fd)
    BOOL is_root;
    long actual;
    ULONG date=0;
-   if(fd->postmsg)
-   {  Write(Output(),"\nPOST:\n",7);
-      Write(Output(),fd->postmsg,strlen(fd->postmsg));
-      Write(Output(),"\n",1);
+   if(httpdebug && fd->postmsg)
+   {  AwebLogRaw("\nPOST:\n", 7);
+      AwebLogRaw(fd->postmsg, (long)strlen(fd->postmsg));
+      AwebLogRaw("\n", 1);
    }
-   if(fd->multipart)
+   if(httpdebug && fd->multipart)
    {  struct Multipartpart *mpp;
-      Write(Output(),"\nPOST multipart/form-data:\n",27);
+      AwebLogRaw("\nPOST multipart/form-data:\n", 27);
       for(mpp=fd->multipart->parts.first;mpp->next;mpp=mpp->next)
       {  if(mpp->lock)
          {  long fh;
@@ -994,13 +994,13 @@ void Localfiletask(struct Fetchdriver *fd)
             if(fh=OpenFromLock(mpp->lock))
             {  mpp->lock=NULL;
                while(r=Read(fh,fd->block,fd->blocksize))
-               {  Write(Output(),fd->block,r);
+               {  AwebLogRaw(fd->block, r);
                }
                Close(fh);
             }
          }
          else
-         {  Write(Output(),fd->multipart->buf.buffer+mpp->start,mpp->length);
+         {  AwebLogRaw(fd->multipart->buf.buffer+mpp->start, (long)mpp->length);
          }
       }
    }

@@ -53,12 +53,6 @@ extern struct Library *SocketBase;
 /* Shared SocketBase swap semaphore from http.c */
 extern struct SignalSemaphore socketbase_swap_sema;
 extern BOOL socketbase_swap_sema_initialized;
-
-/* Shared debug logging semaphore - defined in http.c, declared here */
-/* This ensures both http.c and amissl.c use the same semaphore for thread-safe
- * logging */
-extern struct SignalSemaphore debug_log_sema;
-extern BOOL debug_log_sema_initialized;
 #include <amissl/amissl.h>
 #include <openssl/bio.h>
 #include <openssl/crypto.h>
@@ -67,6 +61,7 @@ extern BOOL debug_log_sema_initialized;
 #include <openssl/x509_vfy.h> /* For X509_STORE, X509_STORE_CTX, X509_verify_cert */
 #include <openssl/x509v3.h> /* For X509_get_ext_d2i, GENERAL_NAME, NID_subject_alt_name */
 #include <stdarg.h>
+#include <string.h>
 
 /* Pragma definitions are provided by <proto/amissl.h> and
  * <proto/amisslmaster.h> */
@@ -999,37 +994,21 @@ static void check_ssl_error(const char *function_name,
   }
 }
 
-/* Thread-safe debug logging wrapper with Task ID */
+/* Route AmiSSL trace to unified logger (facility amissl). Strip legacy "DEBUG: " prefix. */
 static void debug_printf(const char *format, ...) {
   va_list args;
-  ULONG task_id;
+  const char *fmt;
 
-  /* Only output if HTTPDEBUG mode is enabled */
   if (!httpdebug) {
     return;
   }
-
-  task_id = get_task_id();
-
-  if (debug_log_sema_initialized) {
-    int tries = 0;
-    while (!AttemptSemaphore(&debug_log_sema)) {
-      tries++;
-      if (tries >= 200) {
-        return;
-      }
-      Delay(1);
-    }
+  fmt = format;
+  if (fmt && strncmp((const char *)fmt, "DEBUG: ", 7) == 0) {
+    fmt += 7;
   }
-
-  printf("[TASK:0x%08lX] ", task_id);
   va_start(args, format);
-  vprintf(format, args);
+  AwebLogV("amissl", fmt, args);
   va_end(args);
-
-  if (debug_log_sema_initialized) {
-    ReleaseSemaphore(&debug_log_sema);
-  }
 }
 
 /*-----------------------------------------------------------------------*/

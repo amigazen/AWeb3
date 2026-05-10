@@ -160,7 +160,7 @@ extern struct Library *AWebJSBase;
 #include "awebprotos.h"
 #endif
 
-
+#include "aweblog.h"
 
 extern BOOL httpdebug;
 extern BOOL specdebug;

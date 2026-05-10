@@ -480,7 +480,7 @@ static void Inputwindocref(void *win,void *url,UBYTE *fragment,UBYTE *frameid,
    {
       if(httpdebug)
       {  urlstr=(UBYTE *)Agetattr(url,AOURL_Url);
-         printf("[NAV] Inputwindocref: Creating history/docref, URL=%s fragment=%s frameid=%s reload=%ld noreferer=%ld\n",
+         AwebLog("nav", "Inputwindocref URL=%s fragment=%s frameid=%s reload=%ld noreferer=%ld",
             urlstr? (char *)urlstr : "NULL",
             fragment? (char *)fragment : "NULL",
             frameid? (char *)frameid : "NULL",
@@ -500,20 +500,16 @@ static void Inputwindocref(void *win,void *url,UBYTE *fragment,UBYTE *frameid,
          Removebatch(win);
 */
          if(httpdebug)
-         {  printf("[NAV] Inputwindocref: WINHIS created=%p, applying to frame=%p\n",
-               whis, awin->frame);
-         }
+            AwebLog("nav", "Inputwindocref WINHIS=%p frame=%p", whis, awin->frame);
          Asetattrs(awin->frame,
             AOBJ_Winhis,whis,
             AOFRM_Noreferer,noreferer,
             TAG_END);
          if(httpdebug)
-         {  printf("[NAV] Inputwindocref: Frame updated with new WINHIS\n");
-         }
+            AwebLog("nav", "Inputwindocref frame updated (new WINHIS)");
       }
       else if(httpdebug)
-      {  printf("[NAV] Inputwindocref: FAILED to create WINHIS\n");
-      }
+         AwebLog("nav", "Inputwindocref FAILED to create WINHIS");
    }
 }
 
@@ -523,17 +519,15 @@ void Followurlname(struct Awindow *win,UBYTE *name,UBYTE *id)
    UBYTE *frag;
    extern BOOL httpdebug;
    if(httpdebug)
-   {  printf("[NAV] Followurlname: name=%s id=%s\n",
+      AwebLog("nav", "Followurlname name=%s id=%s",
          name? (char *)name : "NULL",
          id? (char *)id : "NULL");
-   }
    if(fixedname=Fixurlname(name))
    {  frag=Fragmentpart(fixedname);
       if(httpdebug)
-      {  printf("[NAV] Followurlname: fixed=%s frag=%s\n",
+         AwebLog("nav", "Followurlname fixed=%s frag=%s",
             fixedname? (char *)fixedname : "NULL",
             frag? (char *)frag : "NULL");
-      }
       url=Findurl(NULL,fixedname,0);
       Inputwindocref(win,url,frag,id,TRUE,FALSE);
       FREE(fixedname);

@@ -1,4 +1,4 @@
-FROM     lib:c.o aweb.o locale.o memory.o version.o boopsi.o support.o
+FROM     lib:c.o aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
          request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
          prefs.o defprefs.o
          object.o task.o scroller.o application.o file.o filereq.o editor.o timer.o

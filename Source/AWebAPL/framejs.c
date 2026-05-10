@@ -1195,14 +1195,13 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
                k++;
             }
             jshead[k]='\0';
-            printf("[js] ExecuteScript ctx=%p sourceBytes=%ld snippet=\"%s\" withBinding=%d\n",
+            AwebLog("js", "ExecuteScript ctx=%p sourceBytes=%ld snippet=\"%s\" withBinding=%d",
                (void *)jc,slen,jshead,(with!=NULL)?1:0);
          }
          result=Runjprogram(jc,fr->jobject,script,jthis,jgscope,fr->jprotect,(ULONG)fr);
          if(httpdebug)
-         {  printf("[js] ExecuteScript ctx=%p done returnBool=%d collect=sync\n",
+            AwebLog("js", "ExecuteScript ctx=%p done returnBool=%d collect=sync",
                (void *)jc,(int)result);
-         }
          /* Original AWeb 3.4 code only GC'd when timer seconds advanced; many short scripts never
           * collected and awebjs allocations showed up as leaks. Fix by collecting after each run.
           * Restore anim gadget state before GC, not after: Setanimgads(FALSE) uses Setgadgetattrs()

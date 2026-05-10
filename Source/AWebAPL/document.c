@@ -814,7 +814,7 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                      UBYTE *urlstr;
                      urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
                      if(httpdebug)
-                     {  printf("[STYLE] AODOC_Docextready: CSS file ready, URL=%s, existing stylesheet=%p\n",
+                     {  AwebLog("css", "AODOC_Docextready: CSS file ready, URL=%s, existing stylesheet=%p",
                                urlstr ? (char *)urlstr : "NULL", doc->cssstylesheet);
                      }
                      /* Try to get the CSS content */
@@ -823,7 +823,7 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                      {  BOOL payloadIsCss;
                         payloadIsCss = TRUE;
                         if(httpdebug)
-                        {  printf("[STYLE] AODOC_Docextready: CSS file loaded, calling MergeCSSStylesheet\n");
+                        {  AwebLog("css", "AODOC_Docextready: CSS file loaded, calling MergeCSSStylesheet");
                         }
                         /* Defensive: if payload looks like HTML, don't attempt to parse as CSS.
                          * This commonly happens when a .css URL returns an error page. */
@@ -837,7 +837,7 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                            || STRNIEQUAL(extcss,"<HTML",5)
                            || STRNIEQUAL(extcss,"<?XML",5))
                            {  if(httpdebug)
-                              {  printf("[STYLE] AODOC_Docextready: Content looks like HTML, skipping CSS merge\n");
+                              {  AwebLog("css", "AODOC_Docextready: Content looks like HTML, skipping CSS merge");
                               }
                               payloadIsCss = FALSE;
                            }
@@ -854,14 +854,14 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                               doc->pflags|=DPF_NORLDOCEXT;
                            }
                            else if(httpdebug)
-                           {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
+                           {  AwebLog("css", "AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge");
                            }
                            /* Apply link colors from CSS (a:link, a:visited) */
                            ApplyCSSToLinkColors(doc);
                            /* Always re-apply CSS to body when external CSS loads */
                            if(doc->body && doc->cssstylesheet)
                            {  if(httpdebug)
-                              {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
+                              {  AwebLog("css", "AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p",
                                        doc->body, doc->cssstylesheet);
                               }
                               ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
@@ -873,19 +873,19 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                               }
                            }
                            else if(httpdebug)
-                           {  printf("[STYLE] AODOC_Docextready: Cannot apply CSS - body=%p, stylesheet=%p\n",
+                           {  AwebLog("css", "AODOC_Docextready: Cannot apply CSS - body=%p, stylesheet=%p",
                                      doc->body, doc->cssstylesheet);
                            }
                         }
                      }
                      else if(extcss == (UBYTE *)~0)
                      {  if(httpdebug)
-                        {  printf("[STYLE] AODOC_Docextready: CSS file load error\n");
+                        {  AwebLog("css", "AODOC_Docextready: CSS file load error");
                         }
                      }
                      else
                      {  if(httpdebug)
-                        {  printf("[STYLE] AODOC_Docextready: CSS file not yet available\n");
+                        {  AwebLog("css", "AODOC_Docextready: CSS file not yet available");
                         }
                      }
                   }

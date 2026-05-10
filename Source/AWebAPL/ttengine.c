@@ -626,6 +626,8 @@ BOOL InitTTEngine(void)
    if(!TTEngineBase)
    {
       ttengine_available = FALSE;
+      if(httpdebug)
+         AwebLog("tte", "ttengine.library not available (OpenLibrary failed)");
       return FALSE;
    }
    
@@ -635,10 +637,15 @@ BOOL InitTTEngine(void)
       CloseLibrary(TTEngineBase);
       TTEngineBase = NULL;
       ttengine_available = FALSE;
+      if(httpdebug)
+         AwebLog("tte", "ttengine.library version too old (need >= %u)", TTENGINEMINVERSION);
       return FALSE;
    }
    
    ttengine_available = TRUE;
+   if(httpdebug)
+      AwebLog("tte", "TTengine active library version %u.%u",
+         (unsigned)TTEngineBase->lib_Version, (unsigned)TTEngineBase->lib_Revision);
    return TRUE;
 }
 
@@ -650,6 +657,8 @@ void FreeTTEngine(void)
    JkffFree();
    if(TTEngineBase)
    {
+      if(httpdebug)
+         AwebLog("tte", "TTengine shutdown");
       CloseLibrary(TTEngineBase);
       TTEngineBase = NULL;
    }

@@ -80,11 +80,6 @@ static void aweb_http_zfree(voidpf opaque, voidpf ptr)
 /* The proto header declares it as extern, so we need to provide the actual definition */
 struct Library *SocketBase;
 
-/* Shared debug logging semaphore - defined here, used by http.c and amissl.c */
-/* This must be non-static so it can be shared between compilation units */
-struct SignalSemaphore debug_log_sema;
-BOOL debug_log_sema_initialized = FALSE;
-
 #ifndef LOCALONLY
 
 #include <libraries/locale.h>
@@ -223,7 +218,6 @@ BOOL socketbase_swap_sema_initialized = FALSE;
 
 /* Redirect loop protection - track redirects across HTTP requests */
 static int redirect_count=0;
-/* debug_log_sema is now defined above as a shared global */
 
 /*-----------------------------------------------------------------------*/
 
@@ -272,37 +266,22 @@ static void ReleaseSocketBaseSwap(struct Library *saved)
    }
 }
 
-/* Thread-safe debug logging wrapper with Task ID */
+/* Route legacy HTTP trace calls through unified logger (facility http).
+ * Historic messages begin with "DEBUG: "; strip so facility identifies the module. */
 static void debug_printf(const char *format, ...)
 {  va_list args;
-   ULONG task_id;
-   
-   /* Only output if HTTPDEBUG mode is enabled */
+   const char *fmt;
+
    if(!httpdebug)
-   {  return;
-   }
-   
-   task_id = get_task_id();
-   
-   if(debug_log_sema_initialized)
-   {  int tries = 0;
-      while(!AttemptSemaphore(&debug_log_sema))
-      {  tries++;
-         if(tries >= 200)
-         {  return; /* Don't wedge if a task died while logging */
-         }
-         Delay(1);
-      }
-   }
-   
-   printf("[TASK:0x%08lX] ", task_id);
+      return;
+
+   fmt = format;
+   if(fmt && strncmp((const char *)fmt, "DEBUG: ", 7) == 0)
+      fmt += 7;
+
    va_start(args, format);
-   vprintf(format, args);
+   AwebLogV("http", fmt, args);
    va_end(args);
-   
-   if(debug_log_sema_initialized)
-   {  ReleaseSemaphore(&debug_log_sema);
-   }
 }
 
 
@@ -1022,16 +1001,11 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 {  long result;
 #ifndef DEMOVERSION
    if(hi->flags&HTTPIF_SSL)
-   {  debug_printf("DEBUG: Receive: Calling Assl_read() - sock=%ld, length=%ld, assl=%p\n",
-             hi->sock, length, hi->assl);
-      result=Assl_read(hi->assl,buffer,length);
-      debug_printf("DEBUG: Receive: Assl_read() returned %ld\n", result);
+   {  result=Assl_read(hi->assl,buffer,length);
    }
    else
 #endif
-   {  debug_printf("DEBUG: Receive: Calling a_recv() - sock=%ld, length=%ld\n", hi->sock, length);
-      result=a_recv(hi->sock,buffer,length,0,hi->socketbase);
-      debug_printf("DEBUG: Receive: a_recv() returned %ld\n", result);
+   {  result=a_recv(hi->sock,buffer,length,0,hi->socketbase);
    }
    return result;
 }
@@ -1046,8 +1020,7 @@ static BOOL Readblock(struct Httpinfo *hi)
    UBYTE *hostname_str;
    int tries;
    int intr_tries;
-   debug_printf("DEBUG: Readblock() called, current blocklength=%ld\n", hi->blocklength);
-   
+
 #ifdef DEVELOPER
    UBYTE *block;
    if(!hi->socketbase)
@@ -1108,8 +1081,6 @@ static BOOL Readblock(struct Httpinfo *hi)
       }
       break;
    }
-   
-   debug_printf("DEBUG: Readblock: Receive returned %ld bytes\n", n);
    
    if(n<0 || Checktaskbreak())
    {  
@@ -1209,9 +1180,6 @@ static BOOL Readblock(struct Httpinfo *hi)
       return FALSE;
    }
    
-   debug_printf("DEBUG: Readblock: adding %ld bytes to block, new total=%ld (blocksize=%ld)\n", 
-          n, hi->blocklength + n, hi->fd->blocksize);
-   
    hi->blocklength+=n;
    
    /* Reset socket timeout after successful data receipt */
@@ -1227,14 +1195,12 @@ static BOOL Readblock(struct Httpinfo *hi)
 
 /* Remove the first part from the block. */
 static void Nextline(struct Httpinfo *hi)
-{  long old_blocklength = hi->blocklength;
+{
    if(hi->nextscanpos<hi->blocklength)
    {  memmove(hi->fd->block,hi->fd->block+hi->nextscanpos,hi->blocklength-hi->nextscanpos);
    }
    hi->blocklength-=hi->nextscanpos;
    hi->nextscanpos=0;
-   debug_printf("DEBUG: Nextline: consumed %ld bytes, remaining blocklength=%ld\n", 
-          old_blocklength - hi->blocklength, hi->blocklength);
 }
 
 /* Find a complete line. Read again if no complete line found. */
@@ -1259,8 +1225,8 @@ static BOOL Findline(struct Httpinfo *hi)
       }
    }
    if(httpdebug)
-   {  Write(Output(),hi->fd->block,hi->linelength);
-      Write(Output(),"\n",1);
+   {  if(hi->linelength > 0)
+         AwebLog("http", "%s", hi->fd->block);
    }
    return TRUE;
 }
@@ -1327,8 +1293,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
       Updatetaskattrs(
          AOURL_Header,hi->fd->block,
          TAG_END);
-      debug_printf("DEBUG: Processing header: '%s'\n", hi->fd->block);
-      
+
       if(STRNIEQUAL(hi->fd->block,"Date:",5))
       {  hi->fd->serverdate=Scandate(hi->fd->block+5);
          Updatetaskattrs(
@@ -1364,7 +1329,6 @@ static BOOL Readheaders(struct Httpinfo *hi)
          BOOL foreign=FALSE;
          BOOL forward=TRUE;
          
-         debug_printf("DEBUG: Content-Type header found in Readheaders: '%s'\n", hi->fd->block);
          mimetype[0] = '\0';  /* Initialize empty string */
          if(!prefs.network.ignoremime)
          {  for(p=hi->fd->block+13;*p && isspace(*p);p++);
@@ -1414,11 +1378,10 @@ static BOOL Readheaders(struct Httpinfo *hi)
             }
          }
          if(*mimetype)
-         {  debug_printf("DEBUG: Setting Content-Type to: '%s'\n", mimetype);
-            /* Store content type in parttype for later use (e.g., gzip processing) */
+         {  /* Store content type in parttype for later use (e.g., gzip processing) */
             strncpy(hi->parttype, mimetype, sizeof(hi->parttype) - 1);
             hi->parttype[sizeof(hi->parttype) - 1] = '\0';
-            debug_printf("DEBUG: Stored parttype='%s' (length=%ld)\n", hi->parttype, strlen(hi->parttype));
+            debug_printf("DEBUG: Content-Type -> parttype='%s'\n", hi->parttype);
             Updatetaskattrs(
                AOURL_Contenttype,mimetype,
                AOURL_Foreign,foreign,
@@ -5295,22 +5258,15 @@ static BOOL Openlibraries(struct Httpinfo *hi)
    struct KeepAliveConnection *pooled_conn;
    long port;
    
-   debug_printf("DEBUG: Openlibraries: ENTRY - flags=0x%04X, SSL=%s\n", 
-          hi->flags, (hi->flags&HTTPIF_SSL) ? "YES" : "NO");
-   
    /* Check for pooled connection BEFORE creating new libraries */
    /* This allows us to reuse existing socketbase, Assl, and socket from the pool */
    /* A proxy connection is identified if hi->connect (proxy host) is different from hi->hostname (destination host) */
    /* SSL connections CAN be pooled - the SSL object maintains state and can be reused */
    /* If a reused SSL connection fails, the retry logic will handle it */
-   debug_printf("DEBUG: Openlibraries: Checking for pooled connection (connect=%p, hostname=%p, SSL=%d)\n",
-               hi->connect, hi->hostname, BOOLVAL(hi->flags&HTTPIF_SSL));
    if(hi->hostname && 
       (!hi->connect || (hi->connect && STRIEQUAL(hi->connect, hi->hostname))))
    {  /* Direct connection (not a proxy) - can reuse pooled connection */
       port = (hi->port > 0) ? hi->port : (BOOLVAL(hi->flags & HTTPIF_SSL) ? 443 : 80);
-      debug_printf("DEBUG: Openlibraries: Calling GetKeepAliveConnection for %s:%ld (SSL=%d)\n",
-                  hi->hostname, port, BOOLVAL(hi->flags&HTTPIF_SSL));
       pooled_conn = GetKeepAliveConnection(hi->hostname, port, BOOLVAL(hi->flags&HTTPIF_SSL));
       if(pooled_conn)
       {  /* Reuse pooled connection - use its socketbase, Assl (if SSL), and socket */
@@ -5327,19 +5283,14 @@ static BOOL Openlibraries(struct Httpinfo *hi)
          return TRUE; /* Success - we have everything we need from the pool */
       }
       else
-      {  debug_printf("DEBUG: Openlibraries: No pooled %s connection found for %s:%ld\n",
-                     (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP",
-                     hi->hostname, port);
+      {  debug_printf("DEBUG: Openlibraries: pool miss %s:%ld\n",
+                     hi->hostname ? (char *)hi->hostname : "?", port);
       }
    }
    else
-   {  debug_printf("DEBUG: Openlibraries: Skipping pool check (proxy=%s, direct=%s, SSL=%d)\n",
-                  hi->connect ? (char *)hi->connect : "(none)",
-                  hi->hostname ? (char *)hi->hostname : "(none)",
-                  BOOLVAL(hi->flags&HTTPIF_SSL));
+   {  debug_printf("DEBUG: Openlibraries: pool skip (proxy)\n");
    }
    
-   debug_printf("DEBUG: Openlibraries: Calling Opentcp()\n");
    Opentcp(&hi->socketbase,hi->fd,!hi->fd->validate);
    if(!hi->socketbase)
    {  debug_printf("DEBUG: Openlibraries: Opentcp() failed - bsdsocket.library missing\n");
@@ -5347,7 +5298,7 @@ static BOOL Openlibraries(struct Httpinfo *hi)
       Lowlevelreq("AWeb requires bsdsocket.library for network access.\nPlease install bsdsocket.library and try again.");
       return FALSE;
    }
-   debug_printf("DEBUG: Openlibraries: Opentcp() succeeded, socketbase=%p\n", hi->socketbase);
+   debug_printf("DEBUG: Openlibraries: socketbase=%p\n", hi->socketbase);
    result=TRUE;
    if(hi->flags&HTTPIF_SSL)
    {  debug_printf("DEBUG: Openlibraries: SSL flag set, initializing SSL libraries\n");
@@ -5735,8 +5686,8 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                creqlen=p-creq;
 #ifdef BETAKEYFILE
                if(httpdebug)
-               {  Write(Output(),"\n",1);
-                  Write(Output(),creq,creqlen);
+               {  AwebLogRaw("\n", 1);
+                  AwebLogRaw(creq, (long)creqlen);
                }
 #endif
                /* Temporarily turn off SSL since we don't have a SSL connection yet */
@@ -5834,7 +5785,7 @@ static BOOL Sendmultipartdata(struct Httpinfo *hi,struct Fetchdriver *fd,FILE *f
             {  while(ok && (l=Read(fh,fd->block,fd->blocksize)))
                {  
 #ifdef DEVELOPER
-                  if(httpdebug) Write(Output(),fd->block,l);
+                  if(httpdebug) AwebLogRaw(fd->block, l);
                   if(fp) fwrite(fd->block,l,1,fp);
                   else
 #endif
@@ -5848,7 +5799,7 @@ static BOOL Sendmultipartdata(struct Httpinfo *hi,struct Fetchdriver *fd,FILE *f
       else
       {  
 #ifdef DEVELOPER
-         if(httpdebug) Write(Output(),fd->multipart->buf.buffer+mpp->start,mpp->length);
+         if(httpdebug) AwebLogRaw(fd->multipart->buf.buffer+mpp->start, (long)mpp->length);
          if(fp) fwrite(fd->multipart->buf.buffer+mpp->start,mpp->length,1,fp);
          else
 #endif
@@ -5856,7 +5807,7 @@ static BOOL Sendmultipartdata(struct Httpinfo *hi,struct Fetchdriver *fd,FILE *f
       }
    }
 #ifdef DEVELOPER
-   if(httpdebug) Write(Output(),"\n",1);
+   if(httpdebug) AwebLogRaw("\n", 1);
 #endif
    return ok;
 }
@@ -5891,8 +5842,6 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    }
    hi->server_supports_range = FALSE;  /* Will be set from Accept-Ranges header */
    hi->full_file_size = 0;  /* Will be set from Content-Range header for 206 responses */
-   debug_printf("DEBUG: Httpretrieve: Initialized - flags=0x%04X, blocklength=%ld, bytes_received=%ld\n",
-          hi->flags, hi->blocklength, hi->bytes_received);
 #ifdef DEVELOPER
    if(STRNEQUAL(fd->name,"&&&&",4)
    ||STRNIEQUAL(fd->name,"http://&&&&",11)
@@ -5937,22 +5886,19 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    do
    {  try_again = FALSE; /* Default to single run */
       
-      debug_printf("DEBUG: Httpretrieve: Calling Openlibraries() (retry_count=%d)\n", retry_count);
+      debug_printf("DEBUG: Httpretrieve: retry=%d Openlibraries\n", retry_count);
       result=Openlibraries(hi);
-      debug_printf("DEBUG: Httpretrieve: Openlibraries() returned %ld\n", result);
       
 #ifndef DEMOVERSION
       if(result && (hi->fd->flags&FDVF_FORMWARN) && !(hi->flags&HTTPIF_SSL))
-      {  debug_printf("DEBUG: Httpretrieve: Calling Formwarnrequest()\n");
-         result=Formwarnrequest();
-         debug_printf("DEBUG: Httpretrieve: Formwarnrequest() returned %ld\n", result);
+      {  result=Formwarnrequest();
       }
 #endif
       
       if(result)
       {  /* Establish a connection (either reused or newly opened). */
          if(hi->connection_reused)
-         {  debug_printf("DEBUG: Httpretrieve: Using pooled %s connection - skipping DNS, Opensocket(), and Connect()\n",
+         {  debug_printf("DEBUG: Httpretrieve: pooled %s conn (skip DNS/socket)\n",
                         (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP");
             result = TRUE; /* Connection already established */
             
@@ -5988,8 +5934,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                setsockopt(hi->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
                
                ReleaseSocketBaseSwap(saved_socketbase);
-               debug_printf("DEBUG: Httpretrieve: Applied timeouts to reused %s connection\n",
-                           (hi->flags&HTTPIF_SSL) ? "SSL" : "HTTP");
+               debug_printf("DEBUG: Httpretrieve: pooled timeouts sock=%ld\n", hi->sock);
             }
             
             /* Connection is ready: proceed to request/response path */
@@ -5997,19 +5942,13 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
          }
          else
          {  /* New connection - need DNS lookup, Opensocket(), and Connect() */
-         debug_printf("DEBUG: Httpretrieve: Libraries opened, starting DNS lookup for '%s'\n",
-                     hi->connect ? (char *)hi->connect : "(null)");
          Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
          Tcpmessage(fd,TCPMSG_LOOKUP,hi->connect);
          
-         debug_printf("DEBUG: Httpretrieve: Calling Lookup() for '%s'\n", hi->connect ? (char *)hi->connect : "(null)");
          if(hent=Lookup(hi->connect,hi->socketbase))
-         {  debug_printf("DEBUG: Httpretrieve: Lookup() succeeded, hostname='%s'\n",
-                   hent->h_name ? (char *)hent->h_name : "(null)");
-            
-            debug_printf("DEBUG: Httpretrieve: Calling Opensocket()\n");
-            if((hi->sock=Opensocket(hi,hent))>=0)
-            {  debug_printf("DEBUG: Httpretrieve: Opensocket() succeeded, sock=%ld\n", hi->sock);
+         {  if((hi->sock=Opensocket(hi,hent))>=0)
+            {  debug_printf("DEBUG: Httpretrieve: new TCP sock=%ld host=%s\n", hi->sock,
+                   hent->h_name ? (char *)hent->h_name : "?");
                Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
                Tcpmessage(fd,TCPMSG_CONNECT,
                   hi->flags&HTTPIF_SSL?"HTTPS":"HTTP",hent->h_name);
@@ -6074,7 +6013,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                }
                
                if(result)
-               {  debug_printf("DEBUG: Httpretrieve: Connect() succeeded\n");
+               {  
 #ifndef DEMOVERSION
                if(hi->flags&HTTPIF_SSL)
                {  debug_printf("DEBUG: Httpretrieve: SSL connection established, getting cipher info\n");
@@ -6241,8 +6180,8 @@ send_request:
          debug_printf("DEBUG: Httpretrieve: Send() returned, result=%ld (expected %ld)\n", result, reqlen);
 #ifdef BETAKEYFILE
          if(httpdebug)
-         {  Write(Output(),"\n",1);
-            Write(Output(),request,reqlen);
+         {  AwebLogRaw("\n", 1);
+            AwebLogRaw(request, (long)reqlen);
          }
 #endif
          if(result)
@@ -6259,8 +6198,8 @@ send_request:
                       result, msglen);
 #ifdef BETAKEYFILE
                if(httpdebug)
-               {  Write(Output(),fd->postmsg,msglen);
-                  Write(Output(),"\n\n",2);
+               {  AwebLogRaw(fd->postmsg, (long)msglen);
+                  AwebLogRaw("\n\n", 2);
                }
 #endif
             }
@@ -6403,14 +6342,11 @@ void Httptask(struct Fetchdriver *fd)
           fd ? BOOLVAL(fd->flags&FDVF_SSL) : 0);
    
    if(Makehttpaddr(&hi,fd->proxy,fd->name,BOOLVAL(fd->flags&FDVF_SSL)))
-   {  debug_printf("DEBUG: Httptask: Makehttpaddr succeeded\n");
-      if(!prefs.network.limitproxy && !hi.auth) hi.auth=Guessauthorize(hi.hostport);
+   {  if(!prefs.network.limitproxy && !hi.auth) hi.auth=Guessauthorize(hi.hostport);
       if(fd->proxy && !prefs.network.limitproxy) hi.prxauth=Guessauthorize(fd->proxy);
-      debug_printf("DEBUG: Httptask: Auth setup complete (auth=%p, prxauth=%p)\n", hi.auth, hi.prxauth);
       
       for(;;)
       {  loop_count++;
-         debug_printf("DEBUG: Httptask: Loop iteration %d (redirect_count=%d)\n", loop_count, redirect_count);
          
          /* Protect against redirect loops - limit to 10 redirects */
          if(redirect_count >= 10)
@@ -6444,7 +6380,6 @@ void Httptask(struct Fetchdriver *fd)
          /* CRITICAL: Reset socket and socketbase to prevent reuse */
          hi.sock = -1;
          hi.socketbase = NULL;
-         debug_printf("DEBUG: Httptask: Calling Httpretrieve() - status reset to 0\n");
          Httpretrieve(&hi,fd);
          debug_printf("DEBUG: Httptask: Httpretrieve() returned - status=%ld, flags=0x%04X\n",
                 hi.status, hi.flags);
@@ -6581,10 +6516,9 @@ static BOOL Findmultipartboundary(struct Httpinfo *hi, UBYTE *data, long length)
 BOOL Inithttp(void)
 {  
 #ifndef LOCALONLY
+   InitAwebLog();
    InitSemaphore(&certsema);
    NEWLIST(&certaccepts);
-   InitSemaphore(&debug_log_sema);
-   debug_log_sema_initialized = TRUE;
    InitSemaphore(&keepalive_sema);
    keepalive_sema_initialized = TRUE;
    NEWLIST(&keepalive_pool);

@@ -166,7 +166,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
                {  if(httpdebug)
                   {  void *urlstr;
                      urlstr=(void *)Agetattr(dox->url,AOURL_Url);
-                     printf("[FETCH] Srcupdatedocext: EOF received with valid data after ERROR, clearing ERROR flag for URL=%s, length=%ld\n",
+                     AwebLog("fetch", "Srcupdatedocext: EOF received with valid data after ERROR, clearing ERROR flag for URL=%s, length=%ld",
                             urlstr ? (char *)urlstr : "NULL", dox->buf.length);
                   }
                   dox->flags&=~DOXF_ERROR;  /* Clear ERROR since we have valid data */
@@ -185,7 +185,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
                   UBYTE *status;
                   urlstr=(void *)Agetattr(dox->url,AOURL_Url);
                   status=(UBYTE *)Agetattr(dox->url,AOURL_Status);
-                  printf("[FETCH] Srcupdatedocext: ERROR received for URL=%s, buffer=%p, length=%ld, status=%s\n",
+                  AwebLog("fetch", "Srcupdatedocext: ERROR received for URL=%s, buffer=%p, length=%ld, status=%s",
                          urlstr ? (char *)urlstr : "NULL", dox->buf.buffer, dox->buf.length,
                          status ? (char *)status : "NULL");
                }
@@ -202,7 +202,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
       if(httpdebug)
       {  void *urlstr;
          urlstr=(void *)Agetattr(dox->url,AOURL_Url);
-         printf("[FETCH] Srcupdatedocext: EOF reached, URL=%s, notmodified=%d, buffer=%p, length=%ld, flags=0x%04x\n",
+         AwebLog("fetch", "Srcupdatedocext: EOF reached, URL=%s, notmodified=%d, buffer=%p, length=%ld, flags=0x%04x",
                 urlstr ? (char *)urlstr : "NULL", notmodified ? 1 : 0,
                 dox->buf.buffer, dox->buf.length, dox->flags);
       }
@@ -212,7 +212,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
       {  if(dox->buf.buffer && dox->buf.length > 1)
          {  /* We have a cached buffer - 304 means use it, which we already have */
             if(httpdebug)
-            {  printf("[FETCH] Srcupdatedocext: 304 Not Modified, using existing cached buffer (length=%ld)\n", dox->buf.length);
+            {  AwebLog("fetch", "Srcupdatedocext: 304 Not Modified, using existing cached buffer (length=%ld)", dox->buf.length);
             }
             /* Signal waiting documents with the cached buffer */
             Signaldocs(dox);
@@ -223,7 +223,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
               * Don't set LOADING - just set RETRY and signal. This allows the callback to retry
               * immediately, or parsing to resume and Dolink to retry naturally. */
             if(httpdebug)
-            {  printf("[FETCH] Srcupdatedocext: 304 Not Modified but no cached buffer (buffer=%p, length=%ld), setting RETRY flag (no LOADING)\n",
+            {  AwebLog("fetch", "Srcupdatedocext: 304 Not Modified but no cached buffer (buffer=%p, length=%ld), setting RETRY flag (no LOADING)",
                       dox->buf.buffer, dox->buf.length);
             }
             dox->flags|=DOXF_RETRY;
@@ -242,7 +242,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
          dox->flags&=~DOXF_EOF;  /* Clear EOF since we're retrying */
          if(dox->flags&DOXF_ERROR) dox->flags&=~DOXF_ERROR;  /* Clear error for retry */
          if(httpdebug)
-         {  printf("[FETCH] Srcupdatedocext: EOF with invalid buffer, setting RETRY flag (not LOADING), signaling to resume parsing\n");
+         {  AwebLog("fetch", "Srcupdatedocext: EOF with invalid buffer, setting RETRY flag (not LOADING), signaling to resume parsing");
          }
          /* Signal to resume parsing - Finddocext will see RETRY without LOADING and start retry */
          Signaldocs(dox);
@@ -331,12 +331,12 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
    extern BOOL httpdebug;
    urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
    if(httpdebug)
-   {  printf("[FETCH] Finddocext: URL=%s, reload=%d\n", urlstr ? (char *)urlstr : "NULL", reload ? 1 : 0);
+   {  AwebLog("fetch", "Finddocext: URL=%s, reload=%d", urlstr ? (char *)urlstr : "NULL", reload ? 1 : 0);
    }
    if(reload)
    {  loadflags|=AUMLF_RELOAD;
       if(httpdebug)
-      {  printf("[FETCH] Finddocext: Reload requested, forcing fresh load\n");
+      {  AwebLog("fetch", "Finddocext: Reload requested, forcing fresh load");
       }
    }
    else
@@ -352,7 +352,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                {  dox->flags&=~DOXF_ERROR;
                }
                if(httpdebug)
-               {  printf("[FETCH] Finddocext: Cache HIT - returning cached buffer, length=%ld bytes\n",
+               {  AwebLog("cache", "Finddocext: HIT cached buffer length=%ld bytes",
                          dox->buf.length);
                }
                return dox->buf.buffer;
@@ -374,7 +374,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
              * Also check that buffer has meaningful content (more than just null terminator). */
             if((dox->flags&DOXF_EOF) && !(dox->flags&DOXF_ERROR) && dox->buf.buffer && dox->buf.length > 1)
             {  if(httpdebug)
-               {  printf("[FETCH] Finddocext: Cache HIT - returning cached buffer, length=%ld bytes\n",
+               {  AwebLog("cache", "Finddocext: HIT cached buffer length=%ld bytes",
                          dox->buf.length);
                }
                return dox->buf.buffer;
@@ -390,7 +390,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                dox->flags|=DOXF_RETRY;
                if(dox->buf.buffer) Freebuffer(&dox->buf);
                if(httpdebug)
-               {  printf("[FETCH] Finddocext: Load completed with invalid buffer, clearing EOF, setting RETRY flag, returning NULL\n");
+               {  AwebLog("fetch", "Finddocext: Load completed with invalid buffer, clearing EOF, setting RETRY flag, returning NULL");
                }
                return NULL;
             }
@@ -414,7 +414,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                   {  if(httpdebug)
                      {  void *urlstr;
                         urlstr=(void *)Agetattr(url,AOURL_Url);
-                        printf("[FETCH] Finddocext: RETRY flag set but LOADING also set, adding to wait list for URL=%s\n",
+                        AwebLog("fetch", "Finddocext: RETRY flag set but LOADING also set, adding to wait list for URL=%s",
                                urlstr ? (char *)urlstr : "NULL");
                      }
                      Addwaitingdoc(doc,url);
@@ -425,7 +425,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                if(httpdebug)
                {  void *urlstr;
                   urlstr=(void *)Agetattr(url,AOURL_Url);
-                  printf("[FETCH] Finddocext: RETRY flag set (flags=0x%04x), clearing RETRY, starting retry load for URL=%s\n",
+                  AwebLog("fetch", "Finddocext: RETRY flag set (flags=0x%04x), clearing RETRY, starting retry load for URL=%s",
                          dox->flags, urlstr ? (char *)urlstr : "NULL");
                }
                dox->flags&=~DOXF_RETRY;
@@ -454,7 +454,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                {  if(httpdebug)
                   {  void *urlstr;
                      urlstr=(void *)Agetattr(url,AOURL_Url);
-                     printf("[FETCH] Finddocext: Cached entry found but load already in progress (flags=0x%04x), adding to wait list for URL=%s\n",
+                     AwebLog("fetch", "Finddocext: Cached entry found but load already in progress (flags=0x%04x), adding to wait list for URL=%s",
                             dox->flags, urlstr ? (char *)urlstr : "NULL");
                   }
                   Addwaitingdoc(doc,url);
@@ -462,13 +462,13 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                else if(httpdebug)
                {  void *urlstr;
                   urlstr=(void *)Agetattr(url,AOURL_Url);
-                  printf("[FETCH] Finddocext: Cached entry found but load already in progress (flags=0x%04x), already in wait list for URL=%s\n",
+                  AwebLog("fetch", "Finddocext: Cached entry found but load already in progress (flags=0x%04x), already in wait list for URL=%s",
                          dox->flags, urlstr ? (char *)urlstr : "NULL");
                }
                return NULL;
             }
             if(httpdebug)
-            {  printf("[FETCH] Finddocext: Cached entry found but buffer not ready (EOF=%d, buffer=%p, length=%ld), loading fresh\n",
+            {  AwebLog("fetch", "Finddocext: Cached entry found but buffer not ready (EOF=%d, buffer=%p, length=%ld), loading fresh",
                       (dox->flags&DOXF_EOF) ? 1 : 0, dox->buf.buffer, dox->buf.length);
             }
             /* Buffer not ready yet, break out to start loading */
@@ -485,7 +485,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
    if(httpdebug)
    {  void *urlstr;
       urlstr=(void *)Agetattr(url,AOURL_Url);
-      printf("[FETCH] Finddocext: Calling Auload for URL=%s, loadflags=0x%04lx, found_dox=%p\n",
+      AwebLog("fetch", "Finddocext: Calling Auload for URL=%s, loadflags=0x%04lx, found_dox=%p",
              urlstr ? (char *)urlstr : "NULL", loadflags, found_dox);
    }
    refererurl = NULL;

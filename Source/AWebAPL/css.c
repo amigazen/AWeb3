@@ -89,8 +89,7 @@ static void css_debug_printf(const char *format, ...)
 {  va_list args;
    if(!httpdebug) return;
    va_start(args, format);
-   printf("[CSS] ");
-   vprintf(format, args);
+   AwebLogV("css", format, args);
    va_end(args);
 }
 
@@ -216,8 +215,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    if(!doc || !css) return;
    
    if(httpdebug)
-   {  printf("[CSS] MergeCSSStylesheet: Starting merge\n");
-   }
+      AwebLog("css", "MergeCSSStylesheet: Starting merge");
    /* Parse the new CSS */
    newSheet = ParseCSS(doc,css,-1);
    if(!newSheet)
@@ -2090,20 +2088,20 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
             fontFamily = fontFamilyStripped;
             if(fontFamily && *fontFamily)
             {  if(httpdebug)
-               {  printf("[CSS] font-family (inline style): Matchfont list='%s' sizeidx=%d fixed=%d objtype=%ld el=%p\n",
+               {  AwebLog("css", "font-family (inline style): Matchfont list='%s' sizeidx=%d fixed=%d objtype=%ld el=%p",
                      (char *)fontFamily, (int)fontSize, (int)isFixed, (long)objtype, element);
                }
                fp = Matchfont(fontFamily, fontSize, isFixed);
                if(fp && fp->font)
                {  if(httpdebug)
-                  {  printf("[CSS] font-family (inline style): AOELT_Font set el=%p ysize=%d\n",
+                  {  AwebLog("css", "font-family (inline style): AOELT_Font set el=%p ysize=%d",
                         element, (int)fp->font->tf_YSize);
                   }
                   /* Apply the matched font to the element */
                   Asetattrs(element, AOELT_Font, fp->font, TAG_END);
                }
                else if(httpdebug)
-               {  printf("[CSS] font-family (inline style): Matchfont returned no font list='%s'\n",
+               {  AwebLog("css", "font-family (inline style): Matchfont returned no font list='%s'",
                      (char *)fontFamily);
                }
             }
@@ -2421,7 +2419,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
       return;
    }
    if(httpdebug)
-   {  printf("[CSS] ApplyCSSToElement: element=%p, type=%d, tagname=%s, class=%s, id=%s\n",
+   {  AwebLog("css", "ApplyCSSToElement: element=%p, type=%d, tagname=%s, class=%s, id=%s",
             element, objtype,
             tagname ? (char *)tagname : "NULL",
             class ? (char *)class : "NULL",
@@ -2434,7 +2432,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
     * universal selectors (which have no such requirements). */
    if(!tagname && !class && !id)
    {  if(httpdebug)
-      {  printf("[CSS] ApplyCSSToElement: Skipping - no tagname/class/id\n");
+      {  AwebLog("css", "ApplyCSSToElement: Skipping - no tagname/class/id");
       }
       currentCSSDoc = NULL;
       return;
@@ -2527,7 +2525,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
          (struct MinNode *)prop->node.mln_Succ;
          prop = (struct CSSProperty *)prop->node.mln_Succ)
       {  if(httpdebug)
-         {  printf("[CSS] ApplyCSSToElement: Applying property %s to element\n",
+         {  AwebLog("css", "ApplyCSSToElement: Applying property %s to element",
                   prop->name ? (char *)prop->name : "NULL");
          }
          ApplyProperty(doc,element,prop);
@@ -2538,7 +2536,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    }
    
    if(httpdebug)
-   {  printf("[CSS] ApplyCSSToElement: Found %ld matching rule(s) for element\n", matchCount);
+   {  AwebLog("css", "ApplyCSSToElement: Found %ld matching rule(s) for element", matchCount);
    }
    
    /* Clear static document pointer */
@@ -2565,7 +2563,7 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    /* Prevent infinite recursion - max depth of 100 */
    if(depth > 100)
    {  if(httpdebug)
-      {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Max recursion depth (100) exceeded, stopping to prevent infinite loop\n");
+      {  AwebLog("css", "ReapplyCSSToBodyRecursive: WARNING - Max recursion depth (100) exceeded, stopping to prevent infinite loop");
       }
       return;
    }
@@ -2576,7 +2574,7 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    id = (UBYTE *)Agetattr(body, AOBDY_Id);
    if(httpdebug)
    {  if(tagname && (Stricmp((char *)tagname,"DIV") == 0 || Stricmp((char *)tagname,"PRE") == 0))
-      {  printf("[CSS] ReapplyCSSToBodyRecursive: Applying CSS to %s element, body=%p, class=%s, id=%s, depth=%ld\n",
+      {  AwebLog("css", "ReapplyCSSToBodyRecursive: Applying CSS to %s element, body=%p, class=%s, id=%s, depth=%ld",
                 tagname ? (char *)tagname : "unknown", body,
                 class ? (char *)class : "NULL",
                 id ? (char *)id : "NULL",
@@ -2598,14 +2596,14 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
       /* Safety check: prevent infinite loops in corrupted lists */
       if(childCount > 10000)
       {  if(httpdebug)
-         {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Child count exceeded 10000, list may be corrupted\n");
+         {  AwebLog("css", "ReapplyCSSToBodyRecursive: WARNING - Child count exceeded 10000, list may be corrupted");
          }
          break;
       }
    }
    
    if(httpdebug && depth == 0 && childCount > 100)
-   {  printf("[CSS] ReapplyCSSToBodyRecursive: Processing %ld child elements at root level\n", childCount);
+   {  AwebLog("css", "ReapplyCSSToBodyRecursive: Processing %ld child elements at root level", childCount);
    }
    
    /* Iterate through all child elements with protection against circular references */
@@ -2615,13 +2613,13 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
       
       /* Progress reporting for large lists */
       if(httpdebug && depth == 0 && iterationCount % 100 == 0)
-      {  printf("[CSS] ReapplyCSSToBodyRecursive: Progress - %ld/%ld elements processed\n", iterationCount, childCount);
+      {  AwebLog("css", "ReapplyCSSToBodyRecursive: Progress - %ld/%ld elements processed", iterationCount, childCount);
       }
       
       /* Prevent infinite loops in corrupted lists - max 10000 iterations per body */
       if(iterationCount > 10000)
       {  if(httpdebug)
-         {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Max iterations (10000) exceeded for body %p, stopping to prevent infinite loop\n", body);
+         {  AwebLog("css", "ReapplyCSSToBodyRecursive: WARNING - Max iterations (10000) exceeded for body %p, stopping to prevent infinite loop", body);
          }
          break;
       }
@@ -2638,7 +2636,7 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
          {  ReapplyCSSToBodyRecursiveInternal(doc, childBody, depth + 1);
          }
          else if(httpdebug)
-         {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Body element %p contains itself, skipping to prevent infinite recursion\n", body);
+         {  AwebLog("css", "ReapplyCSSToBodyRecursive: WARNING - Body element %p contains itself, skipping to prevent infinite recursion", body);
          }
       }
       else
@@ -2647,7 +2645,7 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    }
    
    if(httpdebug && depth == 0)
-   {  printf("[CSS] ReapplyCSSToBodyRecursive: Completed processing %ld child elements at root level\n", iterationCount);
+   {  AwebLog("css", "ReapplyCSSToBodyRecursive: Completed processing %ld child elements at root level", iterationCount);
    }
 }
 
@@ -2663,7 +2661,7 @@ void ReapplyCSSToAllElements(struct Document *doc)
    
    if(!doc || !doc->cssstylesheet || !doc->body)
    {  if(httpdebug)
-      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - doc=%p stylesheet=%p body=%p\n",
+      {  AwebLog("css", "ReapplyCSSToAllElements: Skipped - doc=%p stylesheet=%p body=%p",
                 doc, (doc ? doc->cssstylesheet : NULL), (doc ? doc->body : NULL));
       }
       return;
@@ -2673,12 +2671,12 @@ void ReapplyCSSToAllElements(struct Document *doc)
     * and when CSS is ready before the document is attached to a frame. */
    if(!doc->frame)
    {  if(httpdebug)
-      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - no frame (doc=%p), will reapply when attached\n", doc);
+      {  AwebLog("css", "ReapplyCSSToAllElements: Skipped - no frame (doc=%p), will reapply when attached", doc);
       }
       return;
    }
    if(httpdebug)
-   {  printf("[CSS] ReapplyCSSToAllElements: ENTER doc=%p cssserial=%lu applied=%lu sheet=%p body=%p frame=%p\n",
+   {  AwebLog("css", "ReapplyCSSToAllElements: ENTER doc=%p cssserial=%lu applied=%lu sheet=%p body=%p frame=%p",
              doc, (ULONG)doc->cssserial, (ULONG)doc->cssappliedserial,
              doc->cssstylesheet, doc->body, doc->frame);
    }
@@ -2687,7 +2685,7 @@ void ReapplyCSSToAllElements(struct Document *doc)
    ReapplyCSSToBodyRecursive(doc, doc->body);
    
    if(httpdebug)
-   {  printf("[CSS] ReapplyCSSToAllElements: EXIT doc=%p cssserial=%lu applied=%lu sheet=%p body=%p frame=%p\n",
+   {  AwebLog("css", "ReapplyCSSToAllElements: EXIT doc=%p cssserial=%lu applied=%lu sheet=%p body=%p frame=%p",
              doc, (ULONG)doc->cssserial, (ULONG)doc->cssappliedserial,
              doc->cssstylesheet, doc->body, doc->frame);
    }
@@ -3615,7 +3613,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             if(fontFace)
             {  Stripcssfontfamilyquotes(fontFace);
                if(httpdebug)
-               {  printf("[CSS] font-family (inline on body tag=%s): raw='%s' -> AOBDY_Fontface='%s' body=%p\n",
+               {  AwebLog("css", "font-family (inline on body tag=%s): raw='%s' -> AOBDY_Fontface='%s' body=%p",
                      tagname ? (char *)tagname : "(null)",
                      prop->value ? (char *)prop->value : "(null)",
                      (char *)fontFace, body);
@@ -3624,7 +3622,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                FREE(fontFace);
             }
             else if(httpdebug)
-            {  printf("[CSS] font-family (inline): Dupstr failed raw='%s'\n",
+            {  AwebLog("css", "font-family (inline): Dupstr failed raw='%s'",
                   prop->value ? (char *)prop->value : "(null)");
             }
          }

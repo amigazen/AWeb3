@@ -23,13 +23,8 @@
 #include <proto/utility.h>
 #include <proto/timer.h>
 #include <dos/dos.h>
-#include <stdarg.h>
 #include "aweb.h"
 #include "awebtcp.h"
-
-/* Shared debug logging semaphore - defined in http.c, declared here */
-extern struct SignalSemaphore debug_log_sema;
-extern BOOL debug_log_sema_initialized;
 
 struct Hostname
 {  NODE(Hostname);
@@ -45,42 +40,6 @@ static LIST(Hostname) names;
 static BOOL inited;
 
 static struct SignalSemaphore namesema;
-
-/* Helper function to get Task ID for logging */
-static ULONG get_task_id(void)
-{  struct Task *task;
-   task = FindTask(NULL);
-   return (ULONG)task;
-}
-
-/* Thread-safe debug logging wrapper with Task ID */
-static void debug_printf(const char *format, ...)
-{  va_list args;
-   ULONG task_id;
-   
-   /* Only output if HTTPDEBUG mode is enabled */
-   if(!httpdebug)
-   {  return;
-   }
-   
-   task_id = get_task_id();
-   
-   if(debug_log_sema_initialized)
-   {  ObtainSemaphore(&debug_log_sema);
-   }
-   
-   printf("[TASK:0x%08lX] ", task_id);
-   va_start(args, format);
-   vprintf(format, args);
-   va_end(args);
-   
-   if(debug_log_sema_initialized)
-   {  ReleaseSemaphore(&debug_log_sema);
-   }
-}
-
-/*-----------------------------------------------------------------------*/
-
 
 /*-----------------------------------------------------------------------*/
 
@@ -117,50 +76,28 @@ struct hostent *Lookup(UBYTE *name,struct Library *base)
    if(hent) return hent;
    
    /* CRITICAL: Add timeout protection for DNS lookups to prevent hanging */
-   debug_printf("DEBUG: DNS lookup for '%s', adding timeout protection\n", name);
-   
-   /* CRITICAL: Check for exit signals before DNS lookup to prevent hanging */
    if(CheckSignal(SIGBREAKF_CTRL_C)) {
-      debug_printf("DEBUG: Task break detected, aborting DNS lookup for '%s'\n", name);
+      AwebLog("dns", "lookup aborted host=%s (break)", name);
       return NULL;
    }
-   
-   /* CRITICAL: Check for exit signal (SIGBREAKF_CTRL_D) */
    if(CheckSignal(SIGBREAKF_CTRL_D)) {
-      debug_printf("DEBUG: Exit signal detected, aborting DNS lookup for '%s'\n", name);
+      AwebLog("dns", "lookup aborted host=%s (exit)", name);
       return NULL;
    }
-   
-   /* CRITICAL: Check for any break signal that might indicate exit */
    if(CheckSignal(SIGBREAKF_CTRL_E)) {
-      debug_printf("DEBUG: Exit break detected, aborting DNS lookup for '%s'\n", name);
+      AwebLog("dns", "lookup aborted host=%s (exit break)", name);
       return NULL;
    }
-   
-   /* CRITICAL: Implement pre-emptive exit checking to prevent DNS hanging */
-   /* The key insight: a_gethostbyname can hang forever, so we must */
-   /* check for exit signals BEFORE starting the DNS operation */
-   
-   debug_printf("DEBUG: Starting DNS lookup for '%s' with exit protection\n", name);
-   
-   /* CRITICAL: Check for exit signals BEFORE starting DNS lookup */
-   /* This prevents the hanging operation from starting in the first place */
+   AwebLog("dns", "lookup start host=%s", name);
    if(CheckSignal(SIGBREAKF_CTRL_C | SIGBREAKF_CTRL_D | SIGBREAKF_CTRL_E)) {
-      debug_printf("DEBUG: Exit signals detected, aborting DNS lookup for '%s' before it starts\n", name);
+      AwebLog("dns", "lookup aborted host=%s (signals before gethostbyname)", name);
       return NULL;
    }
-   
-   /* CRITICAL: Also check for task termination signal */
    if(CheckSignal(SIGBREAKF_CTRL_F)) {
-      debug_printf("DEBUG: Task termination signal detected, aborting DNS lookup for '%s'\n", name);
+      AwebLog("dns", "lookup aborted host=%s (task term)", name);
       return NULL;
    }
-   
-   /* CRITICAL: Now start the DNS lookup - it may still hang, but we've */
-   /* done our best to prevent it by checking exit signals first */
    hent = a_gethostbyname(name,base);
-   
-   /* CRITICAL: Validate the returned hostent structure */
    if(hent && hent->h_name && hent->h_addr_list && hent->h_addr_list[0])
    {  if(hn=ALLOCSTRUCT(Hostname,1,MEMF_CLEAR|MEMF_PUBLIC))
       {  if((hn->hostname=Dupstr(hent->h_name,-1))
@@ -174,7 +111,7 @@ struct hostent *Lookup(UBYTE *name,struct Library *base)
             ObtainSemaphore(&namesema);
             ADDTAIL(&names,hn);
             ReleaseSemaphore(&namesema);
-            debug_printf("DEBUG: DNS lookup for '%s' completed successfully\n", name);
+            AwebLog("dns", "lookup ok host=%s -> %s", name, hn->hostname);
          }
          else
          {  if(hn->hostname) FREE(hn->hostname);
@@ -185,7 +122,7 @@ struct hostent *Lookup(UBYTE *name,struct Library *base)
    }
    else
    {  /* DNS lookup failed or returned invalid structure */
-      debug_printf("DEBUG: DNS lookup for '%s' failed\n", name);
+      AwebLog("dns", "lookup failed host=%s", name);
    }
    
    return hent;
