@@ -74,22 +74,59 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 </ul>
 </p>
 
-<h2>What are the highlights of AWeb 3.6 Beta 8?</h2>
+<h2>What's New in AWeb 3.6 Beta 8?</h2>
+<p> This first beta release of AWeb 3.6 marks the transition from work in progress alpha releases, to a functionally complete and relatively stable release ready for wider distribution and testing. At this point no major new features will be added for AWeb 3.6, and the focus will be on bug fixes and optimisations.</p>
 <p>
+AWeb 3.6 beta 8 brings many new features and refactored core components including to the HTTP stack, fonts management, memory management, and debug logging, including:
 <ul>
 <li>HTTP <b>keep-alive</b> support for faster page loading especially on SSL/TLS connections</li>
 <li>Optional enhanced text rendering using <b>ttengine.library</b> for TrueType/OpenType fonts with anti-aliasing on 15bpp+ screens</li>
 <li>Full <b>UTF-8</b> content rendering when using ttengine.library</li>
-<li>All remaining relevant patches from <b>AWeb 3.5</b> are fully integrated and in many cases improved upon</li>
-<li>A dramatic refactoring of memory allocations to make much **greater use of memory pools** - reducing fragmentation and improving performance</li>
-<li>Refactored cache with standards compliant Cache-Control behaviour (including max-age and must-revalidate), no caching of error pages and POST responses</li>
+<li>Enhanced about:fonts page for font matching diagnostics including TTEngine support</li>
+<li>When TTEngine is available, standard Amiga fonts are not preloaded at startup, to save memory</li>
+<li>All remaining relevant patches from all known releases of <b>AWeb 3.5</b> are fully integrated and in many cases improved upon</li>
 <li>AWeb now requires the latest AmiSSL 5.27 - it will not allow TLS connections without it</li>
 <li>Images are now lazy-rendered - images "below the fold" are not decoded until they are about to be displayed, and thus don't use up chip memory until they are on the screen, accelerating page loading and reducing memory pressure</li>
+<li>Lazy rendering / decode is also applied to <b>CSS background images</b>, deferring background decode until it is actually needed for display</li>
 <li>The current Screen's titlebar is now used to display relevant information such as memory usage and open connections</li>
-<li>CSS and JavaScript content embedded from third party domains is ignored on the assumption that it is likely incompatible content used for tracking and advertising that may trip up AWeb's parser</li>
-</ul>
-See below for even more details of what's new in AWeb 3.6 Beta 8.
-</p>
+<li>Screen title uses locale.library for localised number formatting</li>
+<li>CSS and JavaScript content embedded from third party domains is ignored on the assumption that it is likely to contain incompatible content used for tracking and advertising that may trip up AWeb's parser</li>
+<li>Richer <b>status window</b> messages for more types of events - and status events are also logged to the console when DEBUG is turned on</li>
+<li>Windows opening at the default full screen size now respect the screen title <b>BarHeight</b> so the page does not cover the title bar, allowing the screen title to be visible</li>
+<li><b>Japanese</b> characters are now supported in ShiftJIS encoded pages and text blocks if JKFF.font is installed</li>
+<li>If AmiSSL 5.27 or later is not installed, the user is prompted to navigate to Aminet to download it</li>
+<li>UserAgent string includes identification of the specific Amiga operating system version instead of hardcoded version 3.2, and defaults to Mozilla/4.0 style</li>
+<li>Refactored memory allocations throughout the core AWeb binary to use shared memory pools through the AWeb memory manager instead of direct exec.library calls, for more efficient memory usage, reduced fragmentation, and improved stability</li>
+<li>Additionally, as a result of the centralised memory management, AWeb can now track its own memory usage total and display that in the screen title(not including allocations by the operating system for bitmaps, fonts, network connections etc.)</li>
+<li>Memory allocations made by zlib (for gzip http streams) and PCRE (for regular expressions) are now made directly through the AWeb memory manager instead of malloc()</li>
+<li>Debug logging has been overhauled to remove redundant output, to standardise on syslog / RFC3164 format logs with timestamps, and all logging is now centralised through a new AWebLog submodule using Amiga native functions instead of C library stdio</li>
+<li>HTTPDEBUG/S command line option will in future be deprecated in favour of simply DEBUG/S since debug output is not only used for HTTP related events - both options are valid in this release</li>
+<li><b>HTTP Cache-Control</b> response handling (<b>no-store</b>, <b>no-cache</b>, <b>max-age</b>, <b>must-revalidate</b>) improves cache freshness and correctness; <b>POST</b> responses are no longer written to the disk cache</li>
+<li>JavaScript diagnostics and memory tracking have been significantly expanded for debugging (GC/memory session stats, stack traces, and improved runtime logging)</li>
+<li>Amiga paths entered as locations (for example <b>Work:</b> or <b>RAM:</b> paths) are now normalised into <b>file:///</b> URLs automatically</li>
+<li>AWEB 3.5: <b>ARexx</b> window and screen controls extended (<b>SCREEN</b>, <b>LEFT</b>, <b>TOP</b>, <b>WIDTH</b>, <b>HEIGHT</b>, <b>NONAV</b>) with updated prefs accessors</li>
+<li>AWEB 3.5: <b>window.open()</b> popups use correct browser chrome deltas</li>
+<li>AWEB 3.5: <b>AppWindow</b> works when Workbench is selected as a named public screen</li>
+<li>AWEB 3.5: Cookie prefs are split out from the Network prefs into their own file</li>
+<li>FIXED: Starting new fetches while previous fetches are still running no longer cancels the new fetch when cancelling the existing fetch where the domain is the same</li>
+<li>FIXED: Failed requests on keep-alive connections were not retried with a fresh connection</li>
+<li>FIXED: Many longstanding memory leaks identified and fixed using MemLog and SegTracker</li>
+<li>FIXED: External <b>.css</b> and <b>.js</b> resources are cached correctly in the disk cache</li>
+<li>FIXED: <b>304 Not Modified</b> revalidation with pooled connections</li>
+<li>FIXED: HTTP Redirect 308 is now supported, following the same behaviour as for 307 redirects</li>
+<li>FIXED: Image transparency masks now use small row-wise reads instead of one huge temporary buffer for more efficient memory usage</li>
+<li>FIXED: <b>&lt;SCRIPT&gt;</b> HTML text inside SCRIPT tags is ignored and not parsed as markup</li>
+<li>FIXED: Many CSS fixes including<b>font-family</b> application corrected; redundant style passes removed; generic element selectors are no longer mis-applied to the <b>BODY</b> object</li>
+<li>FIXED: <b>XmlHttpRequest</b> shutdown on exit could hang</li>
+<li>FIXED: The size of placeholders for images no longer calculates width based on alt text content</li>
+<li>FIXED: Cache corruption edge cases on failed fetch/reload are eliminated by preventing stray payload data being appended to cached entries after an error</li>
+<li>FIXED: HTTPS keep-alive pooling is now robust against pending SSL/TLS read state (prevents TLS desync on reuse) and SSL cleanup/teardown is now bounded to avoid shutdown deadlocks or Exec semaphore corruption</li>
+<li>FIXED: SSL reads no longer hang indefinitely; AmiSSL socket I/O uses non-blocking reads with bounded WANT_READ/WANT_WRITE loops and timeouts</li>
+<li>FIXED: gzip + chunked transfer decoding is hardened so terminal chunk framing is preserved across decompression and chunk discard does not misclassify CR/LF as data</li>
+<li>FIXED: <b>SPAN</b> style state now correctly push/pops so styles do not “run on” into following content</li>
+<li>FIXED: Inline JavaScript execution and <b>document.write()</b> output is restored by ensuring the window object exists before script execution</li>
+<li>FIXED: Multiple JavaScript stability issues including Ajsetup re-entrancy deadlocks, garbage-collector double-frees, and object lifetime/use-after-free bugs that could cause UI hangs</li>
+</ul></p>
 
 <h2>What is AWebView?</h2>
 <p>
@@ -118,46 +155,14 @@ This is an initial release of AWebView provided as a proof of concept for feedba
 AWeb no longer requires an installer script. It can run from anywhere. Just run it from the folder it's in. Do note however that if the assign "AWeb:" does not already exist it will temporarily assign it to its current directory until it exits. On the other hand if you have assigned AWeb: to a different location then it won't find its plugins.
 </p>
 <p>
-When launched from Workbench, the default CONFIG is set to AWeb36a3 in the ToolTypes, which means it will not conflict with any existing AWeb prefs in your ENV:AWeb3 directory. When running from the command line you must specify CONFIG=AWeb36a3 to achieve the same effect as it will otherwise use the existing AWeb prefs. If you have an earlier version of AWeb installed with saved settings, this will prevent AWeb from using those settings which may include deprecated default paths such as AWebPath:
+Saved AWeb prefs configs from earlier releases are not guaranteed to be compatible to AWeb 3.6, as AWeb 3.4 had several major defects in its prefs management and AWeb 3.5 changed the prefs file format. It is recommended to start with a fresh config for AWeb 3.6. You can use the CONFIG argument/ToolType if you wish to keep your AWeb 3.6 config separate from your earlier releases. In any case, AWeb 3.6 is much smarter about choosing default settings and for most users the defaults will be appropriate.
 </p>
 <p>
-This alpha build supports a HTTPDEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
+This beta build supports a DEBUG/S command line option which will output a LOT of debugging output to the console. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
 </p>
 <p>
-The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. 
+The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to correctly load most modern websites requiring HTML5, CSS3, video content, heavy JavaScript, etc. 
 </p>
-
-<h2> What's New in 3.6 Beta 8?</h2>
-<ul>
-<li>Images are now lazy-rendered - images "below the fold" are not decoded until they are about to be displayed, and thus don't use up chip memory until they are on the screen, accelerating page loading and reducing memory pressure</li>
-<li>HTTP <b>keep-alive</b> support is now enabled for faster page loading especially on SSL/TLS connections</li>
-<li>TTEngine (ttengine.library) support for text rendering with OpenType/TrueType fonts is now fully functional</li>
-<li>Enhanced about:fonts page for font matching diagnostics including TTEngine support</li>
-<li>Richer <b>status window</b> messages for more types of events - and events are also logged when HTTPDEBUG is turned on</li>
-<li>When TTEngine is available, standard Amiga fonts are not preloaded at startup, to save memory</li>
-<li>Full-screen windows respect the screen title <b>BarHeight</b> so the page does not cover the title bar allowing the screen title to be visible</li>
-<li><b>Japanese</b> characters are now supported in ShiftJIS encoded pages and text blocks if JKFF.font is installed</li>
-<li>If AmiSSL 5.27 or later is not installed, the user is prompted to navigate to Aminet to download it</li>
-<li>Screen title uses locale.library for string formatting</li>
-<li>AWeb can track its own memory usage total (not including allocations by the operating system for bitmaps, fonts, network connections etc.)</li>
-<li>FIXED: Starting new fetches while previous fetches are still running no longer cancels the new fetch when cancelling the existing fetch where the domain is the same</li>
-<li>FIXED: Failed requests on keep-alive connections were not retried with a fresh connection</li>
-<li>FIXED: Many longstanding memory leaks identified and fixed using MemLog and SegTracker</li>
-<li>FIXED: External <b>.css</b> and <b>.js</b> resources are cached correctly in the disk cache</li>
-<li>FIXED: <b>304 Not Modified</b> revalidation with pooled connections</li>
-<li>FIXED: Preferences on-disk file structure now matches the internal prefs model, consistent with AWeb 3.5</li>
-<li>AWEB 3.5: <b>ARexx</b> window and screen controls extended (<b>SCREEN</b>, <b>LEFT</b>, <b>TOP</b>, <b>WIDTH</b>, <b>HEIGHT</b>, <b>NONAV</b>) with updated prefs accessors</li>
-<li>AWEB 3.5: <b>window.open()</b> popups use correct broswer chrome deltas</li>
-<li>AWEB 3.5: <b>AppWindow</b> works when Workbench is selected as a named public screen</li>
-<li>AWEB 3.5: Cookie prefs are split out from the Network prefs into their own file</li>
-<li>FIXED: HTTP Redirect 308 is now supported, following the same behaviour as for 307 redirects</li>
-<li>FIXED: Image transparency masks now use small row-wise reads instead of one huge temporary buffer for more efficient memory usage</li>
-<li>FIXED: <b>&lt;SCRIPT&gt;</b> HTML text inside SCRIPT tags is ignored and not parsed as markup</li>
-<li>FIXED: Many CSS fixes including<b>font-family</b> application corrected; redundant style passes removed; generic element selectors are no longer mis-applied to the <b>BODY</b> object</li>
-<li>FIXED: <b>XmlHttpRequest</b> shutdown on exit could hang</li>
-<li>FIXED: The size of placeholders for images no longer calculates width based on alt text content</li>
-<li>FIXED: Cancelled fetches no longer leave a stale <b>Ctrl-C</b> break state that aborts the next load in a new subtask</li>
-</ul>
 
 <h2> What's New in 3.6 Alpha 7?</h2>
 <ul>

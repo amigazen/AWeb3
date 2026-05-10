@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6beta8] - 2026-05-10
+
+### Added
+- **HTTP/1.1 keep-alive (production enabled):** Keep-alive pooling is now enabled for real-world use, including HTTPS connections.
+- **Lazy image decoding:** Images are decoded on demand as they approach visibility (“below the fold” images no longer consume Chip RAM early).
+- **Lazy background image decoding:** CSS background images can also defer decode until actually needed for display.
+- **Cache-Control support:** Parse and apply `Cache-Control` directives (`no-store`, `no-cache`, `max-age`, `must-revalidate`) to improve cache correctness and freshness.
+- **DEBUG/S switch:** `DEBUG/S` is accepted as an alias of `HTTPDEBUG/S` (logging is no longer HTTP-only).
+- **AWebLog:** Centralised logging subsystem with syslog/RFC3164-style formatting and timestamps; rationalised output to reduce noise.
+- **Status window expansion:** More event types are reported, and (when debug is enabled) status events are mirrored to the console log.
+- **Screen title telemetry:** Screen title display includes memory/pool stats and now also includes the full protocol + domain of the current document URL.
+- **Locale-aware screen title numbers:** Screen-title numeric formatting uses `locale.library` for correct thousands separators.
+- **Third-party script/CSS filtering:** Optional conservative filtering to ignore CSS/JavaScript loaded from third-party domains (helps avoid modern/tracker content tripping up parsers).
+- **Safer JavaScript execution filter:** Conservative execution filter to skip modern/unsafe scripts on real-world pages.
+- **About modules:** Updated `about.aweblib` content for Beta 8 (including sizing fixes for embedded assets in about pages).
+- **Test assets:** Expanded regression test pages, including unique test-case numbering and deliberate failure-mode tests.
+
+### Changed
+- **AmiSSL requirement:** AWeb now requires AmiSSL 5.27 for TLS; when missing, the user is prompted to fetch it with an Aminet search link.
+- **User-Agent defaults:** Default profile updated (Mozilla/4.0 style) to reduce compatibility blocks (e.g. strict edge protections). User-Agent now includes the detected Amiga operating system version rather than a hardcoded value.
+- **Memory management:** Core modules are migrated to the centralised memory manager and shared pools; `CreatePool` no longer forces `MEMF_CLEAR` by default (reduces overhead) while retaining hardened tracking.
+- **zlib/PCRE allocation routing:** zlib (gzip) and PCRE (regex) allocations are routed through AWeb’s allocator rather than `malloc()`.
+- **Disk font preloading:** When `ttengine.library` is available, standard bitmap fonts are not bulk-preloaded at startup.
+- **Preferences model sync:** Updated ARexx accessors and preference handling so the on-disk preference structure matches the internal prefs model.
+- **MARQUEE:** `<MARQUEE>` support is temporarily disabled again due to system deadlocks, pending further work.
+
+### Fixed
+- **Keep-alive correctness:** Failed keep-alive requests are retried using a fresh connection; same-domain fetches no longer self-cancel when an earlier connection is still open.
+- **HTTPS keep-alive pooling (TLS correctness):** Pool reuse accounts for SSL pending read state (prevents TLS desynchronisation on reuse). SSL cleanup/teardown is bounded and uses safer disposal to avoid shutdown deadlocks and semaphore corruption.
+- **SSL read hangs:** `SSL_read()` is driven using non-blocking socket mode and bounded WANT_READ/WANT_WRITE loops with timeouts (prevents indefinite hangs).
+- **gzip + chunked robustness:** Chunked transfer decoding avoids premature final-chunk detection; gzip-in-chunked framing is preserved across decompression so terminal chunk lines are not lost; discarding chunks after gzip completion handles CR/LF correctly.
+- **304 revalidation + keep-alive races:** `304 Not Modified` is treated as a real status while correctly skipping body reads to avoid task-break races during cache revalidation.
+- **Cache integrity after errors:** After `AOURL_Error`, subsequent `AOURL_Data`/EOF payloads are no longer forwarded into the cache object (prevents corrupting restored cache entries on reload/retry). Conditional GET verify paths also avoid writing stray bodies on error. POST responses do not create disk-cache entries.
+- **ShiftJIS rendering:** Japanese ShiftJIS characters render correctly in text blocks when JKFF font is available; fixes misidentification of ShiftJIS ranges in mixed text.
+- **UTF-8 + ttengine correctness:** Full UTF-8 support with `ttengine.library`, including correct font-face capture and matching in nested bodies (e.g. table cells), improved serif mapping, and corrected API usage. Reused/history documents now reset parse state so META charset can apply when cached headers lack charset.
+- **UTF-8 entities:** Added support for decoding XML entities in UTF-8 pages (including the apostrophe entity `&apos;`).
+- **about:fonts diagnostics:** Expanded about:fonts font matching diagnostics, UTF-8 preview, and a UTF-8 glyph matrix; fixed a stack overflow hazard by building large grids on the heap.
+- **Image masking memory:** Alpha/transparency mask creation reads pixel arrays in small row chunks instead of allocating a full RGBA/ARGB buffer; avoids large temporary allocations. Background bitmap obtain has a conservative size guard to avoid huge temporary `BMF_DISPLAYABLE` allocations.
+- **Layout placeholder sizing:** Image placeholder sizing no longer uses ALT text to infer layout width.
+- **SCRIPT parsing:** `<SCRIPT>` inner content containing HTML-like text (angle brackets, markup) is ignored as markup and preserved as script content.
+- **SPAN style leakage:** SPAN style state now push/pops correctly, preventing styles from leaking into following content.
+- **CSS stability & performance improvements:** Corrected `font-family` application; removed redundant/duplicate style passes; BODY no longer incorrectly receives generic element selector application; added caps on total CSS rules and maximum element selector matches to bound memory use.
+- **Disk cache for .css/.js:** `.css` and `.js` assets cache correctly on disk again.
+- **Amiga path input:** Bare Amiga paths entered as locations are normalised to `file:///` URLs (e.g. `Work:` style paths).
+- **Screen title window sizing:** Full-screen windows account for screen `BarHeight` so pages don’t cover the title bar.
+- **Task-break inheritance:** Newly spawned subtasks no longer inherit a stale Ctrl-C break bit that could abort subsequent loads.
+- **Allocator deadlock:** Removed nested semaphore locking in `Allocmem()` that could deadlock under load.
+- **JavaScript engine stability:** Numerous JS fixes including Ajsetup re-entrancy deadlocks, post-GC UI hangs, double-frees, and object lifetime/use-after-free bugs. Fixed early script bootstrap so inline scripts and `document.write()` output run reliably.
+- **ARexx/UI integration:** Fix missing AppWindow port creation for named public Workbench screens; popup sizing uses the new window’s own chrome/layout deltas for correct dimensions.
+- **Build fixes:** Fixed hotlist viewer build clash with `cfglocale` headers; smakefile updates for AmiSSL 5.27 and markdown module build directives.
+
 ## [3.6alpha7] - 2026-04-03
 
 ### Added

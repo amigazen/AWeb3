@@ -25,6 +25,49 @@ Release History
 <body background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Release History</h1>
 
+<h2>AWeb 3.6 Beta 8</h2>
+
+<h3>Major New Features</h3>
+<ul>
+<li>HTTP <b>keep-alive</b> support is now enabled for faster page loading, including on HTTPS/TLS connections</li>
+<li>Images are <b>lazy decoded</b>: “below the fold” images are not decoded until they are about to be displayed, reducing early Chip RAM pressure and improving perceived load speed</li>
+<li>Optional enhanced text rendering using <b>ttengine.library</b> for TrueType/OpenType fonts (including anti-aliasing on 15bpp+ screens)</li>
+<li>Full <b>UTF-8</b> content rendering when using ttengine.library, including improved font matching and diagnostics</li>
+<li>AWeb now requires <b>AmiSSL 5.27</b> for TLS connections; if missing, the user can be directed to download it from Aminet</li>
+<li>New <b>AWebLog</b> logging system: centralised, timestamped syslog/RFC3164-style logs with reduced noise, and debug output is no longer HTTP-only</li>
+<li>Optional conservative blocking of <b>third-party CSS/JavaScript</b> to avoid modern tracking/advertising code that can trip AWeb's parsers</li>
+</ul>
+
+<h3>Improvements</h3>
+<ul>
+<li>Lazy decoding is also applied to <b>CSS background images</b>, deferring decode until the background is actually needed</li>
+<li><b>Cache-Control</b> response handling (<code>no-store</code>, <code>no-cache</code>, <code>max-age</code>, <code>must-revalidate</code>) improves cache freshness and correctness; <b>POST</b> responses are not written to the disk cache</li>
+<li>Screen title: uses locale.library for localised number formatting, and now includes the full protocol and domain of the current document URL</li>
+<li>Richer <b>status window</b> messages for more event types; with debug enabled, status events are mirrored to the console log</li>
+<li>When ttengine.library is available, standard bitmap fonts are not bulk-preloaded at startup, reducing memory usage</li>
+<li>User-Agent defaults have been updated for better real-world compatibility, and now include the detected AmigaOS version rather than a hardcoded value</li>
+<li>Amiga volume paths entered as locations (e.g. <b>Work:</b>) are normalised into <b>file:///</b> URLs automatically</li>
+<li>Updated ARexx accessors and preference handling to align preference file structures with the internal prefs model, avoiding legacy corruption cases</li>
+<li><b>MARQUEE</b> support is temporarily disabled again due to system deadlocks, pending further work</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<ul>
+<li>Keep-alive correctness: failed keep-alive requests are retried with a fresh connection; same-domain fetches no longer self-cancel when a prior connection is still open</li>
+<li>HTTPS keep-alive pooling now accounts for pending SSL/TLS read state, preventing TLS desynchronisation on reuse; SSL cleanup/teardown is bounded to avoid shutdown deadlocks</li>
+<li>SSL reads no longer hang indefinitely by driving SSL I/O with bounded WANT_READ/WANT_WRITE loops and timeouts</li>
+<li>gzip + chunked transfer decoding is hardened to avoid premature final-chunk detection and to preserve terminal chunk framing across decompression</li>
+<li><b>304 Not Modified</b> revalidation paths on pooled connections no longer race task-break handling</li>
+<li>Disk cache corruption edge cases after fetch errors/reloads are eliminated by preventing stray payload data being appended to cached entries after an error</li>
+<li>External <b>.css</b> and <b>.js</b> assets are cached correctly on disk again</li>
+<li>Incremental HTML parsing across split reads (non-advancing loops); added support for the XML apostrophe entity (<code>&amp;apos;</code>); <b>data:</b> URL parts are tied to the owning document for cleanup; avoids undefined behaviour from libc <code>isspace()</code> on non-ASCII bytes</li>
+<li><b>&lt;SCRIPT&gt;</b> tag parsing no longer misinterprets HTML-like inner content as markup</li>
+<li><b>SPAN</b> style state now push/pops correctly so styles do not leak into following content</li>
+<li>CSS engine fixes: corrected <b>font-family</b> application; removed redundant/duplicate style passes; BODY no longer receives incorrect generic selector application; caps added on total rules and per-element selector matches to bound memory use</li>
+<li>Many memory leaks and lifetime bugs identified using MemLog and SegTracker (including allocator deadlocks and JavaScript/XHR shutdown edge cases)</li>
+<li>Image transparency masks use small row-wise reads instead of one huge temporary buffer; very large temporary background bitmaps are refused above a conservative size guard</li>
+</ul>
+
 <h2>AWeb 3.6 Alpha 7</h2>
 
 <h3>Major New Features</h3>
@@ -300,9 +343,9 @@ Release History
 <li>Default fonts changed to use the Amiga's default scalable fonts (CGTimes.font, LetterGothic.font) for better rendering quality out of the box, with improved font fallback mechanism to gracefully fall back to bitmap fonts (times.font, courier.font) if scalable fonts are not available, with final fallback to topaz.font</li>
 <li>Added comprehensive web-safe font aliases mapping common web fonts to Amiga scalable fonts:
   <ul>
-  <li>Serif fonts: Times New Roman, Times, serif, Georgia, Palatino, Garamond, Book Antiqua → CGTimes.font</li>
-  <li>Sans-serif fonts: Arial, Helvetica, sans-serif, Verdana, Trebuchet MS, Tahoma, Lucida Sans Unicode, Comic Sans MS, Impact → CGTriumvirate.font</li>
-  <li>Monospace fonts: Courier New, Courier, monospace, Lucida Console, Consolas → LetterGothic.font</li>
+  <li>Serif fonts: Times New Roman, Times, serif, Georgia, Palatino, Garamond, Book Antiqua andCGTimes.font</li>
+  <li>Sans-serif fonts: Arial, Helvetica, sans-serif, Verdana, Trebuchet MS, Tahoma, Lucida Sans Unicode, Comic Sans MS, Impact and CGTriumvirate.font</li>
+  <li>Monospace fonts: Courier New, Courier, monospace, Lucida Console, Consolas and LetterGothic.font</li>
   </ul>
 </li>
 </ul>
@@ -479,10 +522,11 @@ Remaining items deliberately <b>not</b> taken from 3.5 in AWeb 3.6</p>
   <li>Known DSI and ISI errors on window open are now fixed</li>
 </p>
 <p>
-The following issues are specific to running the 3.6 Alpha 7 68K build on OS4:
+The following issues are specific to running the 3.6 Beta 8 68K build on OS4:
 </p>
 <ul>
 <li>OS4&apos;s built-in DataTypes may not support transparency, so transparent images can look wrong</li>
+<li>The publically available OS4 build of TTEngine seems to be non functional at this time. But OS4 natively supports TrueType fonts and will use them if available without needing ttengine.library</li>
 </ul>
 <p>
 </p>

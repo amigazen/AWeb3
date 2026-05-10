@@ -281,13 +281,26 @@ The first release from amigazen project is version 3.6. The goals of this releas
 - Set sensible default prefs based on conventions that emerged in the years since AWeb was still state of the art
 - Package both binary and sourcecode releases properly for ease of distribution and installation 
 - Refactor the HTTP and SSL code to work better with modern web servers using HTTP/1.1, gzip, chunked encoding and modern TLS using AmiSSL
+- "Complete" the features necessary to make a fully standards compatible HTML 4.01 and XHTML 1.1 generation web browser for the Amiga, with CSS 2 and JavaScript 1.5 (ECMAScript 3)
 
-The main changes in version 3.6 compared to version 3.4 are:
+Notable changes in version 3.6 compared to versions 3.5 and 3.4 are:
 - Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5.2 and NDK3.2
 - Adding HTTP/1.1, chunked encoding and gzip compressed http streams support with a refactored http module
 - Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ and will be automatically created on launch if it does not already exist
-- Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.20 or later
+- Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.27 or later
 - Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
+- With many more features now added in the releases listed below
+
+**What's New in 3.6 Beta 8:**
+- **HTTP keep-alive enabled:** Faster page loading, including on HTTPS/TLS connections, with numerous correctness and stability fixes for pooled connections
+- **Lazy image decoding:** “Below the fold” images (and CSS background images) defer decode until needed, reducing memory pressure and improving responsiveness
+- **AmiSSL 5.27 required:** Updated TLS stack; AWeb will not allow TLS connections without AmiSSL 5.27 and automatically navigate to Aminet to download it
+- **TTEngine + UTF-8:** TrueType/OpenType rendering and full UTF-8 content rendering (with improved font matching diagnostics via about:fonts)
+- **Cache correctness:** Cache-Control (`no-store`, `no-cache`, `max-age`, `must-revalidate`) support plus fixes to prevent disk-cache corruption after errors/retries; POST responses are not written to disk cache
+- **Better UI telemetry:** Screen title can show memory usage and current connection information
+- **Logging overhaul:** New logging module with timestamped syslog-style output; `DEBUG/S` is now an alias for `HTTPDEBUG/S`
+- **Compatibility/stability fixes:** Improved User-Agent defaults for real-world sites, hardened SCRIPT parsing, restored reliable inline JS execution/document.write, many CSS engine fixes, and many longstanding memory leaks and deadlocks fixed
+- **Complete AWeb 3.5 integration:** All remaining relevant new features, bug fixes and optimisations from all known versions of AWeb 3.5 are now integrated into AWeb 3.6
 
 **What's New in 3.6 Alpha 7:**
 - **Improved font related CSS support:** font-family and font-size (size keywords, px, pt, em, ex, %)
