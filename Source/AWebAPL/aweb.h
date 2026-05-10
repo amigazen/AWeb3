@@ -118,6 +118,9 @@ enum BUTTON_TYPES
 
 
 extern UBYTE *aboutversion;   /* full version string contents */
+
+/* Return AmigaOS version label based on Exec version (SysBase->lib_Version). */
+extern const UBYTE *Awebosversion(void);
 extern UBYTE *awebversion;    /* version.revision string */
 
 /* Generic JS event handler invocations */

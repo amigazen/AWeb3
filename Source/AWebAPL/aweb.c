@@ -118,6 +118,23 @@ BOOL usetemp=FALSE;
 long localblocksize=INPUTBLOCKSIZE;
 BOOL profile=FALSE;
 BOOL nopool=FALSE;
+
+const UBYTE *Awebosversion(void)
+{  UWORD v;
+   v=SysBase->LibNode.lib_Version;
+   if(v>=53) return (const UBYTE *)"AmigaOS 4.1";
+   if(v>=50) return (const UBYTE *)"AmigaOS 4.0";
+   if(v>=47) return (const UBYTE *)"AmigaOS 3.2";
+   if(v>=46) return (const UBYTE *)"AmigaOS 3.1.4";
+   if(v>=45) return (const UBYTE *)"AmigaOS 3.9";
+   if(v>=44) return (const UBYTE *)"AmigaOS 3.5";
+   if(v>=40) return (const UBYTE *)"AmigaOS 3.1";
+   if(v>=39) return (const UBYTE *)"AmigaOS 3.0";
+   if(v>=38) return (const UBYTE *)"AmigaOS 2.1";
+   if(v>=37) return (const UBYTE *)"AmigaOS 2.04";
+   if(v>=36) return (const UBYTE *)"AmigaOS 2.0";
+   return (const UBYTE *)"AmigaOS";
+}
 BOOL has35=FALSE;
 BOOL haiku=FALSE;
 BOOL nostartup=FALSE;

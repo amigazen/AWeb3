@@ -44,7 +44,6 @@
 #include <dos/dos.h>
 #include <datatypes/datatypes.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #ifdef DEVELOPER
 extern BOOL usetemp;
@@ -471,8 +470,12 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    struct gpLayout gpl={0};
    void *maskplane=NULL;
    ULONG flags;
+   long err;
    
-   printf("Makebitmapfromico: starting, filename=%s\n",imp->ims->filename?(char *)imp->ims->filename:"NULL");
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: starting, filename=%s",
+         imp->ims->filename?(char *)imp->ims->filename:"NULL");
+   }
    
    if(!imp->ims->filename) return FALSE;
    
@@ -492,11 +495,15 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    }
    
    /* Check signature: reserved=0, type=1 (ICO) */
-   printf("Makebitmapfromico: header reserved=%d type=%d count=%d\n",
-      icoheader.reserved,icoheader.type,icoheader.count);
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: header reserved=%d type=%d count=%d",
+         icoheader.reserved,icoheader.type,icoheader.count);
+   }
    if(icoheader.reserved!=0 || icoheader.type!=1 || icoheader.count==0)
    {  Close(fh);
-      printf("Makebitmapfromico: invalid ICO header\n");
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: invalid ICO header");
+      }
       return FALSE;
    }
    
@@ -564,8 +571,10 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    
    width=bestentry->width ? bestentry->width : 256;
    height=bestentry->height ? bestentry->height : 256;
-   printf("Makebitmapfromico: selected image %dx%d, dir bitcount=%d, size=%ld, offset=%ld\n",
-      width,height,bestentry->bitcount,bestentry->size,bestentry->offset);
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: selected image %ldx%ld, dir bitcount=%d, size=%ld, offset=%ld",
+         width,height,bestentry->bitcount,bestentry->size,bestentry->offset);
+   }
    
    /* Read image data */
    imagesize=bestentry->size;
@@ -638,8 +647,10 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    /* ICO stores BMP height as 2x actual height (XOR mask + AND mask) */
    /* The actual image height is half of the BMP height */
    bpp=bmpinfo.bitcount;
-   printf("Makebitmapfromico: BMP info header size=%ld, width=%ld, height=%ld (actual=%ld), bitcount=%d, compression=%ld\n",
-      bmpinfo.size,bmpwidth,bmpheight,bmpheight/2,bmpinfo.bitcount,bmpinfo.compression);
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: BMP info header size=%ld, width=%ld, height=%ld (actual=%ld), bitcount=%d, compression=%ld",
+         bmpinfo.size,bmpwidth,bmpheight,bmpheight/2,bmpinfo.bitcount,bmpinfo.compression);
+   }
    
    /* Calculate palette size */
    palettesize=0;
@@ -682,8 +693,10 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
       /* Size of BMP data (header + palette + XOR mask, excluding AND mask) */
       bmpsize=bmpinfo.size+palettesize*4+bmprowbytes*actualheight;
    }
-   printf("Makebitmapfromico: palette size=%ld, bmprowbytes=%ld, bmpsize=%ld, maskoffset=%ld\n",
-      palettesize,bmprowbytes,bmpsize,maskoffset);
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: palette size=%ld, bmprowbytes=%ld, bmpsize=%ld, maskoffset=%ld",
+         palettesize,bmprowbytes,bmpsize,maskoffset);
+   }
    
    /* Create complete BMP file: file header + DIB data */
    bmpdata=Allocmem(sizeof(struct BmpFileHeader)+bmpsize,MEMF_PUBLIC|MEMF_CLEAR);
@@ -712,8 +725,10 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    }
    {  ULONG filesize_le=(ULONG)(bmpdata[2]|(bmpdata[3]<<8)|(bmpdata[4]<<16)|(bmpdata[5]<<24));
       ULONG dataoffset_le=(ULONG)(bmpdata[10]|(bmpdata[11]<<8)|(bmpdata[12]<<16)|(bmpdata[13]<<24));
-      printf("Makebitmapfromico: BMP file header: signature=%.2s, filesize=%ld, dataoffset=%ld\n",
-         bmpdata,filesize_le,dataoffset_le);
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: BMP file header: signature=%.2s, filesize=%ld, dataoffset=%ld",
+            bmpdata,filesize_le,dataoffset_le);
+      }
    }
    
    /* Reconstruct BMP info header with correct height for standalone BMP */
@@ -757,27 +772,37 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
          if(bmpinfo.size+total_copy_size<=imagesize)
          {  /* Copy palette and pixel data together (they're contiguous in both formats) */
             memcpy(dib+bmpinfo.size,imagedata+bmpinfo.size,total_copy_size);
-            printf("Makebitmapfromico: Copied %ld bytes (palette %ld + pixels %ld)\n",
-               total_copy_size,palettesize_bytes,pixeldatasize);
+            if(httpdebug)
+            {  AwebLog("img","Makebitmapfromico: Copied %ld bytes (palette %ld + pixels %ld)",
+                  total_copy_size,palettesize_bytes,pixeldatasize);
+            }
          }
          else
-         {  printf("Makebitmapfromico: ERROR - not enough data: need %ld, have %ld\n",
-               bmpinfo.size+total_copy_size,imagesize);
+         {  if(httpdebug)
+            {  AwebLog("img","Makebitmapfromico: ERROR - not enough data: need %ld, have %ld",
+                  bmpinfo.size+total_copy_size,imagesize);
+            }
          }
       }
       
-      printf("Makebitmapfromico: Reconstructed BMP DIB: size=%ld, width=%ld, height=%ld (was %ld)\n",
-         bmpinfo.size,bmpwidth,actualheight,bmpheight);
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: Reconstructed BMP DIB: size=%ld, width=%ld, height=%ld (was %ld)",
+            bmpinfo.size,bmpwidth,actualheight,bmpheight);
+      }
    }
    
    /* Debug: Check BMP file structure */
-   printf("Makebitmapfromico: BMP file start: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-      bmpdata[0],bmpdata[1],bmpdata[2],bmpdata[3],bmpdata[4],bmpdata[5],bmpdata[6],bmpdata[7]);
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: BMP file start: %02x %02x %02x %02x %02x %02x %02x %02x",
+         bmpdata[0],bmpdata[1],bmpdata[2],bmpdata[3],bmpdata[4],bmpdata[5],bmpdata[6],bmpdata[7]);
+   }
    {  UBYTE *dib=bmpdata+sizeof(struct BmpFileHeader);
-      printf("Makebitmapfromico: BMP DIB header: size=%02x%02x%02x%02x, width=%02x%02x%02x%02x, height=%02x%02x%02x%02x\n",
-         dib[0],dib[1],dib[2],dib[3],
-         dib[4],dib[5],dib[6],dib[7],
-         dib[8],dib[9],dib[10],dib[11]);
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: BMP DIB header: size=%02x%02x%02x%02x, width=%02x%02x%02x%02x, height=%02x%02x%02x%02x",
+            dib[0],dib[1],dib[2],dib[3],
+            dib[4],dib[5],dib[6],dib[7],
+            dib[8],dib[9],dib[10],dib[11]);
+      }
    }
    
    /* Extract AND mask for transparency if available */
@@ -786,8 +811,10 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    }
    
    /* Use BMP datatype to decode the image */
-   printf("Makebitmapfromico: Creating datatype object, bmpdata=%p, size=%ld\n",
-      bmpdata,sizeof(struct BmpFileHeader)+bmpsize);
+   if(httpdebug)
+   {  AwebLog("img","Makebitmapfromico: Creating datatype object, bmpdata=%p, size=%ld",
+         bmpdata,sizeof(struct BmpFileHeader)+bmpsize);
+   }
    /* Try without picture-specific attributes first to see if datatype can identify BMP */
    dto=NewDTObject(NULL,
          DTA_SourceType,DTST_MEMORY,
@@ -795,7 +822,9 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
          DTA_SourceSize,sizeof(struct BmpFileHeader)+bmpsize,
          TAG_END);
    if(!dto)
-   {  printf("Makebitmapfromico: Auto-detect failed (IoErr=%ld), trying with GID_PICTURE\n",IoErr());
+   {  if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: Auto-detect failed (IoErr=%ld), trying with GID_PICTURE",IoErr());
+      }
       dto=NewDTObject(NULL,
             DTA_SourceType,DTST_MEMORY,
             DTA_SourceAddress,bmpdata,
@@ -813,14 +842,20 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
          PDTA_UseFriendBitMap,TRUE,
          OBP_Precision,PRECISION_IMAGE,
          TAG_END);
-      printf("Makebitmapfromico: Datatype object created successfully, dto=%p\n",dto);
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: Datatype object created successfully, dto=%p",dto);
+      }
       gpl.MethodID=DTM_PROCLAYOUT;
       gpl.gpl_GInfo=NULL;
       gpl.gpl_Initial=TRUE;
-      printf("Makebitmapfromico: Calling DTM_PROCLAYOUT\n");
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: Calling DTM_PROCLAYOUT");
+      }
       if(DoMethodA(dto,(Msg)&gpl))
       {  
-         printf("Makebitmapfromico: DTM_PROCLAYOUT succeeded, getting attributes\n");
+         if(httpdebug)
+         {  AwebLog("img","Makebitmapfromico: DTM_PROCLAYOUT succeeded, getting attributes");
+         }
          if(GetDTAttrs(dto,
             DTA_NominalHoriz,&imp->width,
             DTA_NominalVert,&imp->height,
@@ -829,12 +864,16 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
             TAG_END)
          && imp->bitmap)
          {  
-            printf("Makebitmapfromico: Got bitmap successfully: %dx%d, bitmap=%p, maskplane=%p\n",
-               imp->width,imp->height,imp->bitmap,maskplane);
+            if(httpdebug)
+            {  AwebLog("img","Makebitmapfromico: Got bitmap successfully: %ldx%ld, bitmap=%p, maskplane=%p",
+                  imp->width,imp->height,imp->bitmap,maskplane);
+            }
             imp->depth=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
             imp->memsize=imp->width*imp->height*imp->depth/8;
             flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
-            printf("Makebitmapfromico: Bitmap depth=%ld, flags=0x%lx\n",imp->depth,flags);
+            if(httpdebug)
+            {  AwebLog("img","Makebitmapfromico: Bitmap depth=%ld, flags=0x%lx",imp->depth,flags);
+            }
             
             /* Use AND mask from ICO if datatype didn't provide one */
             if(!maskplane && andmask && (flags&BMF_STANDARD))
@@ -864,37 +903,53 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
             imp->ims->bmpdatasize=sizeof(struct BmpFileHeader)+bmpsize;
             bmpdata=NULL;  /* Don't free it here - will be freed in Disposedto */
             result=TRUE;
-            printf("Makebitmapfromico: Success! result=TRUE\n");
+            if(httpdebug)
+            {  AwebLog("img","Makebitmapfromico: Success! result=TRUE");
+            }
          }
          else
          {  
-            printf("Makebitmapfromico: Failed to get bitmap from datatype (bitmap=%p)\n",imp->bitmap);
+            if(httpdebug)
+            {  AwebLog("img","Makebitmapfromico: Failed to get bitmap from datatype (bitmap=%p)",imp->bitmap);
+            }
             DisposeDTObject(dto);
             dto=NULL;
          }
       }
       else
       {  
-         printf("Makebitmapfromico: DTM_PROCLAYOUT failed\n");
+         if(httpdebug)
+         {  AwebLog("img","Makebitmapfromico: DTM_PROCLAYOUT failed");
+         }
          DisposeDTObject(dto);
          dto=NULL;
       }
    }
    else
    {  
-      long err=IoErr();
-      printf("Makebitmapfromico: Failed to create datatype object, IoErr()=%ld\n",err);
+      err=IoErr();
+      if(httpdebug)
+      {  AwebLog("img","Makebitmapfromico: Failed to create datatype object, IoErr()=%ld",err);
+      }
       if(err==DTERROR_UNKNOWN_DATATYPE)
-      {  printf("Makebitmapfromico: Unknown datatype - BMP datatype may not be installed\n");
+      {  if(httpdebug)
+         {  AwebLog("img","Makebitmapfromico: Unknown datatype - BMP datatype may not be installed");
+         }
       }
       else if(err==ERROR_OBJECT_WRONG_TYPE)
-      {  printf("Makebitmapfromico: Object wrong type - data may not be recognized as BMP\n");
+      {  if(httpdebug)
+         {  AwebLog("img","Makebitmapfromico: Object wrong type - data may not be recognized as BMP");
+         }
       }
       else if(err==ERROR_REQUIRED_ARG_MISSING)
-      {  printf("Makebitmapfromico: Required argument missing\n");
+      {  if(httpdebug)
+         {  AwebLog("img","Makebitmapfromico: Required argument missing");
+         }
       }
       else if(err==DTERROR_COULDNT_OPEN)
-      {  printf("Makebitmapfromico: Couldn't open data object\n");
+      {  if(httpdebug)
+         {  AwebLog("img","Makebitmapfromico: Couldn't open data object");
+         }
       }
    }
    

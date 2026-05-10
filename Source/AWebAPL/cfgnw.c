@@ -72,8 +72,8 @@ static UBYTE *endtcphelplabels[2];
 static UBYTE *caverifylabels[4];
 static UBYTE *qhdrhelplabels[7];
 static UBYTE *spoofidlabels[10]=
-{  "(AWeb)","Mozilla/4.0 (compatible; Amiga-AWeb/3.6)","Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
-   "Mozilla/4.78 [en] (X11; U; Linux 2.4.20 i686)","Opera/7.54 (Windows NT 5.1; U) [en]","Lynx/2.8.8rel.2 libwww-FM/2.14",NULL
+{  "(AWeb)","Mozilla/3.01","Mozilla/4.0","Mozilla/5.0","Mozilla/6.0",
+   "MSIE/4.0","MSIE/5.0","MSIE/5.5","MSIE/6.0",NULL
 };
 
 static void *winobject=NULL;

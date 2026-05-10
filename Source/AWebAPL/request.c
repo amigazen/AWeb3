@@ -520,8 +520,8 @@ void Aboutreq(UBYTE *portname)
             strcat(buf,"For registered beta testers only\n");
 #endif
             strcat(buf," \n\xA9 2002 Yvon Rozijn\n");
-            strcat(buf," \n\xA9 2025 amigazen project\n");
-            strcat(buf," \n");
+            strcat(buf," \n\xA9 2025-2026 amigazen project\n");
+            strcat(buf,"\n");
             strcat(buf,"This program is distributed under the\n");
             strcat(buf,"AWeb Public License\n");
             strcat(buf," \n");

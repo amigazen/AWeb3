@@ -140,12 +140,25 @@ static UBYTE *httppostrequest="POST %.7000s HTTP/1.1\r\n";
 
 /* Cloudflare (and similar) often return 403 / error 1010 for any UA whose token is
  * Mozilla/3.0 or Mozilla/3.01; Mozilla/4.0+ with the same product comment is accepted. */
-static UBYTE *useragent="User-Agent: Mozilla/4.0 (compatible; Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
+static UBYTE *useragent="User-Agent: Mozilla/4.0 (compatible; Amiga-AWeb/%s; %s)\r\n";
 
 #ifndef DEMOVERSION
 /* Full replacement User-Agent from prefs (chooser supplies a complete token, no suffix). */
 static UBYTE *useragentspoof="User-Agent: %s\r\n";
 #endif
+
+static UBYTE default_useragent[128];
+static BOOL default_useragent_init=FALSE;
+
+static const UBYTE *Defaultuseragent(void)
+{  const UBYTE *osver;
+   if(!default_useragent_init)
+   {  osver=Awebosversion();
+      sprintf(default_useragent,useragent,awebversion,osver);
+      default_useragent_init=TRUE;
+   }
+   return default_useragent;
+}
 
 /* Browser-like negotiation: single-wildcard Accept with q=1 only is a common bot and WAF signal; gzip kept for bandwidth. */
 static UBYTE *fixedheaders=
@@ -847,6 +860,7 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
 {  UBYTE *p=fd->block;
    UBYTE *cookies;
    const UBYTE *plang;
+   const UBYTE *ua;
    int plen;
    *request=fd->block;
    if(fd->postmsg || fd->multipart)
@@ -859,7 +873,9 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    }
    else
 #endif
-   {  p+=sprintf(p,useragent,awebversion);
+   {  ua=Defaultuseragent();
+      strcpy(p,ua);
+      p+=strlen(ua);
    }
    ReleaseSemaphore(&prefssema);
    p+=sprintf(p,fixedheaders);

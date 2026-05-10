@@ -1509,6 +1509,9 @@ static long Remchildapplication(struct Application *app,struct Amadd *ama)
 static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
 {  struct Jvar *jv;
    UBYTE buf[256],*p;
+   static UBYTE default_js_useragent[256];
+   static BOOL default_js_useragent_init=FALSE;
+   const UBYTE *osver;
    if(prefs.browser.dojs && Openjslib())
    {  if(!app->jcontext)
       {  app->jcontext=Newjcontext(app->screenname);
@@ -1564,13 +1567,20 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             }
             if(jv=Jproperty(app->jcontext,app->jnavigator,"userAgent"))
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
+               osver=Awebosversion();
+               if(!default_js_useragent_init)
+               {  sprintf(default_js_useragent,
+                     "Mozilla/5.0 (AmigaOS; U; %s; en-US; rv:1.9.2.28) Gecko/20120306 Firefox/3.6.28",
+                     osver);
+                  default_js_useragent_init=TRUE;
+               }
 #ifndef DEMOVERSION
                if(*prefs.network.spoofid)
                {  strcpy(buf,prefs.network.spoofid);
                }
                else
 #endif
-               {  strcpy(buf,"Mozilla/5.0 (AmigaOS; U; AmigaOS 3.2; en-US; rv:1.9.2.28) Gecko/20120306 Firefox/3.6.28");
+               {  strcpy(buf,default_js_useragent);
                }
                Jasgstring(app->jcontext,jv,buf);
             }

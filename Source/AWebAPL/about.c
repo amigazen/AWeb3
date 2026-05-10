@@ -181,9 +181,6 @@ __asm __saveds ULONG Extfunclib(void)
 /*
  * about:fonts — HTML4-style face mapping hints: diskfont OpenDiskFont probe chains
  * (.font / outline under FONTS:) plus optional ttengine TT_OpenFontA per family.
- * OpenDiskFont pairs with graphics.library CloseFont (diskfont.doc). No raw font
- * directory listing — only per-row mapping of HTML/CSS family labels to probed
- * diskfont and TTEngine results.
  */
 typedef struct FontdiagRow FontdiagRow;
 struct FontdiagRow
@@ -504,9 +501,12 @@ static void FontdiagEmitTtengineNotice(char **wpp, long *room, int tt_ok)
    if(tt_ok)
    {
       FontdiagSnprintf(wpp, room,
-         "<p>TTEngine is installed on this system. OpenType/TrueType fonts will "
+         "<table width=\"100%%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" >"
+         "<tr><td align=\"left\"><strong>TTEngine is installed on this system</strong></td></tr>"
+         "<tr><td>TTEngine is installed on this system. OpenType/TrueType fonts will "
          "be used in preference to Amiga bitmap and scalable fonts when available."
-         "</p><p></p>");
+         "</td></tr>"
+         "</table><p></p>");
    }
    else
    {
@@ -1164,8 +1164,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
          
          html_used = sprintf(html_ptr,
                "<hr>"
-               "<p>Note: Only currently loaded plugins are shown. Plugins are loaded on demand when their functionality is needed.</p>"
-               "<hr>"
+               "<p>Note: Only currently loaded AWebPlugins are shown. AWebPlugins are loaded on demand when their functionality is needed.</p>"
                "</body></html>");
          html_ptr += html_used;
          *html_ptr = '\0';
@@ -1232,9 +1231,11 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "Changes Copyright &copy; 2026 amigazen project. "
             "Distributed under the AWeb Public License.</li>"
             "<li><strong>JPEG/JFIF Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
+            "Changes Copyright &copy; 2026 amigazen project. "
             "Distributed under the AWeb Public License. "
             "Uses Independent JPEG Group's software (libjpeg).</li>"
             "<li><strong>PNG Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
+            "Changes Copyright &copy; 2026 amigazen project. "
             "Distributed under the AWeb Public License. "
             "Uses libpng reference library.</li>"
             "</ul>"
@@ -1314,7 +1315,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "supersede any condition above with which it is incompatible.</li>"
             "</ol>"
             "<hr>"
-            "<p>Copyright &copy; 2002 Yvon Rozijn. &nbsp; Changes Copyright &copy; 2025-2026 amigazen project</p>"
+            "<p><strong>AWeb</strong> <font color=\"#cc0000\"><i>The Amiga Web Browser</i></font></p>"
+            "<p>Copyright &copy; 2002 Yvon Rozijn. &nbsp; AWeb 3.6 Changes Copyright &copy; 2025-2026 amigazen project</p>"
             "</body></html>",
             about_str,version_str);
       
