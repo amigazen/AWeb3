@@ -1,10 +1,10 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<title>Release Notes - AWeb 3.6 &nbsp; Beta 8</title>
+<title>Release Notes - AWeb 3.6 Beta 8</title>
 </head>
-<body>
-<img src="Docs/aweb.gif"  alt="AWeb Logo" align=left>
+<body bgcolor="#AAAAAA">
+<img src="Docs/aweb.iff"  alt="AWeb Logo" align=left>
 <p>
 <table align=center>
 <tr><td align=center>
@@ -35,21 +35,17 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
     <ul>
         <li><b>Beta release</b> This is a Beta preview with many known and unknown issues; please report problems on GitHub</li>
 		<li><b>AWeb 3.5</b> This AWeb 3.6 is derived directly from AWeb 3.4, with improvements from AWeb 3.5 being integrated manually one by one. As of Beta 8, all relevant improvements from AWeb 3.5 have been integrated and in many cases improved further</li> 
-		<li>This means configurations and catalogs from AWeb 3.4 are compatible but AWeb 3.5 configurations and catalogs are not.</li>
-		<li>Even if you have a preferred AWeb 3.4 configuration, note that the references to AWebPath: should be changed to AWeb: in your configuration. Since there are many new default preferences in AWeb 3.6, starting from a clean configuration is recommended.</li>
-		<li>You can use the CONFIG= ToolType to keep separate configurations files for different AWeb versions. By default this alpha is set to use a configuration called 'AWeb36a3'.</li>
-		<li><b>OS4 compatibility</b> This is a 68k build, that does run on OS4, possibly with OS4 specific issues</li>
+		<li>Since there are many new default preferences in AWeb 3.6, starting from a clean configuration is recommended.</li>
+		<li><b>OS4 compatibility</b> This is a 68k build, that does run on OS4, but you may encounter OS4 specific issues</li>
 		<li>This release is built optimised for 68020 processors. It is possible to build a 68000 compatible build from the project source</li>
-		<li>Similarly the PNG, JFIF (JPEG) and GIF plugins are built for 68020 with 68881 FPU but can be built for other targets</li>
-		<li>The PNG plugin is not recommended for use - it is much slower than any PNG DataType, and causes deadlocks with PNG assets delivered over HTTPS</li>
-		<li>GIF and JPEG plugins are only recommended if you need the AnimGIF or alpha channel features. Again, the DataTypes for whichever version of Amiga you use are almost certainly faster</li>
-		<li>None of the AWebPlugins are configured to be used by default due to the reasons noted above</li>
+		<li>Similarly the PNG, JFIF (JPEG) and GIF plugins are built for 68020 <em>with 68881 FPU</em> but can be built for other targets</li>
+		<li>The PNG plugin is not recommended for use - it is much slower than any PNG DataType, and can cause deadlocks with large PNG assets delivered over HTTPS</li>
         <li>This Beta build of AWeb saves it's disk cache in the T: location - this helps ensure it won't corrupt your hard disk, but means it uses more RAM, and prevents collision with other versions of AWeb you may have installed</li>
         <li>AWeb needs Fast RAM, hopefully in 2026 every Amiga user has plenty of Fast RAM</li>
-        <li>No need to run any installer script, just put this drawer wherever you want, and run AWeb from here, it will assign AWeb: to the current directory if it does not exist already</li>
-        <li>Multiple icons including the original GlowIcons set by Oliver Tacke and Thomas Peterseim, the MasonIcons version and the MagicWB version. You can also find icons for AWeb in collections such as the AmigaOS 3.2 GlowIcons collection</li>
-        <li>As with all versions of AWeb, you need ReAction to run AWeb (it may work with ClassAct but is not tested), a bsdsocket.library compatible TCP/IP stack, as well as AmiSSL 5 if you want to use HTTPS connections</li>
-        <li>A default toolbar button "Protoweb" will configure use of the Protoweb.org proxy which lets you browse the web as if it's 1999! To turn this off, open the Network settings and set the HTTP Proxy to blank ("").</li>
+        <li>No longer any need for an installer script, just put this drawer wherever you want, and run AWeb from here, it will assign AWeb: to the current directory if it does not exist already</li>
+        <li>Multiple icons are included in the Storage drawer such as the original GlowIcons set by Oliver Tacke and Thomas Peterseim, the MasonIcons version and the MagicWB version. You can also find icons for AWeb in collections such as the AmigaOS 3.2 GlowIcons collection</li>
+        <li>As with all versions of AWeb, you need ReAction to run AWeb (it may work with ClassAct but is not tested), a bsdsocket.library compatible TCP/IP stack, as well as AmiSSL 5.27 if you want to use HTTPS connections</li>
+        <li>A default toolbar button "Protoweb" will configure use of the Protoweb.org proxy which lets you browse the web as if it's 1999!</li>
     </ul>
     
 </p>
@@ -58,8 +54,7 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
     New features in AWeb 3.6 include:
 <ul>
 <li><b>CSS</b> - AWeb now supports CSS, starting with experimental inline CSS for properties matching HTML4 attributes and even more experimental support for external CSS stylesheets</li>
-<li>Introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same shared AWeb codebase</li>
-<li><b>Web safe fonts</b> - Font tag parsing and matching logic now works like other browsers</li>
+<li><b>Web safe fonts</b> - Font tag parsing and matching logic now works like other browsers, and enhanced text rendering with TTEngine if installed</li>
 <li>The new gemini.aweblib module brings <b>gemini://</b> and <b>spartan://</b> protocol support for these new gopher-like networks</li>
 <li>A new about.aweblib brings <b>about:</b> URLs with home, fonts, version, plugins and blank page templates</li>
 <li>AWeb now knows how to handle <b>view-source:</b> allowing you to view any URL as plain text HTML source</li>
@@ -71,25 +66,25 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 <li><b>utf-8</b> transcoding of the most common multibyte characters to Latin-1</li>
 <li><b>TTEngine</b> support for text rendering with OpenType/TrueType fonts when ttengine.library is available, for enhanced font rendering with kerning, utf-8 support for non-Latin languages and even anti-aliasing on 15bpp+ screens</li>
 <li><b>AmigaOS 3.2</b> features such as contextual mouse pointers, DefIcons and window iconification are now supported, while retaining compatibility with 3.1</li>
+<li>and introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same shared AWeb codebase</li>
 </ul>
 </p>
 
 <h2>What's New in AWeb 3.6 Beta 8?</h2>
 <p> This first beta release of AWeb 3.6 marks the transition from work in progress alpha releases, to a functionally complete and relatively stable release ready for wider distribution and testing. At this point no major new features will be added for AWeb 3.6, and the focus will be on bug fixes and optimisations.</p>
 <p>
-AWeb 3.6 beta 8 brings many new features and refactored core components including to the HTTP stack, fonts management, memory management, and debug logging, including:
+AWeb 3.6 beta 8 brings many new features and refactored core components including:
 <ul>
 <li>HTTP <b>keep-alive</b> support for faster page loading especially on SSL/TLS connections</li>
 <li>Optional enhanced text rendering using <b>ttengine.library</b> for TrueType/OpenType fonts with anti-aliasing on 15bpp+ screens</li>
 <li>Full <b>UTF-8</b> content rendering when using ttengine.library</li>
 <li>Enhanced about:fonts page for font matching diagnostics including TTEngine support</li>
 <li>When TTEngine is available, standard Amiga fonts are not preloaded at startup, to save memory</li>
-<li>All remaining relevant patches from all known releases of <b>AWeb 3.5</b> are fully integrated and in many cases improved upon</li>
+<li>All remaining relevant patches from every known release of <b>AWeb 3.5</b> are fully integrated and in many cases improved upon</li>
 <li>AWeb now requires the latest AmiSSL 5.27 - it will not allow TLS connections without it</li>
 <li>Images are now lazy-rendered - images "below the fold" are not decoded until they are about to be displayed, and thus don't use up chip memory until they are on the screen, accelerating page loading and reducing memory pressure</li>
 <li>Lazy rendering / decode is also applied to <b>CSS background images</b>, deferring background decode until it is actually needed for display</li>
 <li>The current Screen's titlebar is now used to display relevant information such as memory usage and open connections</li>
-<li>Screen title uses locale.library for localised number formatting</li>
 <li>CSS and JavaScript content embedded from third party domains is ignored on the assumption that it is likely to contain incompatible content used for tracking and advertising that may trip up AWeb's parser</li>
 <li>Richer <b>status window</b> messages for more types of events - and status events are also logged to the console when DEBUG is turned on</li>
 <li>Windows opening at the default full screen size now respect the screen title <b>BarHeight</b> so the page does not cover the title bar, allowing the screen title to be visible</li>
@@ -112,6 +107,7 @@ AWeb 3.6 beta 8 brings many new features and refactored core components includin
 <li>FIXED: Failed requests on keep-alive connections were not retried with a fresh connection</li>
 <li>FIXED: Many longstanding memory leaks identified and fixed using MemLog and SegTracker</li>
 <li>FIXED: External <b>.css</b> and <b>.js</b> resources are cached correctly in the disk cache</li>
+<li>FIXED: <b>file://</b> URL content is no longer copied to the disk cache unnecessarily</li>
 <li>FIXED: <b>304 Not Modified</b> revalidation with pooled connections</li>
 <li>FIXED: HTTP Redirect 308 is now supported, following the same behaviour as for 307 redirects</li>
 <li>FIXED: Image transparency masks now use small row-wise reads instead of one huge temporary buffer for more efficient memory usage</li>

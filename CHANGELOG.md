@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SPAN style leakage:** SPAN style state now push/pops correctly, preventing styles from leaking into following content.
 - **CSS stability & performance improvements:** Corrected `font-family` application; removed redundant/duplicate style passes; BODY no longer incorrectly receives generic element selector application; added caps on total CSS rules and maximum element selector matches to bound memory use.
 - **Disk cache for .css/.js:** `.css` and `.js` assets cache correctly on disk again.
+- **file:// disk cache:** `file://` URL content is no longer copied to the disk cache unnecessarily.
 - **Amiga path input:** Bare Amiga paths entered as locations are normalised to `file:///` URLs (e.g. `Work:` style paths).
 - **Screen title window sizing:** Full-screen windows account for screen `BarHeight` so pages don’t cover the title bar.
 - **Task-break inheritance:** Newly spawned subtasks no longer inherit a stale Ctrl-C break bit that could abort subsequent loads.

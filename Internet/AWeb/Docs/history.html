@@ -60,6 +60,7 @@ Release History
 <li><b>304 Not Modified</b> revalidation paths on pooled connections no longer race task-break handling</li>
 <li>Disk cache corruption edge cases after fetch errors/reloads are eliminated by preventing stray payload data being appended to cached entries after an error</li>
 <li>External <b>.css</b> and <b>.js</b> assets are cached correctly on disk again</li>
+<li><b>file://</b> URL content is no longer copied to the disk cache unnecessarily</li>
 <li>Incremental HTML parsing across split reads (non-advancing loops); added support for the XML apostrophe entity (<code>&amp;apos;</code>); <b>data:</b> URL parts are tied to the owning document for cleanup; avoids undefined behaviour from libc <code>isspace()</code> on non-ASCII bytes</li>
 <li><b>&lt;SCRIPT&gt;</b> tag parsing no longer misinterprets HTML-like inner content as markup</li>
 <li><b>SPAN</b> style state now push/pops correctly so styles do not leak into following content</li>
