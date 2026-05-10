@@ -1617,9 +1617,13 @@ UBYTE *Fixurlname(UBYTE *name)
       return Fixurlname_mkpassthrough(begin,end);
    }
 
-   /* No ':' at all: accept as file path only when lockable; else pass through for scheme error */
-   if(Urlbarpathlocks(begin,end)) return Fixurlname_mkfile(begin,end);
-   return Fixurlname_mkpassthrough(begin,end);
+   /* No ':' — treat as a web address (http://) like historical AWeb; file:// probing only runs when ':' is present above */
+   len=end-begin+7;
+   if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+   {  strcpy(fixname,"http://");
+      strncat(fixname,begin,end-begin);
+   }
+   return fixname;
 #endif
 }
 
