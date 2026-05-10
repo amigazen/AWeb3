@@ -1533,6 +1533,7 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"HTTP://",7)) return TRUE;
    if(STRNIEQUAL(url,"HTTPS://",8)) return TRUE;
    if(STRNIEQUAL(url,"FTP://",6)) return TRUE;
+   if(STRNIEQUAL(url,"FTPS://",7)) return TRUE;
    if(STRNIEQUAL(url,"GOPHER://",9)) return TRUE;
    if(STRNIEQUAL(url,"GEMINI://",9)) return TRUE;
    if(STRNIEQUAL(url,"SPARTAN://",10)) return TRUE;
@@ -1546,6 +1547,8 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"ABOUT:",6)) return TRUE;
    if(STRNIEQUAL(url,"CID:",4)) return TRUE;
    if(STRNIEQUAL(url,"DATA:",5)) return TRUE;
+   if(STRNIEQUAL(url,"JAVASCRIPT:",11)) return TRUE;
+   if(STRNIEQUAL(url,"VIEW-SOURCE:",12)) return TRUE;
    return FALSE;
 }
 

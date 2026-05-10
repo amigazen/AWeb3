@@ -1421,6 +1421,55 @@ UBYTE *Fragmentpart(UBYTE *url)
    return NULL;
 }
 
+#ifndef LOCALONLY
+/* Dos Lock() on the typed string (fragment stripped for the probe only). Used when the bar
+ * holds plain text that might be an Amiga path rather than a URL scheme AWeb handles. */
+static BOOL Urlbarpathlocks(UBYTE *begin, UBYTE *end)
+{  UBYTE *temp;
+   UBYTE *hashmark;
+   long plen;
+   long lock;
+
+   if(!begin || !end || end<=begin) return FALSE;
+   plen=(long)(end-begin);
+   temp=Dupstr(begin,plen);
+   if(!temp) return FALSE;
+   hashmark=strchr((char *)temp,'#');
+   if(hashmark) *hashmark='\0';
+   if(!temp[0])
+   {  FREE(temp);
+      return FALSE;
+   }
+   lock=Lock(temp,SHARED_LOCK);
+   FREE(temp);
+   if(lock)
+   {  UnLock(lock);
+      return TRUE;
+   }
+   return FALSE;
+}
+
+/* Build file:/// plus trimmed input — same notion as LOCAL/S prepending file:/// for CLI paths. */
+static UBYTE *Fixurlname_mkfile(UBYTE *begin, UBYTE *end)
+{  UBYTE *fixname;
+   long len;
+
+   if(!begin || !end || end<=begin) return NULL;
+   len=(long)(end-begin)+8;
+   if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+   {  strcpy(fixname,"file:///");
+      strncat(fixname,begin,end-begin);
+   }
+   return fixname;
+}
+
+/* Leave input unchanged so loads fall through to Errorschemetask in fetch when nothing handles it. */
+static UBYTE *Fixurlname_mkpassthrough(UBYTE *begin, UBYTE *end)
+{  if(!begin || !end || end<=begin) return NULL;
+   return Dupstr(begin,(long)(end-begin));
+}
+#endif /* !LOCALONLY */
+
 void *Findurl(UBYTE *base,UBYTE *url,long postnr)
 {  struct Url *u;
    UBYTE *absurl=Makeabsurl(base,url);
@@ -1508,6 +1557,7 @@ UBYTE *Fixurlname(UBYTE *name)
       if(STRNIEQUAL(begin,"http",4) && schemelen==4) { knownscheme=TRUE; requires_slashslash=TRUE; }
       else if(STRNIEQUAL(begin,"https",5) && schemelen==5) { knownscheme=TRUE; requires_slashslash=TRUE; }
       else if(STRNIEQUAL(begin,"ftp",3) && schemelen==3) { knownscheme=TRUE; requires_slashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"ftps",4) && schemelen==4) { knownscheme=TRUE; requires_slashslash=TRUE; }
       else if(STRNIEQUAL(begin,"gopher",6) && schemelen==6) { knownscheme=TRUE; requires_slashslash=TRUE; }
       else if(STRNIEQUAL(begin,"gemini",6) && schemelen==6) { knownscheme=TRUE; requires_slashslash=TRUE; }
       else if(STRNIEQUAL(begin,"spartan",7) && schemelen==7) { knownscheme=TRUE; requires_slashslash=TRUE; }
@@ -1520,6 +1570,8 @@ UBYTE *Fixurlname(UBYTE *name)
       else if(STRNIEQUAL(begin,"about",5) && schemelen==5) { knownscheme=TRUE; allows_noslashslash=TRUE; }
       else if(STRNIEQUAL(begin,"cid",3) && schemelen==3) { knownscheme=TRUE; allows_noslashslash=TRUE; }
       else if(STRNIEQUAL(begin,"data",4) && schemelen==4) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"javascript",10) && schemelen==10) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"view-source",11) && schemelen==11) { knownscheme=TRUE; allows_noslashslash=TRUE; }
 
       if(knownscheme)
       {  /* Validate syntax for schemes that require '//' (and for file:///) */
@@ -1555,27 +1607,19 @@ UBYTE *Fixurlname(UBYTE *name)
 
       /* Unknown scheme vs. Amiga volume:
        * If the first non-alphanumeric is ':' and it is NOT immediately followed by '/',
-       * assume this is an Amiga volume path and normalize to file:///VOLUME:... */
+       * treat as a volume path only when Dos can lock it; same test for other unknown strings. */
       if(firstnonalnum==colon && (colon+1)<end && colon[1]!='/')
-      {  len=end-begin+8; /* "file:///" (8) + path */
-         if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
-         {  strcpy(fixname,"file:///");
-            strncat(fixname,begin,end-begin);
-         }
-         return fixname;
+      {  if(Urlbarpathlocks(begin,end)) return Fixurlname_mkfile(begin,end);
+         return Fixurlname_mkpassthrough(begin,end);
       }
 
-      /* Otherwise it's an unknown/unsupported scheme. */
-      return NULL;
+      if(Urlbarpathlocks(begin,end)) return Fixurlname_mkfile(begin,end);
+      return Fixurlname_mkpassthrough(begin,end);
    }
 
-   /* No ':' at all: assume http:// */
-   len=end-begin+7;  /* "http://" is 7 characters */
-   if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
-   {  strcpy(fixname,"http://");
-      strncat(fixname,begin,end-begin);
-   }
-   return fixname;
+   /* No ':' at all: accept as file path only when lockable; else pass through for scheme error */
+   if(Urlbarpathlocks(begin,end)) return Fixurlname_mkfile(begin,end);
+   return Fixurlname_mkpassthrough(begin,end);
 #endif
 }
 
