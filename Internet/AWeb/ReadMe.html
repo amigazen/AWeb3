@@ -23,19 +23,21 @@ Minds awaken, free
 
 <font face="Helvetica, Arial, sans-serif">
 <p>
-This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="http://amigazen.com/">amigazen project</a>. This release is AWeb 3.6 Beta 8, a preview build intended for testing and feedback. It picks up everything since the public <b>AWeb 3.6 Alpha 7</b> snapshot with major work on networking (especially HTTPS keep-alive), disk caching, memory pooling and leak fixes, Unicode and CSS correctness, and windowing/ARexx polish. The full source code of this release is available at https://github.com/amigazen/aweb3/ - this link is not clickable as AWeb will not be able to cope with the github website!
+    This is AWeb 3.6, a new version of the classic Amiga web browser, developed by  <a href="http://amigazen.com/" target="_blank">amigazen project</a>. This release is AWeb 3.6 Beta 8, a preview build intended for testing and feedback. Following from the previous AWeb 3.6 Alpha 7 snapshot, Beta 8 adds major improvements to networking (especially HTTPS keep-alive), disk caching, memory management, font rendering (AWeb can now use TTEngine) and CSS support. The full source code of this release is available at https://github.com/amigazen/aweb3/
 </p>
 
+
+
 <p>
-<b>amigazen project</b> uses modern software development tools and methods to update and rerelease classic Amiga open source software. This release updates AWeb to build against NDK3.2, replacing ClassAct with ReAction, updating networking code for RoadShow and AmiSSL, and ensuring it builds against the amigazen project ToolKit standard.
+<b>amigazen project</b> uses modern software development tools and methods to update and rerelease classic Amiga open source software. This new version 3.6 updates AWeb to build against NDK3.2, replacing ClassAct with ReAction, updating networking code for RoadShow and AmiSSL, and ensuring it builds against the amigazen project ToolKit standard for Amiga SDK configuration.
 </p>
 
 <h4>Read this first</h4>
 <p>
     <ul>
         <li><b>Beta release</b> This is a Beta preview with many known and unknown issues; please report problems on GitHub</li>
-		<li><b>AWeb 3.5</b> This AWeb 3.6 is derived directly from AWeb 3.4, with improvements from AWeb 3.5 being integrated manually one by one. As of Beta 8, all relevant improvements from AWeb 3.5 have been integrated and in many cases improved further</li> 
-		<li>Since there are many new default preferences in AWeb 3.6, starting from a clean configuration is recommended.</li>
+		<li><b>AWeb 3.5</b> This AWeb 3.6 is derived directly from AWeb 3.4, with improvements from AWeb 3.5 being integrated manually one by one. As of Beta 8, all relevant improvements from AWeb 3.5 have been integrated and in many cases improved even further</li> 
+		<li>Since there are many new default preferences in AWeb 3.6, starting from a clean configuration is recommended</li>
 		<li><b>OS4 compatibility</b> This is a 68k build, that does run on OS4, but you may encounter OS4 specific issues</li>
 		<li>This release is built optimised for 68020 processors. It is possible to build a 68000 compatible build from the project source</li>
 		<li>Similarly the PNG, JFIF (JPEG) and GIF plugins are built for 68020 <em>with 68881 FPU</em> but can be built for other targets</li>
@@ -58,7 +60,7 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 <li>The new gemini.aweblib module brings <b>gemini://</b> and <b>spartan://</b> protocol support for these new gopher-like networks</li>
 <li>A new about.aweblib brings <b>about:</b> URLs with home, fonts, version, plugins and blank page templates</li>
 <li>AWeb now knows how to handle <b>view-source:</b> allowing you to view any URL as plain text HTML source</li>
-<li>Directory browsing is now possible with the file:// protocol, and you can browse the root file:/// to see all mounted volumes</li>
+<li>Directory browsing is now possible with the <b>file://</b> protocol, and you can browse the root file:/// to see all mounted volumes</li>
 <li><b>Markdown</b> - AWeb now understands and renders Markdown as rich text, with on the fly conversion to HTML</li>
 <li><b>HTTP/1.1</b> gzip and chunked encoding, Range (RFC 7233) support for fast automatic transfer resume, and keep-alive for faster page loading especially on SSL/TLS connections</li>
 <li><b>AmiSSL 5.27</b> support for HTTPS connections, including TLS 1.3 and strong cipher suites</li>
@@ -66,12 +68,11 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 <li><b>utf-8</b> transcoding of the most common multibyte characters to Latin-1</li>
 <li><b>TTEngine</b> support for text rendering with OpenType/TrueType fonts when ttengine.library is available, for enhanced font rendering with kerning, utf-8 support for non-Latin languages and even anti-aliasing on 15bpp+ screens</li>
 <li><b>AmigaOS 3.2</b> features such as contextual mouse pointers, DefIcons and window iconification are now supported, while retaining compatibility with 3.1</li>
-<li>and introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same shared AWeb codebase</li>
 </ul>
 </p>
 
 <h2>What's New in AWeb 3.6 Beta 8?</h2>
-<p> This first beta release of AWeb 3.6 marks the transition from work in progress alpha releases, to a functionally complete and relatively stable release ready for wider distribution and testing. At this point no major new features will be added for AWeb 3.6, and the focus will be on bug fixes and optimisations.</p>
+<p> This first beta release of AWeb 3.6 marks the transition from work in progress alpha releases, to a functionally complete and relatively stable release ready for wider distribution and testing. At this point no major new features will be added for AWeb 3.6, and the focus will be on bug fixes, optimisations and compatibility with Amiga-centric web sites.</p>
 <p>
 AWeb 3.6 beta 8 brings many new features and refactored core components including:
 <ul>
@@ -83,7 +84,6 @@ AWeb 3.6 beta 8 brings many new features and refactored core components includin
 <li>All remaining relevant patches from every known release of <b>AWeb 3.5</b> are fully integrated and in many cases improved upon</li>
 <li>AWeb now requires the latest AmiSSL 5.27 - it will not allow TLS connections without it</li>
 <li>Images are now lazy-rendered - images "below the fold" are not decoded until they are about to be displayed, and thus don't use up chip memory until they are on the screen, accelerating page loading and reducing memory pressure</li>
-<li>Lazy rendering / decode is also applied to <b>CSS background images</b>, deferring background decode until it is actually needed for display</li>
 <li>The current Screen's titlebar is now used to display relevant information such as memory usage and open connections</li>
 <li>CSS and JavaScript content embedded from third party domains is ignored on the assumption that it is likely to contain incompatible content used for tracking and advertising that may trip up AWeb's parser</li>
 <li>Richer <b>status window</b> messages for more types of events - and status events are also logged to the console when DEBUG is turned on</li>
@@ -123,27 +123,6 @@ AWeb 3.6 beta 8 brings many new features and refactored core components includin
 <li>FIXED: Inline JavaScript execution and <b>document.write()</b> output is restored by ensuring the window object exists before script execution</li>
 <li>FIXED: Multiple JavaScript stability issues including Ajsetup re-entrancy deadlocks, garbage-collector double-frees, and object lifetime/use-after-free bugs that could cause UI hangs</li>
 </ul></p>
-
-<h2>What is AWebView?</h2>
-<p>
-AWebView is a new standalone HTML and Markdown file viewer (in fact, it can display any file AWeb can display including images) built from the same AWeb codebase using the LOCALONLY build configuration. It is a separate application from AWeb and takes up (slightly) less RAM because it does not integrate any of the network features.
-</p>
-
-<p>AWebView incorporates the same file:// protocol handler as AWeb including the new directory browsing feature added in AWeb 3.6.</p>
-
-<p>AWebView loads it's preferences from an AWeb profile called 'AWebView' instead of the default AWeb config. AWebCfg can still be used to edit the preferences for AWebView, by saving the preferences . Of course, many of the preference settings are not relevant to AWebView and will be ignored.</p>
-
-<h3>What's the plan for AWebView?</h3>
-
-This is an initial release of AWebView provided as a proof of concept for feedback purposes. Some ideas about how AWebView may or may not be developed further include:
-<ul>
-<li>A more simple toolbar area, or perhaps even no toolbar at all!</li>
-<li>Pared back menu options and more generally stripping out features that are not relevant to a standalone file viewer in order to reduce the binary size</li>
-<li>More command line arguments, offering similar options to MultiView</li>
-<li>File manager operations, and Workbench integration where it makes sense, probably using the existing ARexx integration
-<li>Support for launching Tools directly from AWebView as if launched from Workbench (again, probably via ARexx integration)</li>
-<li>Note that AWebView already inherits AWeb's AppWindow support. Currently this will view the file, not copy it to the location of the current folder as might be expected.</li>
-</ul>
 
 <h2>Running AWeb</h2>
 
@@ -350,21 +329,17 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>Builds again with SAS/C! Does not require gcc, native or cross-compiler to build</li>
 </ul>
 
-<h2>Known Issues in 3.6 Alpha 7</h2>
+<h2>Known Issues in 3.6 Beta 8</h2>
 <ul>
 <li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
-<li>The new CSS functionality has race conditions that may cause CSS styles not to be applied on faster Amigas (especially emulated ones) when pages are loaded from cache</li>
-<li>The documentation is still being updated for release 3.6</li>
 <li>The new support for Markdown documents still has some visual glitches</li>
 <li>The AWebPlugins are deliberately not enabled by default, you will need to enable them manually in the configuration - however the plugins offer little to no benefit compared to using recent DataTypes, which tend to be much faster</li>
 <li>Feedback is also particularly welcome on default settings and default programs</li>
-<li>JavaScript has many issues which are being addressed by integrating the AWeb 3.5 codebase, which is still work in progress</li>
-<li>When using ttengine.library layout is not always correct and text may overlap or render incorrectly</li>
 </ul>
 
 <h3>Known Issues with OS4</h3>
 <p>
-The following issues are specific to running the 3.6 Alpha 7 68K build on OS4: 
+The following issues are specific to running the 3.6 Beta 8 68K build on OS4: 
 </p>
 <ul>
 <li>Pages with CSS stylesheets may experience content corruption / text overflow issues (e.g. amiga-news.de)</li>

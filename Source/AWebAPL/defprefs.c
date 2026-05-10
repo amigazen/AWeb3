@@ -175,7 +175,7 @@ struct Prefs defprefs=
    {  /* network prefs */
       LOADIMG_ALL,                           /* load images */
       DEFMAXCONNECT,                         /* max connections */
-      2,                                     /* max disk read */
+      8,                                     /* max disk read */
 #ifdef NETDEMO
       "file:///AWeb:docs/full.html#full",
 #elif defined(LOCALONLY)

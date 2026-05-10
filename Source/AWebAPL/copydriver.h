@@ -114,8 +114,10 @@
 #define AOCDV_Alpha        (AOCDV_Dummy+27)     /* GET */
    /* (ULONG) Does this copy driver support alpha channel? Returns non-zero if alpha channel is available. */
 
-#define AOCDV_    (AOCDV_Dummy+)
-#define AOCDV_    (AOCDV_Dummy+)
+#define AOCDV_Eagerdecode  (AOCDV_Dummy+29)     /* SET */
+   /* (BOOL) IMGCOPY only: tell imgsource to decode at EOF when LAZY_IMAGE_DECODE is on.
+    * Used for CSS/HTML background images (not on-screen <IMG>), which never receive
+    * the normal "displayed copy" lazy-decode path. */
 
 
 /*--- copydriver data ---*/

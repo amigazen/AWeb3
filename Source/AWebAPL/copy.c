@@ -52,6 +52,16 @@
 
 /*------------------------------------------------------------------------*/
 
+/* Background image copies are not marked "displayed" in copy.c, so lazy decode
+ * would never start; imgsource decodes at EOF when AOCDV_Eagerdecode is set. */
+static void Copy_notifyimgbg_eager(struct Copy *cop)
+{  struct Copydriver *drv;
+   if(!cop || !cop->driver) return;
+   drv=cop->driver;
+   if(drv->objecttype!=AOTP_IMGCOPY) return;
+   Asetattrs(drv,AOCDV_Eagerdecode,BOOLVAL(cop->flags&CPYF_BACKGROUND),TAG_END);
+}
+
 /* Get the appropriate icon */
 static void *Copyicon(struct Copy *cop)
 {  long tag=AOAPP_Deficon;
@@ -813,6 +823,7 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
                      AOBJ_Nobackground,BOOLVAL(cop->flags&CPYF_NOBACKGROUND),
                      TAG_END);
                   cop->flags&=~CPYF_RELOADVERIFY;  /* One verify is enough ;) */
+                  Copy_notifyimgbg_eager(cop);
                   if(!(cop->flags&(CPYF_EMBEDDED|CPYF_BACKGROUND)))
                   {  /* Re-position at fragment after fast cache reload */
                      Asetattrs(cop->frame,AOFRM_Reposfragment,TRUE,TAG_END);
@@ -837,6 +848,7 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
          case AOCPY_Background:
             if(tag->ti_Data) cop->flags|=CPYF_BACKGROUND;
             else cop->flags&=~CPYF_BACKGROUND;
+            Copy_notifyimgbg_eager(cop);
             break;
          case AOCPY_Border:
             cop->border=tag->ti_Data;

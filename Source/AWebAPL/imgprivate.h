@@ -42,6 +42,7 @@ struct Imgsource
 #define IMSF_CACHEFILE  0x0004   /* Use cache file as input */
 #define IMSF_ERROR      0x0008   /* Error, don't process */
 #define IMSF_DECODEWAIT  0x0010   /* Decode requested, waiting for EOF */
+#define IMSF_EAGERDECODE  0x0020   /* Background copy: decode at EOF (pre-lazy behavior) */
 
 /*--- Private tags: ---*/
 
@@ -55,6 +56,9 @@ struct Imgsource
 #ifndef AOIMS_Dummy
 #define AOIMS_Dummy           AOBJ_DUMMYTAG(AOTP_IMGSOURCE)
 #endif
+
+#define AOIMS_Eagerdecode     (AOIMS_Dummy+99)
+   /* (BOOL) Decode at EOF without lazy deferral (CSS/HTML background images). */
 
 #define AOIMS_Requestdecode   (AOIMS_Dummy+100)
    /* (BOOL) Request starting decode now (experimental lazy decode). */

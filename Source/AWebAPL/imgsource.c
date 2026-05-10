@@ -125,6 +125,28 @@ static long Transparentgif(struct Imgprocess *imp)
    return xptcolor;
 }
 
+/* IFF ILBM pictures begin with FORM + chunk length + ILBM brand; for these,
+ * picture.datatype may report alpha or a mask that does not represent web
+ * transparency, so we display them fully opaque. */
+static BOOL Isiffilbm(UBYTE *path)
+{  long fh;
+   UBYTE buf[12];
+   BOOL result;
+
+   result=FALSE;
+   if(!path)
+      return FALSE;
+   fh=Open(path,MODE_OLDFILE);
+   if(fh)
+   {  if(Read(fh,buf,12)==12)
+      {  if(STRNEQUAL((char *)buf,"FORM",4) && STRNEQUAL((char *)(buf+8),"ILBM",4))
+            result=TRUE;
+      }
+      Close(fh);
+   }
+   return result;
+}
+
 /* Extract alpha channel from pixel array and create mask plane */
 static void Makealphamask(struct Imgprocess *imp,void *dto)
 {  struct pdtBlitPixelArray pbpa={0};
@@ -971,6 +993,7 @@ static BOOL Makeobject(struct Imgprocess *imp)
    UBYTE *ext;
    LONG len;
    struct DiskObject *dob;
+   BOOL ilbmfile;
    
    filename=imp->ims->filename;
    if(!filename) return FALSE;
@@ -1001,6 +1024,7 @@ static BOOL Makeobject(struct Imgprocess *imp)
    }
    
    /* Normal datatypes path */
+   ilbmfile=Isiffilbm(filename);
    if(imp->dto=NewDTObject(imp->ims->filename,
          DTA_SourceType,DTST_FILE,
          DTA_GroupID,GID_PICTURE,
@@ -1027,25 +1051,28 @@ static BOOL Makeobject(struct Imgprocess *imp)
          imp->memsize=imp->width*imp->height*imp->depth/8;
          flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
          
-         /* Check if alpha channel is available */
-         if(GetDTAttrs(imp->dto,PDTA_AlphaChannel,&hasalpha,TAG_END) && hasalpha)
-         {  /* Alpha channel available - extract it and create mask */
-            Makealphamask(imp,imp->dto);
-         }
-         else if(xptcolor>=0)
-         {  /* Fall back to GIF transparency handling */
-            if(maskplane)
-            {  imp->mask=maskplane;
+         /* ILBM: do not enable transparency from datatype alpha/mask */
+         if(!ilbmfile)
+         {  /* Check if alpha channel is available */
+            if(GetDTAttrs(imp->dto,PDTA_AlphaChannel,&hasalpha,TAG_END) && hasalpha)
+            {  /* Alpha channel available - extract it and create mask */
+               Makealphamask(imp,imp->dto);
+            }
+            else if(xptcolor>=0)
+            {  /* Fall back to GIF transparency handling */
+               if(maskplane)
+               {  imp->mask=maskplane;
+                  imp->memsize*=2;
+               }
+               else if(flags&BMF_STANDARD)
+               {  Makegifmask(imp,xptcolor);
+               }
+            }
+            else if(maskplane)
+            {  /* Use mask plane provided by datatype */
+               imp->mask=maskplane;
                imp->memsize*=2;
             }
-            else if(flags&BMF_STANDARD)
-            {  Makegifmask(imp,xptcolor);
-            }
-         }
-         else if(maskplane)
-         {  /* Use mask plane provided by datatype */
-            imp->mask=maskplane;
-            imp->memsize*=2;
          }
          result=TRUE;
       }
@@ -1195,6 +1222,10 @@ static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
                {
 #if !LAZY_IMAGE_DECODE
                   Startprocessimg(ims);
+#elif LAZY_IMAGE_DECODE
+                  if(ims->flags&IMSF_EAGERDECODE)
+                  {  Startprocessimg(ims);
+                  }
 #endif
                }
             }
@@ -1217,7 +1248,23 @@ static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
             {
 #if !LAZY_IMAGE_DECODE
                Startprocessimg(ims);
+#elif LAZY_IMAGE_DECODE
+               if(ims->flags&IMSF_EAGERDECODE)
+               {  Startprocessimg(ims);
+               }
 #endif
+            }
+            break;
+         case AOIMS_Eagerdecode:
+            SETFLAG(ims->flags,IMSF_EAGERDECODE,tag->ti_Data);
+            if(tag->ti_Data && (ims->flags&IMSF_EOF) && !ims->task && !ims->bitmap
+            && !(ims->flags&IMSF_ERROR) && Agetattr(Aweb(),AOAPP_Screenvalid))
+            {  ObtainSemaphore(&imagetask.screensema);
+               if(!imagetask.screen)
+               {  imagetask.screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
+               }
+               ReleaseSemaphore(&imagetask.screensema);
+               Startprocessimg(ims);
             }
             break;
          case AOIMS_Requestdecode:
@@ -1351,7 +1398,17 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
       }
 #endif
 #if LAZY_IMAGE_DECODE
-      if(ims->flags&IMSF_DECODEWAIT)
+      if(ims->flags&IMSF_EAGERDECODE)
+      {  if(!ims->task && Agetattr(Aweb(),AOAPP_Screenvalid))
+         {  ObtainSemaphore(&imagetask.screensema);
+            if(!imagetask.screen)
+            {  imagetask.screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
+            }
+            ReleaseSemaphore(&imagetask.screensema);
+            Startprocessimg(ims);
+         }
+      }
+      else if(ims->flags&IMSF_DECODEWAIT)
       {  Trydecodeimg(ims);
       }
 #endif

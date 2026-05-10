@@ -14,7 +14,7 @@ This is AWeb 3 APL open source version, an HTML 3/4 web browser for Amiga.
 
 Key to the amigazen project approach is ensuring every project can be built with the same common set of development tools and configurations, so the ToolKit project was created to provide a standard configuration for Amiga development. All *amigazen project* releases will be guaranteed to build against the ToolKit standard so that anyone can download and begin contributing straightaway without having to tailor the toolchain for their own setup.
 
-The original authors of the *AWeb* software are not affiliated with the amigazen project. This software is redistributed on terms described in the documentation, particularly the file LICENSE or LICENSE.md
+The original authors of the *AWeb* software are not affiliated with the amigazen project. This software is redistributed on terms described in the documentation, particularly the file LICENSE.md
 
 The amigazen project philosophy philosophy is based on openness:
 
@@ -24,9 +24,9 @@ PRs for all projects are gratefully received at [GitHub](https://github.com/amig
 
 ## About AWeb 3
 
-AWeb is one of the most sophisticated web browsers (for its time) ever released on the Amiga platform. The original author, Yvon Rozijn, kindly made AWeb open source under the AWeb Public License. 
+AWeb is one of the most sophisticated web browsers (for its time) ever released on the Amiga platform. The original author, Yvon Rozijn, kindly made AWeb 3.4 open source under the AWeb Public License in 2003.
 
-This project's first aim is to update the code so it builds against the NDK3.2, which largely means replacing the ClassAct UI APIs with the equivalent ReAction versions, as well as updating the networking code to work properly with RoadShow and the latest AmiSSL, and ensuring it can be built easily out of the box against the ToolKit standard by anyone with an Amiga computer.
+This project's first aim is to update that code so it builds against the NDK3.2, which largely means replacing the ClassAct UI APIs with the equivalent ReAction versions, as well as updating the networking code to work properly with RoadShow and the latest AmiSSL, and ensuring it can be built easily out of the box against the ToolKit standard for Amiga SDK configuration by anyone with an Amiga computer.
 
 ## HTML Standards Support
 
@@ -114,7 +114,7 @@ AWeb also supports many browser-specific extensions from Netscape and Microsoft 
 AWeb offers three HTML parsing modes to handle the wide variety of HTML found on 1990s era websites:
 
 1. **Strict Mode**: Only recognizes official HTML standards
-2. **Tolerant Mode**: Recognizes browser-specific extensions and recovers from common HTML errors
+2. **Tolerant Mode**: Recognizes browser-specific extensions and recovers from common HTML errors (Default)
 3. **Compatible Mode**: Attempts to handle severely malformed HTML by relaxing parsing rules
 
 ## JavaScript Support
@@ -265,9 +265,9 @@ AWeb includes two JavaScript development tools:
 
 ## Roadmap
 
-The first AWeb APL open source release was version 3.4, in 2003 from the _AWeb Open Source Development Team_.
+The first AWeb APL open source release was version 3.4, in 2003.
 
-Since then one further "3.5" beta release - or rather, 12 beta releases of 3.5 - were made for both OS4 and classic Amiga, and even MorphOS and AROS too, however the sourcecode to the 68k release of 3.5 seems to no longer be available to the public in a buildable form, if it ever was with dependencies on a very specific, and undocumented, GCC based toolchain. Snapshots for versions for other platforms such as OS4 can be found, such as on os4depot, but the developers of 3.5 did not seem to bother to maintain compatibility with the classic Amiga build tools used by the original AWeb.
+Since then one further "3.5" beta release - or rather, 12 beta releases of 3.5 - were made for both OS4 and classic Amiga, and even MorphOS and AROS too, however the sourcecode to the 68k release of 3.5 seems to no longer be available to the public in a buildable form, if it ever was, with dependencies on a very specific, and undocumented, GCC based toolchain. Snapshots for versions for other Amiga variants such as OS4 can be found online but the developers of 3.5 did not seem to bother to maintain compatibility with the classic Amiga build tools used by the original AWeb.
 
 Thus, this version 3.6 is derived directly from the 3.4 source code release, with the intent to cherry-pick improvements from the 3.5 branch where the changes have added value. 
 
@@ -280,26 +280,26 @@ The first release from amigazen project is version 3.6. The goals of this releas
 - Ensure AWeb can be built with supported SDKs
 - Set sensible default prefs based on conventions that emerged in the years since AWeb was still state of the art
 - Package both binary and sourcecode releases properly for ease of distribution and installation 
-- Refactor the HTTP and SSL code to work better with modern web servers using HTTP/1.1, gzip, chunked encoding and modern TLS using AmiSSL
+- Refactor the HTTP and SSL code to work better with modern web servers using HTTP/1.1, gzip, chunked encoding, keep-alive connections and modern TLS using AmiSSL
 - "Complete" the features necessary to make a fully standards compatible HTML 4.01 and XHTML 1.1 generation web browser for the Amiga, with CSS 2 and JavaScript 1.5 (ECMAScript 3)
 
 Notable changes in version 3.6 compared to versions 3.5 and 3.4 are:
 - Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5.2 and NDK3.2
-- Adding HTTP/1.1, chunked encoding and gzip compressed http streams support with a refactored http module
-- Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ and will be automatically created on launch if it does not already exist
+- Adding HTTP/1.1, keep-alive connections, chunked encoding and gzip compressed streams 
+- Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ which will be automatically created on launch if it does not already exist
 - Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.27 or later
 - Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
 - With many more features now added in the releases listed below
 
 **What's New in 3.6 Beta 8:**
 - **HTTP keep-alive enabled:** Faster page loading, including on HTTPS/TLS connections, with numerous correctness and stability fixes for pooled connections
-- **Lazy image decoding:** “Below the fold” images (and CSS background images) defer decode until needed, reducing memory pressure and improving responsiveness
-- **AmiSSL 5.27 required:** Updated TLS stack; AWeb will not allow TLS connections without AmiSSL 5.27 and automatically navigate to Aminet to download it
+- **Lazy image decoding:** “Below the fold” images defer decode until needed, reducing memory pressure and improving responsiveness
+- **AmiSSL 5.27 required:** Updated TLS stack; AWeb will not allow TLS connections without AmiSSL 5.27 
 - **TTEngine + UTF-8:** TrueType/OpenType rendering and full UTF-8 content rendering (with improved font matching diagnostics via about:fonts)
 - **Cache correctness:** Cache-Control (`no-store`, `no-cache`, `max-age`, `must-revalidate`) support plus fixes to prevent disk-cache corruption after errors/retries; POST responses are not written to disk cache
-- **Better UI telemetry:** Screen title can show memory usage and current connection information
+- **Better UI feedback:** Screen title can show memory usage and current connection information, more events trigger status update messages
 - **Logging overhaul:** New logging module with timestamped syslog-style output; `DEBUG/S` is now an alias for `HTTPDEBUG/S`
-- **Compatibility/stability fixes:** Improved User-Agent defaults for real-world sites, hardened SCRIPT parsing, restored reliable inline JS execution/document.write, many CSS engine fixes, and many longstanding memory leaks and deadlocks fixed
+- **Compatibility/stability fixes:** Improved User-Agent defaults for real-world sites, hardened SCRIPT parsing, many CSS engine fixes, and many longstanding memory leaks and deadlocks fixed
 - **Complete AWeb 3.5 integration:** All remaining relevant new features, bug fixes and optimisations from all known versions of AWeb 3.5 are now integrated into AWeb 3.6
 
 **What's New in 3.6 Alpha 7:**
@@ -367,7 +367,7 @@ The Amiga actually had one of the first graphical web browsers - AMosaic reimple
 
 Of these, the closest thing to a browser integrating tightly into the Amiga operating system is AWeb, due to its use of the ClassAct, now ReAction, user interface toolkit, as well as DataTypes, ARexx and extending the Amiga's BOOPSI and shared library architecture for its own plugin system. 
 
-When AWeb was originally developed, web standards were in a state of rapid flux and many websites relied on plugin technologies such as Shockwave Flash and Java Applets, making it a challenge for any browser developer to keep up let alone one working on their own. Ironically in 2025 the needs of a 'classic web browser' are lesser as both Flash and Applets have died off completely, although modern browsers employ a variety of new standards to provide similar capabilities for interactive 'web apps'.
+When AWeb was originally developed, web standards were in a state of rapid flux and many websites relied on plugin technologies such as Shockwave Flash and Java Applets, making it a challenge for any browser developer to keep up let alone one working on their own. Ironically in 2025 the needs of a 'classic web browser’ implementing the HTML4 generation of standards are lesser as both Flash and Applets have died off completely, although modern browsers employ a variety of new standards to provide similar capabilities for interactive 'web apps'.
 
 The release of AWeb as open source was a generous act by its author, and the code itself a masterpiece of software design, one that deserves continued effort to "finish the job" started all those years ago.
 

@@ -85,9 +85,13 @@ static void Gettime(struct Jcontext *jc,struct Brokentime *bt)
    }
    time=(long)(d/1000);
    bt->tm_millis=d-(double)time*1000;
-   /* ECMA: getHours/getMinutes/getSeconds are local wall-clock; gmtime would show UTC
-    * (e.g. digital clocks display 01:23 UTC while the user expects 17:23 local). */
-   tm=localtime(&time);
+   /* ECMA getHours/getMinutes/getSeconds are local wall-clock. Do not call localtime():
+    * under AmigaOS4/Petunia (68k awebjs.aweblib) it can DSI (NULL+0x70) in libc timezone.
+    * Apply Locale loc_GMTOffset (minutes east of GMT, same as Scandate) then gmtime — fixed offset only. */
+   if(locale)
+   {  time+=locale->loc_GMTOffset*60;
+   }
+   tm=gmtime(&time);
    if(tm)
    {
       bt->tm=*tm;

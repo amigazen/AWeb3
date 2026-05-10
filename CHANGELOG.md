@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **HTTP/1.1 keep-alive (production enabled):** Keep-alive pooling is now enabled for real-world use, including HTTPS connections.
 - **Lazy image decoding:** Images are decoded on demand as they approach visibility (“below the fold” images no longer consume Chip RAM early).
-- **Lazy background image decoding:** CSS background images can also defer decode until actually needed for display.
 - **Cache-Control support:** Parse and apply `Cache-Control` directives (`no-store`, `no-cache`, `max-age`, `must-revalidate`) to improve cache correctness and freshness.
 - **DEBUG/S switch:** `DEBUG/S` is accepted as an alias of `HTTPDEBUG/S` (logging is no longer HTTP-only).
 - **AWebLog:** Centralised logging subsystem with syslog/RFC3164-style formatting and timestamps; rationalised output to reduce noise.

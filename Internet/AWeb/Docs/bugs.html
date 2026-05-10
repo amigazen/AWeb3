@@ -4,6 +4,7 @@
  * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,14 +26,75 @@ Known bugs
 <body background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Known bugs</h1>
 
-<h2>AWeb bugs</h2>
-Although AWeb is thoroughly tested, it is very likely that there are some
-bugs left. At the time of release the following important bugs were known.
-For the latest information, check the
-<a href=https://www.amigazen.com/aweb/>AWeb support page</a>.
+<h2>Where to look</h2>
 <p>
+<strong>Live lists</strong> of open defects, regressions, and feature gaps are kept on
+the <strong>GitHub project</strong> for AWeb&nbsp;3.6 maintained by amigazen project:
+</p>
+<ul>
+<li><strong>Repository and readme:</strong>
+    <a href="https://github.com/amigazen/aweb3/">https://github.com/amigazen/aweb3/</a>
+<li><strong>Issues (searchable list):</strong>
+    <a href="https://github.com/amigazen/aweb3/issues">https://github.com/amigazen/aweb3/issues</a>
+</ul>
+<p>
+Visit these URLs using a modern web browser on a system that can reach GitHub.
+</p>
 
-<i>At the time of release no bugs were known</i>
+<h2>GitHub and modern browsers</h2>
+<p>
+The GitHub website itself assumes a <strong>modern HTML5/CSS3/JavaScript</strong> browser.
+AWeb is not able to render GitHub usefully: you will need a current desktop or
+mobile browser to read issues,
+pull requests, and project documentation on GitHub.
+</p>
+
+<h2>What AWeb does <em>not</em> support (needed for GitHub, Google, and similar sites)</h2>
+<p>
+Sites like GitHub or Google assume a current engine. AWeb does not implement the
+following (non-exhaustive); absence of these is why most &quot;modern&quot; pages fail
+before any AWeb-specific bug matters:
+</p>
+<ul>
+<li><strong>HTML5</strong> document model and elements (e.g. <code>video</code>, <code>audio</code>,
+    <code>canvas</code>, <code>svg</code> as first-class document graphics,
+    <code>template</code>, <code>slot</code>, semantic layout tags as live components)</li>
+<li><strong>CSS3</strong> and later (e.g. Flexbox, Grid, multi-column, advanced selectors,
+    <code>@media</code> queries as authors use them today, custom properties / variables,
+    animations and transitions as on mainstream sites)</li>
+<li><strong>ECMAScript 2015+</strong> (ES6 and later: modules <code>import</code>/<code>export</code>,
+    <code>class</code>, <code>async</code>/<code>await</code>, native <code>Promise</code> stacks,
+    arrow functions, <code>Map</code>/<code>Set</code> used pervasively, tagged templates, etc.)</li>
+<li><strong>Large single-page-app stacks</strong> (React, Vue, Angular, Svelte bundles and
+    similar transpiled/minified site shells)</li>
+<li><strong><code>fetch()</code></strong> and other modern network APIs (AWeb targets
+    JavaScript&nbsp;1.5 / ES3 plus experimental <code>XMLHttpRequest</code>, not the
+    modern fetch ecosystem)</li>
+<li><strong>Web Workers</strong>, <strong>SharedWorker</strong>, <strong>Service Worker</strong> and
+    offline / installable <strong>PWA</strong> behaviour</li>
+<li><strong>WebSocket</strong>, <strong>WebRTC</strong>, <strong>HTTP/2</strong>, <strong>HTTP/3</strong> / QUIC</li>
+<li><strong>WebAssembly</strong> (<code>wasm</code>) runtimes</li>
+<li><strong>WebGL</strong> and GPU-backed in-browser graphics APIs</li>
+<li><strong>Shadow DOM</strong> and <strong>Custom Elements</strong> (Web Components)</li>
+<li>Rich <strong>DOM Level 3+</strong> APIs (<code>querySelector</code>/<code>querySelectorAll</code>,
+    <code>classList</code>, mutation observers, full event model as on desktop Chrome,
+    drag-and-drop API, intersection observers, etc. &mdash; many are missing or incomplete)</li>
+<li><strong><code>localStorage</code></strong> / <strong><code>sessionStorage</code></strong>,
+    <strong>IndexedDB</strong>, and large client-side storage models sites rely on</li>
+<li><strong>Content Security Policy</strong>, <strong>Subresource Integrity</strong>, and other
+    modern security headers interpreted the way current browsers do</li>
+<li>Embedded <strong>OAuth/OpenID Connect</strong> and social-login flows driven by heavy
+    cross-origin script (as used on GitHub and Google accounts)</li>
+<li>In-page <strong>PDF</strong>, <strong>EPUB</strong>, or other viewers delivered as web apps</li>
+<li>Ubiquitous <strong>Unicode</strong> and complex-script shaping as on a 2020s desktop browser
+    (AWeb has selective UTF-8 and optional TTEngine paths, not full universal coverage)</li>
+<li>Continuous <strong>TLS feature churn</strong> (cipher suites, ALPN expectations, pinned
+    behaviours) beyond what AmiSSL and this tree are tested for on live sites</li>
+</ul>
+<p>
+For <strong>release-specific</strong> notes and a high-level change log shipped with this
+binary, see <a href=history.html>Release history</a> in this documentation set.
+</p>
 
 <p>
 <hr>

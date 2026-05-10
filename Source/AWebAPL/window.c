@@ -66,8 +66,11 @@
 #include <proto/layout.h>
 #include <proto/space.h>
 #include <proto/timer.h>
+#include <exec/execbase.h>
 
 LIST(Awindow) windows;
+
+extern struct ExecBase *SysBase;
 
 /* aweb.c parses the HTTPDEBUG/S tooltype/CLI switch into this global. */
 extern BOOL httpdebug;
@@ -236,10 +239,12 @@ static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
 
 /* Screen title: "AWeb <ver>  chip <n> other <n> used <n>  scheme://authority  a/q  port".
  * Two spaces between major sections; labels keep a space before the size (chip 2MB …).
+ * Numbers use FormatString %lD (locale conventions including digit grouping), not %ld.
+ * exec.library V50+ (AmigaOS 4): chip RAM token omitted — OS4 has no separate CHIP concept.
  */
 static void Memsizefmt(ULONG bytes,UBYTE *out)
 {  ULONG val;
-   UBYTE num[24];
+   UBYTE num[32];
    UBYTE *suffix;
 
    suffix=NULL;
@@ -256,8 +261,8 @@ static void Memsizefmt(ULONG bytes,UBYTE *out)
       suffix=NULL;
    }
 
-   /* Lprintf uses locale.library FormatString() for grouping etc. */
-   Lprintf(num,(UBYTE *)"%ld",(long)val);
+   /* %lD = signed decimal with locale grouping (loc_GroupSeparator etc.), autodocs locale.library */
+   Lprintf(num,(UBYTE *)"%lD",(long)val);
    strcpy((char *)out,(char *)num);
    if(suffix) strcat((char *)out,(char *)suffix);
 }
@@ -321,12 +326,12 @@ static UBYTE *Makescreentitle(struct Awindow *win)
    long netactive;
    long netqueued;
    ULONG awebtotal;
-   UBYTE chipb[16];
-   UBYTE otherb[16];
-   UBYTE usedb[16];
+   UBYTE chipb[24];
+   UBYTE otherb[24];
+   UBYTE usedb[24];
    UBYTE memsec[96];
    UBYTE origin[120];
-   UBYTE connsec[24];
+   UBYTE connsec[48];
    UBYTE keybuf[40];
    UBYTE *portlabel;
 
@@ -339,18 +344,24 @@ static UBYTE *Makescreentitle(struct Awindow *win)
    {  strcpy((char *)screentitlebuf,"AWeb");
    }
 
-   freechip=AvailMem(MEMF_CHIP);
+   freechip=0;
    freefast=AvailMem(MEMF_FAST);
    awebtotal=Awebmemused();
-   Memsizefmt(freechip,chipb);
    Memsizefmt(freefast,otherb);
    Memsizefmt(awebtotal,usedb);
-   sprintf((char *)memsec,"chip %s other %s used %s",chipb,otherb,usedb);
+   if(SysBase && SysBase->LibNode.lib_Version>=50)
+   {  sprintf((char *)memsec,"other %s used %s",otherb,usedb);
+   }
+   else
+   {  freechip=AvailMem(MEMF_CHIP);
+      Memsizefmt(freechip,chipb);
+      sprintf((char *)memsec,"chip %s other %s used %s",chipb,otherb,usedb);
+   }
 
    Docurlorigin(win,origin,(long)sizeof(origin));
 
    Fetchslotfills(&netactive,&netqueued,NULL,NULL);
-   Lprintf(connsec,(UBYTE *)"%ld/%ld",netactive,netqueued);
+   Lprintf(connsec,(UBYTE *)"%lD/%lD",netactive,netqueued);
 
    if(win->portname && win->portname[0]) portlabel=win->portname;
    else

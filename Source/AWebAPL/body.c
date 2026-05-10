@@ -29,6 +29,7 @@
 #include "html.h"
 #include "application.h"
 #include "ttengine.h"
+#include "copydriver.h"
 
 #include <proto/exec.h>
 #include <proto/dos.h>

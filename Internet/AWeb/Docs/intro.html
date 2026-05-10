@@ -4,6 +4,7 @@
  * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,33 +23,54 @@
 Introduction
 </title>
 </head>
-<body background=awebbg.iff>
+<body bgcolor="#AAAAAA" background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Introduction</h1>
-AWeb is a fast and powerful World Wide Web browser for the Amiga computer.
+AWeb is a fast and powerful HTML4 World Wide Web browser for the Amiga computer.
 <p>
-Some of the most important features of AWeb are listed below.
+Some of the most important features of AWeb are listed below. For a
+chronological list of changes in this tree, see
+<a href=history.html>Release history</a>.
+
+<h2>Welcome to AWeb 3.6, the Amiga Web Browser</h2>
+<p>
+The original AWeb was written by <strong>Yvon Rozijn</strong> as a commercial product, later released as free and opens source software under
+the AWeb Public License. The first AWeb APL open-source drop was <strong>version 3.4</strong>
+(2003). A line of <strong>AWeb 3.5</strong> betas followed for classic Amiga, OS4,
+and other targets; however the 3.5 sources assumed specific and undocumented
+GCC cross-compilation toolchains rather than the SAS/C-based tree used for the original AWeb.
+</p>
+<p>
+<strong>AWeb 3.6</strong> is therefore derived directly from the <strong>3.4</strong> codebase and
+maintained by <strong><a href="https://amigazen.com" target="_blank">amigazen project</a></strong>, updating AWeb to build with current SDKs
+(ReAction, RoadShow, AmiSSL, P96 graphics and NDK&nbsp;3.2),
+refactoring HTTP and SSL to work with real web servers of the 2020s, and
+cherry-picking improvements from AWeb 3.5 where they still make sense for
+classic Amiga builds. The original AWeb authors are not affiliated with amigazen project;
+AWeb 3.6 is released under the terms of the AWeb Public License (see <a href=legal.html>Legal issues</a>.
+</p>
 
 <h2>HTML and browsing</h2>
-AWeb offers complete <a HREF="html.html">HTML support</a>, including:
+AWeb offers broad <a HREF="html.html">HTML3.2 and HTML4 support</a>, including:
 <ul>
-<li>JavaScript 1.1.
+<li>JavaScript.
 <li>Frames.
 <li>Tables, including table backgrounds.
 <li>Font sizes, faces, colours, subscript, superscript, optional blinking.
 <li>Client-side image maps, also when the map is defined in another document.
 <li>Embedded objects and background sounds.
+<li>and many more features in AWeb 3.6 approaching full HTML 4, JavaScript 1.5 and CSS 2 compatibility</li>
 </ul>
 <p>
 As a unique feature, AWeb offers three different
-<a HREF="htmlmode.html">HTML modes</a> ensure the
+<a HREF="htmlmode.html">HTML modes</a> that ensure the
 correct display of virtually every page:
 <ul>
 <li>Strict mode, where only the official standard is recognized.
-<li>Tolerant mode, which also recognizes many of the NetScape and other
-   extensions. Tolerant mode also offers automatic recovery from many
-   syntactic errors, including bad comments.
+<li>Tolerant (default) mode, which also recognizes many of the Netscape and other
+extensions. Tolerant mode also offers automatic recovery from many
+syntactic errors, including bad comments.
 <li>Compatible mode, to recover from really bad HTML, where automatic
-   recovery would break most other pages.
+recovery would break most other pages.
 </ul>
 <p>
 <a href="browser.html#images">Images</a> are shown using datatypes.
@@ -76,7 +98,7 @@ A public <a HREF="api.html">plugin interface</a> allows seamless integration
 of extension programs within AWeb.
 
 <h2>Networking </h2>
-AWeb can use a wide range of TCP-stacks: AmiTCP/IP or compatible. RoadShow and UAE bsdsocket.library are known to be compatible. Other stacks like Miami or TermiteTCP may work but are not tested. 
+AWeb can use a wide range of TCP stacks: AmiTCP/IP or compatible. RoadShow and UAE bsdsocket.library are known to be compatible. Other stacks like Miami or TermiteTCP may work but are not tested. 
 I-Net225 and AS-225 are deprecated and no longer supported. The TCP stack can be
 <a HREF="starttcp.html">started
 automatically</a>  when it is needed to fetch a document from the net.
@@ -87,8 +109,13 @@ parallel network access. Up to 256  parallel connections are supported,
 but you can configure a lower maximum.
 <p>
 The HTTP, FTP, Mailto, News and Gopher protocols are supported internally.
-Telnet  is supported by an external program or an ARexx plugin. Optionally
+Telnet is supported by an external program or an ARexx plugin. Optionally
 you can use an external program for Mailto or News, too.
+AWeb 3.6 adds aweblib modules for the new <strong>Gemini</strong> and <strong>Spartan</strong> gopher-like protocols.
+<p>
+HTTP in AWeb&nbsp;3.6 includes <strong>HTTP/1.1</strong> behaviour such as
+<strong>chunked</strong> transfer encoding, <strong>gzip</strong> decompression,
+<strong>Range</strong> requests (resume), and <strong>keep-alive</strong> connections.
 <p>
 AWeb supports both the client pull (the "<code>Refresh:</code>" HTTP header)
 and server push (multipart/x-mixed-replace) mechanisms.
@@ -118,8 +145,9 @@ must never be accepted . You can tag individual cookies as being trusted
 so the alert requester will not be shown again for those cookies. Cookies
 are stored in a readable and editable ASCII file.
 <p>
-AWeb supports <a HREF="secure.html">secure connections</a> by use of
-AmiSSL 5.20 or later. <small><i>MiamiSSL is deprecated and no longer supported.</i></small>  
+AWeb supports <a HREF="secure.html">secure connections</a> using
+<strong>AmiSSL&nbsp;5.27</strong> or later for HTTPS and related TLS features.
+<small><i>MiamiSSL is deprecated and no longer supported.</i></small>  
 <p>
 AWeb lets you load all images, or delay all image loading. A third option
 is to load only clickable maps, so you know where to click on.
@@ -205,7 +233,7 @@ public screen, a named public screen or the default public screen. The
 network status, hotlist viewer and history windows are optionally
 opened automatically at the program start.
 <p>
-You can completely <a HREF="settings/uimenu.html">configure</a> the menus
+You can completely <a HREF="settings/uimenus.html">configure</a> the menus
  to fit your personal needs. You can rearrange the menus, or add your
 own items that execute ARexx commands or run ARexx macros.
 <p>

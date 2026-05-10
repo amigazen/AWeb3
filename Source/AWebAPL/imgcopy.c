@@ -314,9 +314,14 @@ static long Setimgcopy(struct Imgcopy *img,struct Amset *ams)
          case AOCDV_Sourcedriver:
             img->source=(struct Imgsource *)tag->ti_Data;
             break;
+         case AOCDV_Eagerdecode:
+            if(img->source)
+            {  Asetattrs((void *)img->source,AOIMS_Eagerdecode,tag->ti_Data,TAG_END);
+            }
+            break;
          case AOCDV_Displayed:
             if(tag->ti_Data && img->source && !img->source->bitmap
-            && !(img->source->flags&IMSF_ERROR) && !(img->source->flags&IMSF_DECODEWAIT))
+            && !(img->source->flags&(IMSF_ERROR|IMSF_DECODEWAIT|IMSF_EAGERDECODE)))
             {  Asetattrs(img->source,AOIMS_Requestdecode,TRUE,TAG_END);
             }
             break;
