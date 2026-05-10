@@ -361,11 +361,11 @@ static const char * const fd_t_consolas[] = {
 
 static const FontdiagRow fd_rows[] =
 {
-   { "serif (generic)", "serif", fd_d_serif, fd_t_serif },
-   { "sans-serif (generic)", "sans-serif", fd_d_sans, fd_t_sans },
-   { "monospace (generic)", "monospace", fd_d_mono, fd_t_mono },
-   { "cursive (generic)", "cursive", fd_d_cursive, fd_t_cursive },
-   { "fantasy (generic)", "fantasy", fd_d_fantasy, fd_t_fantasy },
+   { "serif", "serif", fd_d_serif, fd_t_serif },
+   { "sans-serif", "sans-serif", fd_d_sans, fd_t_sans },
+   { "monospace", "monospace", fd_d_mono, fd_t_mono },
+   { "cursive", "cursive", fd_d_cursive, fd_t_cursive },
+   { "fantasy", "fantasy", fd_d_fantasy, fd_t_fantasy },
    { "Times New Roman, serif", "Times New Roman", fd_d_tnr, fd_t_tnr },
    { "Times, serif", "Times", fd_d_times, fd_t_times },
    { "Georgia", "Georgia", fd_d_georgia, fd_t_georgia },
@@ -609,8 +609,8 @@ static void FontdiagBuildHtml(UBYTE *buf, long maxlen)
    FontdiagSnprintf(&wp, &room,
       "<h2 id=\"mapping\">Font family mapping</h2>"
       "<p>This section dynamically illustrates how font families are mapped to the fonts"
-      " installed on this Amiga. AWeb supports both standard Amiga bitmap and scalable fonts, and "
-      "will also use TTEngine to render scalable OpenType/TrueType fonts directly if available on the system."
+      " installed on this Amiga. AWeb supports both standard Amiga bitmap and scalable fonts, and"
+      " will also use TTEngine to render scalable OpenType/TrueType fonts directly if available on the system."
       "</p>");
    FontdiagEmitTtengineNotice(&wp, &room, tt_ok);
    if(DiskfontBase)
@@ -1067,7 +1067,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<body bgcolor=\"#AAAAAA\" text=\"#000000\">"
                "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"0\">"
                "<tr><td align=\"center\">"
-               "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
+               "<img width=\"192\" height=\"93\" src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
                "<br>"
                "<font face=\"serif\" size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
                "</td></tr>"
@@ -1182,15 +1182,15 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "<body bgcolor=\"#AAAAAA\" text=\"#000000\">"
             "<table align=\"center\" width=\"90%%\">"
             "<tr><td align=\"center\">"
-            "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
+            "<img width=\"192\" height=\"93\" src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
             "<br>"
             "<font size=\"+2\" color=\"#cc0000\"><i>The Amiga Web Browser</i></font>"
             "</td></tr>"
             "</table>"
             "<br clear=\"all\">"
             "<hr>"
-            "<p align=\"center\"><strong>%s</strong> %s<br>"
-            "3.6 Beta 8" __AMIGADATE__ "</p>"
+            "<p align=\"center\"><strong>%s %s</strong><br>"
+            "Beta 8 " __AMIGADATE__ "</p>"
             "<hr>"
             "<h2>Web Standards</h2>"
             "<ul>"
@@ -1282,7 +1282,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "source or altered source distribution.</li>"
             "</ol>"
             "<h3>zlib</h3>"
-            "<p>zlib compression library is used for HTTP content compression.</p>"
+            "<p>zlib compression library version 1.2.11 is used for HTTP content compression.</p>"
             "<p>Copyright &copy; 1995-2023 Jean-loup Gailly and Mark Adler</p>"
             "<p>This software is provided 'as-is', without any express or implied warranty. "
             "Permission is granted to anyone to use this software for any purpose, "
