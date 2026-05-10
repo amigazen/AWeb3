@@ -1337,7 +1337,7 @@ static void Getarguments(struct WBStartup *wbs)
 #ifndef DEMOVERSION
       ",HAIKU=VVIIV/S"
 #endif
-      ",HTTPDEBUG/S,NOSTARTUP/S"
+      ",DEBUG/S,NOSTARTUP/S"
 #ifdef BETAKEYFILE
 #ifdef DEMOVERSION
       ",Q/S"
@@ -1387,7 +1387,7 @@ static void Getarguments(struct WBStartup *wbs)
 #endif
             else if(STRNIEQUAL(*ttp,"CONFIG=",7)) Setprefsname(*ttp+7);
             else if(STRNIEQUAL(*ttp,"HOTLIST=",8)) Sethotlistname(*ttp+8);
-            else if(STRIEQUAL(*ttp,"HTTPDEBUG")) httpdebug=TRUE;
+            else if(STRIEQUAL(*ttp,"DEBUG")) httpdebug=TRUE;
             else if(STRIEQUAL(*ttp,"NOSTARTUP")) nostartup=TRUE;
 #ifndef DEMOVERSION
             else if(STRIEQUAL(*ttp,"VVIIV")) haiku=TRUE;
