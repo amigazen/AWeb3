@@ -4,8 +4,7 @@
  * Each check runs inside try/catch so thrown errors count as FAIL (not silent "all checks ok").
  *
  * Memory: global gc() runs the mark/sweep collector (same as host Jgarbagecollect). On process
- * exit, awebjs prints one teardown line (JPalloc vs JFreemem counts and outstanding_bytes on the
- * interpreter pool). Embedders can call Jgetjmemsessionstats() before Freejcontext for the same.
+ * exit, awebjs may print a teardown line when the build supports interpreter-pool stats.
  *
  * Does not cover: require() paths (cwd-dependent), readln (interactive), delay (timing),
  * ARexx.SendCommand (needs Rexx host), DOM/HTML host objects. */
@@ -231,6 +230,16 @@
  });
  check("Date.parse is function", function () { return typeof Date.parse === "function"; });
  check("Date.UTC is function", function () { return typeof Date.UTC === "function"; });
+ /* ECMA-262: Date.prototype.toString returns an implementation-defined string for a finite date.
+  * (Invalid Date may throw or return a sentinel in some engines; new Date(0) is valid.) */
+ check("Date toString non-empty", function () {
+     var d = new Date(0);
+     if (typeof d.toString !== "function") {
+         return false;
+     }
+     var s = d.toString();
+     return typeof s === "string" && s.length > 0;
+ });
  
  /* --- RegExp literals (lexer uses pa->newexpr: '/' after primaries is division) --- */
  check("RegExp test literal", function () {
@@ -570,10 +579,6 @@
      return testScope() === 30;
  });
  check("Math.E", function () { return Math.E > 2.7 && Math.E < 2.72; });
- check("Date toString non-empty", function () {
-     var s = new Date(0).toString();
-     return typeof s === "string" && s.length > 0;
- });
  check("empty string length", function () { return "".length === 0; });
  check("String.prototype.concat", function () {
      var str1 = "Hello";

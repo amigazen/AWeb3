@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025-2026 amigazen project
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -85,8 +85,7 @@ static void Gettime(struct Jcontext *jc,struct Brokentime *bt)
    }
    time=(long)(d/1000);
    bt->tm_millis=d-(double)time*1000;
-   /* ECMA getHours/getMinutes/getSeconds are local wall-clock. Do not call localtime():
-    * under AmigaOS4/Petunia (68k awebjs.aweblib) it can DSI (NULL+0x70) in libc timezone.
+   /* ECMA getHours/getMinutes/getSeconds are local wall-clock. 
     * Apply Locale loc_GMTOffset (minutes east of GMT, same as Scandate) then gmtime — fixed offset only. */
    if(locale)
    {  time+=locale->loc_GMTOffset*60;
@@ -205,24 +204,57 @@ BOOL isthisdate(struct Jcontext *jc,struct Jobject *jo)
 
 /* Convert (jthis) to string */
 static void Datetostring(struct Jcontext *jc)
-{  struct Brokentime bt;
+{  struct Jobject *jo;
+   struct Date *dj;
+   struct tm *tm;
+   time_t sec;
+   double d;
    UBYTE buffer[64];
-   /* Never throw from Date.toString(): shell tests expect a non-empty string.
-    * If receiver isn't a Date instance (or internal payload is missing), return a stable fallback. */
+   static const UBYTE kfallback[]="Thu, 01 Jan 1970 00:00:00";
+   static const char wd[7][4]=
+   {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+   static const char mo[12][4]=
+   {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+
+   /* Avoid strftime: several Amiga targets fault or mis-format with certain tm values.
+    * Never throw: build a fixed-layout UTC string from gmtime fields or use fallback. */
    if(!jc)
    {
       return;
    }
-   if(!(jc->jthis) || !(jc->jthis->internal))
+   jo=jc->jthis;
+   if(!jo || !jo->internal)
    {
-      Asgstring(RETVAL(jc),"Thu, 01 Jan 1970 00:00:00",jc->pool);
+      Asgstring(RETVAL(jc),kfallback,jc->pool);
       return;
    }
-   Gettime(jc,&bt);
-   if(!strftime(buffer,63,"%a, %d %b %Y %H:%M:%S",&bt.tm)) *buffer='\0';
-   if(!*buffer)
+   dj=(struct Date *)jo->internal;
+   d=dj->date;
+   tm=NULL;
+   if(d!=d)
    {
-      strcpy(buffer,"Thu, 01 Jan 1970 00:00:00");
+      strcpy((char *)buffer,(const char *)kfallback);
+   }
+   else
+   {
+      sec=(time_t)(d/1000.0);
+      tm=gmtime(&sec);
+      if(tm && tm->tm_wday>=0 && tm->tm_wday<=6 && tm->tm_mon>=0 && tm->tm_mon<=11
+         && tm->tm_mday>=1 && tm->tm_mday<=31)
+      {
+         sprintf((char *)buffer,"%s, %02d %s %04d %02d:%02d:%02d",
+            wd[(int)tm->tm_wday],
+            (int)tm->tm_mday,
+            mo[(int)tm->tm_mon],
+            (int)(tm->tm_year+1900),
+            (int)tm->tm_hour,
+            (int)tm->tm_min,
+            (int)tm->tm_sec);
+      }
+      else
+      {
+         strcpy((char *)buffer,(const char *)kfallback);
+      }
    }
    Asgstring(RETVAL(jc),buffer,jc->pool);
 }
@@ -571,6 +603,7 @@ static void Constructor(struct Jcontext *jc)
 
 /*-----------------------------------------------------------------------*/
 
+/* Milliseconds since 1970-01-01 UTC for JS; must not be named Today (ULONG + libcall in awebplugin.h). */
 double Jmillis(void)
 {  unsigned int clock[2]={ 0, 0 };
    double t;

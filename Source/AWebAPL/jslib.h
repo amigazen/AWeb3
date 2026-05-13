@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025-2026 amigazen project
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -18,28 +18,15 @@
 
 /* jslib.h - AWeb js aweblib module interface */
 
+
 /* Object types:
  *  Jcontext            = general Jscript context
  *  Jobject             = an object, with methods and properties
  *  Jvar                = a Jscript variable value, can contain several types
  */
 
-/* Keep this header self-contained: do NOT include the engine's internal headers
- * (awebjs.h), because the main browser build includes other headers (e.g.
- * element.h, awebdef.h) that use conflicting names/macros. */
-
-struct Jcontext;
-struct Jobject;
-struct Jvar;
-
 extern struct Jcontext *Newjcontext(UBYTE *screenname);
 extern void Freejcontext(struct Jcontext *jc);
-
-/* Layout matches awebjs.h; aweblib clients stack-allocate via awebjs.h include. */
-#ifndef AWEBJS_H
-struct JmemSessionStats;
-#endif
-extern void Jgetjmemsessionstats(struct JmemSessionStats *st);
 
 /* Set debugger on or off */
 extern void Jdebug(struct Jcontext *jc,BOOL debug);
@@ -67,9 +54,7 @@ extern BOOL Runjprogram(struct Jcontext *jc,struct Jobject *fscope,
 
 /* Set a feedback function. This will be called regularly.
  * Return TRUE to continue, FALSE to stop running. */
-#ifndef AWEBJS_H
 typedef BOOL Jfeedback(struct Jcontext *jc);
-#endif
 extern void Jsetfeedback(struct Jcontext *jc,Jfeedback *jf);
 
 /* Set starting line # for next interpreted source */
@@ -104,7 +89,6 @@ extern struct Jobject *Newjarray(struct Jcontext *jc);
 /* Hook function when property is added to object.
  * Returns TRUE if it understands the function, FALSE if default
  * action should be taken. */
-#ifndef AWEBJS_H
 typedef BOOL Objhookfunc(struct Objhookdata *data);
 struct Objhookdata
 {  struct Jcontext *jc;       /* Execution context */
@@ -112,14 +96,11 @@ struct Objhookdata
    struct Jobject *jo;        /* Object affected */
    UBYTE *name;               /* Name of property to add */
 };
-#endif
 
 #define OHC_ADDPROPERTY 1  /* Add a property */
 
 /* Hook to call when object is disposed. */
-#ifndef AWEBJS_H
 typedef void Objdisposehookfunc(void *internal);
-#endif
 
 /* Set object details.
  * hook is hook to call when a property is added
@@ -156,7 +137,6 @@ extern void Jpprotect(struct Jvar *jv,ULONG protkey);
 /* Hook function when variable is assigned to.
  * Returns TRUE if it understands the function, FALSE if default
  * action should be taken. */
-#ifndef AWEBJS_H
 typedef BOOL Varhookfunc(struct Varhookdata *data);
 struct Varhookdata
 {  struct Jcontext *jc;       /* Execution context */
@@ -166,7 +146,6 @@ struct Varhookdata
    struct Jvar *value;        /* Value to set variable to (VHC_SET) or get into (VHC_GET) */
    UBYTE *name;               /* Name of variable to get or set */
 };
-#endif
 #define VHC_SET         1  /* Set variable to this value */
 #define VHC_GET         2  /* Get variable value */
 
@@ -231,12 +210,6 @@ extern void Jgarbagecollect(struct Jcontext *jc);
 
 /* Allow or disallow garbage collection */
 extern void Jallowgc(struct Jcontext *jc,BOOL allow);
-
-/* Enable/disable Runtimeerror call-stack dump */
-extern void Jsetjstrace(struct Jcontext *jc,BOOL on);
-
-/* When TRUE, Errorrequester prints compile/runtime diagnostics to stderr (CLI hosts). */
-extern void Jseterrconsole(struct Jcontext *jc,BOOL on);
 
 /* Add an anonymous event handler function to this object.
  * If a property with this name already exists, it does nothing. */
@@ -307,6 +280,3 @@ extern void Jdumpobjects(struct Jcontext *jc);
 #pragma libcall AWebJSBase Jsetscreen 120 9802
 #pragma libcall AWebJSBase Jaddeventhandler 126 BA9804
 #pragma libcall AWebJSBase Jallowgc 12c 0802
-#pragma libcall AWebJSBase Jsetjstrace 132 0802
-#pragma libcall AWebJSBase Jseterrconsole 138 0802
-#pragma libcall AWebJSBase Jgetjmemsessionstats 13e 801

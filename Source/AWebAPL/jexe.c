@@ -364,7 +364,7 @@ static void Disposewith(struct With *w)
 
 /* Create a new function. Add to head of function stack yourself! */
 struct Function *Newfunction(struct Jcontext *jc,struct Elementfunc *func)
-{  struct Function *f=ALLOCSTRUCT(Function,1,0,jc->pool);
+{  struct Function *f=ALLOCSTRUCT(Function,1,MEMF_CLEAR,jc->pool);
    if(f)
    {  NEWLIST(&f->local);
       NEWLIST(&f->with);
@@ -600,6 +600,12 @@ static void Isnan(struct Jcontext *jc)
    Asgboolean(RETVAL(jc),nan);
 }
 
+/* Non-standard: used by awebjs_selftest.js to force a collection cycle. */
+static void Gcglobal(struct Jcontext *jc)
+{  Garbagecollect(jc);
+   Clearvalue(RETVAL(jc));
+}
+
 static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
    UBYTE *mbrname,BOOL asgonly)
 {  struct Variable *mbr;
@@ -682,13 +688,16 @@ static void Exeprogram(struct Jcontext *jc,struct Elementlist *elist)
 }
 
 /* Call this function without parameters with this object as "this" */
-void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,struct Jobject *jthis)
+void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,struct Jobject *jthis,
+   struct Jobject *fobj)
 {  struct Function *f;
    struct Jobject *oldthis;
    struct This *tnode;
    UWORD oldflags;
    if(f=Newfunction(jc,func))
-   {  ADDHEAD(&jc->functions,f);
+   {  /* Exefunction uses f->def for .arguments on the function object; must match Callfunction. */
+      f->def=fobj;
+      ADDHEAD(&jc->functions,f);
       oldthis=jc->jthis;
       jc->jthis=jthis;
       oldflags=jc->flags;
@@ -753,11 +762,15 @@ void Callfunctionargs(struct Jcontext *jc,struct Elementfunc *func,struct Jobjec
 static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
    struct Jobject *jthis,BOOL construct)
 {  struct Elementnode *enode;
+   struct Elementnode *ec;
    struct Elementfunc *func=NULL;
    struct Function *f;
-   struct Variable *arg,*argv;
+   struct Variable *arg;
+   struct Variable *v;
    struct Jobject *oldthis,*fdef;
    UWORD oldflags;
+   long narg;
+   long k;
 
    struct This *tnode = NULL;;
 
@@ -797,11 +810,18 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
                Asgvalue(&arg->val,jc->val);
             }
          }
-         /* Create the arguments array n*/
-         for(argv=f->local.first;argv->next;argv=argv->next)
-         {  if(arg=Addarrayelt(jc,f->arguments))
-            {  Asgvalue(&arg->val,&argv->val);
+         /* Create the arguments array: one element per actual parameter. Count from the
+          * call tree instead of walking f->local while (argv->next): with zero arguments
+          * the exec list head is not a real Variable and the old walk could hang or fault. */
+         narg=0;
+         for(ec=elist->subs.first->next;ec && ec->next;ec=ec->next) narg++;
+         v=f->local.first;
+         for(k=0;k<narg;k++)
+         {  if(!v) break;
+            if(arg=Addarrayelt(jc,f->arguments))
+            {  Asgvalue(&arg->val,&v->val);
             }
+            v=v->next;
          }
          ADDHEAD(&jc->functions,f);
          oldthis=jc->jthis;
@@ -884,7 +904,7 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    f=jc->functions.first;
    /* Map formal parameter names to pre-allocated local variables */
    for(enode=func->subs.first,var=f->local.first;
-      enode->next && var->next;
+      enode && var && enode->next && var->next;
       enode=enode->next,var=var->next)
    {  arg=enode->sub;
       if(arg && arg->type==ET_IDENTIFIER)
@@ -922,7 +942,12 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    /* Link the caller to a variable */
    if(var=Newvar("caller",jc))
    {  ADDTAIL(&f->local,var);
-      Asgobject(&var->val,f->next->def);
+      if(f->next)
+      {  Asgobject(&var->val,f->next->def);
+      }
+      else
+      {  Asgobject(&var->val,NULL);
+      }
       var->flags |= VARF_DONTDELETE;
    }
    /* Create function call object */
@@ -1932,10 +1957,14 @@ BOOL Exactequality(struct Jcontext *jc, struct Value *val1, struct Value *val2)
       b=(BOOL)(val1->value.obj.ovalue==val2->value.obj.ovalue);
    }
    else if(val1->type>=VTP_STRING)
-   {  /* String comparison */
+   {  UBYTE *s1;
+      UBYTE *s2;
+      /* String comparison */
       Tostring(val1,jc);
       Tostring(val2,jc);
-      b=!strcmp(val1->value.svalue,val2->value.svalue);
+      s1=val1->value.svalue;
+      s2=val2->value.svalue;
+      b=!strcmp(s1?s1:(UBYTE *)"",s2?s2:(UBYTE *)"");
    }
    else if(val1->type == VTP_BOOLEAN)
    {  b=(val1->value.bvalue == val2->value.bvalue);
@@ -3159,6 +3188,9 @@ BOOL Newexecute(struct Jcontext *jc)
       {  Addglobalfunction(jc,fo);
       }
       if(fo=Internalfunction(jc,"isNaN",Isnan,"testValue",NULL))
+      {  Addglobalfunction(jc,fo);
+      }
+      if(fo=Internalfunction(jc,"gc",Gcglobal,NULL))
       {  Addglobalfunction(jc,fo);
       }
          Initobject(jc,NULL);

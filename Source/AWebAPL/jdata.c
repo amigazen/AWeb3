@@ -312,7 +312,8 @@ BOOL Callproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name)
    && prop->val.type==VTP_OBJECT && prop->val.value.obj.ovalue && prop->val.value.obj.ovalue->function)
    {
       Keepobject(jo,TRUE);
-      Callfunctionbody(jc,prop->val.value.obj.ovalue->function,jo);
+      Callfunctionbody(jc,prop->val.value.obj.ovalue->function,jo,
+         prop->val.value.obj.ovalue);
       Keepobject(jo,FALSE);
 
       return TRUE;

@@ -223,7 +223,7 @@ extern void Addtoprototype(struct Jcontext *jc,struct Jobject *jo,struct Jobject
 
    /* Call this function without parameters with this object as "this" */
 extern void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,
-   struct Jobject *jthis);
+   struct Jobject *jthis,struct Jobject *fobj);
 
    /* Call this function with supplied arguments (must be struct Value *, NULL terminated) */
 extern void Callfunctionargs(struct Jcontext *jc,struct Elementfunc *func,

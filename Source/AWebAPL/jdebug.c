@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025-2026 amigazen project
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -516,9 +516,7 @@ static void Debugdump(struct Jcontext *jc)
       {  jo->dumpnr=0;
       }
       dumpnr=0;
-      FPrintf(fh,"%s\nStack trace (innermost first; at-lines; :1 = column placeholder)\n%s\n",sep,sep);
-      Dumpjscallstack(jc,fh,NULL);
-      FPrintf(fh,"%s\nFunction frames with local variables\n%s\n",sep,sep);
+      FPrintf(fh,"%s\nFunction call stack\n%s\n",sep,sep);
       for(f=jc->functions.first;f->next;f=f->next)
       {  if(f->next->next)
          {  FPrintf(fh,"\nIn function");

@@ -3,7 +3,7 @@
  * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025-2026 amigazen project
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -341,16 +341,9 @@ static void Mathmax(struct Jcontext *jc)
         if((elt = Getproperty(args,"length")) && elt->val.type == VTP_NUMBER)
         {
             len = (int)elt->val.value.nvalue;
-            if(len < 0) len = 0;
             for(i =0; i<len; i++)
             {
                 elt = Arrayelt(args,i);
-                if(!elt)
-                {
-                    /* Missing argument behaves like undefined -> ToNumber -> NaN. */
-                    attr = VNA_NAN;
-                    break;
-                }
                 Tonumber(&elt->val,jc);
                 if(elt->val.attr == VNA_NAN)
                 {
@@ -390,16 +383,9 @@ static void Mathmin(struct Jcontext *jc)
         if((elt = Getproperty(args,"length")) && elt->val.type == VTP_NUMBER)
         {
             len = (int)elt->val.value.nvalue;
-            if(len < 0) len = 0;
             for(i =0; i<len; i++)
             {
                 elt = Arrayelt(args,i);
-                if(!elt)
-                {
-                    /* Missing argument behaves like undefined -> ToNumber -> NaN. */
-                    attr = VNA_NAN;
-                    break;
-                }
                 Tonumber(&elt->val,jc);
                 if(elt->val.attr == VNA_NAN)
                 {

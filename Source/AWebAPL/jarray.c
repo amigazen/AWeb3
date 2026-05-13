@@ -218,6 +218,7 @@ static void Joinarray(struct Jcontext *jc,UBYTE *sep)
    struct Jbuffer *buf;
    unsigned long n,len,sepl;
    UBYTE nname[16];
+   UBYTE *sv;
    if(!sep) sep=",";
    sepl=strlen(sep);
    val.type=0;
@@ -236,7 +237,8 @@ static void Joinarray(struct Jcontext *jc,UBYTE *sep)
          {  Asgvalue(&val,&elt->val);
             Tostring(&val,jc);
             if(n>0) Addtojbuffer(buf,sep,sepl);
-            Addtojbuffer(buf,val.value.svalue,strlen(val.value.svalue));
+            sv=val.value.svalue;
+            Addtojbuffer(buf,sv?sv:(UBYTE *)"",strlen(sv?sv:(UBYTE *)""));
          }
          else
          {  if(n>0) Addtojbuffer(buf,sep,sepl);
