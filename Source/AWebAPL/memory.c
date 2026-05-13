@@ -26,7 +26,7 @@
 
 static struct SignalSemaphore memsema;
 
-void *fastpool,*chippool;
+void *fastpool;
 
 #ifdef BETAKEYFILE
 extern BOOL nopool;
@@ -49,14 +49,14 @@ BOOL Initmemory(void)
     * (PUDDLESIZE, TRESHSIZE in aweb.h) satisfy threshSize <= puddleSize; */
    if(!(fastpool=CreatePool(MEMF_PUBLIC,PUDDLESIZE,TRESHSIZE)))
       return FALSE;
-   if(!(chippool=CreatePool(MEMF_CHIP|MEMF_PUBLIC,PUDDLESIZE,TRESHSIZE)))
-      return FALSE;
+   /* MEMF_CHIP allocations do not use a pool: AllocPooled would retain freed
+    * Chip in puddles until coalesced; AllocMem/FreeMem returns Chip to the
+    * system on every Freemem (tighter Chip footprint for masks, etc.). */
    return TRUE;
 }
 
 void Freememory(void)
-{  if(chippool) DeletePool(chippool);
-   if(fastpool) DeletePool(fastpool);
+{  if(fastpool) DeletePool(fastpool);
 }
 
 void *Pallocmem(long size,ULONG flags,void *pool)
@@ -66,6 +66,9 @@ void *Pallocmem(long size,ULONG flags,void *pool)
 #ifdef BETAKEYFILE
    if(nopool) pool=NULL;
 #endif
+   /* Never pool Chip: caller pool is ignored when MEMF_CHIP so Freemem always
+    * returns Chip to Exec immediately (see Initmemory). */
+   if(flags&MEMF_CHIP) pool=NULL;
    ObtainSemaphore(&memsema);
    asize=(ULONG)(size+8);
    ischip=BOOLVAL(flags&MEMF_CHIP);
@@ -97,10 +100,10 @@ void *Pallocmem(long size,ULONG flags,void *pool)
 }
 
 void *Allocmem(long size,ULONG flags)
-{  void *pool,*mem;
-   if(flags&MEMF_CHIP) pool=chippool;
-   else pool=fastpool;
-   mem=Pallocmem(size,flags,pool);
+{  void *mem;
+   /* Chip: unpooled AllocMem (see Pallocmem). Fast: fastpool. */
+   if(flags&MEMF_CHIP) mem=Pallocmem(size,flags,NULL);
+   else mem=Pallocmem(size,flags,fastpool);
    return mem;
 }
 
