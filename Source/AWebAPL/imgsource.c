@@ -276,7 +276,7 @@ static void Makegifmask(struct Imgprocess *imp,long xptcolor)
          DTA_GroupID,GID_PICTURE,
          PDTA_Remap,FALSE,
          PDTA_DestMode,PMODE_V42, /* Use V42 mode for mask generation */
-         PDTA_UseFriendBitMap,TRUE,
+         PDTA_UseFriendBitMap,FALSE,
          OBP_Precision,PRECISION_IMAGE,
          TAG_END))
    {  gpl.MethodID=DTM_PROCLAYOUT;
@@ -855,13 +855,14 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
             TAG_END);
    }
    if(dto)
-   {  /* Set picture-specific attributes after object creation */
+   {  /* PDTA_UseFriendBitMap,FALSE: ICO/BMP decode bitmap off friend (less Chip);
+       * remapping still uses PDTA_Screen. */
       Asetattrs(dto,
          PDTA_Remap,TRUE,
          PDTA_Screen,imp->screen,
          PDTA_FreeSourceBitMap,TRUE,
          PDTA_DestMode,PMODE_V43,
-         PDTA_UseFriendBitMap,TRUE,
+         PDTA_UseFriendBitMap,FALSE,
          OBP_Precision,PRECISION_IMAGE,
          TAG_END);
       if(httpdebug)
@@ -1023,7 +1024,9 @@ static BOOL Makeobject(struct Imgprocess *imp)
       }
    }
    
-   /* Normal datatypes path */
+   /* Normal datatypes path. PDTA_UseFriendBitMap,FALSE: do not tie dest BitMap
+    * AllocBitMap() to the screen friend (NDK picture.datatype); reduces Chip
+    * use vs friend allocation while PDTA_Screen + PDTA_Remap still drive pens. */
    ilbmfile=Isiffilbm(filename);
    if(imp->dto=NewDTObject(imp->ims->filename,
          DTA_SourceType,DTST_FILE,
@@ -1032,7 +1035,7 @@ static BOOL Makeobject(struct Imgprocess *imp)
          PDTA_Screen,imp->screen,
          PDTA_FreeSourceBitMap,TRUE,
          PDTA_DestMode,PMODE_V43, /* Use proper PMODE_V43 constant */
-         PDTA_UseFriendBitMap,TRUE,
+         PDTA_UseFriendBitMap,FALSE,
          OBP_Precision,PRECISION_IMAGE,
          TAG_END))
    {  gpl.MethodID=DTM_PROCLAYOUT;
