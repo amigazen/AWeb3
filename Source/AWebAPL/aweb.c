@@ -774,6 +774,14 @@ ULONG Clipto(struct RastPort *rp,short minx,short miny,short maxx,short maxy)
       FREE(ci);
       return 0;
    }
+   /* clip_stack holds active clips for Drainallclips(); every successful Clipto must be
+    * pushed before LockLayer. If we lock+InstallClipRegion without a stack slot, Unclipto
+    * cannot pop and nested clip/Layers state diverges (MemLog shows stray 0x28 Layers). */
+   if(clip_stack_n >= CLIPSTACKMAX)
+   {  DisposeRegion(ci->region);
+      FREE(ci);
+      return 0;
+   }
    ci->layer=rp->Layer;
    if((ci->window=rp->Layer->Window)
     && Agetattr((void *)ci->window->UserData,AOWIN_Refreshing))
@@ -1137,7 +1145,6 @@ static void Cleanup(void)
    Exitcache();
    Freetooltip();
    Freemime();
-   Freeboopsi();
    Freeauthor();
    Freetcp();     /* MUST be called before Freerequest(), Freeprefs() */
    Freecookie();
@@ -1145,6 +1152,11 @@ static void Cleanup(void)
    {  Adisposeobject(aweb);   /* MUST be called before Freerequest() */
       aweb=NULL;
    }
+   /* Prototype Reaction Glyph/Bevel from Installfilefield(); idempotent if Freeobject runs later. */
+   Amethodas(AOTP_FILEFIELD,NULL,AOM_DEINSTALL);
+   /* Freeboopsi after Adisposeobject: Gadimg/Stagad/Ledgad instances must receive OM_DISPOSE
+    * while their MakeClass() classes still exist; disposing classes first leaks chip buffers. */
+   Freeboopsi();
    Freerequest();
    Freeprefs();
    Freeobject();  /* MUST be called before Freesupport(), Freeapplication() */

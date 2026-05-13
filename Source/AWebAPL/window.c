@@ -1496,6 +1496,8 @@ static void Closewindow(struct Awindow *win)
    if(win->hotimg) DisposeObject(win->hotimg);win->hotimg=NULL;
    if(win->imgimg) DisposeObject(win->imgimg);win->imgimg=NULL;
    if(win->nwsimg) DisposeObject(win->nwsimg);win->nwsimg=NULL;
+   /* searchimg: Openwindow() allocates via Buttonimage() but this Dispose was omitted (leak). */
+   if(win->searchimg) DisposeObject(win->searchimg);win->searchimg=NULL;
    if(win->addhotimg) DisposeObject(win->addhotimg);win->addhotimg=NULL;
    if(win->unsecureimg) DisposeObject(win->unsecureimg);win->unsecureimg=NULL;
    if(win->secureimg) DisposeObject(win->secureimg);win->secureimg=NULL;

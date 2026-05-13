@@ -643,6 +643,12 @@ ULONG Clipto(struct RastPort *rp,short minx,short miny,short maxx,short maxy)
       FREE(ci);
       return 0;
    }
+   /* Must push on clip_stack before LockLayer; see aweb.c Clipto. */
+   if(clip_stack_n >= CLIPSTACKMAX)
+   {  DisposeRegion(ci->region);
+      FREE(ci);
+      return 0;
+   }
    ci->layer=rp->Layer;
    if((ci->window=rp->Layer->Window)
     && Agetattr((void *)ci->window->UserData,AOWIN_Refreshing))
@@ -1005,7 +1011,6 @@ static void Cleanup(void)
    Exitcache();
    Freetooltip();
    Freemime();
-   Freeboopsi();
 #ifndef LOCALONLY
    Freeauthor();
    Freetcp();     /* MUST be called before Freerequest(), Freeprefs() */
@@ -1015,6 +1020,10 @@ static void Cleanup(void)
    {  Adisposeobject(aweb);   /* MUST be called before Freerequest() */
       aweb=NULL;
    }
+   /* Installfilefield() prototype Glyph/Bevel; safe after document file fields are gone. */
+   Amethodas(AOTP_FILEFIELD,NULL,AOM_DEINSTALL);
+   /* Freeboopsi after Adisposeobject so custom image/gadget classes outlive disposed objects. */
+   Freeboopsi();
    Freerequest();
    Freeprefs();
    Freeobject();  /* MUST be called before Freesupport(), Freeapplication() */

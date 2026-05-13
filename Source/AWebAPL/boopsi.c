@@ -673,6 +673,9 @@ BOOL Initboopsi(void)
    return TRUE;
 }
 
+/* Call only after every Gadimg/Stagad/Ledgad Intuition object has been OM_DISPOSEd (e.g. after
+ * Adisposeobject on the application); otherwise OM_DISPOSE cannot run the class dispatcher
+ * and planar image buffers from NewGadimgcls() stay allocated. */
 void Freeboopsi(void)
 {  if(ledgadcls) FreeClass(ledgadcls);
    if(stagadcls) FreeClass(stagadcls);

@@ -1702,6 +1702,8 @@ void Closebrowser(void)
    Freebrowserlist(&mimelist);
    Freechooserlist(&extvwrhelplist);
    Freebrowserlist(&fonttypelist);
+   /* stylelist was populated in Openbrowser via Makestylelist but never freed on close. */
+   Freebrowserlist(&stylelist);
    Freechooserlist(&mimeactlist);
    Freebrpens();
    Disposebrowserprefs(&brp);
