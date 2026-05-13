@@ -140,7 +140,19 @@ static void Newbitmap(struct Pngcopy *pc,struct BitMap *bitmap,UBYTE *mask)
    
    if(bitmap && pc->swidth && pc->sheight
    && (pc->srcwidth!=pc->swidth || pc->srcheight!=pc->sheight))
-   {  depth=p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+   {  ULONG src_isp96;
+      ULONG arch_depth;
+      src_isp96=0UL;
+      if(P96Base && p96GetBitMapAttr(bitmap,P96BMA_ISP96))
+      {  src_isp96=1UL;
+      }
+      if(P96Base && src_isp96)
+      {  depth=(short)p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+      }
+      else
+      {  arch_depth=GetBitMapAttr(bitmap,BMA_DEPTH);
+         depth=(short)arch_depth;
+      }
       if(pc->bitmap=AllocBitMap(pc->swidth,pc->sheight,depth,BMF_MINPLANES,bitmap))
       {  pc->flags|=PNGCF_OURBITMAP;
          pc->mask=NULL;

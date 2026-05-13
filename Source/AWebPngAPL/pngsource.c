@@ -410,39 +410,29 @@ static BOOL Parsepngimage(struct Decoder *decoder)
    BOOL error=FALSE,transpixel;
    
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Parsepngimage called, decoder=0x%08lx\n", (ULONG)decoder);
-   }
+   PngLog("parse","Parsepngimage called, decoder=0x%08lx",(ULONG)decoder);
 #endif
    /* Validate decoder and source pointers to prevent NULL pointer dereference */
    if(!decoder || !decoder->source)
    {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("PNG: Parsepngimage: ERROR - decoder or decoder->source is NULL\n");
-      }
+      PngLog("parse","Parsepngimage: ERROR - decoder or decoder->source is NULL");
       #endif
       return FALSE;
    }
    if((png=png_create_read_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL))
    && (pnginfo=png_create_info_struct(png)))
    {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("PNG: Parsepngimage: PNG structures created\n");
-      }
+      PngLog("parse","Parsepngimage: PNG structures created");
       #endif
       if(!setjmp(png_jmpbuf(png)))
       {  /* Normal fallthrough */
 #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("PNG: Parsepngimage: Setting read function and reading info\n");
-         }
+         PngLog("parse","Parsepngimage: Setting read function and reading info");
 #endif
          png_set_read_fn(png,decoder,Readpngdata);
          png_read_info(png,pnginfo);
 #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("PNG: Parsepngimage: png_read_info completed\n");
-         }
+         PngLog("parse","Parsepngimage: png_read_info completed");
 #endif
          png_get_IHDR(png,pnginfo,&width,&height,&bitdepth,&colortype,
             &interlace,NULL,NULL);
@@ -492,6 +482,11 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          colortype=png_get_color_type(png,pnginfo);
          bitdepth=png_get_bit_depth(png,pnginfo);
          if(colortype&PNG_COLOR_MASK_ALPHA) decoder->flags|=DECOF_TRANSPARENT;
+#ifdef DEBUG_PLUGINS
+         PngLog("parse","read_update_info done %lux%lu rowbytes=%ld npass=%ld ct=%d bd=%d ilace=%d",
+            (unsigned long)width,(unsigned long)height,(long)rowbytes,(long)npass,
+            (int)colortype,(int)bitdepth,(int)interlace);
+#endif
 
          /* Hereafter comes the image data. Allocate a bitmap first.
           * Always allocate a bitmap of depth >=8. Even if our source has less
@@ -508,11 +503,15 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             goto cleanup;
          }
          ReleaseSemaphore(&decoder->source->sema);
-         if(P96Base)
+         /* Only call p96* on friendbitmap when it is a P96 bitmap; screen RastPort
+          * BitMaps are often classic planar even if Picasso96.library is open,
+          * and p96GetBitMapAttr(P96BMA_DEPTH) on those can deadlock. */
+         if(P96Base && decoder->source->friendbitmap
+         && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
          {  depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
             decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
                BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap,RGBFB_NONE);
-            if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
+            if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
             {  decoder->flags|=DECOF_P96MAP;
                if(depth>8)
                {  decoder->flags|=DECOF_P96DEEP;
@@ -520,8 +519,13 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             }
          }
          else
-         {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
-               BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap);
+         {  /* Classic: decode into a non-displayable planar master so graphics.library
+             * can place planes in Fast RAM when possible (Chip is reserved for
+             * display bitmaps). Rendering code can still copy/blit from this
+             * master; on systems where the blitter cannot source from Fast,
+             * graphics.library may fall back to CPU copy. */
+            decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
+               BMF_CLEAR|BMF_MINPLANES,NULL);
          }
          if(!decoder->bitmap) return FALSE;
          if(decoder->flags&DECOF_TRANSPARENT)
@@ -534,6 +538,11 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             decoder->mask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
                MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_P96MAP?0:MEMF_CHIP));
          }
+#ifdef DEBUG_PLUGINS
+         PngLog("parse","bitmap %lux%lu depth=%ld p96map=%d mask=%p",
+            (unsigned long)decoder->width,(unsigned long)decoder->height,(long)depth,
+            (decoder->flags&DECOF_P96MAP)?1:0,(APTR)decoder->mask);
+#endif
 
          /* Save our bitmap and dimensions. */
          /* Check source is still valid and not being disposed before accessing */
@@ -563,6 +572,9 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             AOPNG_Memory,decoder->width*decoder->height*depth/8+
                (decoder->mask?(decoder->maskw*decoder->height/8):0),
             TAG_END);
+#ifdef DEBUG_PLUGINS
+         PngLog("parse","source wired to bitmap");
+#endif
 
          InitRastPort(&decoder->rp);
          decoder->rp.BitMap=decoder->bitmap;
@@ -586,6 +598,10 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             decoder->renderinfo.RGBFormat=RGBFB_CLUT;
          }
          if(error) longjmp(png_jmpbuf(png),1);
+#ifdef DEBUG_PLUGINS
+         PngLog("parse","rastport/chunky init ok p96deep=%d",
+            (decoder->flags&DECOF_P96DEEP)?1:0);
+#endif
          
          /* For normal images, we just need 1 row of data. For interlaced images,
           * we need to remember the entire image because we can't reconstruct
@@ -623,9 +639,15 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          if(colortype==PNG_COLOR_TYPE_PALETTE)
          {  png_get_PLTE(png,pnginfo,&palette,&npalette);
          }
+#ifdef DEBUG_PLUGINS
+         PngLog("parse","row buffers ready, entering %ld pass(es)",(long)npass);
+#endif
          
          for(pass=0;pass<npass;pass++)
          {  fromrow=0;
+#ifdef DEBUG_PLUGINS
+            PngLog("parse","pass %ld/%ld row decode start",(long)(pass+1),(long)npass);
+#endif
             for(y=0;y<decoder->height;y++)
             {  
                /* For normal images use a fixed buffer. For interlaced images,
@@ -641,6 +663,14 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                else
                {  png_read_rows(png,NULL,&buffer,1);
                }
+#ifdef DEBUG_PLUGINS
+               {  long yy;
+                  yy=(long)y;
+                  if(yy==0L || (yy&31L)==0L || yy==(long)(decoder->height-1))
+                  {  PngLog("parse","row y=%ld/%ld pass=%ld",(long)y,(long)decoder->height,(long)pass);
+                  }
+               }
+#endif
 
                if(decoder->flags&DECOF_P96DEEP)
                {  for(x=0;x<width;x++)
@@ -795,7 +825,13 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                      TAG_END);
                }
             }
+#ifdef DEBUG_PLUGINS
+            PngLog("parse","pass %ld/%ld rows done",(long)(pass+1),(long)npass);
+#endif
          }
+#ifdef DEBUG_PLUGINS
+         PngLog("parse","all passes complete");
+#endif
       }
       else
       {  /* Error jumps to here */
@@ -826,31 +862,23 @@ static __saveds __asm void Decodetask(register __a0 struct Pngsource *is)
    struct Task *task=FindTask(NULL);
    
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Decodetask started, is=0x%08lx\n", (ULONG)is);
-   }
+   PngLog("decode","Decodetask started, is=0x%08lx",(ULONG)is);
 #endif
    if(!is)
    {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("PNG: Decodetask: ERROR - is (Pngsource) is NULL!\n");
-      }
+      PngLog("decode","Decodetask: ERROR - is (Pngsource) is NULL!");
       #endif
       return;
    }
    memset(&decoderdata,0,sizeof(decoderdata));
    decoder->source=is;
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Decodetask: decoder->source set to 0x%08lx\n", (ULONG)decoder->source);
-   }
+   PngLog("decode","Decodetask: decoder->source set to 0x%08lx",(ULONG)decoder->source);
 #endif
    /* Check source is still valid before accessing */
    if(!decoder->source)
    {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("PNG: Decodetask: ERROR - decoder->source is NULL after assignment\n");
-      }
+      PngLog("decode","Decodetask: ERROR - decoder->source is NULL after assignment");
       #endif
       return;
    }
@@ -859,36 +887,26 @@ static __saveds __asm void Decodetask(register __a0 struct Pngsource *is)
    }
    
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Decodetask: Calling Parsepngimage\n");
-   }
+   PngLog("decode","Decodetask: Calling Parsepngimage");
 #endif
    if(!Parsepngimage(decoder))
    {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("PNG: Decodetask: Parsepngimage failed\n");
-      }
+      PngLog("decode","Decodetask: Parsepngimage failed");
       #endif
       goto err;
    }
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Decodetask: Parsepngimage succeeded, returning\n");
-   }
+   PngLog("decode","Decodetask: Parsepngimage succeeded, returning");
 #endif
    return;
 
 err:
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Decodetask: ERROR path, setting Error flag\n");
-   }
+   PngLog("decode","Decodetask: ERROR path, setting Error flag");
 #endif
    Updatetaskattrs(AOPNG_Error,TRUE,TAG_END);
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Decodetask: ERROR path done, exiting\n");
-   }
+   PngLog("decode","Decodetask: ERROR path done, exiting");
 #endif
 }
 
@@ -1072,9 +1090,7 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
    long datalength=0;
    BOOL eof=FALSE;
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Srcupdatesource called, ps=0x%08lx, amsrcupdate=0x%08lx\n", (ULONG)ps, (ULONG)amsrcupdate);
-   }
+   PngLog("src","Srcupdatesource called, ps=0x%08lx, amsrcupdate=0x%08lx",(ULONG)ps,(ULONG)amsrcupdate);
 #endif
    AmethodasA(AOTP_SOURCEDRIVER,ps,amsrcupdate);
    tstate=amsrcupdate->tags;
@@ -1083,17 +1099,13 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
       {  case AOURL_Data:
             data=(UBYTE *)tag->ti_Data;
 #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase)
-            {  Aprintf("PNG: Srcupdatesource: Got AOURL_Data, data=0x%08lx\n", (ULONG)data);
-            }
+            PngLog("src","Srcupdatesource: Got AOURL_Data, data=0x%08lx",(ULONG)data);
 #endif
             break;
          case AOURL_Datalength:
             datalength=tag->ti_Data;
 #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase)
-            {  Aprintf("PNG: Srcupdatesource: Got AOURL_Datalength, datalength=%ld\n", datalength);
-            }
+            PngLog("src","Srcupdatesource: Got AOURL_Datalength, datalength=%ld",datalength);
 #endif
             break;
          case AOURL_Eof:
@@ -1101,9 +1113,7 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
             {  eof=TRUE;
                ps->flags|=PNGSF_EOF;
 #ifdef DEBUG_PLUGINS
-               if(AwebPluginBase)
-               {  Aprintf("PNG: Srcupdatesource: Got AOURL_Eof, setting EOF flag\n");
-               }
+               PngLog("src","Srcupdatesource: Got AOURL_Eof, setting EOF flag");
 #endif
             }
             break;
@@ -1112,49 +1122,37 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
    if(data && datalength)
    {  struct Datablock *db;
 #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("PNG: Srcupdatesource: Allocating datablock, datalength=%ld\n", datalength);
-      }
+      PngLog("src","Srcupdatesource: Allocating datablock, datalength=%ld",datalength);
 #endif
       if(db=AllocVec(sizeof(struct Datablock),MEMF_ANY|MEMF_CLEAR))
       {  if(db->data=AllocVec(datalength,MEMF_ANY))
          {  memmove(db->data,data,datalength);
             db->length=datalength;
 #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase)
-            {  Aprintf("PNG: Srcupdatesource: Adding datablock to list, db=0x%08lx\n", (ULONG)db);
-            }
+            PngLog("src","Srcupdatesource: Adding datablock to list, db=0x%08lx",(ULONG)db);
 #endif
             ObtainSemaphore(&ps->sema);
             ADDTAIL(&ps->data,db);
             ReleaseSemaphore(&ps->sema);
 #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase)
-            {  Aprintf("PNG: Srcupdatesource: Datablock added\n");
-            }
+            PngLog("src","Srcupdatesource: Datablock added");
 #endif
          }
          else
          {  #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase)
-            {  Aprintf("PNG: Srcupdatesource: ERROR - Failed to allocate data buffer\n");
-            }
+            PngLog("src","Srcupdatesource: ERROR - Failed to allocate data buffer");
             #endif
             FreeVec(db);
          }
       }
       else
       {  #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("PNG: Srcupdatesource: ERROR - Failed to allocate Datablock structure\n");
-         }
+         PngLog("src","Srcupdatesource: ERROR - Failed to allocate Datablock structure");
          #endif
       }
       if(!ps->task)
       {  #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("PNG: Srcupdatesource: Starting decoder task\n");
-         }
+         PngLog("src","Srcupdatesource: Starting decoder task");
          #endif
          Startdecoder(ps);
       }
@@ -1162,24 +1160,18 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
    if((data && datalength) || eof)
    {  if(ps->task)
       {  #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("PNG: Srcupdatesource: Signaling task with AOPNG_Data\n");
-         }
+         PngLog("src","Srcupdatesource: Signaling task with AOPNG_Data");
          #endif
          Asetattrsasync(ps->task,AOPNG_Data,TRUE,TAG_END);
       }
       else
       {  #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("PNG: Srcupdatesource: WARNING - ps->task is NULL, cannot signal\n");
-         }
+         PngLog("src","Srcupdatesource: WARNING - ps->task is NULL, cannot signal");
          #endif
       }
    }
 #ifdef DEBUG_PLUGINS
-   if(AwebPluginBase)
-   {  Aprintf("PNG: Srcupdatesource: Returning\n");
-   }
+   PngLog("src","Srcupdatesource: Returning");
 #endif
    return 0;
 }

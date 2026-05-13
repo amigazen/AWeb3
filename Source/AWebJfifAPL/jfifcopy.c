@@ -91,6 +91,8 @@
 #include <proto/timer.h>
 #include <proto/wb.h>
 
+extern struct Library *P96Base;
+
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
 /*--------------------------------------------------------------------*/
@@ -180,7 +182,19 @@ static void Newbitmap(struct Jfifcopy *jc,struct BitMap *bitmap)
 
    if(bitmap && jc->swidth && jc->sheight
    && (jc->srcwidth!=jc->swidth || jc->srcheight!=jc->sheight))
-   {  depth=GetBitMapAttr(bitmap,BMA_DEPTH);
+   {  ULONG src_isp96;
+      ULONG arch_depth;
+      src_isp96=0UL;
+      if(P96Base && p96GetBitMapAttr(bitmap,P96BMA_ISP96))
+      {  src_isp96=1UL;
+      }
+      if(P96Base && src_isp96)
+      {  depth=(short)p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+      }
+      else
+      {  arch_depth=GetBitMapAttr(bitmap,BMA_DEPTH);
+         depth=(short)arch_depth;
+      }
       if(jc->bitmap=AllocBitMap(jc->swidth,jc->sheight,depth,BMF_MINPLANES,bitmap))
       {  jc->flags|=JFIFCF_OURBITMAP;
          jc->srcbitmap=bitmap;

@@ -189,7 +189,19 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
 
    if(bitmap && gc->swidth && gc->sheight
    && (gc->srcwidth!=gc->swidth || gc->srcheight!=gc->sheight))
-   {  depth=GetBitMapAttr(bitmap,BMA_DEPTH);
+   {  ULONG src_isp96;
+      ULONG arch_depth;
+      src_isp96=0UL;
+      if(P96Base && p96GetBitMapAttr(bitmap,P96BMA_ISP96))
+      {  src_isp96=1UL;
+      }
+      if(P96Base && src_isp96)
+      {  depth=(int)p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+      }
+      else
+      {  arch_depth=GetBitMapAttr(bitmap,BMA_DEPTH);
+         depth=(int)arch_depth;
+      }
       if(gc->bitmap=AllocBitMap(gc->swidth,gc->sheight,depth,BMF_MINPLANES,bitmap))
       {  gc->flags|=GIFCF_OURBITMAP;
          gc->mask=NULL;
@@ -202,7 +214,7 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
          {  if(GetBitMapAttr(bitmap,BMA_FLAGS)&BMF_STANDARD)
             {  width=gc->bitmap->BytesPerRow;
                height=gc->bitmap->Rows;
-               memfchip=MEMF_PUBLIC;
+               memfchip=MEMF_CHIP;
             }
             else if(P96Base && p96GetBitMapAttr(gc->bitmap,P96BMA_ISP96))
             {  width=p96GetBitMapAttr(gc->bitmap,P96BMA_WIDTH)/8;

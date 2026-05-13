@@ -272,9 +272,11 @@ static BOOL Decompress(struct Decoder *decoder)
       decoder->width=cinfo.image_width;
       decoder->height=cinfo.image_height;
       
-      /* Now we know the image dimensions, allocate a bitmap. */
-      if(P96Base)
-      {  depth=GetBitMapAttr(decoder->source->friendbitmap,BMA_DEPTH);
+      /* Only p96* on friend when it is a P96 bitmap (PNG policy); else decode
+       * into a non-displayable planar master (BMF_CLEAR|BMF_MINPLANES, NULL friend). */
+      if(P96Base && decoder->source->friendbitmap
+      && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
+      {  depth=(short)p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
          decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
             BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
          if (decoder->bitmap) 
@@ -288,7 +290,8 @@ static BOOL Decompress(struct Decoder *decoder)
          }
       }
       else
-      {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,BMF_CLEAR,NULL);
+      {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
+            BMF_CLEAR|BMF_MINPLANES,NULL);
          depth=8;
       }
       if(!decoder->bitmap)
@@ -322,7 +325,7 @@ static BOOL Decompress(struct Decoder *decoder)
 	          * for the PixelLine8 functions. */
 	         InitRastPort(&decoder->temprp);
 	         error=!(decoder->temprp.BitMap=AllocBitMap(
-	               8*(((decoder->width+15)>>4)<<1),1,8,0,decoder->bitmap))
+	               8*(((decoder->width+15)>>4)<<1),1,8,BMF_MINPLANES|BMF_CLEAR,decoder->bitmap))
 	            || !(decoder->chunky=AllocVec(((decoder->width+15)>>4)<<4,MEMF_PUBLIC));
 	      }
 	      

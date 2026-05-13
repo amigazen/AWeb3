@@ -1031,8 +1031,11 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    {  Aprintf("GIF: Parsegifimage: Allocating bitmap, width=%ld, height=%ld\n", decoder->width, decoder->height);
    }
 #endif
-   if(P96Base && decoder->source->friendbitmap)
-   {  decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
+   if(P96Base && decoder->source->friendbitmap
+   && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
+   {  /* Same policy as PNG: never p96GetBitMapAttr(P96BMA_DEPTH) on a classic
+       * screen friend BitMap — can deadlock. Non-P96 friend → classic master below. */
+      decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
       #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("GIF: Parsegifimage: P96 depth=%ld, friendbitmap=0x%08lx\n", decoder->depth, (ULONG)decoder->source->friendbitmap);
@@ -1065,7 +1068,10 @@ static BOOL Parsegifimage(struct Decoder *decoder)
       {  Aprintf("GIF: Parsegifimage: Allocating standard bitmap, P96Base=0x%08lx, friendbitmap=0x%08lx\n", (ULONG)P96Base, (ULONG)(decoder->source ? decoder->source->friendbitmap : 0));
       }
       #endif
-      decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,BMF_CLEAR,NULL);
+      /* Non-displayable planar master, NULL friend: planes may live in Fast RAM
+       * when available (same flags as PNG classic decode path). */
+      decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
+         BMF_CLEAR|BMF_MINPLANES,NULL);
       decoder->depth=8;
       #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
@@ -1094,7 +1100,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
       {  decoder->maskw=decoder->bitmap->BytesPerRow;
       }
       decoder->mask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
-         MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_CYBERMAP?0:MEMF_PUBLIC));
+         MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_CYBERMAP?0:MEMF_CHIP));
    }
 
    /* Save our bitmap and dimensions. */
@@ -1161,7 +1167,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    {  /* The colour mapping process needs a temporary RastPort plus BitMap
        * for the PixelLine8 functions. */
       InitRastPort(&decoder->temprp);
-      if( (decoder->temprp.BitMap=AllocBitMap(8*(((decoder->iwidth+15)>>4)<<1),1,8,0,decoder->bitmap)) )
+      if( (decoder->temprp.BitMap=AllocBitMap(8*(((decoder->iwidth+15)>>4)<<1),1,8,BMF_MINPLANES|BMF_CLEAR,decoder->bitmap)) )
       {  decoder->chunkyw=((decoder->width+15)>>4)<<4;
          if( (decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC)) )
          {  error=!Buildgifimage(decoder);

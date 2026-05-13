@@ -19,8 +19,13 @@
 
 #include <libraries/awebplugin.h>
 
-/* Define DEBUG_PLUGINS to enable debug output via Aprintf() */
-/* #define DEBUG_PLUGINS */
+/* Define DEBUG_PLUGINS to enable PngLog() (ElapsedTime delta + NAME per line). */
+/* #define DEBUG_PLUGINS 1 */
+
+#ifdef DEBUG_PLUGINS
+/* lowlevel.library ElapsedTime delta + PLUGIN_LIBNAME per line. */
+void PngLog(const char *facility,const char *fmt,...);
+#endif
 
 /* Pointer to our own library base */
 extern struct AwebPngBase *PluginBase;
