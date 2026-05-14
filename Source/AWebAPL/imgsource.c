@@ -1231,6 +1231,17 @@ static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
                   }
 #endif
                }
+#if LAZY_IMAGE_DECODE
+               /* Screen close (e.g. app iconify) clears the bitmap in the FALSE branch
+                * above. Restart decode when EOF still holds: lazy images keep
+                * IMSF_DECODEWAIT; eager/background uses IMSF_EAGERDECODE (source may
+                * not be AOSRC_Displayed). */
+               if((ims->flags&IMSF_EOF) && !ims->task && !ims->bitmap
+               && !(ims->flags&IMSF_ERROR)
+               && ((ims->flags&IMSF_DECODEWAIT) || (ims->flags&IMSF_EAGERDECODE)))
+               {  Trydecodeimg(ims);
+               }
+#endif
             }
             else
             {  ObtainSemaphore(&imagetask.screensema);
