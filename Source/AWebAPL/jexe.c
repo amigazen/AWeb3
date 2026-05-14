@@ -22,6 +22,7 @@
 #include "jprotos.h"
 #include "jbytecode.h"
 #include <exec/tasks.h>
+#include <exec/libraries.h>
 #include <math.h>
 #include <stdarg.h>
 #include <proto/exec.h>
@@ -53,13 +54,99 @@ static UBYTE *emsg_notallowed="Access to '%s' not allowed";
 static UBYTE *emsg_stackoverflow="Stack overflow";
 static UBYTE *emsg_notobject="Not an object";
 
+/* SNPrintf/VSNPrintf need utility.library v47+ (same LVO). OS 3.2 ROM is often v39;
+ * calling v47-only vectors faults (Enforcer LONG-READ from $0). Stack lines use
+ * exec RawDoFmt (v36); Runtimeerror/Errorrequester fall back to vsprintf when needed. */
+struct Jstack_w
+{
+   STRPTR dst;
+   ULONG room;
+};
+
+static void __saveds __asm Jstack_putch(register __d0 ULONG c,
+   register __a3 struct Jstack_w *w)
+{
+   UBYTE b;
+
+   if(!w || w->room==0UL)
+   {
+      return;
+   }
+   b=(UBYTE)(c&0xff);
+   *w->dst++=b;
+   *w->dst='\0';
+   w->room--;
+}
+
+static void Jstack_fmt_ssld(UBYTE *stkln, ULONG sz, UBYTE *fnm, UBYTE *src, long ln)
+{
+   struct Jstack_w w;
+   struct pack_ssld
+   {
+      UBYTE *a;
+      UBYTE *b;
+      long c;
+   } pack;
+
+   if(!stkln || sz==0UL)
+   {
+      return;
+   }
+   w.dst=(STRPTR)stkln;
+   w.room=sz-1UL;
+   stkln[0]='\0';
+   pack.a=fnm;
+   pack.b=src;
+   pack.c=ln;
+   RawDoFmt((CONST_STRPTR)"    at %s (%s:%ld:1)\n",(APTR)&pack,(VOID (*)())Jstack_putch,(APTR)&w);
+}
+
+static void Jstack_fmt_s(UBYTE *stkln, ULONG sz, UBYTE *fnm)
+{
+   struct Jstack_w w;
+   struct pack_s
+   {
+      UBYTE *a;
+   } pack;
+
+   if(!stkln || sz==0UL)
+   {
+      return;
+   }
+   w.dst=(STRPTR)stkln;
+   w.room=sz-1UL;
+   stkln[0]='\0';
+   pack.a=fnm;
+   RawDoFmt((CONST_STRPTR)"    at %s\n",(APTR)&pack,(VOID (*)())Jstack_putch,(APTR)&w);
+}
+
+static void Jstack_fmt_sld_anon(UBYTE *stkln, ULONG sz, UBYTE *src, long ln)
+{
+   struct Jstack_w w;
+   struct pack_sld
+   {
+      UBYTE *a;
+      long b;
+   } pack;
+
+   if(!stkln || sz==0UL)
+   {
+      return;
+   }
+   w.dst=(STRPTR)stkln;
+   w.room=sz-1UL;
+   stkln[0]='\0';
+   pack.a=src;
+   pack.b=ln;
+   RawDoFmt((CONST_STRPTR)"    at <anonymous> (%s:%ld:1)\n",(APTR)&pack,(VOID (*)())Jstack_putch,(APTR)&w);
+}
+
 /* Log call stack like this ("    at name (source:line:1)").
  * fh: FPrintf to that handle (debugger file dump). fh==0: Aprintf when awebplugin is available,
  * or dos Write(Output()) when jc->errconsole (no URL yet — use anonymous:line:1; column is 1).
  * Innermost frame first. For frame #0, errsite is the Runtimeerror callsite (compiler line);
  * if errsite is NULL, jc->elt is used. Stack lines use %ld for line (RawDoFmt 32-bit rule).
- * SNPrintf() return is required buffer size including NUL (utility V47+); never pass it to
- * Write() — use strlen(stkln) for the byte count (output always NUL-terminated if bufsize!=0). */
+ * errconsole branch uses exec RawDoFmt (not utility SNPrintf) so OS 3.2 ROM utility v39 is safe. */
 void Dumpjscallstack(struct Jcontext *jc,long fh,struct Element *errsite)
 {
    struct Function *f;
@@ -135,26 +222,22 @@ void Dumpjscallstack(struct Jcontext *jc,long fh,struct Element *errsite)
             {
                if(ln>=0)
                {
-                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
-                     (CONST_STRPTR)"    at %s (%s:%ld:1)\n",fnm,src,(long)ln);
+                  Jstack_fmt_ssld(stkln,(ULONG)sizeof(stkln),fnm,src,(long)ln);
                }
                else
                {
-                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
-                     (CONST_STRPTR)"    at %s\n",fnm);
+                  Jstack_fmt_s(stkln,(ULONG)sizeof(stkln),fnm);
                }
             }
             else
             {
                if(ln>=0)
                {
-                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
-                     (CONST_STRPTR)"    at <anonymous> (%s:%ld:1)\n",src,(long)ln);
+                  Jstack_fmt_sld_anon(stkln,(ULONG)sizeof(stkln),src,(long)ln);
                }
                else
                {
-                  SNPrintf((STRPTR)stkln,(ULONG)sizeof(stkln),
-                     (CONST_STRPTR)"    at <anonymous>\n");
+                  (void)strcpy((char *)stkln,"    at <anonymous>\n");
                }
             }
             wlen=(LONG)strlen((char *)stkln);
@@ -198,19 +281,28 @@ void Dumpjscallstack(struct Jcontext *jc,long fh,struct Element *errsite)
 void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg,...)
 {  struct Jbuffer *jb=NULL;
    BOOL debugger;
+   BOOL use_vsn;
+   struct Jobject *e;
+   UBYTE buf[256];
+   va_list args;
    /* Stack dump: before throw/rethrow; before requester when errors are off; after requester
     * when EXF_ERRORS so CLI sees message line then stacktrace frames. */
    if(jc && jc->jstrace && (jc->try || !(jc->flags&EXF_ERRORS)))
    {
       Dumpjscallstack(jc,0,elt);
    }
+   use_vsn=BOOLVAL(UtilityBase && ((struct Library *)UtilityBase)->lib_Version>=47U);
    if(jc->try)
    {
-       struct Jobject *e;
-       UBYTE buf[256];
-       va_list args;
        va_start(args,msg);
-       VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(CONST_APTR)args);
+       if(use_vsn)
+       {
+          VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(CONST_APTR)args);
+       }
+       else
+       {
+          (void)vsprintf((char *)buf,(const char *)msg,args);
+       }
        va_end(args);
        if(type != NULL)
        {
@@ -280,21 +372,25 @@ static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject *
 {  struct Variable *var;
    struct With *w;
    struct Function *f;
-   /* Search the with stack for this function */
-   for(w=jc->functions.first->with.first;w->next;w=w->next)
-   {  if(var=Getproperty(w->jo,name))
-      {  if(pthis) *pthis=w->jo;
-         return var;
+   /* Search the with stack for this function (with.first may be NULL if list never filled). */
+   if(jc->functions.first)
+   {
+      for(w=jc->functions.first->with.first;w && w->next;w=w->next)
+      {  if(var=Getproperty(w->jo,name))
+         {  if(pthis) *pthis=w->jo;
+            return var;
+         }
       }
    }
-   if(jc->functions.first->next->next)
+   /* Two frames: inner function plus outer global — only then locals live on inner frame. */
+   if(jc->functions.first && jc->functions.first->next && jc->functions.first->next->next)
    {  /* Try local variables for function */
-      for(var=jc->functions.first->local.first;var->next;var=var->next)
+      for(var=jc->functions.first->local.first;var && var->next;var=var->next)
       {  if(var->name && STREQUAL(var->name,name)) return var;
       }
    }
    /* Try global data scope for this function. */
-   if(var=Getproperty(jc->functions.first->fscope,name))
+   if(jc->functions.first && (var=Getproperty(jc->functions.first->fscope,name)))
    {  return var;
    }
    /* Try properties of this */
@@ -302,20 +398,22 @@ static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject *
    {  return var;
    }
    /* Try top level global data scopes. */
-
-   for(f = jc->functions.first->next;f && f->next;f=f->next)
+   if(jc->functions.first)
    {
+      for(f = jc->functions.first->next;f && f->next;f=f->next)
+      {
 
-       for(w=f->with.first;w->next;w=w->next)
-       {  if((w->flags&WITHF_GLOBAL) && (var=Getproperty(w->jo,name)))
-          {  if(pthis) *pthis=w->jo;
-             return var;
+          for(w=f->with.first;w && w->next;w=w->next)
+          {  if((w->flags&WITHF_GLOBAL) && (var=Getproperty(w->jo,name)))
+             {  if(pthis) *pthis=w->jo;
+                return var;
+             }
           }
-       }
-       /* Try JS global variables */
-       for(var=f->local.first;var->next;var=var->next)
-       {  if(var->name && STREQUAL(var->name,name)) return var;
-       }
+          /* Try JS global variables */
+          for(var=f->local.first;var && var->next;var=var->next)
+          {  if(var->name && STREQUAL(var->name,name)) return var;
+          }
+      }
    }
    /* Not found, add variable to the global scope. */
    var=Addproperty(jc->functions.last->fscope,name);
@@ -326,9 +424,9 @@ static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject *
  * Falls back to global variables if not within function scope. */
 static struct Variable *Findlocalvar(struct Jcontext *jc,UBYTE *name)
 {  struct Variable *var;
-   if(jc->functions.first->next->next)
+   if(jc->functions.first && jc->functions.first->next && jc->functions.first->next->next)
    {  /* Within function scope */
-      for(var=jc->functions.first->local.first;var->next;var=var->next)
+      for(var=jc->functions.first->local.first;var && var->next;var=var->next)
       {  if(var->name && STREQUAL(var->name,name)) return var;
       }
       /* Not found, add variable. */
@@ -1326,11 +1424,11 @@ static void Exedelete(struct Jcontext *jc,struct Element *elt)
             {
                cand=host;
             }
-            else if((jo=jc->functions.first->fscope) && rhs->name && Getownproperty(jo,rhs->name)==rhs)
+            else if(jc->functions.first && (jo=jc->functions.first->fscope) && rhs->name && Getownproperty(jo,rhs->name)==rhs)
             {
                cand=jo;
             }
-            else if((jo=jc->functions.last->fscope) && rhs->name && Getownproperty(jo,rhs->name)==rhs)
+            else if(jc->functions.last && (jo=jc->functions.last->fscope) && rhs->name && Getownproperty(jo,rhs->name)==rhs)
             {
                cand=jo;
             }
@@ -1340,12 +1438,15 @@ static void Exedelete(struct Jcontext *jc,struct Element *elt)
             }
             else
             {
-               for(wscan=jc->functions.first->with.first;wscan->next;wscan=wscan->next)
+               if(jc->functions.first)
                {
-                  if(rhs->name && Getownproperty(wscan->jo,rhs->name)==rhs)
+                  for(wscan=jc->functions.first->with.first;wscan && wscan->next;wscan=wscan->next)
                   {
-                     cand=wscan->jo;
-                     break;
+                     if(rhs->name && Getownproperty(wscan->jo,rhs->name)==rhs)
+                     {
+                        cand=wscan->jo;
+                        break;
+                     }
                   }
                }
             }

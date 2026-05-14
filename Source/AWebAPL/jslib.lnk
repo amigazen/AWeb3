@@ -10,7 +10,7 @@ DEFINE   __CXM22=__UCXM22
 DEFINE   __CXD22=__UCXD22
 DEFINE   @__chkabort=@__dummy
 
-LIB      lib:scmnb.lib lib:scnb.lib lib:debug.lib lib:small.lib
+LIB      lib:scmnb.lib lib:scnb.lib
 
 MAP      jslib.map
 NOICONS

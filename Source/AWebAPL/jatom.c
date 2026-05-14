@@ -18,12 +18,20 @@
 
 struct Jcontext *Jatomroot(struct Jcontext *jc)
 {
+   ULONG hops;
+
+   hops = 0UL;
    if(!jc)
    {
       return NULL;
    }
+   /* truecontext must terminate; a corrupt cycle would hang or fault. */
    while(jc->truecontext)
    {
+      if(++hops > 256UL)
+      {
+         return NULL;
+      }
       jc = jc->truecontext;
    }
    return jc;

@@ -915,7 +915,7 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
       p+=sprintf((char *)p,"GET %.*s HTTP/1.1\r\n",HTTP_REQUEST_URI_MAX,hi->abspath);
    ObtainSemaphore(&prefssema);
 #ifndef DEMOVERSION
-   if(*prefs.network.spoofid)
+   if(prefs.network.spoofid && *prefs.network.spoofid)
    {  est=(long)strlen((char *)prefs.network.spoofid)+64L;
       if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
       {  ReleaseSemaphore(&prefssema);

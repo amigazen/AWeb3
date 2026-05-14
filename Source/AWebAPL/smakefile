@@ -584,7 +584,7 @@ jstring.o:  jstring.c awebjs.h
 
 install:
    -copy clone AWeb TO //Internet/AWeb/AWeb
-   -copy clone AWebView TO //Internet/AWeb/AWebView
+#   -copy clone AWebView TO //Internet/AWeb/AWebView
    -copy clone AWebCfg TO //Internet/AWeb/AWebCfg
    -copy clone AWebJS TO //Internet/AWeb/AWebJS
    -copy clone aweblib/arexx.aweblib TO //Internet/AWeb/aweblib/arexx.aweblib

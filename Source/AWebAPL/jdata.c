@@ -688,15 +688,27 @@ struct Jobject *Newobject(struct Jcontext *jc)
    }
 
    if(jo=ALLOCOBJECT(jc))
-   {  NewList((struct List *)&jo->properties);
+   {  struct Jcontext *jcroot;
+      int hoplim;
+
+      NewList((struct List *)&jo->properties);
       jo->notdisposed = TRUE;
       jo->jc = jc;
-      while(jo->jc->truecontext)
+      jcroot = jo->jc;
+      hoplim = 0;
+      while(jcroot->truecontext)
       {
-          jo->jc = jo->jc->truecontext;
+         if(++hoplim > 256)
+         {
+            break;
+         }
+         jcroot = jcroot->truecontext;
       }
-
-      if(jc->nogc <= 0)jc->gc--;
+      jo->jc = jcroot;
+      if(jc->nogc <= 0)
+      {
+         jc->gc--;
+      }
       AddTail((struct List *)&jc->objects,(struct Node *)jo);
       jo->jc->obj_created++;
    }
@@ -746,7 +758,7 @@ void Clearobject(struct Jobject *jo,UBYTE **except)
    UBYTE **p;
    if(jo && !(jo->flags&OBJF_CLEARING))
    {  jo->flags|=OBJF_CLEARING;
-      for(var=jo->properties.first;var->next;var=next)
+      for(var=jo->properties.first;var && var->next;var=next)
       {  next=var->next;
          if(var->name && except)
          {  for(p=except;*p;p++)
@@ -1082,6 +1094,8 @@ static void Garbagemark_depth(struct Jobject *jo, ULONG depth)
    struct Variable *v;
    int i;
    ULONG jp;
+   ULONG xp;
+   ULONG fp;
 
    if(!jo)
    {
@@ -1106,7 +1120,14 @@ static void Garbagemark_depth(struct Jobject *jo, ULONG depth)
    }
    jo->flags |= OBJF_USED;
 
-   Garbagemark_depth(jo->prototype, depth + 1U);
+   if(jo->prototype)
+   {
+      xp=(ULONG)jo->prototype;
+      if(xp >= 0x00001000UL && xp <= 0xFFFFFFF0UL)
+      {
+         Garbagemark_depth(jo->prototype, depth + 1U);
+      }
+   }
    for(v=jo->properties.first;v && v->next;v=v->next)
    {
       if(v->val.type==VTP_OBJECT)
@@ -1118,10 +1139,21 @@ static void Garbagemark_depth(struct Jobject *jo, ULONG depth)
          }
       }
    }
-   Garbagemark_depth(jo->constructor, depth + 1U);
+   if(jo->constructor)
+   {
+      xp=(ULONG)jo->constructor;
+      if(xp >= 0x00001000UL && xp <= 0xFFFFFFF0UL)
+      {
+         Garbagemark_depth(jo->constructor, depth + 1U);
+      }
+   }
    if(jo->function)
    {
-      Garbagemark_depth(jo->function->fscope, depth + 1U);
+      fp=(ULONG)jo->function;
+      if(fp >= 0x00001000UL && fp <= 0xFFFFFFF0UL && jo->function->fscope)
+      {
+         Garbagemark_depth(jo->function->fscope, depth + 1U);
+      }
    }
    if(jo->type == OBJT_ARRAY)
    {

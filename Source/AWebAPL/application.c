@@ -1523,11 +1523,11 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             Jkeepobject(app->jnavigator,TRUE);
          }
          if(app->jnavigator)
-         {  if(jv=Jproperty(app->jcontext,app->jnavigator,"appCodeName"))
+         {              if(jv=Jproperty(app->jcontext,app->jnavigator,"appCodeName"))
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
 #ifndef DEMOVERSION
-               if(*prefs.network.spoofid)
-               {  strcpy(buf,prefs.network.spoofid);
+               if(prefs.network.spoofid && *prefs.network.spoofid)
+               {  strcpy(buf,(char *)prefs.network.spoofid);
                   if(p=strchr(buf,'/')) *p='\0';
                }
                else
@@ -1540,7 +1540,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
                p="AWeb";
 #ifndef DEMOVERSION
-               if(*prefs.network.spoofid)
+               if(prefs.network.spoofid && *prefs.network.spoofid)
                {  if(STRNIEQUAL(prefs.network.spoofid,"Mozilla/",8)) p="Netscape";
                   else if(STRNIEQUAL(prefs.network.spoofid,"MSIE/",5)) p="Microsoft Internet Explorer";
                }
@@ -1550,7 +1550,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             if(jv=Jproperty(app->jcontext,app->jnavigator,"appVersion"))
             {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
 #ifndef DEMOVERSION
-               if(p=strchr(prefs.network.spoofid,'/'))
+               if(prefs.network.spoofid && (p=strchr((char *)prefs.network.spoofid,'/')))
                {  strcpy(buf,p+1);
                }
                else
@@ -1575,8 +1575,8 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
                   default_js_useragent_init=TRUE;
                }
 #ifndef DEMOVERSION
-               if(*prefs.network.spoofid)
-               {  strcpy(buf,prefs.network.spoofid);
+               if(prefs.network.spoofid && *prefs.network.spoofid)
+               {  strcpy(buf,(char *)prefs.network.spoofid);
                }
                else
 #endif

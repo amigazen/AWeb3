@@ -28,6 +28,7 @@
 #include <intuition/intuitionbase.h>
 #include <exec/resident.h>
 #include <exec/exec.h>
+#include <exec/libraries.h>
 #include <graphics/gfxbase.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -643,6 +644,7 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
 {  struct ClassLibrary *WindowBase=NULL,*LayoutBase=NULL,*ButtonBase=NULL,*LabelBase=NULL;
    struct Jerrcon_lnrfmt lfmt;
    BOOL ignore=FALSE;
+   BOOL use_vsn;
    void *winobj,*buttonrow;
    ULONG sigmask,result;
    UBYTE lnrbuf[32],src[128],buf[128];
@@ -657,6 +659,7 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
    {
       return FALSE;
    }
+   use_vsn=BOOLVAL(UtilityBase && ((struct Library *)UtilityBase)->lib_Version>=47U);
    if(lnr>=0)
    {  lfmt.dst=lnrbuf;
       lfmt.room=(ULONG)(sizeof(lnrbuf)-1);
@@ -712,8 +715,15 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
    {  *lnrbuf='\0';
       *src='\0';
    }
-   /* fmt + args: va_list as RawDoFmt data stream (utility VSNPrintf autodocs). */
-   VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(CONST_APTR)args);
+   /* fmt + args: VSNPrintf needs utility v47+ (same LVO as SNPrintf). ROM v39 must use vsprintf. */
+   if(use_vsn)
+   {
+      VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(CONST_APTR)args);
+   }
+   else
+   {
+      (void)vsprintf((char *)buf,(const char *)msg,args);
+   }
    if(jc->errconsole)
    {  errfh=Output();
       if(!errfh)
@@ -888,7 +898,9 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
    void *pool;
    /* New Jcontext is created in its own pool */
    if(pool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE))
-   {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
+   {  /* MEMF_CLEAR: jatom_buckets[], truecontext, and list heads must start NULL/empty
+    * before Newexecute(); without it JatomIntern walks garbage pointers (Enforcer). */
+      if(jc=ALLOCSTRUCT(Jcontext,1,MEMF_CLEAR,pool))
       {  jc->pool=pool;
          /* Objects and variables must use this pool: Pallocmem(NULL,...) uses AllocMem
           * and those blocks are not reclaimed by DeletePool(jc->pool). */
