@@ -1767,7 +1767,9 @@ BOOL Opengui(void)
       nreq.nr_Flags=NRF_SEND_MESSAGE;
       StartNotify(&nreq);
       Copyguiprefs(&defprefs.gui,&uip);
-      Loadguiprefs(&uip,FALSE,NULL);
+      if(!Prefsconfiguseslegacyawebpath(NULL))
+      {  Loadguiprefs(&uip,FALSE,NULL);
+      }
       Copyguiprefs(&uip,&orguip);
       tested=FALSE;
       Makeclicktablist(&tablist,tablabels);
@@ -2052,7 +2054,9 @@ BOOL Processgui(void)
                      CFGAWEBSTR(MSG_SET_REQTITLE_OPENGUI),"gui",FALSE))
                   {  Disposeguiprefs(&uip);
                      Copyguiprefs(&defprefs.gui,&uip);
-                     Loadguiprefs(&uip,FALSE,path);
+                     if(!Prefsconfiguseslegacyawebpath(path))
+                     {  Loadguiprefs(&uip,FALSE,path);
+                     }
                      Setdata();
                      FREE(path);
                   }
@@ -2076,7 +2080,9 @@ BOOL Processgui(void)
                case MID_LASTSAVED:
                   Disposeguiprefs(&uip);
                   Copyguiprefs(&defprefs.gui,&uip);
-                  Loadguiprefs(&uip,TRUE,NULL);
+                  if(!Prefsconfiguseslegacyawebpath(NULL))
+                  {  Loadguiprefs(&uip,FALSE,NULL);
+                  }
                   Setdata();
                   break;
                case MID_RESTORE:
@@ -2115,7 +2121,9 @@ BOOL Processgui(void)
       if(changed)
       {  Disposeguiprefs(&uip);
          Copyguiprefs(&defprefs.gui,&uip);
-         Loadguiprefs(&uip,FALSE,NULL);
+         if(!Prefsconfiguseslegacyawebpath(NULL))
+         {  Loadguiprefs(&uip,FALSE,NULL);
+         }
          Setdata();
          Disposeguiprefs(&orguip);
          Copyguiprefs(&uip,&orguip);

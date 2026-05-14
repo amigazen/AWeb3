@@ -1342,7 +1342,9 @@ BOOL Openbrowser(void)
       nreq.nr_Flags=NRF_SEND_MESSAGE;
       StartNotify(&nreq);
       Copybrowserprefs(&defprefs.browser,&brp);
-      Loadbrowserprefs(&brp,FALSE,NULL);
+      if(!Prefsconfiguseslegacyawebpath(NULL))
+      {  Loadbrowserprefs(&brp,FALSE,NULL);
+      }
       Copybrowserprefs(&brp,&orgbrp);
       tested=FALSE;
       Makeclicktablist(&tablist,tablabels);
@@ -1584,7 +1586,9 @@ BOOL Processbrowser(void)
                      CFGAWEBSTR(MSG_SET_REQTITLE_OPENBROWSER),"browser",FALSE))
                   {  Disposebrowserprefs(&brp);
                      Copybrowserprefs(&defprefs.browser,&brp);
-                     Loadbrowserprefs(&brp,FALSE,path);
+                     if(!Prefsconfiguseslegacyawebpath(path))
+                     {  Loadbrowserprefs(&brp,FALSE,path);
+                     }
                      Setdata();
                      FREE(path);
                   }
@@ -1608,7 +1612,9 @@ BOOL Processbrowser(void)
                case MID_LASTSAVED:
                   Disposebrowserprefs(&brp);
                   Copybrowserprefs(&defprefs.browser,&brp);
-                  Loadbrowserprefs(&brp,TRUE,NULL);
+                  if(!Prefsconfiguseslegacyawebpath(NULL))
+                  {  Loadbrowserprefs(&brp,FALSE,NULL);
+                  }
                   Setdata();
                   break;
                case MID_RESTORE:
@@ -1647,7 +1653,9 @@ BOOL Processbrowser(void)
       if(changed)
       {  Disposebrowserprefs(&brp);
          Copybrowserprefs(&defprefs.browser,&brp);
-         Loadbrowserprefs(&brp,FALSE,NULL);
+         if(!Prefsconfiguseslegacyawebpath(NULL))
+         {  Loadbrowserprefs(&brp,FALSE,NULL);
+         }
          Setdata();
          Disposebrowserprefs(&orgbrp);
          Copybrowserprefs(&brp,&orgbrp);

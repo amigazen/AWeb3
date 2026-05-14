@@ -1869,7 +1869,9 @@ BOOL Opennetwork(void)
       nreq2.nr_Flags=NRF_SEND_MESSAGE;
       StartNotify(&nreq2);
       Copynetworkprefs(&defprefs.network,&nwp);
-      Loadnetworkprefs(&nwp,FALSE,NULL);
+      if(!Prefsconfiguseslegacyawebpath(NULL))
+      {  Loadnetworkprefs(&nwp,FALSE,NULL);
+      }
       Copynetworkprefs(&nwp,&orgnwp);
       tested=FALSE;
       Makeclicktablist(&tablist,tablabels);
@@ -2129,7 +2131,9 @@ BOOL Processnetwork(void)
                      CFGAWEBSTR(MSG_SET_REQTITLE_OPENNETWORK),"network",FALSE))
                   {  Disposenetworkprefs(&nwp);
                      Copynetworkprefs(&defprefs.network,&nwp);
-                     Loadnetworkprefs(&nwp,FALSE,path);
+                     if(!Prefsconfiguseslegacyawebpath(path))
+                     {  Loadnetworkprefs(&nwp,FALSE,path);
+                     }
                      Setdata();
                      FREE(path);
                   }
@@ -2154,7 +2158,9 @@ BOOL Processnetwork(void)
                case MID_LASTSAVED:
                   Disposenetworkprefs(&nwp);
                   Copynetworkprefs(&defprefs.network,&nwp);
-                  Loadnetworkprefs(&nwp,TRUE,NULL);
+                  if(!Prefsconfiguseslegacyawebpath(NULL))
+                  {  Loadnetworkprefs(&nwp,FALSE,NULL);
+                  }
                   Setdata();
                   break;
                case MID_RESTORE:
@@ -2193,7 +2199,9 @@ BOOL Processnetwork(void)
       if(changed)
       {  Disposenetworkprefs(&nwp);
          Copynetworkprefs(&defprefs.network,&nwp);
-         Loadnetworkprefs(&nwp,FALSE,NULL);
+         if(!Prefsconfiguseslegacyawebpath(NULL))
+         {  Loadnetworkprefs(&nwp,FALSE,NULL);
+         }
          Setdata();
          Disposenetworkprefs(&orgnwp);
          Copynetworkprefs(&nwp,&orgnwp);

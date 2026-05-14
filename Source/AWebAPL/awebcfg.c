@@ -875,7 +875,9 @@ void main(int fromcli,struct WBStartup *wbs)
                SYSIA_Which,AMIGAKEY,
                TAG_END))
          )
-         {  Loadsettingsprefs(&setprefs,FALSE,NULL);
+         {  if(!Prefsconfiguseslegacyawebpath(NULL))
+            {  Loadsettingsprefs(&setprefs,FALSE,NULL);
+            }
             if(browser && Openbrowser()) nrwindows++;
             if(program && Openprogram()) nrwindows++;
             if(gui && Opengui()) nrwindows++;
@@ -904,8 +906,7 @@ void main(int fromcli,struct WBStartup *wbs)
                if((cfgcommand&CFGCLASS_GUI) && Opengui()) nrwindows++;
                if((cfgcommand&CFGCLASS_NETWORK) && Opennetwork()) nrwindows++;
                if(cfgcommand&CFGCLASS_SNAPSHOT)
-               {  Savesettingsprefs(&setprefs,TRUE,NULL);
-                  Savesettingsprefs(&setprefs,FALSE,NULL);
+               {  Savesettingsprefs(&setprefs,FALSE,NULL);
                   newdimensions=FALSE;
                }
                if(cfgcommand&CFGCLASS_CLASSACT) Openclassact();

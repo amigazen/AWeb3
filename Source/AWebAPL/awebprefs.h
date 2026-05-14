@@ -416,12 +416,16 @@ extern BOOL Copyprogramprefs(struct Programprefs *from,struct Programprefs *to);
 extern BOOL Copyguiprefs(struct Guiprefs *from,struct Guiprefs *to);
 extern BOOL Copynetworkprefs(struct Networkprefs *from,struct Networkprefs *to);
 extern BOOL Copywindowprefs(struct Windowprefs *from,struct Windowprefs *to);
+/* For default assign paths (name NULL): reads always use ENV:. The saved flag
+ * is ignored on load. On save, saved FALSE writes ENV:, TRUE writes ENVARC:
+ * (AWebCfg "Save" writes TRUE then FALSE; "Use" / Test write FALSE only). */
 extern void Loadbrowserprefs(struct Browserprefs *bp,BOOL saved,UBYTE *name);
 extern void Loadprogramprefs(struct Programprefs *pp,BOOL saved,UBYTE *name);
 extern void Loadguiprefs(struct Guiprefs *pp,BOOL saved,UBYTE *name);
 extern void Loadnetworkprefs(struct Networkprefs *np,BOOL saved,UBYTE *name);
 extern void Loadwindowprefs(struct Windowprefs *np,BOOL saved,UBYTE *name);
 extern void Loadsettingsprefs(struct Settingsprefs *sp,BOOL saved,UBYTE *name);
+extern BOOL Prefsconfiguseslegacyawebpath(UBYTE *name);
 extern void Savebrowserprefs(struct Browserprefs *bp,BOOL saved,UBYTE *name);
 extern void Saveprogramprefs(struct Programprefs *pp,BOOL saved,UBYTE *name);
 extern void Saveguiprefs(struct Guiprefs *pp,BOOL saved,UBYTE *name);

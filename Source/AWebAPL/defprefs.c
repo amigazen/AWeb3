@@ -517,14 +517,48 @@ static UBYTE iobuf[512],parambuf[256],param2buf[8];
 
 /*---------------------------------------------------------------------------*/
 
-/* Load prefs from file (fh) into prefs (prf) after (svf) */
-static void Loadprefs(struct Saveformat *svf,long fh,void *prf)
+/* Old installers stored paths using an assignable "AWebPath:" volume. AWeb
+ * prefs text format has no version field, so any such token in a line means
+ * the on-disk tree cannot be interpreted safely: reject the load. Match is
+ * case-insensitive (Amiga assigns/volumes are case-insensitive). */
+static BOOL Linehaslegacyawebpath(UBYTE *line)
+{  UBYTE *p;
+   for(p=line;*p;p++)
+   {  if(STRNIEQUAL(p,"AWebPath:",9)) return TRUE;
+   }
+   return FALSE;
+}
+
+/* Return TRUE if fh contains a legacy AWebPath: token (fh rewound on exit). */
+static BOOL Fhhaslegacyawebpath(long fh)
+{  UBYTE *tail;
+   long pos;
+
+   pos=Seek(fh,0,OFFSET_BEGINNING);
+   if(pos<0) return FALSE;
+   while(FGets(fh,iobuf,512))
+   {  tail=iobuf+strlen(iobuf)-1;
+      if(*tail=='\n') *tail='\0';
+      if(Linehaslegacyawebpath(iobuf))
+      {  (void)Seek(fh,0,OFFSET_BEGINNING);
+         return TRUE;
+      }
+   }
+   (void)Seek(fh,0,OFFSET_BEGINNING);
+   return FALSE;
+}
+
+/* Load prefs from file (fh) into prefs (prf) after (svf). FALSE = legacy path
+ * token or unreadable layout; prf is left unchanged by this function. */
+static BOOL Loadprefs(struct Saveformat *svf,long fh,void *prf)
 {  struct Saveformat *s;
    UBYTE *p;
    void *item;
    long i;
    BOOL menus=FALSE,buttons=FALSE,popup=FALSE,keys=FALSE,alias=FALSE,mime=FALSE,
       nocache=FALSE,noproxy=FALSE,nocookie=FALSE,imagemime=FALSE;
+
+   if(Fhhaslegacyawebpath(fh)) return FALSE;
    while(FGets(fh,iobuf,512))
    {  p=iobuf+strlen(iobuf)-1;
       if(*p=='\n') *p='\0';
@@ -915,6 +949,7 @@ static void Loadprefs(struct Saveformat *svf,long fh,void *prf)
    {  Addmimeinfo(&((struct Browserprefs *)prf)->mimelist,"image","*",
          "",MDRIVER_INTERNAL,"","");
    }
+   return TRUE;
 }
 
 static void Saveprefsfmt(struct Saveformat *svf,long fh,void *prf,short pass)
@@ -1111,10 +1146,18 @@ static void Makedir(UBYTE *dir)
 }
 
 static long Openname(BOOL saved,UBYTE *name,UBYTE *file,long mode)
-{  if(name) strcpy(iobuf,name);
+{  if(name)
+   {  strcpy(iobuf,name);
+      if(file) strcat(iobuf,file);
+   }
    else
-   {  sprintf(iobuf,"%s:" DEFAULTCFG "%c%s",
-         saved?"ENVARC":"ENV",
+   {  UBYTE *vol;
+      /* Reads use ENV: only (working prefs). Writes: saved FALSE=ENV:,
+       * TRUE=ENVARC: so "Use" can update ENV only and "Save" can mirror both. */
+      if(mode==MODE_OLDFILE) vol="ENV";
+      else vol=saved?"ENVARC":"ENV";
+      sprintf(iobuf,"%s:" DEFAULTCFG "%c%s",
+         vol,
          *configname?'/':'\0',
          *configname?configname:(UBYTE *)"");
       if(mode==MODE_NEWFILE)
@@ -1131,6 +1174,39 @@ static long Openname(BOOL saved,UBYTE *name,UBYTE *file,long mode)
       if(file) strcat(iobuf,file);
    }
    return Open(iobuf,mode);
+}
+
+/* TRUE if this prefs fragment file exists and contains AWebPath: anywhere. */
+static BOOL Openpathfragmentlegacy(BOOL saved,UBYTE *name,UBYTE *tail)
+{  long fh;
+   BOOL legacy;
+
+   if(!(fh=Openname(saved,name,tail,MODE_OLDFILE))) return FALSE;
+   legacy=Fhhaslegacyawebpath(fh);
+   Close(fh);
+   return legacy;
+}
+
+/* TRUE if any standard prefs file under (saved,name) contains legacy paths. */
+static BOOL Subtreeprefscontainlegacy(BOOL saved,UBYTE *name)
+{
+   if(Openpathfragmentlegacy(saved,name,"/browser")) return TRUE;
+   if(Openpathfragmentlegacy(saved,name,"/program")) return TRUE;
+   if(Openpathfragmentlegacy(saved,name,"/gui")) return TRUE;
+   if(Openpathfragmentlegacy(saved,name,"/network")) return TRUE;
+#ifndef DEMOVERSION
+   if(Openpathfragmentlegacy(saved,name,"/nocookie")) return TRUE;
+#endif
+   if(Openpathfragmentlegacy(saved,name,"/window")) return TRUE;
+   if(Openpathfragmentlegacy(saved,name,"/settings")) return TRUE;
+   return FALSE;
+}
+
+/* TRUE if the named config directory (or default ENV: tree when name is NULL)
+ * contains legacy AWebPath: text in any prefs fragment — caller should keep
+ * built-in defaults and not merge disk prefs. Reads are ENV-only. */
+BOOL Prefsconfiguseslegacyawebpath(UBYTE *name)
+{  return Subtreeprefscontainlegacy(FALSE,name);
 }
 
 /* Copy optional strings (may be NULL) */
@@ -2283,7 +2359,12 @@ BOOL Copywindowprefs(struct Windowprefs *from,struct Windowprefs *to)
 void Loadbrowserprefs(struct Browserprefs *bp,BOOL saved,UBYTE *name)
 {  long fh;
    if(fh=Openname(saved,name,"/browser",MODE_OLDFILE))
-   {  Loadprefs(browsersave,fh,bp);
+   {  if(!Loadprefs(browsersave,fh,bp))
+      {  Close(fh);
+         Disposebrowserprefs(bp);
+         Copybrowserprefs(&defprefs.browser,bp);
+         return;
+      }
       Close(fh);
    }
 }
@@ -2291,7 +2372,12 @@ void Loadbrowserprefs(struct Browserprefs *bp,BOOL saved,UBYTE *name)
 void Loadprogramprefs(struct Programprefs *pp,BOOL saved,UBYTE *name)
 {  long fh;
    if(fh=Openname(saved,name,"/program",MODE_OLDFILE))
-   {  Loadprefs(programsave,fh,pp);
+   {  if(!Loadprefs(programsave,fh,pp))
+      {  Close(fh);
+         Disposeprogramprefs(pp);
+         Copyprogramprefs(&defprefs.program,pp);
+         return;
+      }
       Close(fh);
    }
 }
@@ -2299,7 +2385,12 @@ void Loadprogramprefs(struct Programprefs *pp,BOOL saved,UBYTE *name)
 void Loadguiprefs(struct Guiprefs *gp,BOOL saved,UBYTE *name)
 {  long fh;
    if(fh=Openname(saved,name,"/gui",MODE_OLDFILE))
-   {  Loadprefs(guisave,fh,gp);
+   {  if(!Loadprefs(guisave,fh,gp))
+      {  Close(fh);
+         Disposeguiprefs(gp);
+         Copyguiprefs(&defprefs.gui,gp);
+         return;
+      }
       Close(fh);
    }
 }
@@ -2307,12 +2398,22 @@ void Loadguiprefs(struct Guiprefs *gp,BOOL saved,UBYTE *name)
 void Loadnetworkprefs(struct Networkprefs *np,BOOL saved,UBYTE *name)
 {  long fh;
    if(fh=Openname(saved,name,"/network",MODE_OLDFILE))
-   {  Loadprefs(networksave,fh,np);
+   {  if(!Loadprefs(networksave,fh,np))
+      {  Close(fh);
+         Disposenetworkprefs(np);
+         Copynetworkprefs(&defprefs.network,np);
+         return;
+      }
       Close(fh);
    }
 #ifndef DEMOVERSION
    if(fh=Openname(saved,name,"/nocookie",MODE_OLDFILE))
-   {  Loadprefs(networksave,fh,np);
+   {  if(!Loadprefs(networksave,fh,np))
+      {  Close(fh);
+         Disposenetworkprefs(np);
+         Copynetworkprefs(&defprefs.network,np);
+         return;
+      }
       Close(fh);
    }
 #endif
@@ -2325,7 +2426,11 @@ void Loadnetworkprefs(struct Networkprefs *np,BOOL saved,UBYTE *name)
 void Loadwindowprefs(struct Windowprefs *wp,BOOL saved,UBYTE *name)
 {  long fh;
    if(fh=Openname(saved,name,"/window",MODE_OLDFILE))
-   {  Loadprefs(windowsave,fh,wp);
+   {  if(!Loadprefs(windowsave,fh,wp))
+      {  Close(fh);
+         Copywindowprefs(&defprefs.window,wp);
+         return;
+      }
       Close(fh);
    }
 }
@@ -2333,7 +2438,11 @@ void Loadwindowprefs(struct Windowprefs *wp,BOOL saved,UBYTE *name)
 void Loadsettingsprefs(struct Settingsprefs *sp,BOOL saved,UBYTE *name)
 {  long fh;
    if(fh=Openname(saved,name,"/settings",MODE_OLDFILE))
-   {  Loadprefs(settingssave,fh,sp);
+   {  if(!Loadprefs(settingssave,fh,sp))
+      {  Close(fh);
+         memset(sp,0,sizeof(*sp));
+         return;
+      }
       Close(fh);
    }
 }

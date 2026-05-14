@@ -48,6 +48,13 @@
 #define PCMD_CONTANIM      0x00004000
 #define PCMD_SAVEPREFS     0x10000000
 
+/* When legacy install paths force full reset to defprefs, apply the same UI
+ * side-effects as a maximal prefs reload. */
+#define PCMD_SYNCFULL      (PCMD_NEWMIME|PCMD_NEWSCREEN|PCMD_LOADIMG|PCMD_BROWSER\
+   |PCMD_NEWLINKPENS|PCMD_BLINKRATE|PCMD_NEWMENUS|PCMD_NEWSAVEPATH\
+   |PCMD_CACHE|PCMD_DOCOLORS|PCMD_OVERLAP|PCMD_CONTANIM|PCMD_DOBGSOUND\
+   |PCMD_SHOWBUTTONS|PCMD_NEWBUTTONS)
+
 struct Fontprefs *fonts;
 
 struct Prefs prefs;
@@ -492,6 +499,22 @@ static ULONG Changednetwork(void)
    return pcmd;
 }
 
+static void Replaceuserprefsdefaults(void)
+{  Disposebrowserprefs(&prefs.browser);
+   Disposeprogramprefs(&prefs.program);
+   Disposeguiprefs(&prefs.gui);
+   Disposenetworkprefs(&prefs.network);
+   Copybrowserprefs(&defprefs.browser,&prefs.browser);
+   Copyprogramprefs(&defprefs.program,&prefs.program);
+   Copyguiprefs(&defprefs.gui,&prefs.gui);
+   Copynetworkprefs(&defprefs.network,&prefs.network);
+   Copywindowprefs(&defprefs.window,&prefs.window);
+   Installmimetypes();
+   Makepatterns(&prefs.network.nocookie);
+   Makepatterns(&prefs.network.noproxy);
+   Makepatterns(&prefs.network.nocache);
+}
+
 static void Processprefs(void)
 {  struct NotifyMessage *msg;
    USHORT changed=0;
@@ -501,6 +524,12 @@ static void Processprefs(void)
    {  changed|=msg->nm_NReq->nr_UserData;
       ReplyMsg(msg);
    }
+   if(Prefsconfiguseslegacyawebpath(NULL))
+   {  Replaceuserprefsdefaults();
+      pcmd=PCMD_SYNCFULL;
+   }
+   else
+   {
    if(changed&NFCODE_BROWSER)
    {  pcmd|=Changedbrowser();
    }
@@ -512,6 +541,7 @@ static void Processprefs(void)
    }
    if(changed&NFCODE_NETWORK)
    {  pcmd|=Changednetwork();
+   }
    }
    ReleaseSemaphore(&prefssema);
    if(pcmd&PCMD_NEWMIME)
@@ -554,10 +584,17 @@ static void Processprefs(void)
 void Synccfgprefsfromdisk(void)
 {  ULONG pcmd=0;
    ObtainSemaphore(&prefssema);
+   if(Prefsconfiguseslegacyawebpath(NULL))
+   {  Replaceuserprefsdefaults();
+      pcmd=PCMD_SYNCFULL;
+   }
+   else
+   {
    pcmd|=Changedbrowser();
    pcmd|=Changedprogram();
    pcmd|=Changedgui();
    pcmd|=Changednetwork();
+   }
    ReleaseSemaphore(&prefssema);
    if(pcmd&PCMD_NEWMIME)
    {  Rebuildjmime();
@@ -603,11 +640,13 @@ BOOL Initprefs(void)
    Copyguiprefs(&defprefs.gui,&prefs.gui);
    Copynetworkprefs(&defprefs.network,&prefs.network);
    Copywindowprefs(&defprefs.window,&prefs.window);
-   Loadbrowserprefs(&prefs.browser,FALSE,NULL);
-   Loadprogramprefs(&prefs.program,FALSE,NULL);
-   Loadguiprefs(&prefs.gui,FALSE,NULL);
-   Loadnetworkprefs(&prefs.network,FALSE,NULL);
-   Loadwindowprefs(&prefs.window,TRUE,NULL);
+   if(!Prefsconfiguseslegacyawebpath(NULL))
+   {  Loadbrowserprefs(&prefs.browser,FALSE,NULL);
+      Loadprogramprefs(&prefs.program,FALSE,NULL);
+      Loadguiprefs(&prefs.gui,FALSE,NULL);
+      Loadnetworkprefs(&prefs.network,FALSE,NULL);
+      Loadwindowprefs(&prefs.window,FALSE,NULL);
+   }
    Installmimetypes();
    Makepatterns(&prefs.network.nocookie);
    Makepatterns(&prefs.network.noproxy);
@@ -760,7 +799,7 @@ void Snapshotwindows(void *window)
    }
    Getnetstatdim(&prefs.window.nwsx,&prefs.window.nwsy,&prefs.window.nwsw,&prefs.window.nwsh);
    Getinfodim(&prefs.window.infx,&prefs.window.infy,&prefs.window.infw,&prefs.window.infh);
-   Savewindowprefs(&prefs.window,TRUE,NULL);
+   Savewindowprefs(&prefs.window,FALSE,NULL);
    ReleaseSemaphore(&prefssema);
 }
 
@@ -797,10 +836,15 @@ void Prefsdobgsound(BOOL dobgsound)
 void Saveallsettings(void)
 {  ObtainSemaphore(&prefssema);
    Savebrowserprefs(&prefs.browser,TRUE,NULL);
+   Savebrowserprefs(&prefs.browser,FALSE,NULL);
    Saveprogramprefs(&prefs.program,TRUE,NULL);
+   Saveprogramprefs(&prefs.program,FALSE,NULL);
    Saveguiprefs(&prefs.gui,TRUE,NULL);
+   Saveguiprefs(&prefs.gui,FALSE,NULL);
    Savenetworkprefs(&prefs.network,TRUE,NULL);
+   Savenetworkprefs(&prefs.network,FALSE,NULL);
    Savenocookieprefs(&prefs.network,TRUE,NULL);
+   Savenocookieprefs(&prefs.network,FALSE,NULL);
    ReleaseSemaphore(&prefssema);
 }
 
@@ -885,7 +929,6 @@ void Addtonocookie(UBYTE *name)
          }
       }
       Savenocookieprefs(&prefs.network,FALSE,NULL);
-      Savenocookieprefs(&prefs.network,TRUE,NULL);
    }
    ReleaseSemaphore(&prefssema);
 }

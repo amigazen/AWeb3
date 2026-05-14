@@ -789,7 +789,9 @@ BOOL Openprogram(void)
       nreq.nr_Flags=NRF_SEND_MESSAGE;
       StartNotify(&nreq);
       Copyprogramprefs(&defprefs.program,&pgp);
-      Loadprogramprefs(&pgp,FALSE,NULL);
+      if(!Prefsconfiguseslegacyawebpath(NULL))
+      {  Loadprogramprefs(&pgp,FALSE,NULL);
+      }
       Copyprogramprefs(&pgp,&orgpgp);
       tested=FALSE;
       Makeclicktablist(&tablist,tablabels);
@@ -994,7 +996,9 @@ BOOL Processprogram(void)
                      CFGAWEBSTR(MSG_SET_REQTITLE_OPENPROGRAM),"program",FALSE))
                   {  Disposeprogramprefs(&pgp);
                      Copyprogramprefs(&defprefs.program,&pgp);
-                     Loadprogramprefs(&pgp,FALSE,path);
+                     if(!Prefsconfiguseslegacyawebpath(path))
+                     {  Loadprogramprefs(&pgp,FALSE,path);
+                     }
                      Setdata();
                      FREE(path);
                   }
@@ -1018,7 +1022,9 @@ BOOL Processprogram(void)
                case MID_LASTSAVED:
                   Disposeprogramprefs(&pgp);
                   Copyprogramprefs(&defprefs.program,&pgp);
-                  Loadprogramprefs(&pgp,TRUE,NULL);
+                  if(!Prefsconfiguseslegacyawebpath(NULL))
+                  {  Loadprogramprefs(&pgp,FALSE,NULL);
+                  }
                   Setdata();
                   break;
                case MID_RESTORE:
@@ -1057,7 +1063,9 @@ BOOL Processprogram(void)
       if(changed)
       {  Disposeprogramprefs(&pgp);
          Copyprogramprefs(&defprefs.program,&pgp);
-         Loadprogramprefs(&pgp,FALSE,NULL);
+         if(!Prefsconfiguseslegacyawebpath(NULL))
+         {  Loadprogramprefs(&pgp,FALSE,NULL);
+         }
          Setdata();
          Disposeprogramprefs(&orgpgp);
          Copyprogramprefs(&pgp,&orgpgp);
