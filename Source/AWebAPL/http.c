@@ -134,9 +134,41 @@ struct Httpinfo
 #define HTTPIF_CHUNKED 0x0800        /* response uses chunked transfer encoding */
 #define HTTPIF_RANGE_REQUEST 0x4000  /* Using Range request to resume partial download */
 
-static UBYTE *httprequest="GET %.7000s HTTP/1.1\r\n";
+/* Signed redirect URLs are often >7K; must match request-line sprintf. */
+#define HTTP_REQUEST_URI_MAX 12000
 
-static UBYTE *httppostrequest="POST %.7000s HTTP/1.1\r\n";
+/* Grow HTTP request buffer before unbounded sprintf/strcpy (auth, cookies, long Host, etc.). */
+static BOOL Buildrequest_ensure(struct Fetchdriver *fd, UBYTE **req, UBYTE **pp, long *reqcap,
+   long additional)
+{  long used;
+   long need;
+   UBYTE *nb;
+
+   if(!fd || !req || !pp || !reqcap || !*req || !*pp)
+      return FALSE;
+   used = *pp - *req;
+   if(used < 0)
+      return FALSE;
+   /* Extra slack for sprintf NUL and header formatting */
+   need = used + additional + 256L;
+   if(need <= *reqcap)
+      return TRUE;
+   if(need < *reqcap * 2L)
+      need = *reqcap * 2L;
+   if(need > 262144L)
+      need = 262144L;
+   nb = ALLOCTYPE(UBYTE, need, 0);
+   if(!nb)
+      return FALSE;
+   if(used > 0)
+      memcpy(nb, *req, (size_t)used);
+   if(*req != fd->block)
+      FREE(*req);
+   *req = nb;
+   *pp = nb + used;
+   *reqcap = need;
+   return TRUE;
+}
 
 /* Cloudflare (and similar) often return 403 / error 1010 for any UA whose token is
  * Mozilla/3.0 or Mozilla/3.01; Mozilla/4.0+ with the same product comment is accepted. */
@@ -854,31 +886,66 @@ static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
    return (BOOL)(hi->connect && hi->hostport && hi->abspath && hi->hostname);
 }
 
-/* Build a HTTP request. The length is returned.
+/* Build a HTTP request. The length is returned, or -1 if a buffer grow failed.
  * (*request) is either fd->block or a dynamic string if fd->block was too small */
 static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **request)
-{  UBYTE *p=fd->block;
+{  UBYTE *p;
    UBYTE *cookies;
    const UBYTE *plang;
    const UBYTE *ua;
    int plen;
+   long reqcap;
+   long pathlen;
+   long est;
+   long cooklen;
+
    *request=fd->block;
+   p=fd->block;
+   reqcap=fd->blocksize;
+   pathlen=(long)strlen((char *)hi->abspath);
+   if(pathlen>HTTP_REQUEST_URI_MAX)
+      pathlen=HTTP_REQUEST_URI_MAX;
+   /* First line plus typical static headers; avoid overflowing fd->block before first grow */
+   est=pathlen+4096L;
+   if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      return -1L;
    if(fd->postmsg || fd->multipart)
-      p+=sprintf(p,httppostrequest,hi->abspath);
-   else p+=sprintf(p,httprequest,hi->abspath);
+      p+=sprintf((char *)p,"POST %.*s HTTP/1.1\r\n",HTTP_REQUEST_URI_MAX,hi->abspath);
+   else
+      p+=sprintf((char *)p,"GET %.*s HTTP/1.1\r\n",HTTP_REQUEST_URI_MAX,hi->abspath);
    ObtainSemaphore(&prefssema);
 #ifndef DEMOVERSION
    if(*prefs.network.spoofid)
-   {  p+=sprintf(p,useragentspoof,prefs.network.spoofid);
+   {  est=(long)strlen((char *)prefs.network.spoofid)+64L;
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  ReleaseSemaphore(&prefssema);
+         if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      p+=sprintf((char *)p,(char *)useragentspoof,prefs.network.spoofid);
    }
    else
 #endif
    {  ua=Defaultuseragent();
-      strcpy(p,ua);
-      p+=strlen(ua);
+      est=(long)strlen((char *)ua)+4L;
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  ReleaseSemaphore(&prefssema);
+         if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      strcpy((char *)p,(const char *)ua);
+      p+=(long)strlen((char *)ua);
    }
    ReleaseSemaphore(&prefssema);
-   p+=sprintf(p,fixedheaders);
+   est=(long)strlen((char *)fixedheaders)+4L;
+   if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+   {  if(*request!=fd->block) FREE(*request);
+      *request=fd->block;
+      return -1L;
+   }
+   p+=sprintf((char *)p,(char *)fixedheaders);
    /* Accept-Language: use locale.library preferred tag when it looks like ISO 639-1 or xx-yy. */
    plang=NULL;
    plen=0;
@@ -888,84 +955,135 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
          plen=(int)strlen((const char *)plang);
       }
    }
+   if(!Buildrequest_ensure(fd,request,&p,&reqcap,64L))
+   {  if(*request!=fd->block) FREE(*request);
+      *request=fd->block;
+      return -1L;
+   }
    if(plang && plen==2
       && isalpha((int)(unsigned char)plang[0]) && isalpha((int)(unsigned char)plang[1]))
    {  if(STRIEQUAL((UBYTE *)plang,(UBYTE *)"en"))
-         p+=sprintf(p,"Accept-Language: en-US, en;q=0.9\r\n");
+         p+=sprintf((char *)p,"Accept-Language: en-US, en;q=0.9\r\n");
       else
-         p+=sprintf(p,"Accept-Language: %.2s, en;q=0.5\r\n",plang);
+         p+=sprintf((char *)p,"Accept-Language: %.2s, en;q=0.5\r\n",plang);
    }
    else if(plang && plen==5 && plang[2]=='-'
       && isalpha((int)(unsigned char)plang[0]) && isalpha((int)(unsigned char)plang[1])
       && isalpha((int)(unsigned char)plang[3]) && isalpha((int)(unsigned char)plang[4]))
-      p+=sprintf(p,"Accept-Language: %.5s, en;q=0.5\r\n",plang);
+      p+=sprintf((char *)p,"Accept-Language: %.5s, en;q=0.5\r\n",plang);
    else
-      p+=sprintf(p,"Accept-Language: en-US, en;q=0.9\r\n");
+      p+=sprintf((char *)p,"Accept-Language: en-US, en;q=0.9\r\n");
    /* Add HTTP/1.1 Connection header - use keep-alive by default for HTTP/1.1 */
    /* Only use keep-alive if not using proxy (proxies may not support it well) */
    if(!fd->proxy)
-   {  p+=sprintf(p,connection_keepalive);
+   {  p+=sprintf((char *)p,(char *)connection_keepalive);
       hi->flags|=HTTPIF_KEEPALIVE_REQ;
    }
    else
-   {  p+=sprintf(p,connection);
+   {  p+=sprintf((char *)p,(char *)connection);
    }
    if(hi->hostport)
-      p+=sprintf(p,host,hi->hostport);
+   {  est=(long)strlen((char *)hi->hostport)+32L;
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      p+=sprintf((char *)p,(char *)host,hi->hostport);
+   }
    /* Skip conditional headers for Range requests - they cause 304 instead of 206 */
    if(!(hi->flags & HTTPIF_RANGE_REQUEST))
    {  if(fd->validate)
       {  UBYTE date[32];
+         if(!Buildrequest_ensure(fd,request,&p,&reqcap,48L))
+         {  if(*request!=fd->block) FREE(*request);
+            *request=fd->block;
+            return -1L;
+         }
          Makedate(fd->validate,date);
-         p+=sprintf(p,ifmodifiedsince,date);
+         p+=sprintf((char *)p,(char *)ifmodifiedsince,date);
       }
       
       /* If ETag exists verify this else try time */
-      if(fd->etag && strlen(fd->etag)>0)
-      {  p+=sprintf(p,ifnonematch,fd->etag);
+      if(fd->etag && strlen((char *)fd->etag)>0)
+      {  est=(long)strlen((char *)fd->etag)+48L;
+         if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+         {  if(*request!=fd->block) FREE(*request);
+            *request=fd->block;
+            return -1L;
+         }
+         p+=sprintf((char *)p,(char *)ifnonematch,fd->etag);
       }
    }
    
    if(hi->auth && hi->auth->cookie)
-      p+=sprintf(p,authorization,hi->auth->cookie);
+   {  est=(long)strlen((char *)hi->auth->cookie)+48L;
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      p+=sprintf((char *)p,(char *)authorization,hi->auth->cookie);
+   }
    if(hi->prxauth && hi->prxauth->cookie)
-      p+=sprintf(p,proxyauthorization,hi->prxauth->cookie);
+   {  est=(long)strlen((char *)hi->prxauth->cookie)+48L;
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      p+=sprintf((char *)p,(char *)proxyauthorization,hi->prxauth->cookie);
+   }
    if(fd->flags&FDVF_NOCACHE)
-      p+=sprintf(p,nocache);
-   if(fd->referer && (p-fd->block)+strlen(fd->referer)<7000)
-      p+=sprintf(p,referer,fd->referer);
+      p+=sprintf((char *)p,(char *)nocache);
+   if(fd->referer)
+   {  est=(long)strlen((char *)fd->referer)+48L;
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      p+=sprintf((char *)p,(char *)referer,fd->referer);
+   }
    if(fd->multipart)
-   {  p+=sprintf(p,httpmultipartcontent,
+   {  est=128L;
+      if(fd->multipart->buf.buffer)
+         est+=(long)strlen((char *)fd->multipart->buf.buffer);
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,est))
+      {  if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
+      }
+      p+=sprintf((char *)p,(char *)httpmultipartcontent,
          fd->multipart->length,fd->multipart->buf.buffer);
    }
    else if(fd->postmsg)
-   {  p+=sprintf(p,httppostcontent,strlen(fd->postmsg));
-   }
+      p+=sprintf((char *)p,(char *)httppostcontent,(int)strlen((char *)fd->postmsg));
    /* Add Range header if resuming a partial download */
    if((hi->flags & HTTPIF_RANGE_REQUEST) && hi->bytes_received > 0 && hi->server_supports_range)
    {  /* Request remaining bytes: bytes=XXXX- */
-      /* Note: We don't specify end byte, server will send until end of file */
-      p+=sprintf(p, "Range: bytes=%ld-\r\n", hi->bytes_received);
+      /* Note: we don't specify end byte, server will send until end of file */
+      p+=sprintf((char *)p, "Range: bytes=%ld-\r\n", hi->bytes_received);
       debug_printf("DEBUG: Buildrequest: Adding Range header: bytes=%ld-\n", hi->bytes_received);
    }
    if(prefs.network.cookies && (cookies=Findcookies(fd->name,hi->flags&HTTPIF_SSL)))
-   {  long len=strlen(cookies);
-      if((p-fd->block)+len<7000)
-      {  strcpy(p,cookies);
-         p+=len;
+   {  cooklen=(long)strlen((char *)cookies);
+      if(!Buildrequest_ensure(fd,request,&p,&reqcap,cooklen+4L))
+      {  FREE(cookies);
+         if(*request!=fd->block) FREE(*request);
+         *request=fd->block;
+         return -1L;
       }
-      else
-      {  UBYTE *newreq=ALLOCTYPE(UBYTE,(p-fd->block)+len+16,0);
-         if(newreq)
-         {  strcpy(newreq,fd->block);
-            strcpy(newreq+(p-fd->block),cookies);
-            *request=newreq;
-            p=newreq+(p-fd->block)+len;
-         }
-      }
+      strcpy((char *)p,(char *)cookies);
+      p+=cooklen;
       FREE(cookies);
    }
-   p+=sprintf(p,"\r\n");
+   if(!Buildrequest_ensure(fd,request,&p,&reqcap,8L))
+   {  if(*request!=fd->block) FREE(*request);
+      *request=fd->block;
+      return -1L;
+   }
+   p+=sprintf((char *)p,"\r\n");
    return p-*request;
 }
 
@@ -1168,8 +1286,6 @@ static BOOL Readblock(struct Httpinfo *hi)
       return FALSE;
    }
    
-   /* CRITICAL: Prevent buffer overflow from extremely long headers (e.g., GitHub's 3700+ byte Content-Security-Policy) */
-   /* Clamp received bytes to available buffer space */
    {  long available_space = hi->fd->blocksize - hi->blocklength;
       if(n > available_space)
       {  debug_printf("DEBUG: Readblock: WARNING - Received %ld bytes but only %ld bytes available, clamping to prevent overflow\n", n, available_space);
@@ -1242,7 +1358,12 @@ static BOOL Findline(struct Httpinfo *hi)
    }
    if(httpdebug)
    {  if(hi->linelength > 0)
-         AwebLog("http", "%s", hi->fd->block);
+      {  /* Multi-KB CSP lines can overwhelm logging and appear to "lock" the UI on serial debug */
+         if(hi->linelength > 512)
+            AwebLog("http", "%.512s...", hi->fd->block);
+         else
+            AwebLog("http", "%s", hi->fd->block);
+      }
    }
    return TRUE;
 }
@@ -1288,23 +1409,23 @@ static BOOL Readheaders(struct Httpinfo *hi)
    for(;;)
    {  if(!Findline(hi)) return FALSE;
       if(hi->linelength==0)
-      {  if(hi->status) return FALSE;
-         else 
-         {  ULONG exp;
-            ULONG nowtoday;
-            debug_printf("DEBUG: Headers complete, starting data processing\n");
-            /* max-age overrides Expires (RFC 9111); must-revalidate alone -> expire now */
-            nowtoday=Today();
-            if(hi->cc_accum.saw_positive_max_age && hi->cc_accum.min_max_age>0)
-            {  exp=nowtoday+(ULONG)hi->cc_accum.min_max_age;
-               Updatetaskattrs(AOURL_Expires,exp,TAG_END);
-            }
-            else if(hi->cc_accum.must_revalidate && !hi->http_got_expires && hi->fd->serverdate)
-            {  Updatetaskattrs(AOURL_Expires,nowtoday,TAG_END);
-            }
-            /* Allow gzip with chunked encoding - we now handle it properly */
-            return TRUE;
+      {  /* Blank line ends the header block (RFC 7230). Do not consult hi->status here:
+          * Readresponse stores 304/401/407 in hi->status and would otherwise make us
+          * return FALSE forever without completing headers (hang on long CSP lines, etc.). */
+         ULONG exp;
+         ULONG nowtoday;
+         debug_printf("DEBUG: Headers complete, starting data processing\n");
+         /* max-age overrides Expires (RFC 9111); must-revalidate alone -> expire now */
+         nowtoday=Today();
+         if(hi->cc_accum.saw_positive_max_age && hi->cc_accum.min_max_age>0)
+         {  exp=nowtoday+(ULONG)hi->cc_accum.min_max_age;
+            Updatetaskattrs(AOURL_Expires,exp,TAG_END);
          }
+         else if(hi->cc_accum.must_revalidate && !hi->http_got_expires && hi->fd->serverdate)
+         {  Updatetaskattrs(AOURL_Expires,nowtoday,TAG_END);
+         }
+         /* Allow gzip with chunked encoding - we now handle it properly */
+         return TRUE;
       }
       Updatetaskattrs(
          AOURL_Header,hi->fd->block,
@@ -1532,17 +1653,41 @@ static BOOL Readheaders(struct Httpinfo *hi)
          hi->fd->etag=Dupstr(p,-1);
       }
       else if(STRNIEQUAL(hi->fd->block,"Content-Disposition:",20))
-      {  UBYTE *p,*q;
-         for(p=hi->fd->block+21;*p && isspace(*p);p++);
-         for(q=p;*q && !isspace(*q) && *q!=';';q++);
-         *q='\0';
+      {  UBYTE *p;
+         UBYTE *q;
+         UBYTE *r;
+         UBYTE *lineend;
+
+         /* Bound all scans to this header line so long CSP/other headers cannot make strstr walk past NUL */
+         lineend=hi->fd->block+hi->linelength;
+         /* 20 == strlen("Content-Disposition:") — first value byte is at index 20 (not +21, which ate 'a' of "attachment" when no space after ':') */
+         for(p=hi->fd->block+20;p<lineend && *p && isspace((int)(unsigned char)*p);p++);
+         for(q=p;q<lineend && *q && !isspace((int)(unsigned char)*q) && *q!=';';q++);
+         if(q<lineend)
+            *q='\0';
          if(STRIEQUAL(p,"attachment"))
-         {  p+=11;
-            if((q=strstr(p,"filename")))
-            {  for(p=q+8;*p && (isspace(*p) || *p=='"' || *p=='=');p++);
-               for(q=p;*q && !isspace(*q) && *q!=';' && *q!='"';q++);
-               *q='\0';
-               Updatetaskattrs(AOURL_Filename,p,TAG_END);
+         {  if(q<lineend)
+               p=q+1;
+            else
+               p=q;
+            while(p<lineend && *p && (isspace((int)(unsigned char)*p) || *p==';'))
+               p++;
+            if((q=(UBYTE *)strstr((char *)p,"filename")))
+            {  for(r=q+8;r<lineend && *r && (isspace((int)(unsigned char)*r) || *r=='"' || *r=='=' || *r=='*');r++);
+               if(r<lineend && *r=='"')
+               {  r++;
+                  for(q=r;q<lineend && *q && *q!='"';q++);
+                  if(q<lineend)
+                     *q='\0';
+                  Updatetaskattrs(AOURL_Filename,r,TAG_END);
+               }
+               else
+               {  for(q=r;q<lineend && *q && !isspace((int)(unsigned char)*q) && *q!=';' && *q!='"';q++);
+                  if(q<lineend)
+                     *q='\0';
+                  if(r<lineend && *r)
+                     Updatetaskattrs(AOURL_Filename,r,TAG_END);
+               }
             }
          }
       }
@@ -1589,10 +1734,19 @@ static BOOL Readheaders(struct Httpinfo *hi)
       else if(hi->movedto && STRNIEQUAL(hi->fd->block,"Location:",9))
       {  UBYTE *p;
          UBYTE *q;
-         for(p=hi->fd->block+9;*p && isspace(*p);p++);
-         for(q=p+strlen(p)-1;q>p && isspace(*q);q--);
-         if(hi->movedtourl) FREE(hi->movedtourl);
-         hi->movedtourl=Dupstr(p,q-p+1);
+         UBYTE *lineend;
+
+         /* Use linelength as end; do not use strlen(p) on the block (defensive if line is ever malformed) */
+         lineend=hi->fd->block+hi->linelength;
+         for(p=hi->fd->block+9;p<lineend && *p && isspace((int)(unsigned char)*p);p++);
+         if(p<lineend && *p)
+         {  q=lineend-1;
+            while(q>p && isspace((int)(unsigned char)*q))
+               q--;
+            if(hi->movedtourl)
+               FREE(hi->movedtourl);
+            hi->movedtourl=Dupstr(p,(long)(q-p+1));
+         }
          debug_printf("DEBUG: Set movedtourl to: %s\n", hi->movedtourl ? (char *)hi->movedtourl : "(NULL)");
       }
       else if(hi->status==401 && STRNIEQUAL(hi->fd->block,"WWW-Authenticate:",17))
@@ -5191,6 +5345,10 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
             }
          }
       }
+      else
+      {  debug_printf("DEBUG: Readheaders failed (eof, incomplete line, or I/O error)\n");
+         Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
+      }
    }
    else
    {  Readdata(hi);
@@ -5875,23 +6033,31 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
       {  fprintf(f,"[%s %d%s]\n",hi->connect,hi->port,
             (hi->flags&HTTPIF_SSL)?" SECURE":"");
          reqlen=Buildrequest(fd,hi,&request);
-         fwrite(request,reqlen,1,f);
-         if(fd->multipart) Sendmultipartdata(hi,fd,f);
-         else if(fd->postmsg)
-         {  fwrite(fd->postmsg,strlen(fd->postmsg),1,f);
-            fwrite("\n",1,1,f);
+         if(reqlen<0L)
+         {  fprintf(f,"[Buildrequest failed]\n");
+            fflush(f);
+            if(request!=fd->block) FREE(request);
+            fclose(f);
          }
-         fflush(f);
-         if(request!=fd->block) FREE(request);
-         if(hi->flags&HTTPIF_SSL)
-         {  Updatetaskattrs(AOURL_Cipher,"AWEB-DEBUG",TAG_END);
+         else
+         {  fwrite(request,reqlen,1,f);
+            if(fd->multipart) Sendmultipartdata(hi,fd,f);
+            else if(fd->postmsg)
+            {  fwrite(fd->postmsg,strlen(fd->postmsg),1,f);
+               fwrite("\n",1,1,f);
+            }
+            fflush(f);
+            if(request!=fd->block) FREE(request);
+            if(hi->flags&HTTPIF_SSL)
+            {  Updatetaskattrs(AOURL_Cipher,"AWEB-DEBUG",TAG_END);
+            }
+            Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
+            Tcpmessage(fd,TCPMSG_WAITING,hi->flags&HTTPIF_SSL?"HTTPS":"HTTP");
+            hi->socketbase=NULL;
+            hi->sock=(long)f;
+            Httpresponse(hi,TRUE);
+            fclose(f);
          }
-         Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
-         Tcpmessage(fd,TCPMSG_WAITING,hi->flags&HTTPIF_SSL?"HTTPS":"HTTP");
-         hi->socketbase=NULL;
-         hi->sock=(long)f;
-         Httpresponse(hi,TRUE);
-         fclose(f);
       }
    }
    else
@@ -6164,7 +6330,14 @@ send_request:
       if(result)
       {  debug_printf("DEBUG: Httpretrieve: Building HTTP request\n");
          reqlen=Buildrequest(fd,hi,&request);
-         debug_printf("DEBUG: Httpretrieve: Request built, length=%ld, calling Send()\n", reqlen);
+         if(reqlen<0L)
+         {  debug_printf("DEBUG: Httpretrieve: Buildrequest failed (buffer grow)\n");
+            error=TRUE;
+            if(request!=fd->block) FREE(request);
+            request=fd->block;
+         }
+         else
+         {  debug_printf("DEBUG: Httpretrieve: Request built, length=%ld, calling Send()\n", reqlen);
          
          /* Send Request */
          sent = Send(hi,request,reqlen);
@@ -6271,6 +6444,7 @@ send_request:
          else
          {  debug_printf("DEBUG: Httpretrieve: Request send failed, setting error\n");
             error=TRUE;
+         }
          }
       }
       

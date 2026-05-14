@@ -58,6 +58,7 @@ struct Source
    void *serverpush;          /* FETCH object to cancel if no longer displayed. */
    UBYTE *cipher;             /* Cipher method used */
    UBYTE *ssllibrary;         /* SSL library used */
+   UBYTE *suggestname;        /* Filename from Content-Disposition (fetch task) */
    LIST(Header) headers;      /* HTTP headers */
 };
 
@@ -761,6 +762,9 @@ static long Getsource(struct Source *src,struct Amset *ams)
          case AOSRC_Foreign:
             PUTATTR(tag,BOOLVAL(src->flags&SRCF_FOREIGN));
             break;
+         case AOSRC_Filename:
+            PUTATTR(tag,src->suggestname);
+            break;
       }
    }
    return 0;
@@ -861,6 +865,12 @@ static long Srcupdatesource(struct Source *src,struct Amsrcupdate *ams)
          case AOURL_Ssllibrary:
             if(src->ssllibrary) FREE(src->ssllibrary);
             src->ssllibrary=Dupstr((UBYTE *)tag->ti_Data,-1);
+            break;
+         case AOURL_Filename:
+            if(tag->ti_Data)
+            {  if(src->suggestname) FREE(src->suggestname);
+               src->suggestname=Dupstr((UBYTE *)tag->ti_Data,-1);
+            }
             break;
       }
    }
@@ -971,6 +981,7 @@ static void Disposesource(struct Source *src)
       CloseLibrary(src->pluginbase);
    }
    if(src->savename) FREE(src->savename);
+   if(src->suggestname) FREE(src->suggestname);
    if(src->cipher) FREE(src->cipher);
    if(src->ssllibrary) FREE(src->ssllibrary);
    Amethodas(AOTP_OBJECT,src,AOM_DISPOSE);

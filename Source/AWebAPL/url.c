@@ -29,6 +29,7 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
+#include <string.h>
 
 struct Url
 {  struct Aobject object;
@@ -1377,12 +1378,90 @@ UBYTE *Makeabsurl(UBYTE *base,UBYTE *url)
    return Dupstr(absurl,-1);
 }
 
+/* Single hex digit for percent-decoding in query strings (RFC 3986 style). */
+static int Url_hexdigit(UBYTE c)
+{  if(c>='0' && c<='9') return (int)(c-'0');
+   if(c>='a' && c<='f') return (int)(c-'a'+10);
+   if(c>='A' && c<='F') return (int)(c-'A'+10);
+   return -1;
+}
+
+/* Signed download URLs often put the real name in filename= / filename%3D in the query while the path ends in an opaque token. */
+static UBYTE *Urlfilename_from_query(UBYTE *url)
+{  UBYTE *q;
+   UBYTE *s;
+   UBYTE *end;
+   UBYTE decbuf[264];
+   long dlen;
+   int hi;
+   int lo;
+
+   q=(UBYTE *)strchr((char *)url,'?');
+   if(!q) return NULL;
+   s=(UBYTE *)strstr((char *)q,"filename%3D");
+   if(!s) s=(UBYTE *)strstr((char *)q,"filename=");
+   if(!s) return NULL;
+   if(STRNIEQUAL(s,"filename%3D",11))
+      s+=11;
+   else if(STRNIEQUAL(s,"filename=",9))
+      s+=9;
+   else return NULL;
+   end=s;
+   while(*end && *end!='&' && *end!='#') end++;
+   dlen=0;
+   while(s<end && dlen<(long)sizeof(decbuf)-1)
+   {  if(*s=='%' && s+2<end)
+      {  hi=Url_hexdigit(s[1]);
+         lo=Url_hexdigit(s[2]);
+         if(hi>=0 && lo>=0)
+         {  decbuf[dlen++]=(UBYTE)((hi<<4)|lo);
+            s+=3;
+            continue;
+         }
+      }
+      if(*s=='+')
+      {  decbuf[dlen++]=' ';
+         s++;
+         continue;
+      }
+      decbuf[dlen++]=*s++;
+   }
+   decbuf[dlen]='\0';
+   if(dlen<1) return NULL;
+   return Dupstr(decbuf,-1);
+}
+
 UBYTE *Urlfilename(UBYTE *url)
-{  UBYTE *p,*q;
+{  UBYTE *p;
+   UBYTE *q;
+   UBYTE *dflt;
+   UBYTE *alt;
+   UBYTE *x;
+   int hasdot;
+
    for(p=url;*p && *p!=';' && *p!='?' && *p!='#';p++);
    for(q=p-1;q>=url && *q!='/' && *q!=':';q--);
-   if(q>url && *(q-1)!='/') return Dupstr(q+1,p-q-1);
-   else return Dupstr("",0);
+   if(q>url && *(q-1)!='/') dflt=Dupstr(q+1,p-q-1);
+   else dflt=Dupstr("",0);
+   hasdot=0;
+   if(dflt)
+   {  for(x=dflt;*x;x++)
+      {  if(*x=='.')
+         {  hasdot=1;
+            break;
+         }
+      }
+   }
+   /* When the last path segment has no extension it is often an opaque id; many CDNs then supply filename= in the query. */
+   if(strchr((char *)url,'?') && (!dflt || !*dflt || !hasdot))
+   {  alt=Urlfilename_from_query(url);
+      if(alt && *alt)
+      {  FREE(dflt);
+         return alt;
+      }
+      if(alt) FREE(alt);
+   }
+   return dflt;
 }
 
 UBYTE *Urlfilenamefb(UBYTE *url)

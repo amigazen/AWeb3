@@ -91,7 +91,7 @@
    /* (BOOL) Data uses foreign character set */
 
 #define AOSRC_Filename     (AOSRC_Dummy+21)  /* GET */
-   /* (UBYTE *) Filename suggested by Content-Disposition header */
+   /* (UBYTE *) Filename from Content-Disposition (set on SOURCE via fetch srcupdate). */
 
 #define AOSRC_    (AOSRC_Dummy+)
 #define AOSRC_    (AOSRC_Dummy+)
