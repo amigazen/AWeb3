@@ -279,6 +279,11 @@ static struct Library *AcquireSocketBaseSwap(struct Library *newbase)
    BOOL acquired = FALSE;
    int tries;
    saved = SocketBase;
+   /* Never install NULL: bsdsocket protos read SocketBase+LVO (e.g. ~0x12E). */
+   if(!newbase)
+   {
+      return saved;
+   }
    if(socketbase_swap_sema_initialized)
    {  tries = 0;
       while(!AttemptSemaphore(&socketbase_swap_sema))
@@ -419,18 +424,86 @@ static BOOL HostnameMatches(UBYTE *hostname1, UBYTE *hostname2)
    return (BOOL)STRIEQUAL(norm1, norm2);
 }
 
+/* Pooled connections still holding an open socket (not checked out). */
+static long HttpCountPooledConnections(void)
+{  struct KeepAliveConnection *conn;
+   long count;
+   count = 0;
+   if(!keepalive_sema_initialized)
+   {
+      return 0;
+   }
+   ObtainSemaphore(&keepalive_sema);
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn && conn->next; conn = (struct KeepAliveConnection *)conn->next)
+   {
+      if(conn->sock >= 0 && conn->socketbase)
+      {
+         count++;
+      }
+   }
+   ReleaseSemaphore(&keepalive_sema);
+   return count;
+}
+
+/* Close SSL, socket, and socket library for an active Httpinfo (not pooled). */
+static void HttpCloseConnection(struct Httpinfo *hi)
+{
+   if(!hi)
+   {
+      return;
+   }
+#ifndef DEMOVERSION
+   if(hi->assl)
+   {
+      Assl_closessl(hi->assl);
+      Assl_detach_socketbase(hi->assl);
+      Assl_dispose(&hi->assl);
+   }
+#endif
+   if(hi->sock >= 0 && hi->socketbase)
+   {
+      a_close(hi->sock, hi->socketbase);
+      hi->sock = -1;
+   }
+   if(hi->socketbase)
+   {
+      CloseLibrary(hi->socketbase);
+      hi->socketbase = NULL;
+   }
+}
+
+/* Free a pooled connection node and all its resources */
+static void HttpReleasePooledConn(struct KeepAliveConnection *conn)
+{
+   if(!conn)
+   {
+      return;
+   }
+#ifndef DEMOVERSION
+   if(conn->assl)
+   {
+      Assl_closessl(conn->assl);
+      Assl_detach_socketbase(conn->assl);
+      Assl_dispose(&conn->assl);
+      conn->assl = NULL;
+   }
+#endif
+   if(conn->sock >= 0 && conn->socketbase)
+   {
+      a_close(conn->sock, conn->socketbase);
+      conn->sock = -1;
+   }
+   if(conn->socketbase)
+   {
+      CloseLibrary(conn->socketbase);
+      conn->socketbase = NULL;
+   }
+}
+
 /* Free a connection node and all its resources */
 static void FreeConnectionNode(struct KeepAliveConnection *conn)
 {  if(!conn) return;
-   
-   if(conn->sock >= 0 && conn->socketbase)
-   {  if(conn->assl) Assl_closessl(conn->assl);
-      a_close(conn->sock, conn->socketbase);
-   }
-   if(conn->assl)
-   {  Assl_dispose(&conn->assl);
-   }
-   if(conn->socketbase) CloseLibrary(conn->socketbase);
+   HttpReleasePooledConn(conn);
    if(conn->hostname) FREE(conn->hostname);
    FREE(conn);
 }
@@ -609,17 +682,7 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    /* If HTTPIF_KEEPALIVE is NOT set, it means server said "close" or didn't say "keep-alive" on HTTP/1.0 */
    if(!(hi->flags & HTTPIF_KEEPALIVE))
    {  debug_printf("DEBUG: ReturnKeepAliveConnection: Server requested close (no KEEPALIVE flag), closing connection\n");
-      /* Close it now */
-#ifndef DEMOVERSION
-      if(hi->assl) Assl_closessl(hi->assl);
-#endif
-      if(hi->sock >= 0 && hi->socketbase) a_close(hi->sock, hi->socketbase);
-      hi->sock = -1;
-      /* Clean up SSL struct if needed */
-#ifndef DEMOVERSION
-      if(hi->assl) { Assl_dispose(&hi->assl); }
-#endif
-      if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase = NULL; }
+      HttpCloseConnection(hi);
       return;
    }
    
@@ -656,15 +719,7 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
 #endif
    if(dont_pool)
    {
-#ifndef DEMOVERSION
-      if(hi->assl) Assl_closessl(hi->assl);
-#endif
-      if(hi->sock >= 0 && hi->socketbase) a_close(hi->sock, hi->socketbase);
-      hi->sock = -1;
-#ifndef DEMOVERSION
-      if(hi->assl) { Assl_dispose(&hi->assl); }
-#endif
-      if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase = NULL; }
+      HttpCloseConnection(hi);
       return;
    }
    
@@ -759,7 +814,7 @@ static void CleanupKeepAlivePool(void)
    for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
       
-      if(conn->in_use || ((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT))
+      if((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT)
       {  Remove((struct Node *)conn);
          conn->next = close_list;
          close_list = conn;
@@ -5180,20 +5235,7 @@ static BOOL Readdata(struct Httpinfo *hi)
    if(hi->sock >= 0)
    {  if (!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
       {  debug_printf("DEBUG: Readdata cleanup: Closing non-keepalive socket\n");
-         /* Close socket first, then clean up SSL */
-         if(hi->socketbase) a_close(hi->sock, hi->socketbase);
-         hi->sock = -1;
-         
-         /* Also free the library/assl references now since we won't pool */
-#ifndef DEMOVERSION
-         if(hi->assl)
-         {  Assl_dispose(&hi->assl);
-         }
-#endif
-         if(hi->socketbase)
-         {  CloseLibrary(hi->socketbase);
-            hi->socketbase = NULL;
-         }
+         HttpCloseConnection(hi);
       }
       else
       {  debug_printf("DEBUG: Readdata cleanup: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
@@ -6063,6 +6105,8 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    else
    {
 #endif
+   /* Expire idle pooled sockets before opening new ones on this retrieve task. */
+   CleanupKeepAlivePool();
    /* Retry loop for stale keep-alive connections (RFC 7230) */
    retry_count = 0;
    do
@@ -6448,20 +6492,9 @@ send_request:
          }
       }
       
-      /* Only call a_cleanup() if connection was NOT reused AND socketbase is still valid */
-      /* Reused connections keep socketbase in use by the pool */
-      /* ReturnKeepAliveConnection() clears socketbase to NULL, so check for NULL too */
-      if(!try_again && !hi->connection_reused && hi->socketbase)
-      {  debug_printf("DEBUG: Httpretrieve: Calling a_cleanup()\n");
-         a_cleanup(hi->socketbase);
-         debug_printf("DEBUG: Httpretrieve: a_cleanup() completed\n");
-      }
-      else if(!try_again && hi->connection_reused)
-      {  debug_printf("DEBUG: Httpretrieve: Skipping a_cleanup() - connection was reused and will be returned to pool\n");
-      }
-      else if(!try_again && !hi->socketbase)
-      {  debug_printf("DEBUG: Httpretrieve: Skipping a_cleanup() - socketbase was returned to pool (NULL)\n");
-      }
+      /* Do not call a_cleanup() here: it can invalidate bsdsocket.library while
+       * Assl_closessl() or pooled connections still need the same stack base.
+       * Per-task a_cleanup() runs from Httptask() when the keep-alive pool is empty. */
    }
    else
    {  debug_printf("DEBUG: Httpretrieve: Openlibraries() or Formwarnrequest() failed, reporting no lib error\n");
@@ -6473,39 +6506,11 @@ send_request:
    if(error)
    {  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    }
-#ifndef DEMOVERSION
-   /* Clean up Assl structure */
-   /* Must clean up Assl BEFORE closing socketbase library */
-   /* This ensures SSL operations are fully complete before library is closed */
-   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->assl */
-   /* Also skip cleanup if connection was reused - it's still in use by the pool */
-   if(hi->assl)
-   {  if(hi->connection_reused)
-      {  debug_printf("DEBUG: Httpretrieve: Skipping Assl cleanup - connection was reused and will be returned to pool\n");
-      }
-      else
-      {  debug_printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
-         Assl_dispose(&hi->assl);
-         debug_printf("DEBUG: Httpretrieve: Assl structure cleaned up\n");
-      }
-   }
-#endif
-   
-   /* Only close socketbase library after all SSL operations are complete */
-   /* This ensures no concurrent SSL operations are using the library when we close it */
-   /* Must wait until Assl is fully cleaned up before closing socketbase */
-   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->socketbase */
-   /* Also skip cleanup if connection was reused - it's still in use by the pool */
-   if(hi->socketbase)
-   {  if(hi->connection_reused)
-      {  debug_printf("DEBUG: Httpretrieve: Skipping socketbase cleanup - connection was reused and will be returned to pool\n");
-      }
-      else
-      {  debug_printf("DEBUG: Httpretrieve: Closing socketbase library\n");
-         CloseLibrary(hi->socketbase);
-         hi->socketbase=NULL;
-         debug_printf("DEBUG: Httpretrieve: Socketbase library closed\n");
-      }
+   /* Final teardown for connections not returned to the keep-alive pool.
+    * Pooled paths already cleared hi->assl / hi->socketbase / hi->sock. */
+   if(!hi->connection_reused && (hi->assl || hi->socketbase || hi->sock >= 0))
+   {  debug_printf("DEBUG: Httpretrieve: Final connection cleanup\n");
+      HttpCloseConnection(hi);
    }
 #ifdef DEVELOPER
    }
@@ -6561,15 +6566,11 @@ void Httptask(struct Fetchdriver *fd)
          }
          
          hi.status=0;
-         /* CRITICAL: Clean up any existing Assl before next iteration to prevent SSL context reuse */
-         /* This prevents wild free defects when redirects cause multiple connections */
-         if(hi.assl)
-         {  debug_printf("DEBUG: Httptask: Cleaning up existing Assl before redirect iteration\n");
-            Assl_dispose(&hi.assl);
+         /* Close any live connection before redirect/auth retry (do not leak fd/library). */
+         if(hi.sock >= 0 || hi.socketbase || hi.assl)
+         {  debug_printf("DEBUG: Httptask: Closing connection before next iteration\n");
+            HttpCloseConnection(&hi);
          }
-         /* CRITICAL: Reset socket and socketbase to prevent reuse */
-         hi.sock = -1;
-         hi.socketbase = NULL;
          Httpretrieve(&hi,fd);
          debug_printf("DEBUG: Httptask: Httpretrieve() returned - status=%ld, flags=0x%04X\n",
                 hi.status, hi.flags);
@@ -6638,6 +6639,20 @@ void Httptask(struct Fetchdriver *fd)
    else
    {  debug_printf("DEBUG: Httptask: Makehttpaddr failed, setting error\n");
       Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
+   }
+   {
+      struct Library *sockbase;
+      sockbase = hi.socketbase;
+      if(hi.sock >= 0 || hi.assl || sockbase)
+      {
+         HttpCloseConnection(&hi);
+      }
+      /* Per-task stack cleanup only when no idle pooled sockets still use it. */
+      if(sockbase && HttpCountPooledConnections() == 0)
+      {
+         debug_printf("DEBUG: Httptask: a_cleanup() (pool empty)\n");
+         a_cleanup(sockbase);
+      }
    }
    debug_printf("DEBUG: Httptask: EXIT\n");
    if(hi.connect) FREE(hi.connect);
@@ -6732,22 +6747,21 @@ void Freehttp(void)
       }
    }
    
-   /* Clean up all keep-alive connections */
+   /* Clean up all keep-alive connections (fetch tasks must already be stopped). */
    if(keepalive_sema_initialized)
-   {  ObtainSemaphore(&keepalive_sema);
+   {  struct KeepAliveConnection *close_list;
+      close_list = NULL;
+      ObtainSemaphore(&keepalive_sema);
       while(conn = (struct KeepAliveConnection *)REMHEAD(&keepalive_pool))
-      {  if(conn->sock >= 0 && conn->socketbase)
-         {  if(conn->assl) Assl_closessl(conn->assl);
-            a_close(conn->sock, conn->socketbase);
-         }
-         if(conn->assl)
-         {  Assl_dispose(&conn->assl);
-         }
-         if(conn->socketbase) CloseLibrary(conn->socketbase);
-         if(conn->hostname) FREE(conn->hostname);
-         FREE(conn);
+      {  conn->next = close_list;
+         close_list = conn;
       }
       ReleaseSemaphore(&keepalive_sema);
+      while(close_list)
+      {  conn = close_list;
+         close_list = (struct KeepAliveConnection *)conn->next;
+         FreeConnectionNode(conn);
+      }
    }
 #endif
 }

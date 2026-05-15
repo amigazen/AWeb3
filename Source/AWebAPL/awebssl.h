@@ -49,6 +49,9 @@ void Assl_closelibraries(struct Assl *assl);
 /* This is used at application shutdown to close unique library bases */
 void Assl_closelibrarybase(struct Library *library_base);
 
+/* Clear socketbase after bsdsocket.library is closed — avoids UAF in Assl_closessl */
+void Assl_detach_socketbase(struct Assl *assl);
+
 /* SSL certificate acceptance function */
 BOOL Httpcertaccept(char *hostname, char *certname);
 

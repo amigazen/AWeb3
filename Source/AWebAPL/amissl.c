@@ -169,6 +169,11 @@ static struct Library *AcquireSocketBaseSwap(struct Library *newbase)
    BOOL acquired = FALSE;
    int tries;
    saved = SocketBase;
+   /* Never install NULL: bsdsocket protos read SocketBase+LVO (e.g. ~0x12E). */
+   if(!newbase)
+   {
+      return saved;
+   }
    if(socketbase_swap_sema_initialized)
    {  tries = 0;
       while(!AttemptSemaphore(&socketbase_swap_sema))
@@ -1598,6 +1603,12 @@ __asm BOOL Assl_cleanup(register __a0 struct Assl *assl) {
   return TRUE;
 }
 
+void Assl_detach_socketbase(struct Assl *assl) {
+  if (assl) {
+    assl->socketbase = NULL;
+  }
+}
+
 void Assl_dispose(struct Assl **passl) {
 #ifndef DEMOVERSION
   if (passl && *passl) {
@@ -1960,7 +1971,9 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
         /* CRITICAL: Never allow cleanup to block. Put socket into non-blocking
          * mode for shutdown attempt. */
         nb = 1;
-        if (assl->sock >= 0 && assl->socketbase) {
+        if (assl->sock >= 0 && assl->socketbase &&
+            (ULONG)assl->socketbase >= 0x1000UL &&
+            (ULONG)assl->socketbase < 0xFFFFFFF0UL) {
           saved = AcquireSocketBaseSwap(assl->socketbase);
           IoctlSocket((int)assl->sock, FIONBIO, (char *)&nb);
           ReleaseSocketBaseSwap(saved);

@@ -516,13 +516,27 @@ void Setawinpointer(struct Awindow *win,USHORT ptrtype)
          else
          {  /* Fall back to custom pointers for resize pointers */
             ptr=Apppointer(Aweb(),ptrtype);
-            SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+            if(ptr)
+            {
+               SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+            }
+            else
+            {
+               SetWindowPointer(win->window,WA_Pointer,NULL,TAG_END);
+            }
          }
       }
       else
       {  /* Use custom pointers for older Intuition versions */
          ptr=Apppointer(Aweb(),ptrtype);
-         SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+         if(ptr)
+         {
+            SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+         }
+         else
+         {
+            SetWindowPointer(win->window,WA_Pointer,NULL,TAG_END);
+         }
       }
       win->ptrtype=ptrtype;
    }
@@ -2065,8 +2079,24 @@ void Busypointer(BOOL busy)
    struct IntuitionBase *ibase;
    ULONG version;
    void *ptr;
-   if(busy && ++busynest==1) set=TRUE;
-   if(!busy && --busynest==0) set=TRUE;
+   if(busy)
+   {
+      if(++busynest==1)
+      {
+         set=TRUE;
+      }
+   }
+   else
+   {
+      if(busynest>0)
+      {
+         busynest--;
+         if(busynest==0)
+         {
+            set=TRUE;
+         }
+      }
+   }
    if(set)
    {  ibase=IntuitionBase;
       version=(ibase)?ibase->lib_Version:0;
@@ -2079,31 +2109,72 @@ void Busypointer(BOOL busy)
                   TAG_END);
             }
             else
-            {  /* Restore pointer using system types if available */
+            {  /* End busy mode first, then restore pointer (Intuition autodoc pattern). */
                if(version>=47)
                {  if(win->ptrtype==APTR_HAND)
-                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_LINK,TAG_END);
+                  {  SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_PointerType,POINTERTYPE_LINK,
+                        TAG_END);
                   }
                   else if(win->ptrtype==APTR_DEFAULT)
-                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_NORMAL,TAG_END);
+                  {  SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_PointerType,POINTERTYPE_NORMAL,
+                        TAG_END);
                   }
                   else if(win->ptrtype==APTR_TEXT)
-                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_TEXT,TAG_END);
+                  {  SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_PointerType,POINTERTYPE_TEXT,
+                        TAG_END);
                   }
                   else if(win->ptrtype==APTR_NOTALLOWED)
-                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_NOTALLOWED,TAG_END);
+                  {  SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_PointerType,POINTERTYPE_NOTALLOWED,
+                        TAG_END);
                   }
                   else if(win->ptrtype==APTR_CONTEXTMENU)
-                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_CONTEXTMENU,TAG_END);
+                  {  SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_PointerType,POINTERTYPE_CONTEXTMENU,
+                        TAG_END);
                   }
                   else
                   {  ptr=Apppointer(Aweb(),win->ptrtype);
-                     SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+                     if(ptr)
+                     {
+                        SetWindowPointer(win->window,
+                           WA_BusyPointer,FALSE,
+                           WA_Pointer,ptr,
+                           TAG_END);
+                     }
+                     else
+                     {
+                        SetWindowPointer(win->window,
+                           WA_BusyPointer,FALSE,
+                           WA_Pointer,NULL,
+                           TAG_END);
+                     }
                   }
                }
                else
                {  ptr=Apppointer(Aweb(),win->ptrtype);
-                  SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+                  if(ptr)
+                  {
+                     SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_Pointer,ptr,
+                        TAG_END);
+                  }
+                  else
+                  {
+                     SetWindowPointer(win->window,
+                        WA_BusyPointer,FALSE,
+                        WA_Pointer,NULL,
+                        TAG_END);
+                  }
                }
             }
          }
