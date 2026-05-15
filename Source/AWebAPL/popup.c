@@ -284,7 +284,7 @@ static struct Popup *Newpopup(struct Amset *ams)
             TAG_END);
          pup->cawin=WindowObject,
             WA_Borderless,TRUE,
-            WA_Activate,TRUE,
+            WA_Activate,FALSE,
             WA_RMBTrap,TRUE,
             WA_IDCMP,IDCMP_MOUSEBUTTONS|IDCMP_IDCMPUPDATE,
             WA_PubScreen,screen,
@@ -314,9 +314,15 @@ static struct Popup *Newpopup(struct Amset *ams)
          }
       }
       if(pup->flags&PUPF_VALID)
-      {  pup->window=RA_OpenWindow(pup->cawin);
+      {  struct Window *parent;
+         pup->window=RA_OpenWindow(pup->cawin);
+         /* Keep the browser window active; the popup must not steal input. */
+         if(pup->window && pup->win)
+         {  parent=(struct Window *)Agetattr(pup->win,AOWIN_Window);
+            if(parent && parent!=pup->window) ActivateWindow(parent);
+         }
       }
-      if(!pup->window || !(pup->window->Flags&WFLG_WINDOWACTIVE))
+      if(!pup->window)
       {  Disposepopup(pup);
          pup=NULL;
       }
@@ -343,6 +349,15 @@ static long Dispatch(struct Popup *pup,struct Amessage *amsg)
 }
 
 /*------------------------------------------------------------------------*/
+
+/* Dismiss open popup menus without selecting an item (e.g. click in parent). */
+void Closeopenpopups(void)
+{  struct Popup *pup;
+   for(pup=popups.first;pup->next;pup=pup->next)
+   {  pup->flags|=PUPF_DONE;
+   }
+   Processpopup();
+}
 
 BOOL Installpopup(void)
 {  NEWLIST(&popups);

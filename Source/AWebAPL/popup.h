@@ -57,4 +57,6 @@
 #define AOPUP_    (AOPUP_Dummy+)    /* */
 #define AOPUP_    (AOPUP_Dummy+)    /* */
 
+void Closeopenpopups(void);
+
 #endif

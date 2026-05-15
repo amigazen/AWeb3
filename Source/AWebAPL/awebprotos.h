@@ -67,6 +67,7 @@ extern BOOL Installsaveas(void);
 extern BOOL Installimgsource(void);
 extern BOOL Installimgcopy(void);
 extern BOOL Installpopup(void);
+extern void Closeopenpopups(void);
 extern BOOL Installextprog(void);
 extern BOOL Installnetstatwin(void);
 extern BOOL Installhotlist(void);

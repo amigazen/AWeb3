@@ -35,6 +35,7 @@
 #include "docprivate.h"
 #include "linkprivate.h"
 #include "frprivate.h"
+#include "popup.h"
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
@@ -1050,6 +1051,7 @@ void Processwindow(void)
                /* checklink is always done */
                break;
             case IDCMP_MOUSEBUTTONS:
+               if(msg->Code==SELECTDOWN) Closeopenpopups();
                if(win->nextfocus!=win->focus)
                {  Asetattrs(win->focus,AOFRM_Focus,FALSE,TAG_END);
                   win->focus=win->nextfocus;
