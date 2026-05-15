@@ -27,6 +27,7 @@
 #include "timer.h"
 #include "winhis.h"
 #include "frprivate.h"
+#include "object.h"
 #include "jslib.h"
 #include "xhrjs.h"
 #include <time.h>
@@ -56,8 +57,10 @@ static void Disposetimeout(struct Timeout *to)
 
 void Triggertimeout(struct Frame *fr,void *timer)
 {  struct Timeout *to;
-   /* Only run the timeout script if there is still a document object */
-   if(fr->jdscope)
+   /* Run if the frame still has a window object. Do not require jdscope: Clearjframe()
+    * clears fr->jdscope; later Jsetupdocument() may skip re-creating doc->jobject but
+    * AOFRM_Jdocument is re-bound — timeouts must still fire. */
+   if(fr && fr->jobject)
    {  for(to=fr->timeouts.first;to->next;to=to->next)
       {  if(to->timer==timer)
          {  REMOVE(to);
@@ -340,6 +343,8 @@ static void Methodscroll(struct Jcontext *jc)
 {  struct Jvar *jv;
    long x=-1,y=-1;
    struct Frame *fr=Jointernal(Jthis(jc));
+   /* Runjprogram() passes the Frame as userdata; use it if this is not the window object. */
+   if(!fr) fr=(struct Frame *)Jgetuserdata(jc);
    if(fr)
    {  if(jv=Jfargument(jc,0))
       {  x=Jtonumber(jc,jv);
@@ -843,6 +848,11 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
    UBYTE buf[16];
    long i,length;
    BOOL add;
+   /* AOM_JSETUP is forwarded via AmethodA to subtrees; never touch awebjs with NULL jc. */
+   if(!amj || !amj->jc)
+   {
+      return 0;
+   }
    if(prefs.browser.dojs && Openjslib())
    {  Jallowgc(amj->jc,FALSE);
       if(!fr->jobject)
@@ -1009,6 +1019,7 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
          Addjfunction(amj->jc,fr->jobject,"open",Methodopen,"URL","name","spec",NULL);
          Addjfunction(amj->jc,fr->jobject,"prompt",Methodprompt,"message","inputDefault",NULL);
          Addjfunction(amj->jc,fr->jobject,"scroll",Methodscroll,"x_coordinate","y_coordinate",NULL);
+         Addjfunction(amj->jc,fr->jobject,"scrollTo",Methodscroll,"x_coordinate","y_coordinate",NULL);
          Addjfunction(amj->jc,fr->jobject,"setTimeout",Methodsettimeout,"expression","msec",NULL);
          Jaddeventhandler(amj->jc,fr->jobject,"onfocus",fr->onfocus);
          Jaddeventhandler(amj->jc,fr->jobject,"onblur",fr->onblur);
@@ -1070,6 +1081,29 @@ void Clearjframe(struct Frame *fr)
    while(to=REMHEAD(&fr->timeouts)) Disposetimeout(to);
 }
 
+/* Newdisplay() calls Clearjframe() and removes native window methods (scroll, alert, …).
+ * Jsetupdocument() only restores the document tree; re-run frame JSETUP before any script. */
+void Rebindwindowjs(struct Frame *fr)
+{  struct Jcontext *jc;
+   if(!fr || !prefs.browser.dojs || !Openjslib())
+   {
+      return;
+   }
+   jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
+   if(!jc)
+   {
+      return;
+   }
+   if(fr->jobject)
+   {
+      Ajsetup((struct Aobject *)fr,jc,fr->jobject,fr->jobject);
+   }
+   else
+   {
+      Ajsetup((struct Aobject *)fr,jc,NULL,NULL);
+   }
+}
+
 /* Start the load of a JS generated document. Fetch will call Getjsgenerated()
  * to obtain details that are set here (and earlier). Note this will all
  * run synchroneously and single-threaded so static variables for these
@@ -1121,29 +1155,33 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
       /* Get jc first, then call Ajsetup; object.c blocks only re-entry on the same
        * Aobject (e.g. document.write) so nested frame->copy and form->field setup run. */
       jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
-      /* Ensure a JS scope exists before running. The Frame's JS "window" object
-       * (fr->jobject) is created by the Frame's AOM_JSETUP handler (Jsetupframe),
-       * so we must run setup on the Frame itself when fr->jobject is NULL. */
-      if(jc && fr && !fr->jobject)
-      {  Ajsetup((struct Aobject *)fr,jc,NULL,NULL);
-      }
-      /* Avoid global application-wide Ajsetup() as the common path: during inline
-       * script execution (while parsing), walking all windows/frames can hit
-       * half-built objects. Prefer setting up only the current frame/copy once
-       * the frame JS objects exist. */
-      if(fr && fr->copy && jc && fr->jobject)
-      {  Ajsetup(fr->copy,jc,fr->jobject,fr->jobject);
-      }
-      else if(jc && fr && fr->jobject)
-      {  /* If there is no copy yet, at least ensure the frame object is set up. */
-         Ajsetup((struct Aobject *)fr,jc,NULL,NULL);
+      /* Clearjframe() during Newdisplay() strips scroll/alert/etc.; Jsetupframe() puts them
+       * back and runs Ajsetup(copy) for the document tree. */
+      if(jc && fr)
+      {  Rebindwindowjs(fr);
       }
       if(!jc) jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
       if(jc) Jsetfeedback(jc,Feedback);
-      if(jthisp && *jthisp) jthis=*jthisp;
-      else if(fr && fr->jobject) jthis=fr->jobject;
+      /* Caller passed &element->jobject (e.g. awebonclick): do not substitute window
+       * when *jthisp is still NULL after Ajsetup(copy) above — that breaks this.onclick. */
+      if(jthisp)
+      {
+         if(*jthisp)
+         {
+            jthis=*jthisp;
+         }
+         else
+         {
+            return FALSE;
+         }
+      }
+      else if(fr && fr->jobject)
+      {
+         jthis=fr->jobject;
+      }
       else
-      {  return FALSE;
+      {
+         return FALSE;
       }
       /* If (jthis) is our own object, only use us as global scope, not the
        * document. */

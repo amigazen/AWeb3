@@ -141,6 +141,7 @@ extern struct Frame *Targetframeoptnew(struct Frame *fr,UBYTE *name,BOOL opennew
 extern long Jsetupframe(struct Frame *fr,struct Amjsetup *amj);
 extern void Freejframe(struct Frame *fr);
 extern void Clearjframe(struct Frame *fr);
+extern void Rebindwindowjs(struct Frame *fr);
 extern void Loadjgenerated(struct Frame *fr);
 extern void Freetimeouts(struct Frame *fr);
 extern void Triggertimeout(struct Frame *fr,void *timer);
