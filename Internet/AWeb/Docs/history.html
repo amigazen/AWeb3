@@ -66,6 +66,13 @@ Release History
 <li>CSS engine fixes: corrected <b>font-family</b> application; removed redundant/duplicate style passes; BODY no longer receives incorrect generic selector application; caps added on total rules and per-element selector matches to bound memory use</li>
 <li>Many memory leaks and lifetime bugs identified using MemLog and SegTracker (including allocator deadlocks and JavaScript/XHR shutdown edge cases)</li>
 <li>Image transparency masks use small row-wise reads instead of one huge temporary buffer; very large temporary background bitmaps are refused above a conservative size guard</li>
+<li>HTTP/SSL teardown with keep-alive: correct close order; no socket-stack cleanup while pooled TLS connections are still active</li>
+<li>HTTP: larger request lines and headers; reliable header completion on 304/401; download filenames from <b>Content-Disposition</b> and query strings</li>
+<li>Lazy image decode after iconify; CSS background lazy-decode regression</li>
+<li>JavaScript: <b>Date</b>/<b>Math</b> time, <b>Function.prototype.call</b>, <b>arguments</b>, <b>window.scroll</b>/<b>scrollTo</b>, <b>setTimeout</b>, and <b>onclick</b> after navigation</li>
+<li>Prefs containing <b>AWebPath:</b> rejected as legacy; URL bar only treats strings with <code>:</code> as bare Amiga paths</li>
+<li>Image decode: Fast RAM first, Chip display copy; no Chip memory pools; PNG plugin P96 guard</li>
+<li>UI: BOOPSI/window and clip-stack leaks; popup menus no longer steal window focus</li>
 </ul>
 
 <h2>AWeb 3.6 Alpha 7</h2>

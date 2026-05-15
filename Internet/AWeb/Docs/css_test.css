@@ -763,4 +763,47 @@
     padding: 4px;
 }
 
+/* --- SS32: layout regression for stylesheet_test.html (body + .css-ext-reg-* + helpers) --- */
+/* body: background-repeat from external sheet (paired with css_test.html BODY inline STYLE) */
+body {
+    background-repeat: repeat-y;
+    background-color: #ffffff;
+}
+
+.css-ext-reg-div {
+    margin: 20px 40px 20px 300px;
+    background-color: #ffe8f0;
+    border: 1px solid #660066;
+}
+
+.css-ext-reg-ul {
+    font-size: 20px;
+    margin: 25px;
+    background-color: #f0ffff;
+    border: 1px dotted #008888;
+}
+
+.css-ext-reg-table TD,
+.css-ext-reg-table TH {
+    font-size: 20px;
+    width: 50%;
+    vertical-align: top;
+    padding: 15px 35px 15px 15px;
+    background-color: #fffacd;
+    border: 1px solid #886600;
+}
+
+/* External-sheet font-size length (px) — discrete size mapping in engine */
+.font-size-20px {
+    font-size: 20px;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+/* Four-value padding shorthand (layout bodies) — SS32b on stylesheet_test.html */
+.padding-shorthand-asymmetric {
+    padding: 15px 35px 15px 15px;
+    background-color: #e8e8ff;
+    border: 1px solid #000066;
+}
 

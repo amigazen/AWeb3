@@ -29,7 +29,7 @@
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; External Stylesheet CSS1/CSS2 Compatibility Test</H1>
 
-<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via <STRONG>external stylesheets</STRONG> loaded via <CODE>&lt;LINK rel="stylesheet"&gt;</CODE>. The styles are defined in <CODE>css_test.css</CODE> and applied using CSS classes. These tests mirror the inline style tests in <A HREF="css_test.html">css_test.html</A> to verify that external stylesheets work correctly. Parser stress tests are under <A HREF="#negative">Graceful Failure</A> (SS31).</P>
+<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via <STRONG>external stylesheets</STRONG> loaded with <CODE>&lt;LINK rel=&quot;stylesheet&quot;&gt;</CODE>. Rules live in <CODE>css_test.css</CODE> and are applied with element <CODE>CLASS</CODE> / <CODE>ID</CODE> selectors. See <A HREF="css_test.html#inline-reg">css_test.html</A> for the same checks using inline <CODE>STYLE</CODE>. Layout regression (body background-repeat, four-value margins, table cells) is <A HREF="#stylesheet-reg">SS32</A>. Parser stress tests are under <A HREF="#negative">Graceful Failure</A> (SS31).</P>
 
 <HR>
 
@@ -43,6 +43,7 @@
 <A HREF="#links" CLASS="nav-link">Link Styles</A> |
 <A HREF="#lists" CLASS="nav-link">List Styles</A> |
 <A HREF="#grid" CLASS="nav-link">Grid Layout</A> |
+<A HREF="#stylesheet-reg" CLASS="nav-link">Stylesheet regression</A> |
 <A HREF="#negative" CLASS="nav-link">Graceful Failure</A>
 </CENTER>
 
@@ -95,6 +96,7 @@
 <P CLASS="font-size-xx-large">This text should be extra extra large (xx-large).</P>
 <P CLASS="font-size-smaller">This text should be smaller than the base font size (relative).</P>
 <P CLASS="font-size-larger">This text should be larger than the base font size (relative).</P>
+<P CLASS="font-size-20px">SS3b: font-size 20px from stylesheet (length maps to discrete engine sizes).</P>
 </TD>
 </TR>
 </TABLE>
@@ -265,7 +267,7 @@
 <A NAME="layout"></A>
 <H2>Layout & Positioning Properties</H2>
 
-<H3>SS14: padding - TODO</H3>
+<H3>SS14: padding - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with different padding amounts via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -279,7 +281,7 @@
 </TR>
 </TABLE>
 
-<H3>SS15: margin shorthand - TODO</H3>
+<H3>SS15: margin shorthand - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -295,7 +297,7 @@
 </TR>
 </TABLE>
 
-<H3>SS16: margin-right, margin-left, margin-top, margin-bottom - TODO</H3>
+<H3>SS16: margin-right, margin-left, margin-top, margin-bottom - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with different margin values via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -311,7 +313,7 @@
 </TR>
 </TABLE>
 
-<H3>SS17: position, top, left, right, bottom - TODO</H3>
+<H3>SS17: position, top, left, right, bottom - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning via external CSS classes. Right and bottom positioning are now supported.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -327,7 +329,7 @@
 </TR>
 </TABLE>
 
-<H3>SS18: border - TODO</H3>
+<H3>SS18: border - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -619,6 +621,41 @@
 <DT CLASS="grid-term">Large Gap</DT>
 <DD CLASS="grid-description">This grid has grid-gap: 8px 32px (large row gap, large column gap).</DD>
 </DL>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" CLASS="nav-link">Back to top</A></P>
+
+<HR>
+
+<A NAME="stylesheet-reg"></A>
+<H2>Stylesheet layout regression (css_test.css)</H2>
+<P>These tests mirror <A HREF="css_test.html#inline-reg">css_test.html CS48</A> but use rules in <CODE>css_test.css</CODE>. The <CODE>body</CODE> selector (<CODE>background-repeat: repeat-y</CODE>, <CODE>background-color: #ffffff</CODE>) applies to this whole document when this page is loaded.</P>
+
+<H3>SS32: body, DIV, UL, TD/TH — background-repeat, four-value margin, font-size, table bundle</H3>
+<P><STRONG>What you should see:</STRONG> Pink-tinted DIV with large left margin, cyan UL near 20px, yellow two-column table (50% cells, top, asymmetric padding), plus standalone padding and 20px font samples.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV CLASS="css-ext-reg-div">SS32 DIV: .css-ext-reg-div (margin 20px 40px 20px 300px).</DIV>
+<P CLASS="padding-shorthand-asymmetric">SS32b: .padding-shorthand-asymmetric (padding 15px 35px 15px 15px).</P>
+<P CLASS="font-size-20px">SS32c: .font-size-20px (duplicate check with SS3b).</P>
+<UL CLASS="css-ext-reg-ul">
+<LI>UL line one (.css-ext-reg-ul)</LI>
+<LI>UL line two</LI>
+</UL>
+<TABLE CLASS="css-ext-reg-table" BORDER="1" WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+<TR>
+<TH>TH col A</TH>
+<TH>TH col B</TH>
+</TR>
+<TR>
+<TD>TD data A</TD>
+<TD>TD data B (more right padding if supported)</TD>
+</TR>
+</TABLE>
 </TD>
 </TR>
 </TABLE>

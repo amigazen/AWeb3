@@ -2,7 +2,17 @@
  *
  * This script toggles the HTTP proxy between wayback.protoweb.org:7851
  * and no proxy (disabled).
+ *
+ * Uses GETCFG/SETCFG ITEM HTTPPROXY (arexx.aweblib reads/writes prefs.network.httpproxy).
+ *
+ * After SETCFG, GETCFG is used again to confirm the value in prefs matches what we
+ * wrote. The window status line is updated via the ARexx STATUSFIELD command (maps to
+ * AOWIN_Status). To read the current status text from ARexx, use GET ITEM STATUS; the
+ * document/help line uses GET ITEM STATUSD instead.
  */
+
+/* String form must match SETCFG and cfgrexx IT_NSTRING storage for a clean read-back. */
+protoweb_url = 'http://wayback.protoweb.org:7851'
 
 /* Ensure we're addressing an AWeb port */
 if left(address(),5)~="AWEB." then do
@@ -20,15 +30,38 @@ end
 
 /* Get current proxy setting */
 'GETCFG HTTPPROXY current_proxy'
+current_proxy = strip(current_proxy)
 
-/* Check if current proxy contains "protoweb" (case-insensitive) */
+/* Decide new value, apply SETCFG, then verify with GETCFG */
+expected = ''
 if pos('protoweb', translate(current_proxy)) > 0 then do
-    /* Currently set to Protoweb - disable it */
-    'SETCFG HTTPPROXY ""'
+   /* Currently set to Protoweb - disable it */
+   'SETCFG HTTPPROXY ""'
 end
 else do
-    /* Not Protoweb - enable it */
-    'SETCFG HTTPPROXY "http://wayback.protoweb.org:7851"'
+   /* Not Protoweb - enable it */
+   expected = protoweb_url
+   'SETCFG HTTPPROXY "'||protoweb_url||'"'
+end
+
+'GETCFG HTTPPROXY verify_proxy'
+verify_proxy = strip(verify_proxy)
+
+/* Compare read-back to what SETCFG should have stored (strip avoids whitespace-only mismatch). */
+cfg_ok = (verify_proxy = expected)
+
+/* STATUSFIELD sets the main browser status line (see arexx.c / winrexx.c). */
+if cfg_ok = 0 then do
+   if expected = '' then
+      'STATUSFIELD "Protoweb proxy: SETCFG did not read back as disabled (check prefs)."'
+   else
+      'STATUSFIELD "Protoweb proxy: SETCFG did not read back as enabled (check prefs)."'
+end
+else do
+   if expected = '' then
+      'STATUSFIELD "Protoweb proxy: disabled (verified)."'
+   else
+      'STATUSFIELD "Protoweb proxy: enabled (verified)."'
 end
 
 exit 0

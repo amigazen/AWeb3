@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.6beta8] - 2026-05-10
+## [3.6beta8] - 2026-05-16
 
 ### Added
 - **HTTP/1.1 keep-alive (production enabled):** Keep-alive pooling is now enabled for real-world use, including HTTPS connections.
@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Safer JavaScript execution filter:** Conservative execution filter to skip modern/unsafe scripts on real-world pages.
 - **About modules:** Updated `about.aweblib` content for Beta 8 (including sizing fixes for embedded assets in about pages).
 - **Test assets:** Expanded regression test pages, including unique test-case numbering and deliberate failure-mode tests.
+- **JavaScript `Gc()`:** Global `Gc()` function exposed in the page JavaScript environment.
+- **URL bar path detection:** If an entered location matches an existing Amiga filesystem path, it is opened as a `file://` URL.
 
 ### Changed
 - **AmiSSL requirement:** AWeb now requires AmiSSL 5.27 for TLS; when missing, the user is prompted to fetch it with an Aminet search link.
@@ -29,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Disk font preloading:** When `ttengine.library` is available, standard bitmap fonts are not bulk-preloaded at startup.
 - **Preferences model sync:** Updated ARexx accessors and preference handling so the on-disk preference structure matches the internal prefs model.
 - **MARQUEE:** `<MARQUEE>` support is temporarily disabled again due to system deadlocks, pending further work.
+- **Chip RAM:** Memory pools are no longer used for Chip RAM allocations so released chip memory can be returned to the system immediately.
+- **Image decode path:** AWebPlugins and DataTypes paths decode to Fast RAM first, with a display-optimised copy in Chip; friend-bitmap DataType decoding removed to reduce Chip pressure during decode.
+- **file:// concurrency:** Default parallel `file://` connections increased from 2 to 8.
+- **JavaScript allocator:** `jmemory.c` uses the same semaphore model as the main memory manager for safe multithreaded access.
 
 ### Fixed
 - **Keep-alive correctness:** Failed keep-alive requests are retried using a fresh connection; same-domain fetches no longer self-cancel when an earlier connection is still open.
@@ -55,6 +61,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **JavaScript engine stability:** Numerous JS fixes including Ajsetup re-entrancy deadlocks, post-GC UI hangs, double-frees, and object lifetime/use-after-free bugs. Fixed early script bootstrap so inline scripts and `document.write()` output run reliably.
 - **ARexx/UI integration:** Fix missing AppWindow port creation for named public Workbench screens; popup sizing uses the new window’s own chrome/layout deltas for correct dimensions.
 - **Build fixes:** Fixed hotlist viewer build clash with `cfglocale` headers; smakefile updates for AmiSSL 5.27 and markdown module build directives.
+- **HTTP/SSL teardown:** Correct connection close order (SSL shutdown, detach socket base, dispose Assl, close socket, close library); avoid `a_cleanup()` while pooled keep-alive connections still use the socket stack; fix Enforcer hits during HTTPS retrieve/shutdown.
+- **HTTP requests/responses:** Grow request buffer for large auth/cookie/referer lines; cap request URI length; complete headers on blank line for 304/401; bound `Location`/`Content-Disposition` parsing; suggested download filenames from `Content-Disposition` and from `filename=` query parameters; prevent `fd->block` overflow on large transfers.
+- **Lazy images after iconify:** Images decode again when a window is reopened after iconify.
+- **Lazy background images:** Regression where CSS backgrounds were deferred too aggressively and failed to appear.
+- **JavaScript engine (post-beta):** `Date`/`Math` time and `toString` paths hardened; `Function.prototype.call`/`apply` and `arguments` object correctness; `window.scroll`/`scrollTo` and `setTimeout` after `Newdisplay()` via `Rebindwindowjs()`; `onclick` and attribute handlers when `this` binding was lost; numerous Enforcer fixes in atom table, GC, and variable lookup.
+- **Prefs guard:** Preference files referencing `AWebPath:` are treated as legacy and not loaded (defaults used instead).
+- **URL bar heuristics:** Only strings containing `:` are treated as bare Amiga paths when no `file://` prefix is given (fixes mistaken HTTP URL handling).
+- **UI memory:** BOOPSI gadget/window teardown order; `searchimg`, style list browser, clip-stack nesting, and filefield prototype leaks fixed.
+- **Popup focus:** Context popup menus no longer steal activation from the active browser window.
+- **view-source:** Helper application launch regression when using the memory manager for process spawn.
+- **PNG plugin:** Guard P96 API use when the library is unavailable (avoid lockup); optional image decoder profiling build configuration using `lowlevel.library ElapsedTime()`.
 
 ## [3.6alpha7] - 2026-04-03
 

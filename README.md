@@ -1,6 +1,6 @@
 # AWeb 3
 
-This is AWeb 3 APL open source version, an HTML 3/4 web browser for Amiga.
+This is AWeb 3 APL open source version, an HTML 4 web browser for Amiga.
 
 ## [amigazen project](http://www.amigazen.com)
 
@@ -28,6 +28,13 @@ AWeb is one of the most sophisticated web browsers (for its time) ever released 
 
 This project's first aim is to update that code so it builds against the NDK3.2, which largely means replacing the ClassAct UI APIs with the equivalent ReAction versions, as well as updating the networking code to work properly with RoadShow and the latest AmiSSL, and ensuring it can be built easily out of the box against the ToolKit standard for Amiga SDK configuration by anyone with an Amiga computer.
 
+With that initial work to make it possible to build AWeb again now done, the project aims to release a new stable AWeb 3.6 with the following headline features:
+
+- Complete AWeb’s support for standards of the HTML 4 era such as HTML 4 itself, XHTML, CSS 1 and 2, JavaScript 1.5 and other standards
+- Improve AWeb’s page rendering and JavaScript support so that many popular Amiga websites are fully usable
+- Improve AWeb’s memory management, speed and overall stability
+- Ensure AWeb is exploiting the features of the most recent Amiga operating systems
+
 ## HTML Standards Support
 
 AWeb 3 supports HTML standards from the 1990s era web browsing. The browser implements:
@@ -35,7 +42,7 @@ AWeb 3 supports HTML standards from the 1990s era web browsing. The browser impl
 - **HTML 2.0**: Full support for the official HTML 2.0 standard
 - **HTML 3.2**: Full support (W3C Recommendation from 1996)
 - **HTML 4.0**: Many features supported, including experimental CSS1/CSS2 subset via inline styles and external stylesheets
-- **XHTML 1.0/1.1**: Support for parsing and rendering XHTML 1.0/1.1 (and XHTML-MP) in strict mode with CDATA and self-closing tags (experimental)
+- **XHTML 1.0/1.1**: Support for parsing and rendering XHTML 1.0/1.1 (and XHTML-MP) in strict mode with CDATA and self-closing tags
 
 AWeb also supports many browser-specific extensions from Netscape and Microsoft Internet Explorer of the era, as well as some features from the abandoned HTML 3.0 draft.
 
@@ -269,7 +276,7 @@ The first AWeb APL open source release was version 3.4, in 2003.
 
 Since then one further "3.5" beta release - or rather, 12 beta releases of 3.5 - were made for both OS4 and classic Amiga, and even MorphOS and AROS too, however the sourcecode to the 68k release of 3.5 seems to no longer be available to the public in a buildable form, if it ever was, with dependencies on a very specific, and undocumented, GCC based toolchain. Snapshots for versions for other Amiga variants such as OS4 can be found online but the developers of 3.5 did not seem to bother to maintain compatibility with the classic Amiga build tools used by the original AWeb.
 
-Thus, this version 3.6 is derived directly from the 3.4 source code release, with the intent to cherry-pick improvements from the 3.5 branch where the changes have added value. 
+Thus, this version 3.6 is derived directly from the 3.4 source code release, with the intent to cherry-pick improvements from the 3.5 branch where the changes have added value. As of beta 8, all relevant improvements from AWeb 3.5 have been integrated.
 
 The roadmap for AWeb under amigazen project is, for now:
 
@@ -286,7 +293,7 @@ The first release from amigazen project is version 3.6. The goals of this releas
 Notable changes in version 3.6 compared to versions 3.5 and 3.4 are:
 - Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5.2 and NDK3.2
 - Adding HTTP/1.1, keep-alive connections, chunked encoding and gzip compressed streams 
-- Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ which will be automatically created on launch if it does not already exist
+- Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ which will be automatically assigned to point to AWeb's PROGDIR: on launch if it does not already exist
 - Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.27 or later
 - Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
 - With many more features now added in the releases listed below
@@ -299,7 +306,10 @@ Notable changes in version 3.6 compared to versions 3.5 and 3.4 are:
 - **Cache correctness:** Cache-Control (`no-store`, `no-cache`, `max-age`, `must-revalidate`) support plus fixes to prevent disk-cache corruption after errors/retries; POST responses are not written to disk cache
 - **Better UI feedback:** Screen title can show memory usage and current connection information, more events trigger status update messages
 - **Logging overhaul:** New logging module with timestamped syslog-style output; `DEBUG/S` is now an alias for `HTTPDEBUG/S`
-- **Compatibility/stability fixes:** Improved User-Agent defaults for real-world sites, hardened SCRIPT parsing, many CSS engine fixes, and many longstanding memory leaks and deadlocks fixed
+- **Compatibility/stability fixes:** Improved User-Agent defaults for real-world sites, hardened SCRIPT parsing, many CSS engine fixes, and many longstanding Enforcer hits, memory leaks and deadlocks fixed
+- **Image memory:** Image decoding is always to Fast RAM first with both DataTypes and AWebPlugin decoders, Chip RAM no longer pooled
+- **HTTP hardening:** SSL/teardown order with keep-alive; larger requests; 304/401 header completion; `Content-Disposition` / suggested filenames
+- **JavaScript:** `Date`/`Math` time, `call`/`apply`/`arguments`, `Gc()`, `window.scroll`/`scrollTo`, `setTimeout`, and `onclick` after page load
 - **Complete AWeb 3.5 integration:** All remaining relevant new features, bug fixes and optimisations from all known versions of AWeb 3.5 are now integrated into AWeb 3.6
 
 **What's New in 3.6 Alpha 7:**
@@ -367,7 +377,7 @@ The Amiga actually had one of the first graphical web browsers - AMosaic reimple
 
 Of these, the closest thing to a browser integrating tightly into the Amiga operating system is AWeb, due to its use of the ClassAct, now ReAction, user interface toolkit, as well as DataTypes, ARexx and extending the Amiga's BOOPSI and shared library architecture for its own plugin system. 
 
-When AWeb was originally developed, web standards were in a state of rapid flux and many websites relied on plugin technologies such as Shockwave Flash and Java Applets, making it a challenge for any browser developer to keep up let alone one working on their own. Ironically in 2025 the needs of a 'classic web browser’ implementing the HTML4 generation of standards are lesser as both Flash and Applets have died off completely, although modern browsers employ a variety of new standards to provide similar capabilities for interactive 'web apps'.
+When AWeb was originally developed, web standards were in a state of rapid flux and many websites relied on plugin technologies such as Shockwave Flash and Java Applets, making it a challenge for any browser developer to keep up let alone one working on their own. Ironically in 2025 the needs of a 'classic web browser’ implementing the HTML4 generation of standards are lesser as both Flash and Java Applets have died off completely, although modern browsers employ a variety of new standards to provide similar capabilities for interactive 'web apps'.
 
 The release of AWeb as open source was a generous act by its author, and the code itself a masterpiece of software design, one that deserves continued effort to "finish the job" started all those years ago.
 
@@ -375,7 +385,7 @@ In this context, finishing the job means both completing support for the final v
 
 ### Which features from the various releases of AWeb 3.5 have already been cherry-picked for inclusion in AWeb 3.6?
 
-For a full list of new features, bug fixes and improvements cherry-picked from AWeb 3.5, see the [CHANGELOG.md]
+For a full list of new features, bug fixes and improvements cherry-picked from AWeb 3.5, see the [CHANGELOG.md]. As of beta 8, all relevant AWeb 3.5 changes have been integrated and in many cases enhanced.
 
 ### Are there any features from the various releases of AWeb 3.5 that are not going to be reintegrated into AWeb 3.6?
 
@@ -383,13 +393,12 @@ The implementation of HTTP/1.1, gzip and chunked encoding, as well as new featur
 
 Other changes from AWeb 3.5 that have been reviewed and rejected are:
 - FTP module changes were integrated, tested, and found to be completely broken. Rather than fix the AWeb 3.5 code, which made unnecessary changes to otherwise already working code, the changes were reverted out completely. AWeb's original FTP module already worked correctly.
-- Support for multiple MIME entries for a given mime type was a kludge for a server side issue rarely encountered, and complicated the UI unnecessarily
-- New About dialog (erroneously called splash screen in the AWeb 3.5 documentation) was overcomplicated and ugly, AWeb 3.6 keeps the original AWeb 3.4 About dialog
-- Plugin API and version numbering was changed unnecessarily in AWeb 3.5. AWeb 3.6 Plugin API remains consistent with AWeb 3.4
+- Support for multiple MIME entries for a given mime type was a kludge for a server side issue rarely encountered, and complicated the UI unnecessarily.
+- The new About dialog (erroneously called splash screen in the AWeb 3.5 documentation) was overcomplicated and ugly, AWeb 3.6 keeps the original AWeb 3.4 About dialog
+- Plugin API and version numbering was changed unnecessarily in AWeb 3.5. AWeb 3.6 Plugin API remains consistent with AWeb 3.4. But it remains important to not mix and match different versions of the main AWeb application, and its plugins.
 - Borders around images was made a user configurable setting with additional AWebCfg settings. This is both unnecessary - images should simply not have borders unless styled as such - and rendered it necessary to localise the new settings
 - Double buffering implementation was found to cause many regressions, as well as using twice as much memory
-
-As of AWeb 3.6 Alpha 7 the only significant remaining differences between AWeb 3.5 and AWeb 3.6 are the user interface layout changes and configuration settings
+- AWeb 3.5 offered alternative toolbar layout options. AWeb 3.6 has an experimental simplified ‘modern’ toolbar option instead.
 
 ### What is amigazen project's plan for the future of AWeb?
 
@@ -397,13 +406,13 @@ The first release 3.6 is designed to be a stable rebuild of version 3.4 updated 
 
 Later releases will then add new features missing from AWeb's standards support incrementally.
 
-The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content
+The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content.
 
 ### Does the new AWeb work on Workbench 3.1, 3.5 or 3.9?
 
-The new AWeb is built and tested using the NDK 3.2 but should still be compatible with Workbench 3.1 with ClassAct, or the 3.5 and 3.9 releases with ReAction. Likewise the network support is built with the Roadshow SDK but should work with any bsdsocket.library implementation, and is most heavily tested with the UAE version for obvious reasons.
+The new AWeb is built and tested using the NDK 3.2 but may still be compatible with Workbench 3.1 with ClassAct, or the 3.5 and 3.9 releases with ReAction. Likewise the network support is built with the Roadshow SDK but should work with any bsdsocket.library implementation, and is most heavily tested with the UAE networking for obvious reasons.
 
-New features such as system settings for contextual mouse pointers are implemented in using progressive upgrade techniques at runtime wherever possible, for example with branching code paths that check if intuition.library 47 or higher is available.
+New features such as system settings for contextual mouse pointers are implemented using progressive upgrade techniques at runtime wherever possible, for example with branching code paths that check if intuition.library 47 or higher is available.
 
 ### Will AWeb support modern websites?
 

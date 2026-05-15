@@ -41,7 +41,6 @@ Minds awaken, free
 		<li><b>OS4 compatibility</b> This is a 68k build, that does run on OS4, but you may encounter OS4 specific issues</li>
 		<li>This release is built optimised for 68020 processors. It is possible to build a 68000 compatible build from the project source</li>
 		<li>Similarly the PNG, JFIF (JPEG) and GIF plugins are built for 68020 <em>with 68881 FPU</em> but can be built for other targets</li>
-		<li>The PNG plugin is not recommended for use - it is much slower than any PNG DataType, and can cause deadlocks with large PNG assets delivered over HTTPS</li>
         <li>This Beta build of AWeb saves it's disk cache in the T: location - this helps ensure it won't corrupt your hard disk, but means it uses more RAM, and prevents collision with other versions of AWeb you may have installed</li>
         <li>AWeb needs Fast RAM, hopefully in 2026 every Amiga user has plenty of Fast RAM</li>
         <li>No longer any need for an installer script, just put this drawer wherever you want, and run AWeb from here, it will assign AWeb: to the current directory if it does not exist already</li>
@@ -55,19 +54,31 @@ Minds awaken, free
 <p>
     New features in AWeb 3.6 include:
 <ul>
-<li><b>CSS</b> - AWeb now supports CSS, starting with experimental inline CSS for properties matching HTML4 attributes and even more experimental support for external CSS stylesheets</li>
-<li><b>Web safe fonts</b> - Font tag parsing and matching logic now works like other browsers, and enhanced text rendering with TTEngine if installed</li>
-<li>The new gemini.aweblib module brings <b>gemini://</b> and <b>spartan://</b> protocol support for these new gopher-like networks</li>
-<li>A new about.aweblib brings <b>about:</b> URLs with home, fonts, version, plugins and blank page templates</li>
-<li>AWeb now knows how to handle <b>view-source:</b> allowing you to view any URL as plain text HTML source</li>
-<li>Directory browsing is now possible with the <b>file://</b> protocol, and you can browse the root file:/// to see all mounted volumes</li>
-<li><b>Markdown</b> - AWeb now understands and renders Markdown as rich text, with on the fly conversion to HTML</li>
-<li><b>HTTP/1.1</b> gzip and chunked encoding, Range (RFC 7233) support for fast automatic transfer resume, and keep-alive for faster page loading especially on SSL/TLS connections</li>
-<li><b>AmiSSL 5.27</b> support for HTTPS connections, including TLS 1.3 and strong cipher suites</li>
-<li><b>data:</b> URL support allows for inline binary attachments</li>
-<li><b>utf-8</b> transcoding of the most common multibyte characters to Latin-1</li>
-<li><b>TTEngine</b> support for text rendering with OpenType/TrueType fonts when ttengine.library is available, for enhanced font rendering with kerning, utf-8 support for non-Latin languages and even anti-aliasing on 15bpp+ screens</li>
-<li><b>AmigaOS 3.2</b> features such as contextual mouse pointers, DefIcons and window iconification are now supported, while retaining compatibility with 3.1</li>
+<li><b>HTML 4</b> and new <b>XHTML 1.0/1.1</b> support (experimental strict parsing and related features)</li>
+<li><b>HTTP/1.1</b> stack with gzip, chunked transfer encoding, <b>Range</b> (resume), and keep-alive, plus corrected handling of <b>Cache-Control</b> and redirects</li>
+<li><b>AmiSSL 5.27</b> for HTTPS with modern TLS; <b>FTPS</b> on the FTP module</li>
+<li><b>JavaScript 1.5</b> (ECMAScript 3) with RegExp, try/catch/finally, and <b>XMLHttpRequest</b> (AJAX)</li>
+<li><b>CSS1/CSS2</b> &mdash; inline styles and external stylesheets (experimental subset)</li>
+<li><b>TTEngine</b> and full <b>UTF-8</b> when ttengine.library is installed; use <b>about:fonts</b> to see how your fonts render</li>
+<li><b>Shift_JIS</b> Japanese charset when JKFF.font is installed in FONTS:</li>
+<li>Font matching follows web safe fonts rules, with smarter default fonts mapping</li>
+<li>New aweblib for <b>about:</b> pages (home, blank, fonts, version, plugins)</li>
+<li>Enhanced memory management and Chip RAM usage optimisations, including just-in-time image rendering</li>
+<li><b>Mousewheel</b> scrolling and <b>iconify</b> gadget where supported by the operating system</li>
+<li><b>data:</b> and <b>cid:</b> URL support for inline binary content</li>
+<li><b>file://</b> directory browsing, including a volume list at <b>file:///</b></li>
+<li><b>view-source:</b> &mdash; view any URL as plain text HTML source</li>
+<li><b>Markdown</b> text files rendered with HTML styles</li>
+<li><b>gemini://</b> and <b>spartan://</b> via the gopher-like gemini.aweblib</li>
+<li>AWeb is now a <b>commodity</b> with Show/Hide (Iconify) support</li>
+<li><b>protoweb.awebrx</b> included for easy Protoweb.org vintage-web browsing</li>
+<li>Session status including memory usage and active connections shown in the <b>screen title</b></li>
+<li>Native P96 support on RTG equipped systems</li>
+<li>Enhanced <b>debug</b> mode logging (DEBUG/S or HTTPDEBUG/S)</li>
+<li>Many more <b>XML entities</b> supported, including common UTF-8 characters</li>
+<li><b>Alpha channel</b> images where supported by DataTypes</li>
+<li>Many bug fixes and optimisations for memory leaks, Enforcer hits, and stability</li>
+<li>Updated zlib, GIF, JFIF/JPEG, and PNG libraries</li>
 </ul>
 </p>
 
@@ -84,6 +95,7 @@ AWeb 3.6 beta 8 brings many new features and refactored core components includin
 <li>All remaining relevant patches from every known release of <b>AWeb 3.5</b> are fully integrated and in many cases improved upon</li>
 <li>AWeb now requires the latest AmiSSL 5.27 - it will not allow TLS connections without it</li>
 <li>Images are now lazy-rendered - images "below the fold" are not decoded until they are about to be displayed, and thus don't use up chip memory until they are on the screen, accelerating page loading and reducing memory pressure</li>
+<li>Additional chip RAM usage optimisations in both DataTypes image decoding and AWebPlugin image decoders</li>
 <li>The current Screen's titlebar is now used to display relevant information such as memory usage and open connections</li>
 <li>CSS and JavaScript content embedded from third party domains is ignored on the assumption that it is likely to contain incompatible content used for tracking and advertising that may trip up AWeb's parser</li>
 <li>Richer <b>status window</b> messages for more types of events - and status events are also logged to the console when DEBUG is turned on</li>
@@ -103,12 +115,14 @@ AWeb 3.6 beta 8 brings many new features and refactored core components includin
 <li>AWEB 3.5: <b>window.open()</b> popups use correct browser chrome deltas</li>
 <li>AWEB 3.5: <b>AppWindow</b> works when Workbench is selected as a named public screen</li>
 <li>AWEB 3.5: Cookie prefs are split out from the Network prefs into their own file</li>
+<li>FIXED: Large numbers of Enforcer hits in the JavaScript plugin</li>
 <li>FIXED: Starting new fetches while previous fetches are still running no longer cancels the new fetch when cancelling the existing fetch where the domain is the same</li>
 <li>FIXED: Failed requests on keep-alive connections were not retried with a fresh connection</li>
 <li>FIXED: Many longstanding memory leaks identified and fixed using MemLog and SegTracker</li>
 <li>FIXED: External <b>.css</b> and <b>.js</b> resources are cached correctly in the disk cache</li>
 <li>FIXED: <b>file://</b> URL content is no longer copied to the disk cache unnecessarily</li>
 <li>FIXED: <b>304 Not Modified</b> revalidation with pooled connections</li>
+<li>FIXED: PNG AWebPlugin no longer deadlocks when P96 is unavailable; image plugins decode to Fast RAM first with a Chip display copy</li>
 <li>FIXED: HTTP Redirect 308 is now supported, following the same behaviour as for 307 redirects</li>
 <li>FIXED: Image transparency masks now use small row-wise reads instead of one huge temporary buffer for more efficient memory usage</li>
 <li>FIXED: <b>&lt;SCRIPT&gt;</b> HTML text inside SCRIPT tags is ignored and not parsed as markup</li>
@@ -120,8 +134,15 @@ AWeb 3.6 beta 8 brings many new features and refactored core components includin
 <li>FIXED: SSL reads no longer hang indefinitely; AmiSSL socket I/O uses non-blocking reads with bounded WANT_READ/WANT_WRITE loops and timeouts</li>
 <li>FIXED: gzip + chunked transfer decoding is hardened so terminal chunk framing is preserved across decompression and chunk discard does not misclassify CR/LF as data</li>
 <li>FIXED: <b>SPAN</b> style state now correctly push/pops so styles do not “run on” into following content</li>
-<li>FIXED: Inline JavaScript execution and <b>document.write()</b> output is restored by ensuring the window object exists before script execution</li>
-<li>FIXED: Multiple JavaScript stability issues including Ajsetup re-entrancy deadlocks, garbage-collector double-frees, and object lifetime/use-after-free bugs that could cause UI hangs</li>
+<li>FIXED: HTTP/SSL connection teardown order with keep-alive (Enforcer hits during HTTPS retrieve)</li>
+<li>FIXED: Large HTTP requests and long response headers (304/401 completion, <b>Content-Disposition</b> filenames, buffer overflows)</li>
+<li>FIXED: Lazy images and CSS backgrounds after iconify or when backgrounds were deferred too far</li>
+<li>FIXED: JavaScript <b>Date</b>, <b>onclick</b>, <b>window.scroll</b>/<b>scrollTo</b>, and <b>setTimeout</b> after page display</li>
+<li>FIXED: Preference files that still reference <b>AWebPath:</b> are ignored so outdated 3.4/3.5 configs are not loaded</li>
+<li>FIXED: Popup menus no longer take focus away from the active window when switching windows</li>
+<li>Chip RAM memory pools removed so released chip bitmap memory can be reclaimed by the system</li>
+<li>Default parallel <b>file://</b> connections increased to 8</li>
+<li><b>protoweb.awebrx</b> ARexx script included for Protoweb.org proxy setup</li>
 </ul></p>
 
 <h2>Running AWeb</h2>
@@ -226,7 +247,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>FIXED: XML character entity matching is case sensitive again</li>
 <li>FIXED: Loading cached external CSS stylesheets would fail if server returned a 304 Not Modified response</li>
 <li>FIXED: Redirects for URLs with query strings now work properly - they are marked as volatile to force refresh since query strings change the URL's intent</li>
-<li>FIXED: If external CSS stylesheets were in utf-8 format, the parser would get stuck in an infinite loop</li>
+<li>FIXED: If external CSS stylesheets were in UTF-8 format, the parser would get stuck in an infinite loop</li>
 <li>FIXED: Long standing bug from AWeb 3.4 where wrong struct member was used to reply to the WBStartup ReplyPort, which could cause unpredictable crashes on launch or DSI errors on OS4</li>
 <li>FIXED: When Background images were turned off, the background color and body styles were also not applied</li>
 <li>FIXED: BUTTON elements now render their inner text as their label instead of being blank or using the object's value property</li>
@@ -248,7 +269,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>PNG AWebPlugin updated further to version 1.0.69 (latest 1.0.x branch) after it was updated to 1.0.0 by integrating the changes from AWeb 3.5</li>
 <li>Experimental support for the <b>gemini://</b> and <b>spartan://</b> protocols, new gopher-like networks, and the gemtext markup language they use</li>
 <li>Introducing <b>AWebView</b> a new standalone HTML and Markdown file viewer built using the LOCALONLY build configuration</li>
-<li>utf-8 support now handles mapping some 3-byte and 4-byte characters to Latin-1</li>
+<li>UTF-8 support now handles mapping some 3-byte and 4-byte characters to Latin-1</li>
 <li>TLS connections now safely fail immediately instead of prompting the user to allow unsecure fallback, if secure socket cannot be established</li>
 <li>PNG AWebPlugin now uses the same zlib as the main AWeb program instead of the previous ancient version</li>
 <li>Further enhancement to the <b>HTTP/1.1 keep-alive</b> support but still disabled in this alpha release build</li>
@@ -335,15 +356,6 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>The new support for Markdown documents still has some visual glitches</li>
 <li>The AWebPlugins are deliberately not enabled by default, you will need to enable them manually in the configuration - however the plugins offer little to no benefit compared to using recent DataTypes, which tend to be much faster</li>
 <li>Feedback is also particularly welcome on default settings and default programs</li>
-</ul>
-
-<h3>Known Issues with OS4</h3>
-<p>
-The following issues are specific to running the 3.6 Beta 8 68K build on OS4: 
-</p>
-<ul>
-<li>Pages with CSS stylesheets may experience content corruption / text overflow issues (e.g. amiga-news.de)</li>
-<li>OS4's built-in DataTypes do not seem to support transparency, so images with transparency will not render correctly</li>
 </ul>
 
 <h2>Contact</h2>

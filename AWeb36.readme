@@ -1,0 +1,175 @@
+Short:        AWeb 3.6 — the Amiga web browser (Beta 8)
+Author:       aweb@amigazen.com (amigazen project)
+Uploader:     aweb@amigazen.com (amigazen project)
+Type:         comm/www
+Version:      3.6b8
+Architecture: m68k-amigaos
+
+
+AWeb 3.6 Beta 8
+===============
+
+AWeb is the classic Amiga World Wide Web browser, updated in 2026 by
+amigazen project. This archive is AWeb 3.6 Beta 8 — a preview
+release for testing and feedback. 
+
+Full source code is available at:
+
+  https://github.com/amigazen/aweb3/
+
+AWeb 3.6 from amigazen project also available at:
+
+  http://www.amigazen.com/aweb/
+
+amigazen project uses modern development practices to maintain and
+rerelease classic Amiga open-source software. 
+
+The original AWeb author is not affiliated with amigazen; terms are in LICENSE
+/ Docs as per the AWeb Public License.
+
+READ THIS FIRST
+---------------
+
+ o This is Beta software — expect bugs. Please report issues at GitHub.
+
+ o AWeb 3.6 is derived from AWeb 3.4 with AWeb 3.5 improvements merged in
+   (as of Beta 8, all relevant 3.5 changes are integrated)
+
+ o No installer required: unpack anywhere and just run AWeb
+
+ o AWeb 3.6 uses a much smarter default configuration - older versions' 
+   configuration files will be ignored and overwritten, or use the CONFIG ToolType
+   to keep configurations separate
+
+ o ReAction required. bsdsocket.library TCP/IP (e.g. RoadShow, UAE) for network. 
+   AmiSSL 5.27+ required for HTTPS, FTPS, and gemini:// TLS
+
+ o 68k build, optimised for 68020; but does also run on AmigaOS 4.
+   PNG/JFIF/GIF AWebPlugins included here are built for 68020 + 68881 
+   (other variants can be built from source by adjusting the SCOPTIONS)
+
+ o The AWebPlugin image decoders are generally slower than DataTypes so are not 
+   enabled by default. This is due to the way AWeb only passes a single byte 
+   at a time to its plugins. This is fine, maybe, in a Dial-Up world, but not suitable
+   in 2026
+
+ o This beta defaults to placing disk cache on T: to reduce risk to your boot 
+   volume filesystem, and avoid clashes with other AWeb installs; this of 
+   course uses more RAM. It can be changed using AWebCfg
+
+ o AmiSSL 5.27 or newer is required for HTTPS, FTPS, and gemini:// 
+
+The Goals for AWeb 3.6 are:
+
+ o Make AWeb buildable again on supported SDKs and easy to update and collaborate.
+
+ o Complete support for the HTML 4 / XHTML era, with CSS1/CSS2
+   and JavaScript 1.5 (ECMAScript 3)
+
+ o Improve rendering quality, JavaScript functionality, memory optimisation, speed and stability.
+
+
+NEW IN AWEB 3.6
+---------------
+
+N.B. Many new features require testing and surely contain bugs or are incomplete, hence this beta release 
+
+ o Improved HTML 4 and new XHTML 1.0/1.1 support.
+
+ o HTTP/1.1 stack with gzip, chunked transfer encoding, Range (resume), and keep-alive as well as 
+   corrected handling of Cache-Control and Redirect  
+
+ o AmiSSL 5.27 HTTPS with modern TLS; FTPS on the FTP module.
+
+ o JavaScript 1.5 (ECMAScript 3) with RegExp, try/catch/finally, and XMLHttpRequest (AJAX)
+
+ o CSS1/CSS2 — inline styles and external stylesheets
+
+ o TTEngine + full UTF-8 when ttengine.library is installed; try about:fonts to see how your fonts render
+
+ o Shift_JIS Japanese charset encoding support when JKFF.font is installed in FONTS:
+
+ o New aweblib for about: pages (home, blank, fonts, version, plugins pages)
+
+ o Enhanced memory management, and chip RAM usage optimisations including just-in-time image rendering
+ 
+ o Mousewheel scrolling and Iconify gadget where supported by the operating system
+
+ o data: and cid: URL support for inline binary content
+
+ o Font matching follows web safe fonts rules, with smarter default fonts mapping
+ 
+ o file:// directory browsing, including a volume list at file:///.
+
+ o view-source: any URL as plain text
+ 
+ o Markdown textfile viewing, rendered with HTML styles
+
+ o Support for the gopher-like gemini:// and spartan:// protocols
+
+ o AWeb is now a Commodity with Show/Hide (Iconify) support
+
+ o protoweb.awebrx script included for easy Protoweb.org vintage-web browsing.
+
+ o AWeb now provides session status in the screen title
+
+ o Enhanced debug mode logging
+
+ o Native P96 support on RTG equipped systems
+
+ o Many more XML entities supported including the most common UTF-8 characters
+
+ o Alpha channel images, where supported by DataTypes 
+
+ o Many hundreds of bug fixes, optimisations and modernisations, for memory leaks, Enforcer hits and overall stability
+
+ o Updated zlib, GIF, JFIF/JPEG and PNG libraries
+
+
+LIMITATIONS (MODERN WEB)
+------------------------
+
+AWeb targets 1990s–early-2000s sites. It does not implement HTML5, CSS3,
+ES6+ JavaScript, WebSockets, WebAssembly, or modern DOM/ storage APIs. 
+Sites such as GitHub or Google require a current browser; use GitHub on 
+another machine and report bugs from there.
+
+Loading of CSS and JavaScript from third party domains is automatically blocked
+to prevent AWeb trying to run modern analytics and trackers it cannot handle.
+
+
+REQUIREMENTS
+------------
+
+ o AmigaOS 3.2+ recommended; AmigaOS 3.5, 3.9 or 3.1 with ClassAct are not 
+   specifically tested at this time
+
+ o bsdsocket.library TCP/IP (e.g. RoadShow, UAE bsdsocket.library)
+
+ o AmiSSL 5.27+ for TLS (HTTPS / FTPS / gemini TLS)
+
+ o Picture DataTypes (e.g. GIF, JPEG) for image display unless using included
+   AWebPlugins
+
+ o Plenty of Fast RAM for real world websites (8MB minimum recommended)
+
+ o This release is built for 68020 CPU. Included AWebPlugins are built for 68020 CPU with 68881 FPU
+
+CONTACT
+-------
+
+ GitHub:  https://github.com/amigazen/aweb3/
+ Web:     http://www.amigazen.com/aweb/
+ Email:   aweb@amigazen.com
+
+
+COPYRIGHT
+---------
+
+AWeb is Copyright (c) 1998 by Yvon Rozijn. All rights reserved.
+Changes Copyright (c) 2025-2026 by amigazen project. Licensed on AWeb Public License terms.
+
+See AWeb/Docs/legal.html, or LICENSE in the source code distribution.
+
+amigazen project maintains this fork under the AWeb Public License;
+see project documentation for contributor and redistribution terms.

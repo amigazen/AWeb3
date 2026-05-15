@@ -21,14 +21,14 @@
 <HEAD>
 <TITLE>AWeb CSS1/CSS2 Compatibility Test Page</TITLE>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
-<META NAME="Description" CONTENT="Comprehensive CSS1/CSS2 compatibility test for AWeb inline styles">
+<META NAME="Description" CONTENT="Comprehensive CSS1/CSS2 compatibility test for AWeb using inline STYLE attributes; some sections use embedded STYLE for selectors/pseudo-classes">
 <META NAME="Keywords" CONTENT="CSS, CSS1, CSS2, compatibility, test, AWeb, inline styles">
 </HEAD>
-<BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" STYLE="background-repeat: repeat-y; background-color: #ffffff;">
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; CSS1/CSS2 Compatibility Test</H1>
 
-<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see. Note that some properties have limitations due to AWeb's layout engine architecture - see the Summary section for details. Intentionally invalid CSS appears under <A HREF="#negative">Graceful Failure</A> (CS46-CS47).</P>
+<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties using the HTML <CODE>STYLE</CODE> attribute (inline CSS). A few sections use embedded <CODE>&lt;STYLE&gt;</CODE> blocks where class or pseudo-class selectors are required. The same layout checks via <CODE>css_test.css</CODE> are in <A HREF="stylesheet_test.html#stylesheet-reg">stylesheet_test.html</A> (SS32). Invalid CSS is under <A HREF="#negative">Graceful Failure</A> (CS46-CS47).</P>
 
 <HR>
 
@@ -45,6 +45,7 @@
 <A HREF="#grid" STYLE="text-decoration: none; color: #0000ff;">Grid Layout</A> |
 <A HREF="#misc" STYLE="text-decoration: none; color: #0000ff;">Additional Properties</A> |
 <A HREF="#negative" STYLE="text-decoration: none; color: #0000ff;">Graceful Failure</A> |
+<A HREF="#inline-reg" STYLE="text-decoration: none; color: #0000ff;">Inline layout regression</A> |
 <A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A>
 </CENTER>
 
@@ -304,9 +305,9 @@
 </TR>
 </TABLE>
 
-<H3>CS16: margin shorthand - PASS (top/left only)</H3>
-<P><STRONG>Note:</STRONG> Margin shorthand is parsed and applied. Top and left margins are fully supported. Right and bottom margins are parsed but not directly used in rendering.</P>
-<P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property. The margin property can accept 1-4 values to set all margins at once. Top and left margins should be visible.</P>
+<H3>CS16: margin shorthand - PASS</H3>
+<P><STRONG>Note:</STRONG> Margin shorthand applies top, left, right, and bottom (pixel lengths) and supports <CODE>auto</CODE> for horizontal centering flags where implemented.</P>
+<P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand. One-, two-, three-, and four-value forms should show asymmetric spacing where values differ (including right and bottom).</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
@@ -321,9 +322,9 @@
 </TR>
 </TABLE>
 
-<H3>CS17: margin-top, margin-left - PASS</H3>
-<P><STRONG>Note:</STRONG> margin-top and margin-left are fully supported. margin-right and margin-bottom are parsed but not directly used in rendering.</P>
-<P><STRONG>What you should see:</STRONG> Paragraphs with different margin values creating space around elements. Top and left margins should be visible.</P>
+<H3>CS17: margin-top, margin-left, margin-right, margin-bottom - PASS</H3>
+<P><STRONG>Note:</STRONG> Longhand margin sides are applied on body layout objects; shorthand also sets margin-right and margin-bottom (see CS16).</P>
+<P><STRONG>What you should see:</STRONG> Paragraphs with side-specific margins: visible offset on the corresponding edge (right/bottom included).</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
@@ -934,8 +935,8 @@ Web: www.example.com<BR>
 </TR>
 </TABLE>
 
-<H3>CS45: background-repeat, background-position, background-attachment - PASS (parsed and stored)</H3>
-<P><STRONG>Note:</STRONG> These background properties are parsed and stored, but rendering may not fully use them yet.</P>
+<H3>CS45: background-repeat, background-position, background-attachment - PASS (inline)</H3>
+<P><STRONG>Note:</STRONG> Parsed and stored. The opening <CODE>BODY</CODE> tag on this page also uses inline <CODE>STYLE=&quot;background-repeat: repeat-y; background-color: #ffffff;&quot;</CODE> (see CS48).</P>
 <P><STRONG>What you should see:</STRONG> Elements with different background repeat, position, and attachment values.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -950,6 +951,41 @@ Web: www.example.com<BR>
 <P STYLE="background-position: top right; background-color: #e8e8e8; padding: 20px;">This paragraph has background-position: top right.</P>
 <P STYLE="background-attachment: scroll; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: scroll (default, scrolls with content).</P>
 <P STYLE="background-attachment: fixed; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: fixed (viewport-relative, may not work fully).</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="inline-reg"></A>
+<H2>Inline layout regression (STYLE attribute)</H2>
+<P>Same property bundle as common layout snippets, applied only with the HTML <CODE>STYLE</CODE> attribute (no external sheet on this page). The document <CODE>BODY</CODE> uses inline <CODE>background-repeat</CODE> / <CODE>background-color</CODE> at the top of the file.</P>
+
+<H3>CS48: BODY (opening tag), DIV, UL, TD/TH — margins, font-size, table cell bundle</H3>
+<P><STRONG>What you should see:</STRONG> DIV with large left margin (300px), UL near 20px with outer margin, two-column table with top-aligned cells and asymmetric horizontal padding (more on the right).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="margin: 20px 40px 20px 300px; background-color: #fff0e0; border: 1px solid #333333;">CS48 DIV: margin 20px 40px 20px 300px (large left indent).</DIV>
+<UL STYLE="font-size: 20px; margin: 25px; background-color: #f5f5ff; border: 1px dashed #666666;">
+<LI>UL item one (font-size 20px inline)</LI>
+<LI>UL item two</LI>
+</UL>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+<TR>
+<TH STYLE="font-size: 20px; width: 50%; vertical-align: top; padding: 15px 35px 15px 15px; background-color: #e8f8e8; border: 1px solid #006600;">TH header (50% width, top, padding 15/35/15/15)</TH>
+<TH STYLE="font-size: 20px; width: 50%; vertical-align: top; padding: 15px 35px 15px 15px; background-color: #e8f8e8; border: 1px solid #006600;">TH second column</TH>
+</TR>
+<TR>
+<TD STYLE="font-size: 20px; width: 50%; vertical-align: top; padding: 15px 35px 15px 15px; background-color: #e8f8e8; border: 1px solid #006600;">TD cell one — same rules as TH.</TD>
+<TD STYLE="font-size: 20px; width: 50%; vertical-align: top; padding: 15px 35px 15px 15px; background-color: #e8f8e8; border: 1px solid #006600;">TD cell two — top-aligned; more padding on the right.</TD>
+</TR>
+</TABLE>
+<P STYLE="padding: 15px 35px 15px 15px; background-color: #e8e8ff; border: 1px solid #000066;">CS48b: P with inline four-value padding 15px 35px 15px 15px.</P>
+<P STYLE="font-size: 20px; padding: 10px; background-color: #e8e8e8;">CS48c: P with inline font-size: 20px (maps to engine size bands).</P>
 </TD>
 </TR>
 </TABLE>
