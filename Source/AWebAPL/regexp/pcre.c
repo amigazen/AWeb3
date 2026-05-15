@@ -192,33 +192,6 @@ compiling for Virtual Pascal, things are done differently (see pcre.in). */
 
 #ifndef VPCOMPAT
 #include <stdlib.h>
-#if (defined(__SASC__) || defined(__amigaos__) || defined(__AMIGA__) || defined(__amigaos4__)) && !defined(__MORPHOS__)
-#include <exec/types.h>
-#include <exec/memory.h>
-
-extern void *Allocmem(long size, ULONG flags);
-extern void Freemem(void *mem);
-
-/* AWeb pooled memory instead of SAS/C malloc for PCRE compile/match workspace. */
-static void *pcre_aweb_malloc(size_t size)
-{
-   unsigned long nbytes;
-
-   nbytes = (unsigned long)size;
-   if(nbytes == 0UL)
-      return NULL;
-   return Allocmem((long)nbytes, MEMF_PUBLIC);
-}
-
-static void pcre_aweb_free(void *ptr)
-{
-   if(ptr)
-      Freemem(ptr);
-}
-
-void *(*pcre_malloc)(size_t) = pcre_aweb_malloc;
-static void (*pcre_free_ptr)(void *) = pcre_aweb_free;
-#else
 void *(*pcre_malloc)(size_t) = malloc;
 static void (*pcre_free_ptr)(void *) = free;
 #endif
@@ -237,7 +210,7 @@ void pcre_free(void *ptr)
 }
 
 int   (*pcre_callout)(pcre_callout_block *) = NULL;
-#endif
+
 
 
 /*************************************************

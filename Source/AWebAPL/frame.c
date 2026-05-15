@@ -893,6 +893,8 @@ static void Newdisplay(struct Frame *fr)
    if(fr->info)
    {  Asetattrs(fr->copy,AOCPY_Info,fr->info,TAG_END);
    }
+   /* Clearjframe() above removed window.scroll and related natives; restore before onload. */
+   Rebindwindowjs(fr);
 }
 
 /* A new winhis was set, this is a request to display something else. */
