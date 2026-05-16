@@ -133,5 +133,11 @@
 #define TABRUL_COLS     0x0002
 #define TABRUL_ALL      0x0003
 
+/* Apply width/height/align to a specific cell body (not only the open cell). */
+void TableApplyCellAttrs(void *table, void *cellBody, ULONG tag, long data);
+
+/* Reapply td/th stylesheet rules to every cell after async CSS load. */
+void ReapplyCSSToTable(struct Document *doc, void *table);
+
 #endif
 

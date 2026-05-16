@@ -985,7 +985,9 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         {  /* Apply to top margin */
                            Asetattrs(body,AOBDY_Topmargin,posValue,TAG_END);
                         }
-                        /* margin-bottom would need new attribute */
+                        else if(Stricmp((char *)prop->name,"margin-bottom") == 0)
+                        {  Asetattrs(body,AOBDY_MarginBottom,posValue,TAG_END);
+                        }
                      }
                   }
                   /* Apply color */
@@ -1036,6 +1038,59 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         }
                      }
                   }
+                  /* Apply background-image (url(...) from stylesheet) */
+                  else if(Stricmp((char *)prop->name,"background-image") == 0)
+                  {  UBYTE *urlValue;
+                     UBYTE *url;
+                     void *bgimg;
+                     urlValue = prop->value;
+                     while(*urlValue && isspace(*urlValue)) urlValue++;
+                     if(Strnicmp((char *)urlValue,"url(",4) == 0)
+                     {  UBYTE *start;
+                        UBYTE *end;
+                        long len;
+                        start = urlValue + 4;
+                        while(*start && isspace(*start)) start++;
+                        end = (UBYTE *)strchr((char *)start,')');
+                        if(end && end > start)
+                        {  if((*start == '"' || *start == '\'') && end > start + 1)
+                           {  start++;
+                              if(*(end - 1) == '"' || *(end - 1) == '\'')
+                              {  end--;
+                              }
+                           }
+                           len = end - start;
+                           if(len > 0)
+                           {  url = ALLOCTYPE(UBYTE,len + 1,0);
+                              if(url)
+                              {  memmove(url,start,len);
+                                 url[len] = '\0';
+                                 bgimg = Backgroundimg(doc,url);
+                                 if(bgimg)
+                                 {  Asetattrs(body,AOBDY_Bgimage,bgimg,TAG_END);
+                                 }
+                                 FREE(url);
+                              }
+                           }
+                        }
+                     }
+                  }
+                  /* Apply background-repeat (repeat, repeat-y, etc.) */
+                  else if(Stricmp((char *)prop->name,"background-repeat") == 0)
+                  {  UBYTE *repeatStr;
+                     repeatStr = Dupstr(prop->value, -1);
+                     if(repeatStr)
+                     {  if(Stricmp((char *)repeatStr, "repeat") == 0 ||
+                           Stricmp((char *)repeatStr, "no-repeat") == 0 ||
+                           Stricmp((char *)repeatStr, "repeat-x") == 0 ||
+                           Stricmp((char *)repeatStr, "repeat-y") == 0)
+                        {  Asetattrs(body, AOBDY_BackgroundRepeat, repeatStr, TAG_END);
+                        }
+                        else
+                        {  FREE(repeatStr);
+                        }
+                     }
+                  }
                   /* Apply text-transform */
                   else if(Stricmp((char *)prop->name,"text-transform") == 0)
                   {  UBYTE *transformStr;
@@ -1071,6 +1126,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      long marginBottom;
                      long marginLeft;
                      long j;
+                     struct Number marginNum;
                      marginP = prop->value;
                      marginCount = 0;
                      marginTop = marginRight = marginBottom = marginLeft = 0;
@@ -1095,31 +1151,55 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         }
                      }
                      
-                     /* Apply margin values based on count */
+                     /* Apply margin values based on count (CSS1 shorthand) */
                      if(marginCount >= 1)
-                     {  marginTop = ParseCSSLengthValue(marginTokens[0],&num);
-                        if(marginCount == 1)
-                        {  marginRight = marginBottom = marginLeft = marginTop;
-                        }
-                        else if(marginCount == 2)
+                     {  marginTop = ParseCSSLengthValue(marginTokens[0],&marginNum);
+                        marginRight = marginTop;
+                        marginBottom = marginTop;
+                        marginLeft = marginTop;
+                        if(marginCount == 2)
                         {  marginBottom = marginTop;
-                           marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                           marginRight = ParseCSSLengthValue(marginTokens[1],&marginNum);
                            marginLeft = marginRight;
                         }
                         else if(marginCount == 3)
-                        {  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                        {  marginRight = ParseCSSLengthValue(marginTokens[1],&marginNum);
                            marginLeft = marginRight;
-                           marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
+                           marginBottom = ParseCSSLengthValue(marginTokens[2],&marginNum);
                         }
                         else if(marginCount == 4)
-                        {  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
-                           marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
-                           marginLeft = ParseCSSLengthValue(marginTokens[3],&num);
+                        {  marginRight = ParseCSSLengthValue(marginTokens[1],&marginNum);
+                           marginBottom = ParseCSSLengthValue(marginTokens[2],&marginNum);
+                           marginLeft = ParseCSSLengthValue(marginTokens[3],&marginNum);
                         }
-                        
-                        /* Apply margins */
-                        if(marginTop >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_Topmargin,marginTop,TAG_END);
-                        if(marginLeft >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_Leftmargin,marginLeft,TAG_END);
+                        marginTop = ParseCSSLengthValue(marginTokens[0],&marginNum);
+                        if(marginTop >= 0 && (marginNum.type == NUMBER_NUMBER || marginNum.type == NUMBER_SIGNED))
+                        {  Asetattrs(body,AOBDY_Topmargin,marginTop,TAG_END);
+                        }
+                        if(marginCount >= 2)
+                        {  marginRight = ParseCSSLengthValue(marginTokens[1],&marginNum);
+                        }
+                        if(marginRight >= 0 && (marginNum.type == NUMBER_NUMBER || marginNum.type == NUMBER_SIGNED))
+                        {  Asetattrs(body,AOBDY_MarginRight,marginRight,TAG_END);
+                        }
+                        if(marginCount >= 3)
+                        {  marginBottom = ParseCSSLengthValue(marginTokens[2],&marginNum);
+                        }
+                        if(marginBottom >= 0 && (marginNum.type == NUMBER_NUMBER || marginNum.type == NUMBER_SIGNED))
+                        {  Asetattrs(body,AOBDY_MarginBottom,marginBottom,TAG_END);
+                        }
+                        if(marginCount >= 4)
+                        {  marginLeft = ParseCSSLengthValue(marginTokens[3],&marginNum);
+                        }
+                        else if(marginCount == 3)
+                        {  marginLeft = ParseCSSLengthValue(marginTokens[1],&marginNum);
+                        }
+                        else if(marginCount == 2)
+                        {  marginLeft = marginRight;
+                        }
+                        if(marginLeft >= 0 && (marginNum.type == NUMBER_NUMBER || marginNum.type == NUMBER_SIGNED))
+                        {  Asetattrs(body,AOBDY_Leftmargin,marginLeft,TAG_END);
+                        }
                      }
                      
                      /* Free temporary token buffers */
@@ -1164,20 +1244,80 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
                      }
                   }
-                  /* Apply width */
+                  /* Apply width (pixel lengths only; % and table cells use other paths) */
                   else if(Stricmp((char *)prop->name,"width") == 0)
                   {  long widthValue;
-                     widthValue = ParseCSSLengthValue(prop->value,&num);
-                     if(widthValue >= 0 && num.type != NUMBER_NONE)
-                     {  Asetattrs(body,AOBJ_Width,widthValue,TAG_END);
+                     void *table;
+                     ULONG cwtag;
+                     BOOL skipWidth;
+                     skipWidth = FALSE;
+                     if(tagname)
+                     {  if(Stricmp((char *)tagname,"TD") == 0 ||
+                           Stricmp((char *)tagname,"TH") == 0)
+                        {  skipWidth = TRUE;
+                           widthValue = ParseCSSLengthValue(prop->value,&num);
+                           if(widthValue >= 0 && num.type != NUMBER_NONE)
+                           {  table = (void *)Agetattr(body,AOBJ_Layoutparent);
+                              if(table)
+                              {  if(num.type == NUMBER_PERCENT)
+                                 {  cwtag = AOTAB_Percentwidth;
+                                 }
+                                 else if(num.type == NUMBER_RELATIVE)
+                                 {  cwtag = AOTAB_Relwidth;
+                                 }
+                                 else
+                                 {  cwtag = AOTAB_Pixelwidth;
+                                 }
+                                 TableApplyCellAttrs(table,body,cwtag,widthValue);
+                              }
+                           }
+                        }
+                        else if(Stricmp((char *)tagname,"TABLE") == 0)
+                        {  skipWidth = TRUE;
+                        }
+                     }
+                     if(!skipWidth)
+                     {  widthValue = ParseCSSLengthValue(prop->value,&num);
+                        /* Do not map width:50% to AOBJ_Width=50 (pixels) */
+                        if(widthValue >= 0 && num.type == NUMBER_NUMBER)
+                        {  Asetattrs(body,AOBJ_Width,widthValue,TAG_END);
+                        }
                      }
                   }
-                  /* Apply height */
+                  /* Apply height (pixel lengths only; table cells use table attrs) */
                   else if(Stricmp((char *)prop->name,"height") == 0)
                   {  long heightValue;
-                     heightValue = ParseCSSLengthValue(prop->value,&num);
-                     if(heightValue >= 0 && num.type != NUMBER_NONE)
-                     {  Asetattrs(body,AOBJ_Height,heightValue,TAG_END);
+                     void *table;
+                     ULONG chtag;
+                     BOOL skipHeight;
+                     skipHeight = FALSE;
+                     if(tagname)
+                     {  if(Stricmp((char *)tagname,"TD") == 0 ||
+                           Stricmp((char *)tagname,"TH") == 0)
+                        {  skipHeight = TRUE;
+                           heightValue = ParseCSSLengthValue(prop->value,&num);
+                           if(heightValue >= 0 && num.type != NUMBER_NONE)
+                           {  table = (void *)Agetattr(body,AOBJ_Layoutparent);
+                              if(table)
+                              {  if(num.type == NUMBER_PERCENT)
+                                 {  chtag = AOTAB_Percentheight;
+                                 }
+                                 else
+                                 {  chtag = AOTAB_Pixelheight;
+                                 }
+                                 TableApplyCellAttrs(table,body,chtag,heightValue);
+                              }
+                           }
+                        }
+                        else if(Stricmp((char *)tagname,"TABLE") == 0)
+                        {  skipHeight = TRUE;
+                        }
+                     }
+                     if(!skipHeight)
+                     {  heightValue = ParseCSSLengthValue(prop->value,&num);
+                        if(heightValue >= 0 && num.type == NUMBER_NUMBER)
+                        {  Asetattrs(body,AOBJ_Height,heightValue,TAG_END);
+                        }
                      }
                   }
                   /* Apply position */
@@ -1442,6 +1582,13 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                            paddingLeft = ParseCSSLengthValue(paddingTokens[3],&num);
                         }
                         
+                        /* CSS padding on TD/TH replaces HTML cellpadding (Leftmargin) */
+                        if(tagname &&
+                           (Stricmp((char *)tagname,"TD") == 0 ||
+                            Stricmp((char *)tagname,"TH") == 0))
+                        {  Asetattrs(body,AOBDY_Leftmargin,0,TAG_END);
+                           Asetattrs(body,AOBDY_Topmargin,0,TAG_END);
+                        }
                         /* Apply padding values */
                         if(paddingTop >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_PaddingTop,paddingTop,TAG_END);
                         if(paddingRight >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_PaddingRight,paddingRight,TAG_END);
@@ -6311,6 +6458,26 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
             break;
       }
    }
+   /* CSS width/height on STYLE= must reach Startcell like HTML WIDTH/HEIGHT. */
+   if(styleAttr)
+   {  short sw;
+      short sh;
+      ULONG stw;
+      ULONG sth;
+      sw=-1;
+      sh=-1;
+      stw=TAG_IGNORE;
+      sth=TAG_IGNORE;
+      ParseStyleTableCellDims(doc,styleAttr,&sw,&stw,&sh,&sth);
+      if(stw!=TAG_IGNORE)
+      {  wtag=stw;
+         width=sw;
+      }
+      if(sth!=TAG_IGNORE)
+      {  htag=sth;
+         height=sh;
+      }
+   }
    if(!ISEMPTY(&doc->tables))
    {  Asetattrs(doc->tables.first->table,
          AOTAB_Vspacing,doc->gotbreak,
@@ -6337,13 +6504,18 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
          AOTAB_Bodync,&cellBody,
          TAG_END);
       
+      /* Clear mistaken pixel width from legacy CSS (width:50% must not set AOBJ_Width=50) */
+      if(cellBody)
+      {  Asetattrs(cellBody,AOBJ_Width,0,TAG_END);
+      }
+      
       /* Apply CSS to table cell based on class/ID */
       if(cellBody)
       {  void *table;
          table = doc->tables.first->table;
          if(doc->cssstylesheet) ApplyCSSToBody(doc,cellBody,class,id,heading ? "TH" : "TD");
          /* Apply table-cell-specific CSS properties from external stylesheet */
-         ApplyCSSToTableCellFromRules(doc,table,class,id,heading ? "TH" : "TD");
+         ApplyCSSToTableCellFromRules(doc,table,cellBody,class,id,heading ? "TH" : "TD");
       }
       
       /* Apply inline CSS if present */
@@ -6360,11 +6532,11 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
          /* This matches the behavior of the HTML BGCOLOR attribute */
          cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
          if(cssBgcolor)
-         {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
+         {  TableApplyCellAttrs(table,cellBody,AOTAB_Bgcolor,(long)cssBgcolor);
          }
          
          /* Apply table-cell-specific CSS properties (width, height, vertical-align, text-align) */
-         ApplyCSSToTableCell(doc,table,styleAttr);
+         ApplyCSSToTableCell(doc,table,cellBody,styleAttr);
       }
    }
    if(!Ensuresp(doc)) return FALSE;

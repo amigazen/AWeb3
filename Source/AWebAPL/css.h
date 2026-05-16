@@ -95,7 +95,8 @@ void ApplyInlineCSS(struct Document *doc,void *element,UBYTE *style);
 void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *tagname);
 void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *style);
 struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *style);
-void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style);
+void ParseStyleTableCellDims(struct Document *doc,UBYTE *style,short *width,ULONG *wtag,short *height,ULONG *htag);
+void ApplyCSSToTableCell(struct Document *doc,void *table,void *cellBody,UBYTE *style);
 void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style);
 void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style);
 ULONG ParseHexColor(UBYTE *pcolor);
@@ -108,7 +109,7 @@ BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSS
 void SkipWhitespace(UBYTE **p);
 long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *tagname);
-void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id,UBYTE *tagname);
+void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,void *cellBody,UBYTE *class,UBYTE *id,UBYTE *tagname);
 void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id);
 void ReapplyCSSToAllElements(struct Document *doc);
 void MarkDocCssDirty(struct Document *doc);

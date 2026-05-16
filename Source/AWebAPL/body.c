@@ -244,57 +244,83 @@ void Freeopenfont(struct Openfont *of)
 /* Push a fontinfo on the stack. */
 static BOOL Pushfont(struct Body *bd,short style,short size,struct Colorinfo *ci,
    UBYTE *face,USHORT which)
-{  struct Fontinfo *fi=PALLOCSTRUCT(Fontinfo,1,MEMF_CLEAR|MEMF_PUBLIC,bd->pool);
+{  struct Fontinfo *fi;
+   struct Fontinfo *prev;
    struct Styleprefs *sp;
-   if(fi)
-   {  ADDHEAD(&bd->bld->font,fi);
-      if(which&FONTW_STYLE)
-      {  sp=&prefs.browser.styles[style];
-         fi->type=sp->fonttype;
-         fi->size=sp->fontsize;
-         fi->flags=sp->relsize?FONTF_RELSIZE:FONTF_BASE;
-         fi->style=sp->style;
+
+   if(!bd || !bd->bld) return FALSE;
+
+   /* Inherit-from-previous paths require a base entry (see Popfont). */
+   if(!bd->bld->font.first && !(which&FONTW_STYLE))
+   {  if(!Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE)) return FALSE;
+   }
+
+   fi=PALLOCSTRUCT(Fontinfo,1,MEMF_CLEAR|MEMF_PUBLIC,bd->pool);
+   if(!fi) return FALSE;
+
+   ADDHEAD(&bd->bld->font,fi);
+   prev=fi->next;
+
+   if(which&FONTW_STYLE)
+   {  sp=&prefs.browser.styles[style];
+      fi->type=sp->fonttype;
+      fi->size=sp->fontsize;
+      fi->flags=sp->relsize?FONTF_RELSIZE:FONTF_BASE;
+      fi->style=sp->style;
+   }
+   else if(prev)
+   {  fi->type=prev->type;
+      fi->style=prev->style;
+      if(which&FONTW_ABSSIZE)
+      {  fi->size=size;
+         fi->flags=0;
+      }
+      else if(which&FONTW_RELSIZE)
+      {  fi->size=size;
+         fi->flags=FONTF_RELSIZE;
       }
       else
-      {  fi->type=fi->next->type;
-         fi->style=fi->next->style;
-         if(which&FONTW_ABSSIZE)
-         {  fi->size=size;
-            fi->flags=0;
-         }
-         else if(which&FONTW_RELSIZE)
-         {  fi->size=size;
-            fi->flags=FONTF_RELSIZE;
-         }
-         else
-         {  fi->size=fi->next->size;
-            fi->flags=fi->next->flags&~FONTF_FACE;
-         }
+      {  fi->size=prev->size;
+         fi->flags=prev->flags&~FONTF_FACE;
       }
-      if(which&FONTW_COLOR)
-      {  fi->color=ci;
-         fi->flags|=FONTF_COLOR;
-      }
-      else if(fi->next->next)
-      {  fi->color=fi->next->color;
-      }
-      if(which&FONTW_FACE)
-      {  fi->facestring=Dupstr(face,-1);
-         fi->face=fi->facestring;
-         fi->flags|=FONTF_FACE;
-      }
-      else if(fi->next->next)
-      {  fi->face=fi->next->face;
-      }
-//printf("pushfont color=%08x\n",fi->color);
    }
-   return (BOOL)(fi!=NULL);
+   else
+   {  sp=&prefs.browser.styles[STYLE_NORMAL];
+      fi->type=sp->fonttype;
+      fi->size=sp->fontsize;
+      fi->flags=sp->relsize?FONTF_RELSIZE:FONTF_BASE;
+      fi->style=sp->style;
+   }
+
+   if(which&FONTW_COLOR)
+   {  fi->color=ci;
+      fi->flags|=FONTF_COLOR;
+   }
+   /* Inherit color only when a prior entry exists below the immediate predecessor. */
+   else if(prev && prev->next)
+   {  fi->color=prev->color;
+   }
+
+   if(which&FONTW_FACE)
+   {  fi->facestring=Dupstr(face,-1);
+      fi->face=fi->facestring;
+      fi->flags|=FONTF_FACE;
+   }
+   else if(prev && prev->next)
+   {  fi->face=prev->face;
+   }
+//printf("pushfont color=%08x\n",fi->color);
+   return TRUE;
 }
 
 /* Pop a fontinfo from the stack */
 static void Popfont(struct Body *bd)
-{  struct Fontinfo *fi=bd->bld->font.first;
-   if(fi->next->next)   /* leave at least one on stack */
+{  struct Fontinfo *fi;
+
+   if(!bd || !bd->bld) return;
+   fi=bd->bld->font.first;
+   /* Leave at least one on stack (fi->next must exist before pop). */
+   if(fi && fi->next && fi->next->next)
    {  REMOVE(fi);
       if(fi->facestring) FREE(fi->facestring);
       FREE(fi);
@@ -673,6 +699,9 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
 {  struct Element *child,*ch;
    struct Ammresult ammr;
    long w=0,totalw=0,totalminw=0,addwidth=0,indent,halign,left,right,minw,width;
+   long childMeasureW;
+   long marginRightUsed;
+   long horizExtra;
    ULONG flags;
    BOOL isHidden;
    
@@ -701,6 +730,13 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
    else
    {  child=bd->contents.first;
    }
+   /* Match Layoutbody: left margin is hmargin, right is marginright (not 2*hmargin). */
+   marginRightUsed = bd->marginright;
+   if(marginRightUsed < 0) marginRightUsed = 0;
+   childMeasureW = amm->width - bd->hmargin - marginRightUsed
+      - bd->paddingleft - bd->paddingright;
+   if(childMeasureW < 1) childMeasureW = 1;
+   horizExtra = bd->hmargin + marginRightUsed + bd->paddingleft + bd->paddingright;
    for(;child->next;child=child->next)
    {  if(ammr.newline)
       {  /* Get left and right indent levels (valid for entire line)
@@ -723,7 +759,7 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
       ammr.newline=FALSE;
       flags=amm->flags;
       if(child==bd->chchild) flags|=AMMF_CHANGED;
-      Ameasure(child,amm->width-2*bd->hmargin,amm->height-2*bd->vmargin,
+      Ameasure(child,childMeasureW,amm->height-2*bd->vmargin,
          addwidth,flags,amm->text,&ammr);
       if(halign&HALIGN_BULLET)
       {  width=MAX(0,ammr.width-indent);
@@ -739,9 +775,8 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
       addwidth=ammr.addwidth;
    }
    if(amm->ammr)
-   {  amm->ammr->width=totalw+2*bd->hmargin;
-      {  amm->ammr->minwidth=totalminw+2*bd->hmargin;
-      }
+   {  amm->ammr->width=totalw+horizExtra;
+      amm->ammr->minwidth=totalminw+horizExtra;
       
       /* Apply min-width constraint */
       if(bd->minwidth >= 0 && amm->ammr->width < bd->minwidth)
@@ -2214,7 +2249,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
 #endif
       }
    }
-   if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
+   if(fontw && bd->bld) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
    if(setframe || setwin || setwhis)
    {  for(child=bd->contents.first;child->next;child=child->next)
       {  Asetattrs(child,

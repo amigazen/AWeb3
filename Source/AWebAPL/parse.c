@@ -1062,8 +1062,8 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 402:n=(UBYTE)'f';break;
             case 710:n=(UBYTE)0x2C6;break;
             case 732:n=(UBYTE)'~';break;
-            case 8194:n=(UBYTE)' ';break;
-            case 8195:n=(UBYTE)' ';break;
+            case 8194:r="  ";break;   /* en space: two spaces */
+            case 8195:r="    ";break; /* em space: four spaces (approx. 1em in Latin-1) */
             case 8201:n=(UBYTE)' ';break;
             case 8204:n=(UBYTE)' ';break;
             case 8205:n=(UBYTE)' ';break;

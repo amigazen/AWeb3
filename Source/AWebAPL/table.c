@@ -21,6 +21,7 @@
 #include "aweb.h"
 #include "table.h"
 #include "body.h"
+#include "css.h"
 #include "docprivate.h"
 #include "frprivate.h"
 #include "copy.h"
@@ -417,6 +418,21 @@ static void Endcell(struct Table *tab,long vspacing)
       tab->curbody=NULL;
       tab->flags&=~TABF_OPENCELL;
    }
+}
+
+/* Return the table cell currently being parsed (TABF_OPENCELL), or NULL. */
+static struct Tabcell *Getopencell(struct Table *tab)
+{  struct Tabrow *tr;
+   struct Tabcell *tc;
+   if(!(tab->flags&TABF_OPENCELL) || !tab->curbody)
+   {  return NULL;
+   }
+   tr=Gettabrow(tab,tab->currow);
+   if(!tr) return NULL;
+   for(tc=tr->cells.first;tc && tc->next;tc=tc->next)
+   {  if(tc->body==tab->curbody) return tc;
+   }
+   return NULL;
 }
 
 /* Close current row. */
@@ -1194,12 +1210,14 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
                if(tc->minw>hcol->minw)
                {  hcol->minw=tc->minw;
                }
-               if(tc->swtype && !hcol->swtype)
+               /* Copy cell width hint into column (HTML WIDTH or CSS width on TD/TH). */
+               if(tc->swtype)
                {  hcol->swidth=tc->swidth;
                   hcol->swtype=tc->swtype;
                   if(hcol->swtype==SWT_PIXELS)
-                  {  if(hcol->swidth>hcol->minw) hcol->maxw=hcol->swidth;
-                     else hcol->maxw=hcol->minw;
+                  {  /* Honour requested pixel width even when content measures narrower. */
+                     if(hcol->swidth>hcol->minw) hcol->minw=hcol->swidth;
+                     if(hcol->swidth>hcol->maxw) hcol->maxw=hcol->swidth;
                   }
                }
             }
@@ -2094,13 +2112,76 @@ static long Settable(struct Table *tab,struct Amset *ams)
             Asetattrs(tab->parent,AOBJ_Changedchild,tab,TAG_END);
             break;
          case AOTAB_Percentwidth:
-            tab->width=MAX(1,(short)tag->ti_Data);
-            tab->flags&=~TABF_PIXELS;
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc && (short)tag->ti_Data>0)
+            {  tc->swidth=(short)tag->ti_Data;
+               tc->swtype=SWT_PERCENT;
+            }
+            else if(!tc)
+            {  tab->width=MAX(1,(short)tag->ti_Data);
+               tab->flags&=~TABF_PIXELS;
+            }
             break;
+         }
          case AOTAB_Pixelwidth:
-            tab->width=MAX(1,(short)tag->ti_Data);
-            tab->flags|=TABF_PIXELS;
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc)
+            {  tc->swidth=MAX(1,(short)tag->ti_Data);
+               tc->swtype=SWT_PIXELS;
+            }
+            else
+            {  tab->width=MAX(1,(short)tag->ti_Data);
+               tab->flags|=TABF_PIXELS;
+            }
             break;
+         }
+         case AOTAB_Relwidth:
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc)
+            {  if((short)tag->ti_Data>0)
+               {  tc->swidth=(short)tag->ti_Data;
+                  tc->swtype=SWT_RELATIVE;
+               }
+               else
+               {  tc->swidth=1;
+                  tc->swtype=SWT_PIXELS;
+               }
+            }
+            break;
+         }
+         case AOTAB_Percentheight:
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc)
+            {  tc->sheight=tag->ti_Data;
+               tc->shtype=SWT_PERCENT;
+            }
+            break;
+         }
+         case AOTAB_Pixelheight:
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc)
+            {  tc->sheight=tag->ti_Data;
+               tc->shtype=SWT_PIXELS;
+            }
+            break;
+         }
+         case AOTAB_Halign:
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc) tc->halign=(short)tag->ti_Data;
+            break;
+         }
+         case AOTAB_Valign:
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc) tc->valign=(short)tag->ti_Data;
+            break;
+         }
          case AOTAB_Border:
             tab->border=MAX(0,(short)tag->ti_Data);
             break;
@@ -2193,8 +2274,12 @@ static long Settable(struct Table *tab,struct Amset *ams)
             tab->bgalign=(struct Aobject *)tag->ti_Data;
             break;
          case AOTAB_Bgcolor:
-            tab->bgcolor=(struct Colorinfo *)tag->ti_Data;
+         {  struct Tabcell *tc;
+            tc=Getopencell(tab);
+            if(tc && tag->ti_Data) tc->bgcolor=(struct Colorinfo *)tag->ti_Data;
+            else if(!tc) tab->bgcolor=(struct Colorinfo *)tag->ti_Data;
             break;
+         }
          case AOTAB_Bordercolor:
             tab->bordercolor=(struct Colorinfo *)tag->ti_Data;
             break;
@@ -2464,6 +2549,114 @@ static long Dispatch(struct Table *tab,struct Amessage *amsg)
 }
 
 /*------------------------------------------------------------------------*/
+
+/* Find a table cell by its body object (for CSS width/align after parse). */
+static struct Tabcell *Findcellbybody(struct Table *tab,void *body)
+{  struct Tabrow *tr;
+   struct Tabcell *tc;
+
+   if(!tab || !body) return NULL;
+   for(tr=tab->rows.first;tr->next;tr=tr->next)
+   {  for(tc=tr->cells.first;tc->next;tc=tc->next)
+      {  if(tc->body==(struct Aobject *)body) return tc;
+      }
+   }
+   return NULL;
+}
+
+/* Apply cell detail tags to a specific cell (not only TABF_OPENCELL). */
+void TableApplyCellAttrs(void *tableObj,void *cellBody,ULONG tag,long data)
+{  struct Table *tab;
+   struct Tabcell *tc;
+
+   tab=(struct Table *)tableObj;
+   tc=Findcellbybody(tab,cellBody);
+   if(!tc) return;
+   switch(tag)
+   {  case AOTAB_Percentwidth:
+         if((short)data>0)
+         {  tc->swidth=(short)data;
+            tc->swtype=SWT_PERCENT;
+         }
+         break;
+      case AOTAB_Pixelwidth:
+         tc->swidth=MAX(1,(short)data);
+         tc->swtype=SWT_PIXELS;
+         break;
+      case AOTAB_Relwidth:
+         if((short)data>0)
+         {  tc->swidth=(short)data;
+            tc->swtype=SWT_RELATIVE;
+         }
+         else
+         {  tc->swidth=1;
+            tc->swtype=SWT_PIXELS;
+         }
+         break;
+      case AOTAB_Percentheight:
+         tc->sheight=data;
+         tc->shtype=SWT_PERCENT;
+         break;
+      case AOTAB_Pixelheight:
+         tc->sheight=data;
+         tc->shtype=SWT_PIXELS;
+         break;
+      case AOTAB_Halign:
+         tc->halign=(short)data;
+         break;
+      case AOTAB_Valign:
+         tc->valign=(short)data;
+         break;
+      case AOTAB_Bgcolor:
+         if(data) tc->bgcolor=(struct Colorinfo *)data;
+         break;
+   }
+   /* Keep column model in sync when cols[] already exists (layout/remeasure). */
+   if(tc->colspan==1 && tc->cellnr>=1 && tab->cols && tab->colssize>=tab->nrcols
+   && tc->cellnr<=tab->nrcols && tc->swtype)
+   {  struct Tabcol *hcol;
+      hcol=&tab->cols[tc->cellnr-1];
+      hcol->swtype=tc->swtype;
+      hcol->swidth=tc->swidth;
+      if(tc->swtype==SWT_PIXELS && tc->swidth>hcol->minw)
+      {  hcol->minw=tc->swidth;
+      }
+      if(tc->swtype==SWT_PIXELS && tc->swidth>hcol->maxw)
+      {  hcol->maxw=tc->swidth;
+      }
+   }
+   tab->flags&=~TABF_LAYEDOUT;
+}
+
+/* Reapply td/th rules to every cell when the stylesheet loads after parse. */
+void ReapplyCSSToTable(struct Document *doc,void *tableObj)
+{  struct Table *tab;
+   struct Tabrow *tr;
+   struct Tabcell *tc;
+   void *cellBody;
+   UBYTE *tagname;
+   UBYTE *class;
+   UBYTE *id;
+
+   if(!doc || !tableObj || !doc->cssstylesheet) return;
+   tab=(struct Table *)tableObj;
+   for(tr=tab->rows.first;tr->next;tr=tr->next)
+   {  for(tc=tr->cells.first;tc->next;tc=tc->next)
+      {  if(!tc->body) continue;
+         cellBody=tc->body;
+         tagname=(UBYTE *)Agetattr(cellBody,AOBDY_TagName);
+         if(!tagname) tagname=(UBYTE *)"TD";
+         class=(UBYTE *)Agetattr(cellBody,AOBDY_Class);
+         id=(UBYTE *)Agetattr(cellBody,AOBDY_Id);
+         ApplyCSSToBody(doc,cellBody,class,id,tagname);
+         ApplyCSSToTableCellFromRules(doc,tableObj,cellBody,class,id,tagname);
+      }
+   }
+   tab->flags&=~TABF_LAYEDOUT;
+   if(tab->parent)
+   {  Asetattrs(tab->parent,AOBJ_Changedchild,tableObj,TAG_END);
+   }
+}
 
 BOOL Installtable(void)
 {  if(!Amethod(NULL,AOM_INSTALL,AOTP_TABLE,Dispatch)) return FALSE;
