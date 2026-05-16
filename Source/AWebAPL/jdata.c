@@ -45,6 +45,32 @@ struct JPropIdxEnt
    struct Variable *var;
 };
 
+static void JpropidxFreeEnt(struct JPropIdxEnt *e)
+{
+   if(e && JmemUserAllocated(e))
+   {
+      FREE(e);
+   }
+}
+
+/* JSObject still safe to dereference (not swept, jc valid). Internal to jdata only. */
+static BOOL JobjectLive(struct Jobject *jo)
+{
+   if(!JPTR_OK(jo))
+   {
+      return FALSE;
+   }
+   if(jo->notdisposed!=TRUE)
+   {
+      return FALSE;
+   }
+   if(!JPTR_OK(jo->jc))
+   {
+      return FALSE;
+   }
+   return TRUE;
+}
+
 /*-----------------------------------------------------------------------*/
 /* Per-object property hash (generic objects); keys are interned atoms. */
 
@@ -204,7 +230,7 @@ static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
    struct JPropIdxEnt *ent;
    ULONG b;
 
-   if(!jo || !var || !var->name)
+   if(!JPTR_OK(jo) || !var || !var->name || !JPTR_OK(jo->jc))
    {
       return;
    }
@@ -218,6 +244,18 @@ static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
    {
       return;
    }
+   b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
+   for(ent=jo->propidx[b];JPTR_OK(ent);ent=ent->next)
+   {
+      if(ent->var==var && ent->key==key)
+      {
+         return;
+      }
+      if(!JPTR_OK(ent->next))
+      {
+         break;
+      }
+   }
    ent=ALLOCSTRUCT(JPropIdxEnt,1,0,root->pool);
    if(!ent)
    {
@@ -225,7 +263,6 @@ static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
    }
    ent->key=key;
    ent->var=var;
-   b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
    ent->next=jo->propidx[b];
    jo->propidx[b]=ent;
 #else
@@ -243,7 +280,7 @@ static void JpropidxRemove(struct Jobject *jo, struct Variable *var)
    struct JPropIdxEnt **pp;
    ULONG b;
 
-   if(!jo || !var || !var->name)
+   if(!JPTR_OK(jo) || !var || !var->name || !JPTR_OK(jo->jc))
    {
       return;
    }
@@ -262,10 +299,20 @@ static void JpropidxRemove(struct Jobject *jo, struct Variable *var)
    while(*pp)
    {
       e=*pp;
+      if(!JPTR_OK(e) || !JmemUserAllocated(e))
+      {
+         *pp=NULL;
+         return;
+      }
       if(e->var==var)
       {
          *pp=e->next;
-         FREE(e);
+         JpropidxFreeEnt(e);
+         return;
+      }
+      if(!JPTR_OK(e->next) || (e->next && !JmemUserAllocated(e->next)))
+      {
+         e->next=NULL;
          return;
       }
       pp=&e->next;
@@ -283,17 +330,26 @@ static void JpropidxClear(struct Jobject *jo)
    struct JPropIdxEnt *e;
    struct JPropIdxEnt *n;
 
-   if(!jo)
+   if(!JPTR_OK(jo))
    {
       return;
    }
    for(i=0;i<(ULONG)JPROP_IDX_BUCKETS;i++)
    {
       e=jo->propidx[i];
+      if(!JPTR_OK(e) || !JmemUserAllocated(e))
+      {
+         jo->propidx[i]=NULL;
+         continue;
+      }
       while(e)
       {
          n=e->next;
-         FREE(e);
+         if(!JPTR_OK(n) || (n && !JmemUserAllocated(n)))
+         {
+            n=NULL;
+         }
+         JpropidxFreeEnt(e);
          e=n;
       }
       jo->propidx[i]=NULL;
@@ -732,13 +788,16 @@ void Disposeobject(struct Jobject *jo)
          Disposevar(var);
       }
       JpropidxClear(jo);
+      memset((void *)jo->propidx,0,sizeof(jo->propidx));
       Jgc_trace_dispose_step(jo,"props_cleared");
-      if(jo->internal && jo->dispose)
+      if(jo->internal && jo->dispose && JPTR_OK((void *)jo->dispose))
       {
          Jgc_trace_dispose_step(jo,"before_internal_dispose");
          jo->dispose(jo->internal);
          Jgc_trace_dispose_step(jo,"after_internal_dispose");
       }
+      jo->internal=NULL;
+      jo->dispose=NULL;
       if(jo->function)
       {
          Jgc_trace_dispose_step(jo,"before_jdispose");
@@ -747,6 +806,7 @@ void Disposeobject(struct Jobject *jo)
       }
 
       Jgc_trace_dispose_step(jo,"before_free");
+      jo->jc = NULL;
       FREE(jo);
    }
 }
@@ -778,6 +838,8 @@ void Clearobject(struct Jobject *jo,UBYTE **except)
             Disposevar(var);
          }
       }
+      /* Do not JpropidxClear() here: kept properties (except list) must keep their index
+       * entries, and removed properties were already unlinked in JpropidxRemove(). */
       jo->flags&=~OBJF_CLEARING;
    }
 }
@@ -855,24 +917,29 @@ struct Variable *_Generic_Getownproperty(struct Jobject *jo, STRPTR name)
    struct JPropIdxEnt *e;
    ULONG b;
 
-   if(!jo)
+   if(!JobjectLive(jo))
    {  return NULL;
    }
    if(name)
-   {  root=Jatomroot(jo->jc);
-      if(root)
-      {  key=JatomIntern(root,(UBYTE *)name);
-         if(key)
-         {  b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
-            for(e=jo->propidx[b];e;e=e->next)
-            {  if(e->key==key && e->var)
-               {  return e->var;
+   {  if(JPTR_OK(jo->jc))
+      {  root=Jatomroot(jo->jc);
+         if(root)
+         {  key=JatomIntern(jo->jc,(UBYTE *)name);
+            if(key)
+            {  b=key->hash % (ULONG)JPROP_IDX_BUCKETS;
+               for(e=jo->propidx[b];JPTR_OK(e);e=e->next)
+               {  if(e->key==key && JPTR_OK(e->var) && e->var->name)
+                  {  return e->var;
+                  }
+                  if(!JPTR_OK(e->next))
+                  {  break;
+                  }
                }
             }
          }
       }
    }
-   for(var=jo->properties.first;var && var->next;var=var->next)
+   for(var=jo->properties.first;JPTR_OK(var) && var->next;var=var->next)
    {  if(name)
       {  if(var->name && STREQUAL(var->name,name)) return var;
       }
@@ -887,7 +954,7 @@ struct Variable* Getownproperty(struct Jobject *jo, STRPTR name)
 {
     struct Variable *var = NULL;
     //adebug("jo %08lx name %08lx\n");
-    if(jo)
+    if(JobjectLive(jo))
     {
         switch (jo->type)
         {
@@ -908,57 +975,44 @@ struct Variable *Getproperty(struct Jobject *jo, STRPTR name)
 {
     struct Variable *var;
     struct Jobject *proto;
+    struct Jobject *next;
     struct Jobject *p1;
 
-   if(jo)
+   if(!JobjectLive(jo))
    {
-   /*
-      for(var=jo->properties.first;var->next;var=var->next)
-      {  if(STREQUAL(var->name,name)) return var;
-      }
-   */
-            if((var = Getownproperty(jo,name)))
-            {
-                return var;
-            }
-
+      return NULL;
    }
-   /* didn't find the property start to search prototype chain */
-   if(jo && (proto = jo->prototype))
+   if((var = Getownproperty(jo,name)))
    {
-       p1 = proto;
-       while(proto)
-       {
-            /*
-            for(var=proto->properties.first;var->next;var=var->next)
-            {
-                if(STREQUAL(var->name,name)) return var;
-            }
-            */
-
-            if((var = Getownproperty(proto,name)))
-            {
-                return var;
-            }
-            /* Validate proto is still valid before accessing proto->prototype */
-            /* Check that object hasn't been disposed and jc pointer is valid */
-            if(!proto->jc || proto->notdisposed != TRUE)
-            {
-                /* Object appears to be invalid or disposed, stop traversal */
-                break;
-            }
-            proto = proto->prototype;
-            if(!proto)
-            {
-                /* Reached end of prototype chain */
-                break;
-            }
-            if(proto == p1)
-            {
-                //adebug("panick! circular prototype chain!\n");
-                break;
-            }
-       }
+      return var;
+   }
+   /* Walk prototype chain only through live objects. */
+   proto=jo->prototype;
+   if(!JobjectLive(proto))
+   {
+      return NULL;
+   }
+   p1=proto;
+   while(proto)
+   {
+      if((var = Getownproperty(proto,name)))
+      {
+         return var;
+      }
+      next=NULL;
+      if(JobjectLive(proto))
+      {
+         next=proto->prototype;
+      }
+      if(!JobjectLive(next))
+      {
+         break;
+      }
+      if(next==p1)
+      {
+         break;
+      }
+      proto=next;
    }
    return NULL;
 }
@@ -1328,7 +1382,7 @@ void Garbagecollect(struct Jcontext *jc)
              Garbagemark(jc->nativeErrors[i]);
           }
        }
-       if(jc->fscope)
+       if(JPTR_OK(jc->fscope))
        {
            jc->fscope->flags &=~OBJF_USED;
            Garbagemark(jc->fscope);
@@ -1381,6 +1435,11 @@ void Garbagecollect(struct Jcontext *jc)
        steps = 0;
        for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=jonext)
        {  jonext=(struct Jobject *)jo->next;
+          if(!JPTR_OK(jo) || jo->notdisposed!=TRUE)
+          {
+             Jgc_log(jc,(UBYTE *)"PANIC_SWEEP_BADJO",unlinked,0,0,(ULONG)jo,(ULONG)jonext);
+             break;
+          }
           if(!(jo->flags&OBJF_USED))
           {
              if(dumpdead < (long)JGC_DUMP_DEAD_LIMIT)

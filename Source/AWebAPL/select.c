@@ -959,6 +959,15 @@ static BOOL Propertyselected(struct Varhookdata *vd)
 }
 
 /* Hook called when JS option object is disposed */
+static void Seljdispose(void *internal)
+{  struct Select *sel;
+   sel=(struct Select *)internal;
+   if(sel)
+   {
+      sel->jobject=NULL;
+   }
+}
+
 static void Seljdisposeoption(struct Option *opt)
 {  if(opt)
    {  opt->jobject=NULL;
@@ -1551,7 +1560,7 @@ static long Jsetupselect(struct Select *sel,struct Amjsetup *amj)
    AmethodasA(AOTP_FIELD,sel,amj);
    if(sel->jobject)
    {  Jsetobjasfunc(sel->jobject,TRUE);
-      Setjobject(sel->jobject,Seljaddoption,sel,NULL);
+      Setjobject(sel->jobject,Seljaddoption,sel,Seljdispose);
       if(jv=Jproperty(amj->jc,sel->jobject,"type"))
       {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
          if(sel->flags&SELF_MULTIPLE) p="select-multiple";

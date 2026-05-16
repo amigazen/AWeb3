@@ -308,6 +308,33 @@ void *JPallocmem(long size,ULONG flags,void *pool)
    return ret;
 }
 
+BOOL JmemUserAllocated(void *user)
+{
+   struct Jmemhdr *h;
+   ULONG p;
+
+   if(!user)
+   {
+      return FALSE;
+   }
+   p=(ULONG)user;
+   if(p<0x00001000UL || p>0xFFFFFFF0UL)
+   {
+      return FALSE;
+   }
+   h=(struct Jmemhdr *)((UBYTE *)user-sizeof(struct Jmemhdr));
+   p=(ULONG)h;
+   if(p<0x00001000UL || p>0xFFFFFFF0UL)
+   {
+      return FALSE;
+   }
+   if(h->magic!=JMEM_MAGIC_ALLOC || h->state!=JMEM_STATE_ALLOC)
+   {
+      return FALSE;
+   }
+   return TRUE;
+}
+
 void JFreemem(void *mem)
 {
    struct Jmemhdr *h;

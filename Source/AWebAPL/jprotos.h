@@ -152,6 +152,7 @@ extern BOOL Callohook(struct Jobject *jo,struct Jcontext *jc,short code,UBYTE *n
 
    /* Garbage collector */
 extern void Keepobject(struct Jobject *jo,BOOL used);
+extern BOOL JmemUserAllocated(void *user);
 extern void Garbagecollect(struct Jcontext *jc);
 
 extern void Dumpobjects(struct Jcontext *jc);

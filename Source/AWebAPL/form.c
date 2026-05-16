@@ -625,6 +625,15 @@ static long Remchild(struct Form *frm,struct Amadd *ama)
    return 0;
 }
 
+static void Formjdispose(void *internal)
+{  struct Form *frm;
+   frm=(struct Form *)internal;
+   if(frm)
+   {
+      frm->jobject=NULL;
+   }
+}
+
 static long Jsetupform(struct Form *frm,struct Amjsetup *amj)
 {  struct Jvar *jv;
    struct Jobject *forms;
@@ -632,7 +641,7 @@ static long Jsetupform(struct Form *frm,struct Amjsetup *amj)
    if(!frm->jobject)
    {  if(frm->jobject=Newjobject(amj->jc))
       {  Jkeepobject(frm->jobject,TRUE);
-         Setjobject(frm->jobject,NULL,frm,NULL);
+         Setjobject(frm->jobject,NULL,frm,Formjdispose);
          if(jv=Jproperty(amj->jc,amj->parent,frm->name))
          {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
             Jasgobject(amj->jc,jv,frm->jobject);

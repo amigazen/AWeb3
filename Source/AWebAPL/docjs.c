@@ -381,6 +381,15 @@ static void Methodopen(struct Jcontext *jc)
 
 /*------------------------------------------------------------------------*/
 
+static void Docjdispose(void *internal)
+{  struct Document *doc;
+   doc=(struct Document *)internal;
+   if(doc)
+   {
+      doc->jobject=NULL;
+   }
+}
+
 long Jsetupdocument(struct Document *doc,struct Amjsetup *amj)
 {  struct Jvar *jv;
    struct Aobject *p;
@@ -393,7 +402,7 @@ long Jsetupdocument(struct Document *doc,struct Amjsetup *amj)
             AOFRM_Jdocument,doc->jobject,
             AOFRM_Jprotect,jprotkey,
             TAG_END);
-         Setjobject(doc->jobject,NULL,doc,NULL);
+         Setjobject(doc->jobject,NULL,doc,Docjdispose);
          if(jv=Jproperty(amj->jc,amj->parent,"document"))
          {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
             Jasgobject(amj->jc,jv,doc->jobject);

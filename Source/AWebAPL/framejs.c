@@ -842,6 +842,15 @@ static BOOL Feedback(struct Jcontext *jc)
 
 /*-----------------------------------------------------------------------*/
 
+static void Framejdispose(void *internal)
+{  struct Frame *fr;
+   fr=(struct Frame *)internal;
+   if(fr)
+   {
+      fr->jobject=NULL;
+   }
+}
+
 long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
 {  struct Jvar *jv;
    struct Jobject *loc,*his,*frames;
@@ -871,7 +880,7 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
          }
       }
       if(fr->jobject)
-      {  Setjobject(fr->jobject,NULL,fr,NULL);
+      {  Setjobject(fr->jobject,NULL,fr,Framejdispose);
          if(amj->parentframe && fr->name
          && (jv=Jproperty(amj->jc,amj->parentframe,fr->name->name)))
          {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);

@@ -116,6 +116,16 @@ static long Getfield(struct Field *fld,struct Amset *ams)
    return result;
 }
 
+/* When the JSObject is swept, clear the back-pointer on the AWeb field. */
+static void Fieldjdispose(void *internal)
+{  struct Field *fld;
+   fld=(struct Field *)internal;
+   if(fld)
+   {
+      fld->jobject=NULL;
+   }
+}
+
 static struct Field *Newfield(struct Amset *ams)
 {  struct Field *fld;
    if(fld=Allocobject(AOTP_FIELD,sizeof(struct Field),ams))
@@ -130,7 +140,7 @@ static long Jsetupfield(struct Field *fld,struct Amjsetup *amj)
    UBYTE *name;
    if(!fld->jobject)
    {  if(fld->jobject=Newjobject(amj->jc))
-      {  Setjobject(fld->jobject,NULL,fld,NULL);
+      {  Setjobject(fld->jobject,NULL,fld,Fieldjdispose);
          Jkeepobject(fld->jobject,TRUE);
          /* If this is an isolated field ie it has no form we must specify KEEPOBJECT */
          /* Else it will get garbage collected, also we add to the parent */

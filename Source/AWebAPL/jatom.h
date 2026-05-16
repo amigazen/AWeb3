@@ -24,6 +24,9 @@ struct JAtomStr
    UBYTE *str;
 };
 
+/* Reject NULL, low memory, and obvious ROM addresses before dereferencing. */
+#define JPTR_OK(p)  ((p) && (ULONG)(p) >= 0x00001000UL && (ULONG)(p) <= 0xFFFFFFF0UL)
+
 extern struct Jcontext *Jatomroot(struct Jcontext *jc);
 extern struct JAtomStr *JatomIntern(struct Jcontext *jc, UBYTE *s);
 

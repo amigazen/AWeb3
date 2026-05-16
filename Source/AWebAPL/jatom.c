@@ -21,18 +21,22 @@ struct Jcontext *Jatomroot(struct Jcontext *jc)
    ULONG hops;
 
    hops = 0UL;
-   if(!jc)
+   if(!JPTR_OK(jc))
    {
       return NULL;
    }
    /* truecontext must terminate; a corrupt cycle would hang or fault. */
-   while(jc->truecontext)
+   while(JPTR_OK(jc) && jc->truecontext)
    {
       if(++hops > 256UL)
       {
          return NULL;
       }
       jc = jc->truecontext;
+      if(!JPTR_OK(jc))
+      {
+         return NULL;
+      }
    }
    return jc;
 }
@@ -70,11 +74,15 @@ struct JAtomStr *JatomIntern(struct Jcontext *jc, UBYTE *s)
    }
    h = Jatomhashbytes(s);
    b = h % (ULONG)JATOM_NUM_BUCKETS;
-   for(p = root->jatom_buckets[b]; p; p = p->bucketnext)
+   for(p = root->jatom_buckets[b]; JPTR_OK(p); p = p->bucketnext)
    {
-      if(p->hash == h && p->str && STREQUAL(p->str, s))
+      if(p->hash == h && JPTR_OK(p->str) && STREQUAL(p->str, s))
       {
          return p;
+      }
+      if(!JPTR_OK(p->bucketnext))
+      {
+         break;
       }
    }
    n = ALLOCSTRUCT(JAtomStr, 1, 0, root->pool);

@@ -755,12 +755,21 @@ static long Notifylink(struct Link *lnk,struct Amnotify *amn)
    return 0;
 }
 
+static void Linkjdispose(void *internal)
+{  struct Link *lnk;
+   lnk=(struct Link *)internal;
+   if(lnk)
+   {
+      lnk->jobject=NULL;
+   }
+}
+
 static long Jsetuplink(struct Link *lnk,struct Amjsetup *amj)
 {  struct Jvar *jv;
    struct Jobject *links;
    if(!lnk->jobject)
    {  if(lnk->jobject=Newjobject(amj->jc))
-      {  Setjobject(lnk->jobject,NULL,lnk,NULL);
+      {  Setjobject(lnk->jobject,NULL,lnk,Linkjdispose);
          Jkeepobject(lnk->jobject,TRUE);
          if(links=Jfindarray(amj->jc,amj->parent,"links"))
          {  if(jv=Jnewarrayelt(amj->jc,links))
