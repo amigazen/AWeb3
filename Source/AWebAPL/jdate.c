@@ -107,6 +107,41 @@ static void Settime(struct Jcontext *jc,struct Brokentime *bt)
    }
 }
 
+/* ECMA-262 UTC getters/setters: internal date is ms since 1970 UTC (see struct Date). */
+static void Getutctime(struct Jcontext *jc,struct Brokentime *bt)
+{  struct Jobject *jo;
+   double d;
+   time_t sec;
+   struct tm *tm;
+
+   jo=jc->jthis;
+   memset(bt,0,sizeof(*bt));
+   d=0.0;
+   if(jo && jo->internal)
+   {
+      d=((struct Date *)jo->internal)->date;
+   }
+   sec=(time_t)(d/1000.0);
+   bt->tm_millis=(int)(d-(double)sec*1000.0);
+   tm=gmtime(&sec);
+   if(tm)
+   {
+      bt->tm=*tm;
+   }
+}
+
+static void Setutctime(struct Jcontext *jc,struct Brokentime *bt)
+{  struct Jobject *jo;
+   time_t sec;
+
+   jo=jc->jthis;
+   if(jo && jo->internal)
+   {
+      sec=mktime(&bt->tm);
+      ((struct Date *)jo->internal)->date=(double)sec*1000.0+(double)bt->tm_millis;
+   }
+}
+
 static UBYTE months[12][4]=
 {  "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
 };
@@ -517,6 +552,255 @@ static void Dategettimezoneoffset(struct Jcontext *jc)
    Asgnumber(RETVAL(jc),VNA_VALID,(double)offset);
 }
 
+static void Dategetutcday(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_wday));
+   }
+}
+
+static void Dategetutcfullyear(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_year+1900));
+   }
+}
+
+static void Dategetutcmonth(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_mon));
+   }
+}
+
+static void Dategetutcdate(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_mday));
+   }
+}
+
+static void Dategetutchours(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_hour));
+   }
+}
+
+static void Dategetutcminutes(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_min));
+   }
+}
+
+static void Dategetutcseconds(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_sec));
+   }
+}
+
+static void Dategetutcmilliseconds(struct Jcontext *jc)
+{  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_millis));
+   }
+}
+
+static void Datesetutcfullyear(struct Jcontext *jc)
+{  int args;
+   int y;
+   double n;
+   struct Brokentime bt;
+
+   args=Numargs(jc);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      if(args>0)
+      {
+         y=(int)Argument(jc,0);
+         if(y>=0 && y<=99)
+         {
+            y+=1900;
+         }
+         bt.tm.tm_year=y-1900;
+      }
+      if(args>1)
+      {
+         n=Argument(jc,1);
+         bt.tm.tm_mon=(int)n;
+      }
+      if(args>2)
+      {
+         n=Argument(jc,2);
+         bt.tm.tm_mday=(int)n;
+      }
+      Setutctime(jc,&bt);
+   }
+}
+
+static void Datesetutcmonth(struct Jcontext *jc)
+{  int args;
+   double n;
+   struct Brokentime bt;
+
+   args=Numargs(jc);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      if(args>0)
+      {
+         n=Argument(jc,0);
+         bt.tm.tm_mon=(int)n;
+      }
+      if(args>1)
+      {
+         n=Argument(jc,1);
+         bt.tm.tm_mday=(int)n;
+      }
+      Setutctime(jc,&bt);
+   }
+}
+
+static void Datesetutcdate(struct Jcontext *jc)
+{  int args;
+   double n;
+   struct Brokentime bt;
+
+   args=Numargs(jc);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      if(args>0)
+      {
+         n=Argument(jc,0);
+         bt.tm.tm_mday=(int)n;
+      }
+      Setutctime(jc,&bt);
+   }
+}
+
+static void Datesetutchours(struct Jcontext *jc)
+{  int args;
+   double n;
+   struct Brokentime bt;
+
+   args=Numargs(jc);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      if(args>0)
+      {
+         n=Argument(jc,0);
+         bt.tm.tm_hour=(int)n;
+      }
+      if(args>1)
+      {
+         n=Argument(jc,1);
+         bt.tm.tm_min=(int)n;
+      }
+      if(args>2)
+      {
+         n=Argument(jc,2);
+         bt.tm.tm_sec=(int)n;
+      }
+      if(args>3)
+      {
+         n=Argument(jc,3);
+         bt.tm_millis=(int)n;
+      }
+      Setutctime(jc,&bt);
+   }
+}
+
+static void Datesetutcminutes(struct Jcontext *jc)
+{  int args;
+   double n;
+   struct Brokentime bt;
+
+   args=Numargs(jc);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      if(args>0)
+      {
+         n=Argument(jc,0);
+         bt.tm.tm_min=(int)n;
+      }
+      if(args>1)
+      {
+         n=Argument(jc,1);
+         bt.tm.tm_sec=(int)n;
+      }
+      if(args>2)
+      {
+         n=Argument(jc,2);
+         bt.tm_millis=(int)n;
+      }
+      Setutctime(jc,&bt);
+   }
+}
+
+static void Datesetutcseconds(struct Jcontext *jc)
+{  int args;
+   double n;
+   struct Brokentime bt;
+
+   args=Numargs(jc);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      if(args>0)
+      {
+         n=Argument(jc,0);
+         bt.tm.tm_sec=(int)n;
+      }
+      if(args>1)
+      {
+         n=Argument(jc,1);
+         bt.tm_millis=(int)n;
+      }
+      Setutctime(jc,&bt);
+   }
+}
+
+static void Datesetutcmilliseconds(struct Jcontext *jc)
+{  double n;
+   struct Brokentime bt;
+
+   if(isthisdate(jc,jc->jthis))
+   {
+      Getutctime(jc,&bt);
+      n=Argument(jc,0);
+      bt.tm_millis=(int)n;
+      Setutctime(jc,&bt);
+   }
+}
+
+/* ES3: toUTCString is the same string as toGMTString. */
+static void Dateutcstring(struct Jcontext *jc)
+{
+   Datetogmtstring(jc);
+}
+
 static void Dateparse(struct Jcontext *jc)
 {  struct Variable *var;
    double d=0.0;
@@ -709,7 +993,54 @@ void Initdate(struct Jcontext *jc, struct Jobject *jscope)
       if(f=Internalfunction(jc,"getTimezoneOffset",(Internfunc *)Dategettimezoneoffset,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-
+      if(f=Internalfunction(jc,"getUTCDay",(Internfunc *)Dategetutcday,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCFullYear",(Internfunc *)Dategetutcfullyear,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCMonth",(Internfunc *)Dategetutcmonth,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCDate",(Internfunc *)Dategetutcdate,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCHours",(Internfunc *)Dategetutchours,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCMinutes",(Internfunc *)Dategetutcminutes,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCSeconds",(Internfunc *)Dategetutcseconds,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"getUTCMilliseconds",(Internfunc *)Dategetutcmilliseconds,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCFullYear",(Internfunc *)Datesetutcfullyear,"yearValue","monthValue","dateValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCMonth",(Internfunc *)Datesetutcmonth,"monthValue","dateValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCDate",(Internfunc *)Datesetutcdate,"dateValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCHours",(Internfunc *)Datesetutchours,"hoursValue","minutesValue","secondsValue","millisValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCMinutes",(Internfunc *)Datesetutcminutes,"minutesValue","secondsValue","millisValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCSeconds",(Internfunc *)Datesetutcseconds,"secondsValue","millisValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"setUTCMilliseconds",(Internfunc *)Datesetutcmilliseconds,"millisValue",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"toUTCString",(Internfunc *)Dateutcstring,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
 
    }
 }

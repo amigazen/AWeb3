@@ -617,6 +617,164 @@ static void Parsefloat(struct Jcontext *jc)
    Asgnumber(RETVAL(jc),attr,f);
 }
 
+/* ECMA-262 URI encoding: unescaped character sets for encodeURI vs encodeURIComponent. */
+static BOOL UriIsUnescaped(UBYTE c,BOOL component)
+{
+   if((c>='A' && c<='Z') || (c>='a' && c<='z') || (c>='0' && c<='9'))
+   {
+      return TRUE;
+   }
+   if(component)
+   {
+      if(c=='-' || c=='_' || c=='.' || c=='!' || c=='~' || c=='*' || c=='\'' || c=='(' || c==')')
+      {
+         return TRUE;
+      }
+      return FALSE;
+   }
+   if(c==';' || c==',' || c=='/' || c=='?' || c==':' || c=='@' || c=='&' || c=='=' || c=='+' ||
+      c=='$' || c=='-' || c=='_' || c=='.' || c=='!' || c=='~' || c=='*' || c=='\'' || c=='(' ||
+      c==')' || c=='#')
+   {
+      return TRUE;
+   }
+   return FALSE;
+}
+
+static void UriEncode(struct Jcontext *jc,BOOL component)
+{
+   struct Variable *var;
+   UBYTE *s;
+   struct Jbuffer *jb;
+   UBYTE buf[4];
+   UBYTE c;
+
+   s="";
+   var=jc->functions.first->local.first;
+   if(var->next)
+   {
+      Tostring(&var->val,jc);
+      s=var->val.value.svalue;
+   }
+   if(jb=Newjbuffer(jc->pool))
+   {
+      for(;*s;s++)
+      {
+         c=(UBYTE)(*s);
+         if(UriIsUnescaped(c,component))
+         {
+            Addtojbuffer(jb,&c,1);
+         }
+         else
+         {
+            sprintf((char *)buf,"%%%02X",(unsigned int)c);
+            Addtojbuffer(jb,buf,-1);
+         }
+      }
+      Addtojbuffer(jb,"",1);
+      Asgstring(RETVAL(jc),jb->buffer,jc->pool);
+      Freejbuffer(jb);
+   }
+}
+
+static void Encodeuri(struct Jcontext *jc)
+{
+   UriEncode(jc,FALSE);
+}
+
+static void Encodeuricomponent(struct Jcontext *jc)
+{
+   UriEncode(jc,TRUE);
+}
+
+/* decodeURI reserved set (must not decode these when used as decodeURI). */
+static BOOL UriDecodeReserved(UBYTE c)
+{
+   if(c==';' || c==',' || c=='/' || c=='?' || c==':' || c=='@' || c=='&' || c=='=' ||
+      c=='+' || c=='$' || c=='-')
+   {
+      return TRUE;
+   }
+   return FALSE;
+}
+
+static void UriDecode(struct Jcontext *jc,BOOL component)
+{
+   struct Variable *var;
+   UBYTE *s;
+   struct Jbuffer *jb;
+   UBYTE c;
+   int hi;
+   int lo;
+   UBYTE *pct;
+   long run;
+
+   s="";
+   var=jc->functions.first->local.first;
+   if(var->next)
+   {
+      Tostring(&var->val,jc);
+      s=var->val.value.svalue;
+   }
+   if(jb=Newjbuffer(jc->pool))
+   {
+      for(;*s;s++)
+      {
+         if(*s=='%')
+         {
+            pct=s;
+            c=0;
+            hi=-1;
+            lo=-1;
+            if(isxdigit((unsigned char)s[1]))
+            {
+               hi=isdigit((unsigned char)s[1])?s[1]-'0':(toupper((unsigned char)s[1])-'A'+10);
+               s++;
+            }
+            if(isxdigit((unsigned char)s[1]))
+            {
+               lo=isdigit((unsigned char)s[1])?s[1]-'0':(toupper((unsigned char)s[1])-'A'+10);
+               s++;
+            }
+            if(hi>=0 && lo>=0)
+            {
+               c=(UBYTE)(16*hi+lo);
+               if(!component && UriDecodeReserved(c))
+               {
+                  run=(long)(s-pct+1);
+                  Addtojbuffer(jb,pct,run);
+               }
+               else
+               {
+                  Addtojbuffer(jb,&c,1);
+               }
+            }
+            else
+            {
+               Addtojbuffer(jb,"%",1);
+            }
+         }
+         else
+         {
+            Addtojbuffer(jb,s,1);
+         }
+      }
+      Addtojbuffer(jb,"",1);
+      Asgstring(RETVAL(jc),jb->buffer,jc->pool);
+      Freejbuffer(jb);
+   }
+}
+
+static void Decodeuri(struct Jcontext *jc)
+{
+   UriDecode(jc,FALSE);
+}
+
+static void Decodeuricomponent(struct Jcontext *jc)
+{
+   UriDecode(jc,TRUE);
+}
+
 /* Escape string */
 static void Escape(struct Jcontext *jc)
 {  struct Variable *var;
@@ -696,6 +854,22 @@ static void Isnan(struct Jcontext *jc)
       }
    }
    Asgboolean(RETVAL(jc),nan);
+}
+
+/* ES3 global isFinite */
+static void Isfinite(struct Jcontext *jc)
+{  struct Variable *var;
+   BOOL finite=TRUE;
+
+   var=jc->functions.first->local.first;
+   if(var->next)
+   {  Tonumber(&var->val,jc);
+      if(var->val.attr==VNA_NAN || var->val.attr==VNA_INFINITY || var->val.attr==VNA_NEGINFINITY)
+      {
+         finite=FALSE;
+      }
+   }
+   Asgboolean(RETVAL(jc),finite);
 }
 
 /* Non-standard: used by awebjs_selftest.js to force a collection cycle. */
@@ -3289,6 +3463,21 @@ BOOL Newexecute(struct Jcontext *jc)
       {  Addglobalfunction(jc,fo);
       }
       if(fo=Internalfunction(jc,"isNaN",Isnan,"testValue",NULL))
+      {  Addglobalfunction(jc,fo);
+      }
+      if(fo=Internalfunction(jc,"isFinite",Isfinite,"number",NULL))
+      {  Addglobalfunction(jc,fo);
+      }
+      if(fo=Internalfunction(jc,"encodeURI",Encodeuri,"uri",NULL))
+      {  Addglobalfunction(jc,fo);
+      }
+      if(fo=Internalfunction(jc,"decodeURI",Decodeuri,"encodedURI",NULL))
+      {  Addglobalfunction(jc,fo);
+      }
+      if(fo=Internalfunction(jc,"encodeURIComponent",Encodeuricomponent,"uriComponent",NULL))
+      {  Addglobalfunction(jc,fo);
+      }
+      if(fo=Internalfunction(jc,"decodeURIComponent",Decodeuricomponent,"encodedURIComponent",NULL))
       {  Addglobalfunction(jc,fo);
       }
       if(fo=Internalfunction(jc,"gc",Gcglobal,NULL))

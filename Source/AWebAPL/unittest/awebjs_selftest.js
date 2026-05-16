@@ -704,8 +704,61 @@
          ((10 > 5) ? 100 : 50) === 100;
  });
  
- /* --- javascript_test.html: validateForm logic only (no document/forms host) --- */
- function awebjs_mock_validateForm(form) {
+/* --- ES3 Tier-1 builtins (encodeURI, isFinite, Date UTC, Number format, RegExp) --- */
+check("isFinite true for number", function () { return isFinite(42) === true; });
+check("isFinite false for NaN", function () { return isFinite(NaN) === false; });
+check("isFinite false for Infinity", function () { return isFinite(1 / 0) === false; });
+check("encodeURI keeps reserved", function () {
+    return encodeURI("http://a/b?x=1") === "http://a/b?x=1";
+});
+check("encodeURIComponent encodes slash", function () {
+    return encodeURIComponent("/") === "%2F";
+});
+check("decodeURIComponent slash", function () {
+    return decodeURIComponent("%2F") === "/";
+});
+check("Date UTC get/set round trip", function () {
+    var d = new Date(0);
+    d.setUTCHours(12, 30, 45, 0);
+    return d.getUTCHours() === 12 && d.getUTCMinutes() === 30 && d.getUTCSeconds() === 45;
+});
+check("Date getUTCFullYear epoch", function () {
+    return (new Date(0)).getUTCFullYear() === 1970;
+});
+check("Date toUTCString non-empty", function () {
+    var s = (new Date(0)).toUTCString();
+    return typeof s === "string" && s.length > 0;
+});
+check("Number toExponential", function () {
+    return (12345).toExponential(2).indexOf("e") >= 0;
+});
+check("Number toPrecision", function () {
+    return (3.14159).toPrecision(3) === "3.14";
+});
+check("RegExp literal global flag", function () {
+    return /a/g.global === true && /a/i.ignoreCase === true;
+});
+check("RegExp global exec advances index", function () {
+    var r = /a/g;
+    var m1 = r.exec("aba");
+    var m2 = r.exec("aba");
+    return m1 !== null && m1.index === 0 && m2 !== null && m2.index === 1;
+});
+check("RegExp global lastIndex advances", function () {
+    var r = /a/g;
+    r.exec("aba");
+    r.exec("aba");
+    return r.lastIndex === 2;
+});
+check("RegExp global lastIndex reset on miss", function () {
+    var r = /z/g;
+    r.exec("aba");
+    var m = r.exec("aba");
+    return m === null && r.lastIndex === 0;
+});
+
+/* --- javascript_test.html: validateForm logic only (no document/forms host) --- */
+function awebjs_mock_validateForm(form) {
      if (form && form.elements[0] && form.elements[0].value == "") {
          return false;
      }

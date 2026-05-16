@@ -32,6 +32,39 @@ extern void pcre_free(void *);
 /* tools */
 /*-----------------------------------------------------------------------*/
 
+/* ES3 RegExp flags: only g, i, m; ignore unknown characters. */
+static void Parseregexpflags(UBYTE *f,UWORD *outflags)
+{
+   UBYTE *p;
+   UWORD flags;
+
+   flags=0;
+   if(f)
+   {
+      for(p=f;*p;p++)
+      {
+         if(*p=='g')
+         {
+            flags|=REF_GLOBAL;
+         }
+         else if(*p=='i')
+         {
+            flags|=REF_NOCASE;
+         }
+         else if(*p=='m')
+         {
+            flags|=REF_MULTI;
+         }
+      }
+   }
+   if(outflags)
+   {
+      *outflags=flags;
+   }
+}
+
+static BOOL Propertylastindex(struct Varhookdata *vd);
+
 /* Find the string value of Nth argument */
 static UBYTE *Strargument(struct Jcontext *jc,long n)
 {  struct Variable *var;
@@ -47,6 +80,64 @@ static UBYTE *Strargument(struct Jcontext *jc,long n)
 /* Core Functions */
 /*-----------------------------------------------------------------------*/
 
+/* Instance lastIndex: property value is authoritative for reads (ES3). */
+static struct Variable *RegexpLastindexprop(struct Jcontext *jc, struct Jobject *jo)
+{
+   struct Variable *prop;
+
+   prop=NULL;
+   if(jo)
+   {
+      prop=Getownproperty(jo,"lastIndex");
+      if(!prop)
+      {
+         prop=Addproperty(jo,"lastIndex");
+         if(prop)
+         {
+            Asgnumber(&prop->val,VNA_VALID,0.0);
+         }
+      }
+   }
+   return prop;
+}
+
+static void RegexpSetlastindex(struct Jcontext *jc, struct Jobject *jo, struct Regexp *re, int li)
+{
+   struct Variable *prop;
+
+   if(li<0)
+   {
+      li=0;
+   }
+   if(re)
+   {
+      re->lastIndex=li;
+   }
+   prop=RegexpLastindexprop(jc,jo);
+   if(prop)
+   {
+      Asgnumber(&prop->val,VNA_VALID,(double)li);
+   }
+}
+
+/* Attach lastIndex property hook once per RegExp instance. */
+static void RegexpInitlastindex(struct Jcontext *jc, struct Jobject *jo, struct Regexp *re)
+{
+   struct Variable *prop;
+
+   if(!jo || !re)
+   {
+      return;
+   }
+   prop=RegexpLastindexprop(jc,jo);
+   if(prop)
+   {
+      prop->hook=(Varhookfunc *)Propertylastindex;
+      prop->hookdata=re;
+      Asgnumber(&prop->val,VNA_VALID,(double)re->lastIndex);
+   }
+}
+
 /* Apply a regular expression object to a string */
 /* to be called by Regexexec and externally by String methods */
 
@@ -60,9 +151,37 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
     int *ovector = NULL;
     if(re && jo->type == OBJT_REGEXP )
     {
-        BOOL global = (re->flags & REF_GLOBAL?TRUE:FALSE) ;
-        int lastindex = (global?re->lastIndex:0);
+        BOOL global;
+        struct Variable *gp;
+        int lastindex;
         int mlen;
+
+        global=FALSE;
+        if(re->flags & REF_GLOBAL)
+        {
+           global=TRUE;
+        }
+        else
+        {
+           gp=Getownproperty(jo,"global");
+           if(gp && gp->val.type==VTP_BOOLEAN && gp->val.value.bvalue)
+           {
+              global=TRUE;
+              re->flags|=REF_GLOBAL;
+           }
+        }
+        if(global)
+        {
+           lastindex=re->lastIndex;
+           if(lastindex<0)
+           {
+              lastindex=0;
+           }
+        }
+        else
+        {
+           lastindex=0;
+        }
         if(!match) match = "";
         mlen = strlen(match);
 
@@ -73,6 +192,19 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
         {
             Runtimeerror(jc,NTE_GENERAL,jc->elt,"Regular Expression internal error");
             return NULL;
+        }
+        {
+           int backrefmax;
+
+           backrefmax=0;
+           if(pcre_fullinfo(re->compiled,(const void *)NULL,PCRE_INFO_BACKREFMAX,&backrefmax) < 0)
+           {
+              backrefmax=0;
+           }
+           if(backrefmax > capcnt)
+           {
+              capcnt=backrefmax;
+           }
         }
 
         ovecsize=3*(capcnt +1);
@@ -87,12 +219,33 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
             rc = pcre_exec(re->compiled,(const void *)NULL,match,mlen,lastindex,0,ovector,ovecsize);
         }
 
+        if(rc<0)
+        {
+            if(global)
+            {
+               RegexpSetlastindex(jc,jo,re,0);
+            }
+        }
+
         if (rc >=0)
         {
             struct Variable *var;
             int i;
+            int newlast;
 
-            if (global) re->lastIndex = ovector[1];
+            if(global)
+            {
+               newlast=ovector[1];
+               if(ovector[0]==ovector[1])
+               {
+                  newlast++;
+                  if(newlast>mlen)
+                  {
+                     newlast=0;
+                  }
+               }
+               RegexpSetlastindex(jc,jo,re,newlast);
+            }
             result = Newarray(jc);
             if(!result)
             {
@@ -152,9 +305,6 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
             {  if((var = Getownproperty(jc->regexp,"index")))
                {  Asgnumber(&var->val,VNA_VALID,(double)ovector[0]);
                }
-               if((var = Getownproperty(jc->regexp, "lastIndex")))
-               {  Asgnumber(&var->val,VNA_VALID,(double)re->lastIndex);
-               }
                if((var = Getownproperty(jc->regexp,"leftContext")))
                {  Asgstringlen(&var->val,match,ovector[0],jc->pool);
                }
@@ -176,7 +326,7 @@ struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
 
                 if(jc->regexp)
                 {  if((var=Getownproperty(jc->regexp,varname)))
-                   {  if(ovector[i*2] >=0 && i <= capcnt)
+                   {  if(i <= capcnt && ovector[i*2] >=0)
                       {  captures--;
                          Asgstringlen(&var->val,(UBYTE *)(match + ovector[i*2]),ovector[i*2 +1] - ovector[i*2],jc->pool);
                          if(captures==1)
@@ -304,27 +454,37 @@ struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *matc
 
 static BOOL Propertylastindex(struct Varhookdata *vd)
 {
-    BOOL result = FALSE;
-    struct Regexp *re = vd->hookdata;
-    if(re)
-    {
-        switch(vd->code)
-        {
-            case VHC_SET:
-                Tonumber(&vd->value->val,vd->jc);
-                if (vd->value->val.attr==VNA_VALID) re->lastIndex = vd->value->val.value.nvalue;
-                result=TRUE;
-                break;
-            case VHC_GET:
-                Asgnumber(&vd->value->val,VNA_VALID,(double)re->lastIndex);
-                result=TRUE;
-                break;
-        }
-    }
-    return result;
+   BOOL result=FALSE;
+   struct Regexp *re;
+   int li;
+
+   re=(struct Regexp *)vd->hookdata;
+   if(re)
+   {
+      switch(vd->code)
+      {
+         case VHC_SET:
+            Tonumber(&vd->value->val,vd->jc);
+            if(vd->value->val.attr==VNA_VALID)
+            {
+               li=(int)vd->value->val.value.nvalue;
+               if(li<0)
+               {
+                  li=0;
+               }
+               re->lastIndex=li;
+               Asgnumber(&vd->value->val,VNA_VALID,(double)li);
+            }
+            result=TRUE;
+            break;
+         case VHC_GET:
+            Asgnumber(&vd->value->val,VNA_VALID,(double)re->lastIndex);
+            result=TRUE;
+            break;
+      }
+   }
+   return result;
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /*  Methods */
@@ -358,7 +518,16 @@ static void Regexpexec(struct Jcontext *jc)
 
     struct Jobject *result = Applyregexp(jc,jo,match);
 
-    if(!result && jo->internal && jo->type == OBJT_REGEXP) ((struct Regexp*)jo->internal)->lastIndex = 0;
+    if(!result && jo->internal && jo->type == OBJT_REGEXP)
+    {
+       struct Regexp *re;
+
+       re=(struct Regexp *)jo->internal;
+       if(re->flags & REF_GLOBAL)
+       {
+          RegexpSetlastindex(jc,jo,re,0);
+       }
+    }
     Asgobject(RETVAL(jc),result);
 }
 
@@ -429,10 +598,9 @@ static void Regexpcompile(struct Jcontext *jc)
              int   errpos = 0;
 
              re->pattern=Jdupstr(p,-1,jc->pool);
-
-             if(strchr(f,'g')) re->flags |= REF_GLOBAL;
-             if(strchr(f,'m')) re->flags |= REF_MULTI;
-             if(strchr(f,'i')) re->flags |= REF_NOCASE;
+             re->flags=0;
+             Parseregexpflags(f,&re->flags);
+             RegexpSetlastindex(jc,jo,re,0);
 
              if(re->flags & REF_MULTI) pcre_flags |= PCRE_MULTILINE;
              if(re->flags & REF_NOCASE) pcre_flags |= PCRE_CASELESS;
@@ -546,11 +714,8 @@ static void Constructor(struct Jcontext *jc)
              jo->type = OBJT_REGEXP;
 
              re->pattern=Jdupstr(p,-1,jc->pool);
-
-             if(strchr(f,'g')) re->flags |= REF_GLOBAL;
-             if(strchr(f,'m')) re->flags |= REF_MULTI;
-             if(strchr(f,'i')) re->flags |= REF_NOCASE;
-
+             re->flags=0;
+             Parseregexpflags(f,&re->flags);
 
              if(re->flags & REF_MULTI) pcre_flags |= PCRE_MULTILINE;
              if(re->flags & REF_NOCASE) pcre_flags |= PCRE_CASELESS;
@@ -585,11 +750,7 @@ static void Constructor(struct Jcontext *jc)
                  Asgstring(&prop->val,re->pattern,jc->pool);
                  prop->hook=Constantvhook;
              }
-             if((prop = Addproperty(jo,"lastIndex")))
-             {
-                 prop->hook=(Varhookfunc *)Propertylastindex;
-                 prop->hookdata = re;
-             }
+             RegexpInitlastindex(jc,jo,re);
 
 
          }
@@ -689,11 +850,6 @@ void Initregexp(struct Jcontext *jc, struct Jobject *jscope)
             Asgnumber(&prop->val,VNA_VALID,(double)-1);
             prop->hook = Constantvhook;
         }
-        if((prop = Addproperty(jo,"lastIndex")))
-        {
-            Asgnumber(&prop->val,VNA_VALID,0.0);
-            prop->hook = Constantvhook;
-        }
         if((prop = Addproperty(jo,"leftContext")))
         {
             Asgstring(&prop->val,"",jc->pool);
@@ -780,12 +936,9 @@ struct Jobject *Newregexp(struct Jcontext *jc,UBYTE *pattern, UBYTE *flags)
          jo->dispose=(Objdisposehookfunc *)Destructor;
          jo->type = OBJT_REGEXP;
          re->pattern=Jdupstr(pattern,-1,jc->pool);
-         if(flags)
-         {
-             if(strchr(flags,'g')) re->flags |= REF_GLOBAL;
-             if(strchr(flags,'m')) re->flags |= REF_MULTI;
-             if(strchr(flags,'i')) re->flags |= REF_NOCASE;
-         }
+         re->flags=0;
+         re->lastIndex=0;
+         Parseregexpflags(flags?flags:(UBYTE *)"",&re->flags);
          if(re->flags & REF_MULTI) pcre_flags |= PCRE_MULTILINE;
          if(re->flags & REF_NOCASE) pcre_flags |= PCRE_CASELESS;
          /* global flag is handled in exec */
@@ -820,11 +973,7 @@ struct Jobject *Newregexp(struct Jcontext *jc,UBYTE *pattern, UBYTE *flags)
              prop->hook=Constantvhook;
          }
 
-         if((prop = Addproperty(jo,"lastIndex")))
-         {
-             prop->hook=(Varhookfunc *)Propertylastindex;
-             prop->hookdata = re;
-         }
+         RegexpInitlastindex(jc,jo,re);
 
 
       }

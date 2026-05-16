@@ -23,6 +23,7 @@
 #include <math.h>
 #include <float.h>
 #include <string.h>
+#include <stdlib.h>
 
 struct Number           /* Used as internal object value */
 {  UBYTE attr;
@@ -288,6 +289,140 @@ static void Numbertofixed(struct Jcontext *jc)
 
 }
 
+/* ES3 Number.prototype.toExponential(fractionDigits) */
+static void Numbertoexponential(struct Jcontext *jc)
+{
+   struct Jobject *jo;
+   struct Number *n;
+   struct Variable *arg;
+   int fdigits;
+   UBYTE buf[80];
+   UBYTE *p;
+   int exp;
+   int j;
+
+   jo=jc->jthis;
+   fdigits=-1;
+   arg=jc->functions.first->local.first;
+   if(arg->next && arg->val.type!=VTP_UNDEFINED)
+   {
+      Tonumber(&arg->val,jc);
+      if(arg->val.attr==VNA_VALID)
+      {
+         fdigits=(int)arg->val.value.nvalue;
+         if(fdigits<0 || fdigits>20)
+         {
+            Runtimeerror(jc,NTE_RANGE,jc->elt,"toExponential fractionDigits out of range");
+            return;
+         }
+      }
+   }
+   if(jo && jo->type==OBJT_NUMBER && (n=(struct Number *)jo->internal))
+   {
+      if(n->attr==VNA_NAN)
+      {
+         Asgstring(RETVAL(jc),(UBYTE *)"NaN",jc->pool);
+         return;
+      }
+      if(n->attr==VNA_INFINITY)
+      {
+         Asgstring(RETVAL(jc),(UBYTE *)"Infinity",jc->pool);
+         return;
+      }
+      if(n->attr==VNA_NEGINFINITY)
+      {
+         Asgstring(RETVAL(jc),(UBYTE *)"-Infinity",jc->pool);
+         return;
+      }
+      if(fdigits<0)
+      {
+         sprintf((char *)buf,"%.6e",n->nvalue);
+      }
+      else
+      {
+         sprintf((char *)buf,"%.*e",fdigits,n->nvalue);
+      }
+      /* Normalise exponent to at least two digits (ES3). */
+      p=(UBYTE *)strchr((char *)buf,'e');
+      if(!p)
+      {
+         p=(UBYTE *)strchr((char *)buf,'E');
+      }
+      if(p)
+      {
+         exp=atoi((char *)(p+1));
+         sprintf((char *)p,"e%+03d",exp);
+         for(j=0;p[j];j++)
+         {
+            if(p[j]=='E')
+            {
+               p[j]='e';
+            }
+         }
+      }
+      Asgstring(RETVAL(jc),buf,jc->pool);
+   }
+   else
+   {
+      Runtimeerror(jc,NTE_TYPE,jc->elt,"Number.prototype.toExponential called with invalid object");
+   }
+}
+
+/* ES3 Number.prototype.toPrecision(precision) */
+static void Numbertoprecision(struct Jcontext *jc)
+{
+   struct Jobject *jo;
+   struct Number *n;
+   struct Variable *arg;
+   int prec;
+   UBYTE buf[80];
+
+   jo=jc->jthis;
+   prec=0;
+   arg=jc->functions.first->local.first;
+   if(arg->next && arg->val.type!=VTP_UNDEFINED)
+   {
+      Tonumber(&arg->val,jc);
+      if(arg->val.attr==VNA_VALID)
+      {
+         prec=(int)arg->val.value.nvalue;
+         if(prec<1 || prec>21)
+         {
+            Runtimeerror(jc,NTE_RANGE,jc->elt,"toPrecision precision out of range");
+            return;
+         }
+      }
+   }
+   if(jo && jo->type==OBJT_NUMBER && (n=(struct Number *)jo->internal))
+   {
+      if(n->attr==VNA_NAN)
+      {
+         Asgstring(RETVAL(jc),(UBYTE *)"NaN",jc->pool);
+         return;
+      }
+      if(n->attr==VNA_INFINITY)
+      {
+         Asgstring(RETVAL(jc),(UBYTE *)"Infinity",jc->pool);
+         return;
+      }
+      if(n->attr==VNA_NEGINFINITY)
+      {
+         Asgstring(RETVAL(jc),(UBYTE *)"-Infinity",jc->pool);
+         return;
+      }
+      if(prec<=0)
+      {
+         prec=1;
+      }
+      sprintf((char *)buf,"%.*g",prec,n->nvalue);
+      Asgstring(RETVAL(jc),buf,jc->pool);
+   }
+   else
+   {
+      Runtimeerror(jc,NTE_TYPE,jc->elt,"Number.prototype.toPrecision called with invalid object");
+   }
+}
+
 /* Get value of (jthis) */
 static void Numbervalueof(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis;
@@ -393,6 +528,12 @@ void Initnumber(struct Jcontext *jc, struct Jobject *jscope)
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"toFixed",(Internfunc *)Numbertofixed,"fixedDigits",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"toExponential",(Internfunc *)Numbertoexponential,"fractionDigits",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"toPrecision",(Internfunc *)Numbertoprecision,"precision",NULL))
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"valueOf",(Internfunc *)Numbervalueof,NULL))

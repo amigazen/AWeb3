@@ -22,6 +22,10 @@ struct Regexp
 #define PCRE_INFO_CAPTURECOUNT 2
 #endif
 
+#ifndef PCRE_INFO_BACKREFMAX
+#define PCRE_INFO_BACKREFMAX 3
+#endif
+
 #ifndef PCRE_MULTILINE
 #define PCRE_MULTILINE 0x00000008
 #endif

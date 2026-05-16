@@ -7487,6 +7487,11 @@ do
   if (rc != MATCH_MATCH)
     {
     DPRINTF((">>>> error: returning %d\n", rc));
+    if (using_temporary_offsets)
+      {
+      DPRINTF(("Freeing temporary memory\n"));
+      (pcre_free)(match_block.offset_vector);
+      }
     return rc;
     }
 
