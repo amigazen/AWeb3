@@ -44,13 +44,20 @@ struct Jcontext *Jatomroot(struct Jcontext *jc)
 static ULONG Jatomhashbytes(UBYTE *s)
 {
    ULONG h;
+   ULONG hops;
 
    h = 2166136261UL;
-   while(s && *s)
+   hops = 0UL;
+   if(!JPTR_OK(s))
+   {
+      return h;
+   }
+   while(*s && hops < 65536UL)
    {
       h ^= (ULONG)(UBYTE)*s;
       s++;
       h *= 16777619UL;
+      hops++;
    }
    return h;
 }
@@ -63,7 +70,7 @@ struct JAtomStr *JatomIntern(struct Jcontext *jc, UBYTE *s)
    struct JAtomStr *n;
    struct Jcontext *root;
 
-   if(!s)
+   if(!JPTR_OK(s))
    {
       return NULL;
    }
@@ -76,7 +83,7 @@ struct JAtomStr *JatomIntern(struct Jcontext *jc, UBYTE *s)
    b = h % (ULONG)JATOM_NUM_BUCKETS;
    for(p = root->jatom_buckets[b]; JPTR_OK(p); p = p->bucketnext)
    {
-      if(p->hash == h && JPTR_OK(p->str) && STREQUAL(p->str, s))
+      if(p->hash == h && JPTR_OK(p->str) && JPTR_OK(s) && STREQUAL(p->str, s))
       {
          return p;
       }

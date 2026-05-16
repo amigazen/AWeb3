@@ -20,6 +20,7 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
+#include "jatom.h"
 #include "keyfile.h"
 #include "awebplugin.h"
 #include <stdarg.h>
@@ -1240,7 +1241,12 @@ __asm __saveds void Jasgboolean(
 __asm __saveds BOOL Jtoboolean(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
-{  Toboolean(&jv->val,jc);
+{
+   if(!JPTR_OK(jc) || !JPTR_OK(jv))
+   {
+      return FALSE;
+   }
+   Toboolean(&jv->val,jc);
    return jv->val.value.bvalue;
 }
 
@@ -1258,14 +1264,25 @@ __asm __saveds struct Variable *Jnewarrayelt(
 __asm __saveds struct Jobject *Jtoobject(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
-{  Toobject(&jv->val,jc);
+{
+   if(!JPTR_OK(jc) || !JPTR_OK(jv))
+   {
+      return NULL;
+   }
+   Toobject(&jv->val,jc);
    return jv->val.value.obj.ovalue;
 }
 
 __asm __saveds long Jtonumber(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
-{  long n;
+{
+   long n;
+
+   if(!JPTR_OK(jc) || !JPTR_OK(jv))
+   {
+      return 0;
+   }
    Tonumber(&jv->val,jc);
    if(jv->val.attr==VNA_VALID) n=(long)jv->val.value.nvalue;
    else n=0;

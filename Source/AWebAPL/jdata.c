@@ -56,7 +56,7 @@ static void JpropidxFreeEnt(struct JPropIdxEnt *e)
 /* JSObject still safe to dereference (not swept, jc valid). Internal to jdata only. */
 static BOOL JobjectLive(struct Jobject *jo)
 {
-   if(!JPTR_OK(jo))
+   if(!JPTR_OK(jo) || !JmemUserAllocated(jo))
    {
       return FALSE;
    }
@@ -69,6 +69,30 @@ static BOOL JobjectLive(struct Jobject *jo)
       return FALSE;
    }
    return TRUE;
+}
+
+/* Value slot pointer in valid heap range (jc->val after Disposevar is ~0x0C). */
+static BOOL JvalOk(struct Value *v)
+{
+   return JPTR_OK(v);
+}
+
+/* jc scratch slots (valvar / throw) still wired after variable dispose. */
+static BOOL JctxScratchVal(struct Jcontext *jc, struct Value *v)
+{
+   if(!JvalOk(v) || !JPTR_OK(jc))
+   {
+      return FALSE;
+   }
+   if(JPTR_OK(jc->valvar) && v==&jc->valvar->val)
+   {
+      return TRUE;
+   }
+   if(JPTR_OK(jc->throw) && v==&jc->throw->val)
+   {
+      return TRUE;
+   }
+   return FALSE;
 }
 
 /*-----------------------------------------------------------------------*/
@@ -230,7 +254,11 @@ static void JpropidxAdd(struct Jobject *jo, struct Variable *var)
    struct JPropIdxEnt *ent;
    ULONG b;
 
-   if(!JPTR_OK(jo) || !var || !var->name || !JPTR_OK(jo->jc))
+   if(!JPTR_OK(jo) || !JPTR_OK(var) || !JPTR_OK(jo->jc))
+   {
+      return;
+   }
+   if(!var->name || !JPTR_OK(var->name))
    {
       return;
    }
@@ -280,7 +308,11 @@ static void JpropidxRemove(struct Jobject *jo, struct Variable *var)
    struct JPropIdxEnt **pp;
    ULONG b;
 
-   if(!JPTR_OK(jo) || !var || !var->name || !JPTR_OK(jo->jc))
+   if(!JPTR_OK(jo) || !JPTR_OK(var) || !JPTR_OK(jo->jc))
+   {
+      return;
+   }
+   if(!var->name || !JPTR_OK(var->name))
    {
       return;
    }
@@ -364,15 +396,22 @@ static void JpropidxClear(struct Jobject *jo)
 /* Call this property function */
 BOOL Callproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name)
 {  struct Variable *prop;
-   if(jo && (prop=Getproperty(jo,name))
-   && prop->val.type==VTP_OBJECT && prop->val.value.obj.ovalue && prop->val.value.obj.ovalue->function)
+   struct Jobject *fobj;
+   if(!JPTR_OK(jc) || !JobjectLive(jo))
    {
-      Keepobject(jo,TRUE);
-      Callfunctionbody(jc,prop->val.value.obj.ovalue->function,jo,
-         prop->val.value.obj.ovalue);
-      Keepobject(jo,FALSE);
-
-      return TRUE;
+      return FALSE;
+   }
+   prop=Getproperty(jo,name);
+   if(prop && prop->val.type==VTP_OBJECT)
+   {
+      fobj=prop->val.value.obj.ovalue;
+      if(JobjectLive(fobj) && fobj->function)
+      {
+         Keepobject(jo,TRUE);
+         Callfunctionbody(jc,fobj->function,jo,fobj);
+         Keepobject(jo,FALSE);
+         return TRUE;
+      }
    }
    return FALSE;
 }
@@ -384,7 +423,12 @@ BOOL Callproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name)
 /* This must always be used before discarding / disposing of a previously used value */
 
 void Clearvalue(struct Value *v)
-{  switch(v->type)
+{
+   if(!JvalOk(v))
+   {
+      return;
+   }
+   switch(v->type)
    {  case VTP_STRING:
          if(v->value.svalue)
          {
@@ -399,6 +443,10 @@ void Clearvalue(struct Value *v)
 /* Assign a value */
 void Asgvalue(struct Value *to,struct Value *from)
 {
+   if(!JvalOk(to) || !JvalOk(from))
+   {
+      return;
+   }
    Clearvalue(to);
    to->type=from->type;
    to->attr=from->attr;
@@ -427,7 +475,12 @@ void Asgvalue(struct Value *to,struct Value *from)
 
 /* Assign a number */
 void Asgnumber(struct Value *to,UBYTE attr,double n)
-{  switch(attr)
+{
+   if(!JvalOk(to))
+   {
+      return;
+   }
+   switch(attr)
    {  case VNA_NAN:
          n=0.0;
          break;
@@ -446,7 +499,12 @@ void Asgnumber(struct Value *to,UBYTE attr,double n)
 
 /* Assign a boolean */
 void Asgboolean(struct Value *to,BOOL b)
-{  Clearvalue(to);
+{
+   if(!JvalOk(to))
+   {
+      return;
+   }
+   Clearvalue(to);
    to->type=VTP_BOOLEAN;
    to->attr=0;
    to->value.bvalue=b;
@@ -454,7 +512,12 @@ void Asgboolean(struct Value *to,BOOL b)
 
 /* Assign a string */
 void Asgstring(struct Value *to,UBYTE *s,void *pool)
-{  Clearvalue(to);
+{
+   if(!JvalOk(to))
+   {
+      return;
+   }
+   Clearvalue(to);
    to->type=VTP_STRING;
    to->attr=0;
    to->value.svalue=Jdupstr(s,-1,pool);
@@ -463,7 +526,11 @@ void Asgstring(struct Value *to,UBYTE *s,void *pool)
 /* Assign a string of given length */
 void Asgstringlen(struct Value *to,UBYTE *s,long len,void *pool)
 {
-    Clearvalue(to);
+   if(!JvalOk(to))
+   {
+      return;
+   }
+   Clearvalue(to);
     to->type=VTP_STRING;
     to->attr=0;
     to->value.svalue=Jdupstr(s,len,pool);
@@ -471,7 +538,12 @@ void Asgstringlen(struct Value *to,UBYTE *s,long len,void *pool)
 
 /* Assign an object */
 void Asgobject(struct Value *to,struct Jobject *jo)
-{  Clearvalue(to);
+{
+   if(!JvalOk(to))
+   {
+      return;
+   }
+   Clearvalue(to);
    to->type=VTP_OBJECT;
    to->attr=0;
    to->value.obj.ovalue=jo;
@@ -480,7 +552,12 @@ void Asgobject(struct Value *to,struct Jobject *jo)
 
 /* Assign a function */
 void Asgfunction(struct Value *to,struct Jobject *f,struct Jobject *fthis)
-{  Clearvalue(to);
+{
+   if(!JvalOk(to))
+   {
+      return;
+   }
+   Clearvalue(to);
    to->type=VTP_OBJECT;
    to->attr=0;
    to->value.obj.ovalue=f;
@@ -489,8 +566,14 @@ void Asgfunction(struct Value *to,struct Jobject *f,struct Jobject *fthis)
 
 /* Make this value a string */
 void Tostring(struct Value *v,struct Jcontext *jc)
-{  if(!jc)
-   {  if(v) v->type=VTP_UNDEFINED;
+{
+   if(!JvalOk(v))
+   {
+      return;
+   }
+   if(!jc)
+   {
+      v->type=VTP_UNDEFINED;
       return;
    }
    switch(v->type)
@@ -536,7 +619,8 @@ void Tostring(struct Value *v,struct Jcontext *jc)
          else
          {  struct Jobject *oldthis;
 
-            if(Callproperty(jc,v->value.obj.ovalue,"toString") && jc->val->type==VTP_STRING)
+            if(Callproperty(jc,v->value.obj.ovalue,"toString")
+            && JctxScratchVal(jc,jc->val) && jc->val->type==VTP_STRING)
             {  Asgstring(v,jc->val->value.svalue,jc->pool);
             }
             else
@@ -544,7 +628,10 @@ void Tostring(struct Value *v,struct Jcontext *jc)
                jc->jthis=v->value.obj.ovalue;
                Defaulttostring(jc);
                jc->jthis=oldthis;
-               Asgvalue(v,jc->val);
+               if(JctxScratchVal(jc,jc->val))
+               {
+                  Asgvalue(v,jc->val);
+               }
 
             }
          }
@@ -558,7 +645,11 @@ void Tostring(struct Value *v,struct Jcontext *jc)
 /* Make this value a number */
 void Tonumber(struct Value *v,struct Jcontext *jc)
 {
-       switch(v->type)
+   if(!JvalOk(v))
+   {
+      return;
+   }
+   switch(v->type)
        {  case VTP_NUMBER:
              break;
           case VTP_BOOLEAN:
@@ -575,7 +666,8 @@ void Tonumber(struct Value *v,struct Jcontext *jc)
              }
              break;
           case VTP_OBJECT:
-             if(Callproperty(jc,v->value.obj.ovalue,"valueOf") && jc->val->type==VTP_NUMBER)
+             if(Callproperty(jc,v->value.obj.ovalue,"valueOf")
+             && JctxScratchVal(jc,jc->val) && jc->val->type==VTP_NUMBER)
              {  Asgvalue(v,jc->val);
              }
              else
@@ -590,7 +682,12 @@ void Tonumber(struct Value *v,struct Jcontext *jc)
 
 /* Make this value a boolean */
 void Toboolean(struct Value *v,struct Jcontext *jc)
-{  switch(v->type)
+{
+   if(!JvalOk(v))
+   {
+      return;
+   }
+   switch(v->type)
    {  case VTP_NUMBER:
          Asgboolean(v,v->value.nvalue!=0.0);
          break;
@@ -600,7 +697,8 @@ void Toboolean(struct Value *v,struct Jcontext *jc)
          Asgboolean(v,(v->value.svalue && *v->value.svalue) ? TRUE : FALSE);
          break;
       case VTP_OBJECT:
-         if(Callproperty(jc,v->value.obj.ovalue,"valueOf") && jc->val->type==VTP_BOOLEAN)
+         if(Callproperty(jc,v->value.obj.ovalue,"valueOf")
+         && JctxScratchVal(jc,jc->val) && jc->val->type==VTP_BOOLEAN)
          {  Asgvalue(v,jc->val);
          }
          else
@@ -616,7 +714,7 @@ void Toboolean(struct Value *v,struct Jcontext *jc)
 /* Make this value an object */
 void Toobject(struct Value *v,struct Jcontext *jc)
 {  struct Jobject *jo;
-   if(!v || !jc)
+   if(!JvalOk(v) || !JPTR_OK(jc))
    {  return;
    }
    switch(v->type)
@@ -653,7 +751,11 @@ void Defaulttostring(struct Jcontext *jc)
    {  return;
    }
    jo=jc->jthis;
-   if(Callproperty(jc,jo,"valueOf") && jc->val && jc->val->type==VTP_STRING)
+   if(!JctxScratchVal(jc,jc->val))
+   {
+      return;
+   }
+   if(Callproperty(jc,jo,"valueOf") && jc->val->type==VTP_STRING)
    {  /* We're done */
    }
    else
@@ -661,8 +763,8 @@ void Defaulttostring(struct Jcontext *jc)
       {  Asgstring(jc->val,"null",jc->pool);
       }
       else
-      {  if(jo->constructor && jo->constructor->function
-         && jo->constructor->function->name)
+      {  if(JobjectLive(jo) && JobjectLive(jo->constructor)
+         && jo->constructor->function && jo->constructor->function->name)
          {  p=jo->constructor->function->name;
          }
          else
@@ -678,7 +780,10 @@ void Defaulttostring(struct Jcontext *jc)
          }
       }
    }
-   Asgvalue(RETVAL(jc),jc->val);
+   if(JvalOk(RETVAL(jc)) && JctxScratchVal(jc,jc->val))
+   {
+      Asgvalue(RETVAL(jc),jc->val);
+   }
 }
 
 /*-----------------------------------------------------------------------*/
@@ -715,8 +820,12 @@ struct Variable *Newvar(UBYTE *name,struct Jcontext *jc)
 
 /* Dispose this variable */
 void Disposevar(struct Variable *var)
-{  if(var)
-   {  if(var->name)
+{
+   if(!JPTR_OK(var) || !JmemUserAllocated(var))
+   {
+      return;
+   }
+   if(var->name)
       {
           if(!(var->flags&VARF_NAMEATOMSHARED))
           {
@@ -724,9 +833,8 @@ void Disposevar(struct Variable *var)
           }
           var->name=NULL;
       }
-      Clearvalue(&var->val);
-      FREE(var);
-   }
+   Clearvalue(&var->val);
+   FREE(var);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -775,40 +883,46 @@ struct Jobject *Newobject(struct Jcontext *jc)
 /* Dispose an object */
 void Disposeobject(struct Jobject *jo)
 {  struct Variable *var;
-   if(jo)
+   struct Jcontext *jcx;
+
+   if(!JPTR_OK(jo))
    {
-      if(jo->jc)
+      return;
+   }
+   jcx=jo->jc;
+   if(JPTR_OK(jcx))
+   {
+      jcx->obj_disposed++;
+   }
+   jo->notdisposed=FALSE;
+   JpropidxClear(jo);
+   memset((void *)jo->propidx,0,sizeof(jo->propidx));
+   while(var=(struct Variable *)RemHead((struct List *)&jo->properties))
+   {
+      if(JPTR_OK(var))
       {
-         jo->jc->obj_disposed++;
-      }
-      jo->notdisposed=FALSE;
-      while(var=(struct Variable *)RemHead((struct List *)&jo->properties))
-      {
-         JpropidxRemove(jo,var);
          Disposevar(var);
       }
-      JpropidxClear(jo);
-      memset((void *)jo->propidx,0,sizeof(jo->propidx));
-      Jgc_trace_dispose_step(jo,"props_cleared");
-      if(jo->internal && jo->dispose && JPTR_OK((void *)jo->dispose))
-      {
-         Jgc_trace_dispose_step(jo,"before_internal_dispose");
-         jo->dispose(jo->internal);
-         Jgc_trace_dispose_step(jo,"after_internal_dispose");
-      }
-      jo->internal=NULL;
-      jo->dispose=NULL;
-      if(jo->function)
-      {
-         Jgc_trace_dispose_step(jo,"before_jdispose");
-         Jdispose((struct Element *)jo->function);
-         Jgc_trace_dispose_step(jo,"after_jdispose");
-      }
-
-      Jgc_trace_dispose_step(jo,"before_free");
-      jo->jc = NULL;
-      FREE(jo);
    }
+   Jgc_trace_dispose_step(jo,"props_cleared");
+   if(jo->internal && jo->dispose && JPTR_OK((void *)jo->dispose))
+   {
+      Jgc_trace_dispose_step(jo,"before_internal_dispose");
+      jo->dispose(jo->internal);
+      Jgc_trace_dispose_step(jo,"after_internal_dispose");
+   }
+   jo->internal=NULL;
+   jo->dispose=NULL;
+   if(jo->function)
+   {
+      Jgc_trace_dispose_step(jo,"before_jdispose");
+      Jdispose((struct Element *)jo->function);
+      Jgc_trace_dispose_step(jo,"after_jdispose");
+   }
+
+   Jgc_trace_dispose_step(jo,"before_free");
+   jo->jc = NULL;
+   FREE(jo);
 }
 
 /* Clear all properties of this object. If a property contains a reference
@@ -1146,17 +1260,11 @@ struct Array            /* Used as internal object value */
 static void Garbagemark_depth(struct Jobject *jo, ULONG depth)
 {
    struct Variable *v;
+   struct Variable *vnext;
    int i;
-   ULONG jp;
-   ULONG xp;
-   ULONG fp;
+   struct Array *a;
 
-   if(!jo)
-   {
-      return;
-   }
-   jp=(ULONG)jo;
-   if(jp < 0x00001000UL || jp > 0xFFFFFFF0UL)
+   if(!JobjectLive(jo))
    {
       return;
    }
@@ -1164,72 +1272,59 @@ static void Garbagemark_depth(struct Jobject *jo, ULONG depth)
    {
       return;
    }
-   if((jo->flags&OBJF_USED))
-   {
-      return;
-   }
-   if(jo->notdisposed != TRUE)
+   if(jo->flags&OBJF_USED)
    {
       return;
    }
    jo->flags |= OBJF_USED;
 
-   if(jo->prototype)
+   if(JobjectLive(jo->prototype))
    {
-      xp=(ULONG)jo->prototype;
-      if(xp >= 0x00001000UL && xp <= 0xFFFFFFF0UL)
-      {
-         Garbagemark_depth(jo->prototype, depth + 1U);
-      }
+      Garbagemark_depth(jo->prototype, depth + 1U);
    }
-   for(v=jo->properties.first;v && v->next;v=v->next)
+   for(v=jo->properties.first; JPTR_OK(v); v=vnext)
    {
+      vnext=NULL;
+      if(JPTR_OK(v->next))
+      {
+         vnext=v->next;
+      }
       if(v->val.type==VTP_OBJECT)
       {
-         Garbagemark_depth(v->val.value.obj.ovalue, depth + 1U);
-         if(v->val.value.obj.fthis)
+         if(JobjectLive(v->val.value.obj.ovalue))
+         {
+            Garbagemark_depth(v->val.value.obj.ovalue, depth + 1U);
+         }
+         if(JobjectLive(v->val.value.obj.fthis))
          {
             Garbagemark_depth(v->val.value.obj.fthis, depth + 1U);
          }
       }
    }
-   if(jo->constructor)
+   if(JobjectLive(jo->constructor))
    {
-      xp=(ULONG)jo->constructor;
-      if(xp >= 0x00001000UL && xp <= 0xFFFFFFF0UL)
-      {
-         Garbagemark_depth(jo->constructor, depth + 1U);
-      }
+      Garbagemark_depth(jo->constructor, depth + 1U);
    }
-   if(jo->function)
+   if(jo->function && JPTR_OK((void *)jo->function) && JobjectLive(jo->function->fscope))
    {
-      fp=(ULONG)jo->function;
-      if(fp >= 0x00001000UL && fp <= 0xFFFFFFF0UL && jo->function->fscope)
-      {
-         Garbagemark_depth(jo->function->fscope, depth + 1U);
-      }
+      Garbagemark_depth(jo->function->fscope, depth + 1U);
    }
-   if(jo->type == OBJT_ARRAY)
+   if(jo->type == OBJT_ARRAY && jo->internal && JPTR_OK(jo->internal))
    {
-      if(jo->internal)
+      a = (struct Array *)jo->internal;
+      if(a->length && a->array_length && a->array && JPTR_OK(a->array))
       {
-         struct Array *a;
-
-         a = (struct Array *)jo->internal;
-         if(a->length && a->array_length)
+         for(i=0;i< (int)a->length && i<(int)a->array_length;i++)
          {
-            for(i=0;i< (int)a->length && i<(int)a->array_length;i++)
+            if(JPTR_OK(a->array[i]) && a->array[i]->val.type == VTP_OBJECT)
             {
-               if(a->array && a->array[i])
+               if(JobjectLive(a->array[i]->val.value.obj.ovalue))
                {
-                  if(a->array[i]->val.type == VTP_OBJECT)
-                  {
-                     Garbagemark_depth(a->array[i]->val.value.obj.ovalue, depth + 1U);
-                     if(a->array[i]->val.value.obj.fthis)
-                     {
-                        Garbagemark_depth(a->array[i]->val.value.obj.fthis, depth + 1U);
-                     }
-                  }
+                  Garbagemark_depth(a->array[i]->val.value.obj.ovalue, depth + 1U);
+               }
+               if(JobjectLive(a->array[i]->val.value.obj.fthis))
+               {
+                  Garbagemark_depth(a->array[i]->val.value.obj.fthis, depth + 1U);
                }
             }
          }
@@ -1275,9 +1370,17 @@ void Garbagecollect(struct Jcontext *jc)
    NEWLIST(&dead);
    Jgc_log(jc,(UBYTE *)"ENTER",0,0,0,(ULONG)objectlist->lh_Head,(ULONG)objectlist->lh_TailPred);
    Jgc_trace_enter(jc,oldnogc);
-   for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
-   {  jo->flags&=~OBJF_USED;
-      scanned ++;
+   for(jo=(struct Jobject *)objectlist->lh_Head; JPTR_OK(jo); jo=(struct Jobject *)jo->next)
+   {
+      if(!JPTR_OK(jo->next))
+      {
+         break;
+      }
+      if(JobjectLive(jo))
+      {
+         jo->flags&=~OBJF_USED;
+         scanned++;
+      }
       steps++;
       if(steps > 200000L)
       {
@@ -1292,137 +1395,160 @@ void Garbagecollect(struct Jcontext *jc)
    {
        Jgc_log(jc,(UBYTE *)"ROOTS_BEGIN",scanned,0,0,(ULONG)jc->val,(ULONG)jc->throwval);
        Jgc_trace_plain("[js] phase=ROOTS_BEGIN\n");
-       if(jc->val && jc->val->type == VTP_OBJECT)
+       if(JPTR_OK(jc->valvar) && jc->val==&jc->valvar->val && jc->val->type == VTP_OBJECT)
        {
-          if(jc->val->value.obj.ovalue)Garbagemark(jc->val->value.obj.ovalue);
-          if(jc->val->value.obj.fthis)Garbagemark(jc->val->value.obj.fthis);
-
+          if(JobjectLive(jc->val->value.obj.ovalue)) Garbagemark(jc->val->value.obj.ovalue);
+          if(JobjectLive(jc->val->value.obj.fthis)) Garbagemark(jc->val->value.obj.fthis);
        }
-       if(jc->throwval && jc->throwval->type == VTP_OBJECT)
+       if(JPTR_OK(jc->throw) && jc->throwval==&jc->throw->val && jc->throwval->type == VTP_OBJECT)
        {
-          if(jc->throwval->value.obj.ovalue)Garbagemark(jc->throwval->value.obj.ovalue);
-          if(jc->throwval->value.obj.fthis)Garbagemark(jc->throwval->value.obj.fthis);
-
+          if(JobjectLive(jc->throwval->value.obj.ovalue)) Garbagemark(jc->throwval->value.obj.ovalue);
+          if(JobjectLive(jc->throwval->value.obj.fthis)) Garbagemark(jc->throwval->value.obj.fthis);
        }
-       if(jc->result && jc->result->val.type == VTP_OBJECT)
+       if(JPTR_OK(jc->result) && jc->result->val.type == VTP_OBJECT)
        {
-          if(jc->result->val.value.obj.ovalue)Garbagemark(jc->result->val.value.obj.ovalue);
-          if(jc->result->val.value.obj.fthis)Garbagemark(jc->result->val.value.obj.fthis);
+          if(JobjectLive(jc->result->val.value.obj.ovalue)) Garbagemark(jc->result->val.value.obj.ovalue);
+          if(JobjectLive(jc->result->val.value.obj.fthis)) Garbagemark(jc->result->val.value.obj.fthis);
        }
-       if(jc->varref && jc->varref->val.type == VTP_OBJECT)
+       if(JPTR_OK(jc->varref) && jc->varref->val.type == VTP_OBJECT)
        {
-          if(jc->varref->val.value.obj.ovalue)Garbagemark(jc->varref->val.value.obj.ovalue);
-          if(jc->varref->val.value.obj.fthis)Garbagemark(jc->varref->val.value.obj.fthis);
+          if(JobjectLive(jc->varref->val.value.obj.ovalue)) Garbagemark(jc->varref->val.value.obj.ovalue);
+          if(JobjectLive(jc->varref->val.value.obj.fthis)) Garbagemark(jc->varref->val.value.obj.fthis);
        }
 
-       if(jc->jthis)
+       if(JobjectLive(jc->jthis))
        {
-           jc->jthis->flags &=~OBJF_USED;
-           Garbagemark(jc->jthis);
+          jc->jthis->flags &=~OBJF_USED;
+          Garbagemark(jc->jthis);
        }
-       if(jc->o)
+       if(JobjectLive(jc->o))
        {
-           Garbagemark(jc->o);
+          Garbagemark(jc->o);
        }
-       if(jc->tostring)
+       if(JobjectLive(jc->tostring))
        {
-           jc->tostring->flags &=~OBJF_USED;
-           Garbagemark(jc->tostring);
+          jc->tostring->flags &=~OBJF_USED;
+          Garbagemark(jc->tostring);
        }
-       if(jc->eval)
+       if(JobjectLive(jc->eval))
        {
-           jc->eval->flags &=~OBJF_USED;
-           Garbagemark(jc->eval);
+          jc->eval->flags &=~OBJF_USED;
+          Garbagemark(jc->eval);
        }
-       if(jc->object)
+       if(JobjectLive(jc->object))
        {
-           jc->object->flags &=~OBJF_USED;
-           Garbagemark(jc->object);
+          jc->object->flags &=~OBJF_USED;
+          Garbagemark(jc->object);
        }
-       if(jc->boolean)
+       if(JobjectLive(jc->boolean))
        {
-           jc->boolean->flags &=~OBJF_USED;
-           Garbagemark(jc->boolean);
+          jc->boolean->flags &=~OBJF_USED;
+          Garbagemark(jc->boolean);
        }
-       if(jc->function)
+       if(JobjectLive(jc->function))
        {
-           jc->function->flags &=~OBJF_USED;
-           Garbagemark(jc->function);
+          jc->function->flags &=~OBJF_USED;
+          Garbagemark(jc->function);
        }
-       if(jc->number)
+       if(JobjectLive(jc->number))
        {
-           jc->number->flags &=~OBJF_USED;
-           Garbagemark(jc->number);
+          jc->number->flags &=~OBJF_USED;
+          Garbagemark(jc->number);
        }
-       if(jc->string)
+       if(JobjectLive(jc->string))
        {
-           jc->string->flags &=~OBJF_USED;
-           Garbagemark(jc->string);
+          jc->string->flags &=~OBJF_USED;
+          Garbagemark(jc->string);
        }
-       if(jc->array)
+       if(JobjectLive(jc->array))
        {
-           jc->array->flags &=~OBJF_USED;
-           Garbagemark(jc->array);
+          jc->array->flags &=~OBJF_USED;
+          Garbagemark(jc->array);
        }
-       if(jc->regexp)
+       if(JobjectLive(jc->regexp))
        {
-           jc->regexp->flags &=~OBJF_USED;
-           Garbagemark(jc->regexp);
+          jc->regexp->flags &=~OBJF_USED;
+          Garbagemark(jc->regexp);
        }
-       if(jc->error)
+       if(JobjectLive(jc->error))
        {
-           jc->error->flags &=~OBJF_USED;
-           Garbagemark(jc->error);
+          jc->error->flags &=~OBJF_USED;
+          Garbagemark(jc->error);
        }
        for(i=0;i<NUM_ERRORTYPES;i++)
        {
-          if(jc->nativeErrors[i])
+          if(JobjectLive(jc->nativeErrors[i]))
           {
              jc->nativeErrors[i]->flags &=~OBJF_USED;
              Garbagemark(jc->nativeErrors[i]);
           }
        }
-       if(JPTR_OK(jc->fscope))
+       if(JobjectLive(jc->fscope))
        {
-           jc->fscope->flags &=~OBJF_USED;
-           Garbagemark(jc->fscope);
+          jc->fscope->flags &=~OBJF_USED;
+          Garbagemark(jc->fscope);
        }
-       for(this=(struct This *)jlist->lh_Head;this && this->next;this=(struct This *)this->next)
+       for(this=(struct This *)jlist->lh_Head; JPTR_OK(this); this=(struct This *)this->next)
        {
-           if(this->this)
-           {
-              this->this->flags &=~OBJF_USED;
-              Garbagemark(this->this);
-           }
-       }
-
-       for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
-       {
-           if(jo->keepnr > 0) Garbagemark(jo);
-       }
-
-       for(f=jc->functions.first;f && f->next;f=f->next)
-       {
-
-          Garbagemark(f->arguments);
-
-          Garbagemark(f->def);
-
-          Garbagemark(f->fscope);
-
-          if(f->retval.type==VTP_OBJECT)
-          {  Garbagemark(f->retval.value.obj.ovalue);
-             if(f->retval.value.obj.fthis) Garbagemark(f->retval.value.obj.fthis);
+          if(!JPTR_OK(this->next))
+          {
+             break;
           }
-          for(v=f->local.first;v && v->next;v=v->next)
-          {  if(v->val.type==VTP_OBJECT)
+          if(JobjectLive(this->this))
+          {
+             this->this->flags &=~OBJF_USED;
+             Garbagemark(this->this);
+          }
+       }
+
+       for(jo=(struct Jobject *)objectlist->lh_Head; JPTR_OK(jo); jo=(struct Jobject *)jo->next)
+       {
+          if(!JPTR_OK(jo->next))
+          {
+             break;
+          }
+          if(JobjectLive(jo) && jo->keepnr > 0)
+          {
+             Garbagemark(jo);
+          }
+       }
+
+       for(f=jc->functions.first; JPTR_OK(f); f=f->next)
+       {
+          if(!JPTR_OK(f->next))
+          {
+             break;
+          }
+          if(JobjectLive(f->arguments)) Garbagemark(f->arguments);
+          if(JobjectLive(f->def)) Garbagemark(f->def);
+          if(JobjectLive(f->fscope)) Garbagemark(f->fscope);
+          if(f->retval.type==VTP_OBJECT)
+          {
+             if(JobjectLive(f->retval.value.obj.ovalue)) Garbagemark(f->retval.value.obj.ovalue);
+             if(JobjectLive(f->retval.value.obj.fthis)) Garbagemark(f->retval.value.obj.fthis);
+          }
+          for(v=f->local.first; JPTR_OK(v); v=v->next)
+          {
+             if(!JPTR_OK(v->next))
              {
-                Garbagemark(v->val.value.obj.ovalue);
-                if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
+                break;
+             }
+             if(v->val.type==VTP_OBJECT)
+             {
+                if(JobjectLive(v->val.value.obj.ovalue)) Garbagemark(v->val.value.obj.ovalue);
+                if(JobjectLive(v->val.value.obj.fthis)) Garbagemark(v->val.value.obj.fthis);
              }
           }
-          for(w=f->with.first;w && w->next;w=w->next)
-          {  Garbagemark(w->jo);
+          for(w=f->with.first; JPTR_OK(w); w=w->next)
+          {
+             if(!JPTR_OK(w->next))
+             {
+                break;
+             }
+             if(JobjectLive(w->jo))
+             {
+                Garbagemark(w->jo);
+             }
           }
        }
        Jgc_trace_plain("[js] phase=MARK_DONE\n");
