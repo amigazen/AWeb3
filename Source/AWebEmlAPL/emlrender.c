@@ -232,13 +232,16 @@ static void RenderEmailAddress(UBYTE *field, long fieldlen, UBYTE *html, long *l
    html[*len] = '\0';
 }
 
+/* Maximum bytes accepted in one AppendHtml call (guards corrupted len). */
+#define EML_APPENDHTML_MAX 65536L
+
 /* Helper: Append to HTML buffer */
 static void AppendHtml(struct EmlFilterData *fd, UBYTE *html, long len)
 {  UBYTE *newbuffer;
    long newlen;
    
    Aprintf("EML: AppendHtml called: fd=%lx, html=%lx, len=%ld\n", (ULONG)fd, (ULONG)html, len);
-   if(!fd || !html || len <= 0)
+   if(!fd || !html || len <= 0 || len > EML_APPENDHTML_MAX)
    {  Aprintf("EML: AppendHtml - Invalid parameters, returning\n");
       return;
    }
@@ -279,6 +282,95 @@ static void AppendHtml(struct EmlFilterData *fd, UBYTE *html, long len)
    }
 }
 
+/* Append a NUL-terminated string to the output buffer. */
+static void AppendHtmlStr(struct EmlFilterData *fd, UBYTE *s)
+{  long slen;
+   if(!fd || !s || !*s) return;
+   slen = (long)strlen(s);
+   if(slen > 0) AppendHtml(fd, s, slen);
+}
+
+/* Append raw MIME bytes in chunks (HTML body parts; no escaping). */
+static void AppendHtmlRaw(struct EmlFilterData *fd, UBYTE *data, long datalen)
+{  long off;
+   long chunk;
+   if(!fd || !data || datalen <= 0) return;
+   off = 0;
+   while(off < datalen)
+   {  chunk = datalen - off;
+      if(chunk > EML_APPENDHTML_MAX) chunk = EML_APPENDHTML_MAX;
+      AppendHtml(fd, data + off, chunk);
+      off += chunk;
+   }
+}
+
+/* Render text/plain into the heap buffer line-by-line (no 8K stack staging). */
+static void RenderPlainTextPart(struct EmlFilterData *fd, struct EmailBodyPart *part)
+{  UBYTE *p;
+   UBYTE *end;
+   UBYTE *line;
+   UBYTE *lineend;
+   UBYTE escaped[2048];
+   long elen;
+   
+   if(!fd || !part || !part->data || part->datalen <= 0) return;
+   
+   AppendHtmlStr(fd, "<DIV CLASS=\"email-body\">\n<P>");
+   p = part->data;
+   end = part->data + part->datalen;
+   while(p < end)
+   {  line = p;
+      lineend = p;
+      while(lineend < end && *lineend != '\r' && *lineend != '\n') lineend++;
+      
+      if(lineend > line)
+      {  EscapeHtml(escaped, line, lineend - line, sizeof(escaped));
+         elen = (long)strlen(escaped);
+         if(elen > 0) AppendHtml(fd, escaped, elen);
+      }
+      
+      if(lineend < end)
+      {  if(*lineend == '\r') lineend++;
+         if(lineend < end && *lineend == '\n') lineend++;
+         AppendHtmlStr(fd, "<BR>\n");
+      }
+      p = lineend;
+   }
+   AppendHtmlStr(fd, "</P>\n</DIV>\n");
+}
+
+/* Log parsed message layout before render / free (debug). */
+static void LogMessageLayout(struct EmailMessage *message)
+{  struct EmailBodyPart *part;
+   struct EmailAttachment *attach;
+   long n;
+   
+   if(!message) return;
+   EMLDBG4("Message layout html=%lx text=%lx body=%lx attach=%lx",
+      (ULONG)message->html_part, (ULONG)message->text_part,
+      (ULONG)message->body_parts, (ULONG)message->attachments);
+   if(message->html_part)
+   {  EMLDBG2("  html_part data=%lx len=%ld",
+         (ULONG)message->html_part->data, message->html_part->datalen);
+   }
+   if(message->text_part)
+   {  EMLDBG2("  text_part data=%lx len=%ld",
+         (ULONG)message->text_part->data, message->text_part->datalen);
+   }
+   n = 0;
+   for(part = message->body_parts; part; part = part->next)
+   {  EMLDBG4("  body_parts[%ld] part=%lx data=%lx len=%ld",
+         n, (ULONG)part, (ULONG)part->data, part->datalen);
+      n++;
+   }
+   n = 0;
+   for(attach = message->attachments; attach; attach = attach->next)
+   {  EMLDBG4("  attach[%ld] obj=%lx data=%lx len=%ld",
+         n, (ULONG)attach, (ULONG)attach->data, attach->datalen);
+      n++;
+   }
+}
+
 /* Render email to HTML */
 void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
 {  struct EmailMessage *message;
@@ -289,19 +381,20 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
    struct EmailBodyPart *part;
    struct EmailAttachment *attach;
    
-   Aprintf("EML: RenderEmailToHtml called, fd=%lx, handle=%lx\n", (ULONG)fd, (ULONG)handle);
+   EMLDBG2("RenderEmailToHtml enter fd=%lx handle=%lx", (ULONG)fd, (ULONG)handle);
    if(!fd || !fd->parser || !fd->parser->message)
-   {  Aprintf("EML: ERROR - Invalid parameters: fd=%lx, parser=%lx, message=%lx\n",
-         (ULONG)fd, fd ? (ULONG)fd->parser : 0, fd && fd->parser ? (ULONG)fd->parser->message : 0);
+   {  EMLDBG3("RenderEmailToHtml ABORT fd=%lx parser=%lx message=%lx",
+         (ULONG)fd, fd ? (ULONG)fd->parser : 0,
+         fd && fd->parser ? (ULONG)fd->parser->message : 0);
       return;
    }
    
    message = fd->parser->message;
    header = message->headers;
+   LogMessageLayout(message);
    
-   Aprintf("EML: Message=%lx, header=%lx\n", (ULONG)message, (ULONG)header);
    if(!header)
-   {  Aprintf("EML: ERROR - No header in message\n");
+   {  EMLDBG0("RenderEmailToHtml ABORT: message->headers is NULL");
       return;
    }
    
@@ -405,8 +498,6 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
       len += sprintf(html + len, "</TABLE>\n</DIV>\n");
       
       AppendHtml(fd, html, len);
-      Writefilter(handle, fd->html_buffer, fd->html_buflen);
-      fd->html_buflen = 0;
       fd->header_written = TRUE;
    }
    
@@ -429,25 +520,11 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
          if(is_html_attach && attach->data && attach->datalen > 0)
          {  Aprintf("EML: Found HTML attachment, rendering inline: data=%lx, datalen=%ld\n",
                (ULONG)attach->data, attach->datalen);
-            len = sprintf(html, "<DIV CLASS=\"email-body\">\n");
-            /* HTML content - embed directly */
-            /* TODO: Add HTML sanitization for security (remove script tags, etc.) */
-            /* NOTE: cid: URLs in the HTML body are preserved as-is - they will be resolved
-             * by AWeb's HTML parser using the cid: URL handler we've implemented */
-            {  UBYTE *html_data;
-               html_data = (UBYTE *)AllocVec(attach->datalen + 1, MEMF_CLEAR);
-               if(html_data)
-               {  memcpy(html_data, attach->data, attach->datalen);
-                  html_data[attach->datalen] = '\0';
-                  Aprintf("EML: HTML attachment content (first 200 chars): %.*s\n", 
-                     (int)(attach->datalen > 200 ? 200 : attach->datalen), html_data);
-                  len += sprintf(html + len, "%.*s", (int)attach->datalen, html_data);
-                  FreeVec(html_data);
-               }
-            }
-            len += sprintf(html + len, "</DIV>\n");
-            AppendHtml(fd, html, len);
-            Aprintf("EML: HTML attachment rendered inline, total len=%ld\n", len);
+            /* TODO: HTML sanitization; cid: URLs preserved for AWeb CID handler */
+            AppendHtmlStr(fd, "<DIV CLASS=\"email-body\">\n");
+            AppendHtmlRaw(fd, attach->data, attach->datalen);
+            AppendHtmlStr(fd, "</DIV>\n");
+            Aprintf("EML: HTML attachment rendered inline, datalen=%ld\n", attach->datalen);
             /* Mark as rendered so it's not listed in attachments */
             attach->is_inline = TRUE; /* Mark so we skip it in attachment list */
          }
@@ -458,85 +535,30 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
    if(message->html_part)
    {  part = message->html_part;
       Aprintf("EML: Rendering HTML body part: data=%lx, datalen=%ld\n", (ULONG)part->data, part->datalen);
-      len = sprintf(html, "<DIV CLASS=\"email-body\">\n");
-      
+      AppendHtmlStr(fd, "<DIV CLASS=\"email-body\">\n");
       if(part->data && part->datalen > 0)
-      {  /* HTML content - embed directly */
-         /* TODO: Add HTML sanitization for security (remove script tags, etc.) */
-         /* For now, output HTML directly - this should be sanitized in production */
-         /* NOTE: cid: URLs in the HTML body are preserved as-is - they will be resolved
-          * by AWeb's HTML parser using the cid: URL handler we've implemented */
-         {  UBYTE *html_data;
-            html_data = (UBYTE *)AllocVec(part->datalen + 1, MEMF_CLEAR);
-            if(html_data)
-            {  memcpy(html_data, part->data, part->datalen);
-               html_data[part->datalen] = '\0';
-               Aprintf("EML: HTML body content (first 200 chars): %.*s\n", 
-                  (int)(part->datalen > 200 ? 200 : part->datalen), html_data);
-               len += sprintf(html + len, "%.*s", (int)part->datalen, html_data);
-               FreeVec(html_data);
-            }
-         }
+      {  AppendHtmlRaw(fd, part->data, part->datalen);
       }
-      
-      len += sprintf(html + len, "</DIV>\n");
-      AppendHtml(fd, html, len);
-      Aprintf("EML: HTML body rendered, total len=%ld\n", len);
+      AppendHtmlStr(fd, "</DIV>\n");
+      Aprintf("EML: HTML body rendered, datalen=%ld\n", part->datalen);
    }
    else if(message->text_part)
    {  Aprintf("EML: Rendering text body part (no HTML part found)\n");
-      part = message->text_part;
-      len = sprintf(html, "<DIV CLASS=\"email-body\">\n");
-      
-      if(part->data && part->datalen > 0)
-      {  UBYTE *p;
-         UBYTE *end;
-         UBYTE *line;
-         UBYTE *lineend;
-         
-         p = part->data;
-         end = part->data + part->datalen;
-         
-         len += sprintf(html + len, "<P>");
-         
-         while(p < end)
-         {  line = p;
-            lineend = p;
-            while(lineend < end && *lineend != '\r' && *lineend != '\n') lineend++;
-            
-            if(lineend > line)
-            {  EscapeHtml(escaped, line, lineend - line, sizeof(escaped));
-               len += sprintf(html + len, "%s", escaped);
-            }
-            
-            if(lineend < end)
-            {  if(*lineend == '\r') lineend++;
-               if(lineend < end && *lineend == '\n') lineend++;
-               len += sprintf(html + len, "<BR>\n");
-            }
-            
-            p = lineend;
-         }
-         
-         len += sprintf(html + len, "</P>\n");
-      }
-      
-      len += sprintf(html + len, "</DIV>\n");
-      AppendHtml(fd, html, len);
-      Aprintf("EML: Text body rendered, total len=%ld\n", len);
+      RenderPlainTextPart(fd, message->text_part);
+      Aprintf("EML: Text body rendered, datalen=%ld\n", message->text_part->datalen);
    }
    else if(message->body_parts)
    {  Aprintf("EML: Rendering other body parts (no HTML or text part found)\n");
       part = message->body_parts;
-      len = sprintf(html, "<DIV CLASS=\"email-body\">\n");
-      
-      if(part->data && part->datalen > 0)
-      {  EscapeHtml(escaped, part->data, part->datalen, sizeof(escaped));
-         len += sprintf(html + len, "<P>%s</P>\n", escaped);
+      if(part->content_type && strstr(part->content_type, "text/html")
+         && part->data && part->datalen > 0)
+      {  AppendHtmlStr(fd, "<DIV CLASS=\"email-body\">\n");
+         AppendHtmlRaw(fd, part->data, part->datalen);
+         AppendHtmlStr(fd, "</DIV>\n");
       }
-      
-      len += sprintf(html + len, "</DIV>\n");
-      AppendHtml(fd, html, len);
+      else
+      {  RenderPlainTextPart(fd, part);
+      }
    }
    
    /* Register parts with Content-ID for CID registry (for cid: URL access) */
@@ -631,8 +653,15 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
                         }
                         else
                         {  Aprintf("EML: Calling Registercidpart...\n");
-                           Registercidpart(fd->eml_url, content_id_reg, content_type, attach->data, attach->datalen);
-                           Aprintf("EML: CID registration complete\n");
+                           EMLDBG2("Registercidpart attach data=%lx len=%ld",
+                              (ULONG)attach->data, attach->datalen);
+                           if(Registercidpart(fd->eml_url, content_id_reg, content_type,
+                              attach->data, attach->datalen))
+                           {  /* Registry copied into AWeb pool; release Exec buffer. */
+                              EmlReleaseExecPayload(&attach->data, &attach->datalen);
+                              fd->cid_registered = TRUE;
+                              EMLDBG0("Registercidpart attach: stored in registry");
+                           }
                         }
                      }
                      FreeVec(content_id_reg);
@@ -731,8 +760,14 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
                      }
                      else
                      {  Aprintf("EML: Calling Registercidpart for body part...\n");
-                        Registercidpart(fd->eml_url, content_id_reg, content_type, part->data, part->datalen);
-                        Aprintf("EML: Body part CID registration complete\n");
+                        EMLDBG2("Registercidpart body part data=%lx len=%ld",
+                           (ULONG)part->data, part->datalen);
+                        if(Registercidpart(fd->eml_url, content_id_reg, content_type,
+                           part->data, part->datalen))
+                        {  EmlReleaseExecPayload(&part->data, &part->datalen);
+                           fd->cid_registered = TRUE;
+                           EMLDBG0("Registercidpart body: stored in registry");
+                        }
                      }
                   }
                   FreeVec(content_id_reg);
@@ -745,8 +780,6 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
       {  Aprintf("EML: No body parts to register\n");
       }
       
-      /* Mark as registered to prevent duplicate registration */
-      fd->cid_registered = TRUE;
    }
    else if(fd->cid_registered)
    {  Aprintf("EML: CID already registered - skipping\n");
@@ -1047,18 +1080,21 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
    {  Aprintf("EML: No attachments to render\n");
    }
    
-   /* Write footer if EOF */
+   /* Write footer and flush accumulated HTML in one Writefilter call. */
    if(!fd->footer_written)
    {  len = sprintf(html, "</BODY>\n</HTML>\n");
-      
       AppendHtml(fd, html, len);
-      Writefilter(handle, fd->html_buffer, fd->html_buflen);
-      fd->html_buflen = 0;
       fd->footer_written = TRUE;
    }
-   else if(fd->html_buflen > 0)
-   {  Writefilter(handle, fd->html_buffer, fd->html_buflen);
+   
+   if(fd->html_buffer && fd->html_buflen > 0)
+   {        EMLDBG2("RenderEmailToHtml: Writefilter len=%ld buf=%lx",
+         fd->html_buflen, (ULONG)fd->html_buffer);
+      Writefilter(handle, fd->html_buffer, fd->html_buflen);
       fd->html_buflen = 0;
    }
+   
+   LogMessageLayout(message);
+   EMLDBG0("RenderEmailToHtml leave");
 }
 

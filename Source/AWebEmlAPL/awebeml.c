@@ -93,9 +93,8 @@ static BOOL IsEmailUrl(UBYTE *url)
 
 /* Check if data contains email signatures */
 static BOOL IsEmailContent(UBYTE *data, long length)
-{  UBYTE *p;
+{     UBYTE *p;
    UBYTE *end;
-   long i;
    
    if(!data || length < 10) return FALSE;
    
@@ -126,13 +125,21 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
    struct EmlFilterData *fd;
    BOOL should_filter;
    
+   EMLDBG4("Filterplugin enter pf=%lx eof=%ld len=%ld userdata=%lx",
+      (ULONG)pf, pf ? (ULONG)pf->eof : 0, pf ? pf->length : 0,
+      pf ? (ULONG)pf->userdata : 0);
+   
    /* See if there is already a userdata for us.
     * If not, allocate and initialize. */
    fd = pf->userdata;
    if(!fd)
    {
+      EMLDBG0("Filterplugin: new EmlFilterData");
       fd = (struct EmlFilterData *)AllocVec(sizeof(struct EmlFilterData), MEMF_CLEAR);
-      if(!fd) return;
+      if(!fd)
+      {  EMLDBG0("Filterplugin: AllocVec EmlFilterData FAILED");
+         return;
+      }
       pf->userdata = fd;
       fd->first = TRUE;
       fd->is_email = FALSE;
@@ -143,10 +150,15 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
       fd->header_written = FALSE;
       fd->footer_written = FALSE;
       fd->eml_url = NULL;
+      fd->rendered = FALSE;
       
       /* Store the EML URL for CID registry */
       if(pf->url)
-      {  fd->eml_url = Dupstr(pf->url, -1);
+      {  long urllen;
+         urllen = strlen(pf->url);
+         fd->eml_url = EmlDupString(pf->url, urllen);
+         EMLDBG2("Filterplugin: EmlDupString eml_url=%lx url=%s",
+            (ULONG)fd->eml_url, pf->url);
       }
       
       /* Determine if this is an email */
@@ -169,6 +181,8 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
       if(should_filter)
       {  /* Initialize parser */
          fd->parser = (struct EmlParser *)AllocVec(sizeof(struct EmlParser), MEMF_CLEAR);
+         EMLDBG2("Filterplugin: AllocVec parser=%lx is_email=%ld",
+            (ULONG)fd->parser, (ULONG)should_filter);
          if(fd->parser)
          {  InitEmlParser(fd->parser);
          }
@@ -176,6 +190,9 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
          {  fd->is_email = FALSE;
          }
       }
+      EMLDBG3("Filterplugin: init done is_email=%ld parser=%lx message=%lx",
+         (ULONG)fd->is_email, (ULONG)fd->parser,
+         fd->parser ? (ULONG)fd->parser->message : 0);
    }
    
    if(pf->data)
@@ -220,12 +237,9 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
          }
          
          /* Parse email MIME */
+         EMLDBG2("Filterplugin: ParseEmlChunk len=%ld buflen=%ld",
+            pf->length, fd->parser->buflen);
          ParseEmlChunk(fd->parser, pf->data, pf->length);
-         
-         /* Render to HTML if we have complete email or on EOF */
-         if(pf->eof || (fd->parser->message && fd->parser->headers_complete))
-         {  RenderEmailToHtml(fd, pf->handle);
-         }
       }
       else
       {  /* Not an email after all, pass through unchanged */
@@ -233,32 +247,60 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
       }
    }
    
-   /* Cleanup on EOF */
+   /* EOF: render (even if this call has no pf->data), then tear down. */
    if(pf->eof)
    {
-      Aprintf("EML: EOF - cleaning up\n");
-      /* Unregister all CID parts for this EML */
-      if(fd->eml_url)
-      {  Aprintf("EML: Unregistering CID parts for %s\n", fd->eml_url);
-         Unregistercidparts(fd->eml_url);
-         Aprintf("EML: Freeing eml_url\n");
-         FreeVec(fd->eml_url);
-         fd->eml_url = NULL;
+      if(!fd)
+      {  EMLDBG0("Filterplugin EOF: no userdata, nothing to clean up");
+         EMLDBG0("Filterplugin leave");
+         return;
+      }
+      EMLDBG4("Filterplugin EOF is_email=%ld rendered=%ld parser=%lx message=%lx",
+         (ULONG)fd->is_email, (ULONG)fd->rendered, (ULONG)fd->parser,
+         fd->parser ? (ULONG)fd->parser->message : 0);
+      
+      if(fd->is_email && fd->parser && !fd->rendered)
+      {  EMLDBG0("Filterplugin EOF: calling RenderEmailToHtml");
+         RenderEmailToHtml(fd, pf->handle);
+         fd->rendered = TRUE;
+         EMLDBG0("Filterplugin EOF: RenderEmailToHtml returned");
+      }
+      else if(fd->is_email && !fd->parser)
+      {  EMLDBG0("Filterplugin EOF: is_email but parser is NULL");
+      }
+      else if(fd->rendered)
+      {  EMLDBG0("Filterplugin EOF: already rendered");
       }
       
       if(fd->parser)
-      {  CleanupEmlParser(fd->parser);
+      {  EMLDBG1("Filterplugin EOF: CleanupEmlParser parser=%lx", (ULONG)fd->parser);
+         CleanupEmlParser(fd->parser);
+         EMLDBG1("Filterplugin EOF: FreeVec parser=%lx", (ULONG)fd->parser);
          FreeVec(fd->parser);
          fd->parser = NULL;
       }
       
+      /* Keep CID parts registered until another message loads (browser still resolves cid:). */
+      
+      if(fd->eml_url)
+      {  EMLDBG1("Filterplugin EOF: FreeVec eml_url=%lx", (ULONG)fd->eml_url);
+         FreeVec(fd->eml_url);
+         fd->eml_url = NULL;
+      }
+      
       if(fd->html_buffer)
-      {  FreeVec(fd->html_buffer);
+      {  EMLDBG2("Filterplugin EOF: FreeVec html_buffer=%lx len=%ld",
+            (ULONG)fd->html_buffer, fd->html_buflen);
+         FreeVec(fd->html_buffer);
          fd->html_buffer = NULL;
       }
       
+      EMLDBG1("Filterplugin EOF: FreeVec fd=%lx", (ULONG)fd);
       FreeVec(fd);
       pf->userdata = NULL;
+      EMLDBG0("Filterplugin EOF: cleanup complete");
    }
+   
+   EMLDBG0("Filterplugin leave");
 }
 

@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
+#include <pragmas/awebplugin_pragmas.h>
 
 /* Base64 character to value conversion */
 static UBYTE Base64Char(UBYTE c)
@@ -264,6 +265,7 @@ UBYTE *DecodeContent(UBYTE *data, long datalen, UBYTE *encoding, long encodingle
    }
    enc[encodinglen] = '\0';
    
+   EMLDBG2("DecodeContent enc=%s datalen=%ld", enc, datalen);
    if(strstr(enc, "base64"))
    {  result = DecodeBase64(data, datalen, outputlen);
    }
@@ -294,6 +296,8 @@ UBYTE *DecodeContent(UBYTE *data, long datalen, UBYTE *encoding, long encodingle
    }
    
    FreeVec(enc);
+   EMLDBG2("DecodeContent result=%lx outlen=%ld",
+      (ULONG)result, outputlen ? *outputlen : 0);
    return result;
 }
 

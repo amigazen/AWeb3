@@ -27,6 +27,29 @@
 /* Base pointers of libraries needed */
 extern struct Library *AwebPluginBase;
 
+/* Memory / lifecycle trace (Aprintf). Set to 0 to disable. */
+#ifndef EML_DEBUG
+#define EML_DEBUG 1
+#endif
+
+#if EML_DEBUG
+#include <clib/awebplugin_protos.h>
+/* SAS/C: format string is one literal; EMLDBGn must match argument count exactly. */
+#define EMLDBG0(s)              Aprintf("EML: " s "\n")
+#define EMLDBG1(s,a)            Aprintf("EML: " s "\n", (a))
+#define EMLDBG2(s,a,b)          Aprintf("EML: " s "\n", (a), (b))
+#define EMLDBG3(s,a,b,c)        Aprintf("EML: " s "\n", (a), (b), (c))
+#define EMLDBG4(s,a,b,c,d)      Aprintf("EML: " s "\n", (a), (b), (c), (d))
+#define EMLDBG5(s,a,b,c,d,e)    Aprintf("EML: " s "\n", (a), (b), (c), (d), (e))
+#else
+#define EMLDBG0(s)
+#define EMLDBG1(s,a)
+#define EMLDBG2(s,a,b)
+#define EMLDBG3(s,a,b,c)
+#define EMLDBG4(s,a,b,c,d)
+#define EMLDBG5(s,a,b,c,d,e)
+#endif
+
 /* Email header structure */
 struct EmailHeader
 {  UBYTE *from;
@@ -133,8 +156,15 @@ struct EmlFilterData
    BOOL header_written;
    BOOL footer_written;
    UBYTE *eml_url;            /* Original EML file URL for CID registry */
-   BOOL cid_registered;        /* Flag to prevent duplicate CID registration */
+   BOOL cid_registered;       /* Flag to prevent duplicate CID registration */
+   BOOL rendered;             /* RenderEmailToHtml completed for this filter */
 };
+
+/* AllocVec duplicate (plugin uses Exec allocator throughout). */
+UBYTE *EmlDupString(UBYTE *start, long len);
+
+/* Free Exec AllocVec payload (not AWeb FREE). */
+void EmlReleaseExecPayload(UBYTE **data, long *datalen);
 
 /* Function declarations */
 void InitEmlParser(struct EmlParser *parser);

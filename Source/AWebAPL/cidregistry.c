@@ -30,8 +30,8 @@
 struct CidPart
 {
    NODE(CidPart);
-   UBYTE *referer_url;    /* URL of document containing the part (NULL for data: URLs) */
-   UBYTE *part_id;        /* Content-ID for cid: URLs, or full data: URL string for data: URLs */
+   UBYTE *referer_url;
+   UBYTE *part_id;
    UBYTE *content_type;
    UBYTE *data;
    long datalen;
@@ -39,6 +39,57 @@ struct CidPart
 
 static LIST(CidPart) cid_parts;
 static struct SignalSemaphore cid_sema;
+
+/* Free one registry entry (all fields use AWeb FREE / Allocmem). */
+static void CidFreePart(struct CidPart *part)
+{
+   if(!part) return;
+   if(part->referer_url) FREE(part->referer_url);
+   if(part->part_id) FREE(part->part_id);
+   if(part->content_type) FREE(part->content_type);
+   if(part->data) FREE(part->data);
+   FREE(part);
+}
+
+/* Copy payload into AWeb pool (caller keeps its own buffer). */
+static UBYTE *CidCopyPayload(UBYTE *data, long datalen)
+{
+   UBYTE *copy;
+
+   if(!data || datalen <= 0) return NULL;
+   copy = ALLOCTYPE(UBYTE, datalen, MEMF_PUBLIC);
+   if(copy) memcpy(copy, data, datalen);
+   return copy;
+}
+
+/* Case-insensitive Content-ID match (angle brackets optional). */
+static BOOL CidPartIdsMatch(UBYTE *stored_id, UBYTE *lookup_id)
+{
+   UBYTE *cid1;
+   UBYTE *cid2;
+   UBYTE *end1;
+   UBYTE *end2;
+   long len1;
+   long len2;
+
+   if(!stored_id || !lookup_id) return FALSE;
+
+   cid1 = stored_id;
+   cid2 = lookup_id;
+   if(*cid1 == '<') cid1++;
+   if(*cid2 == '<') cid2++;
+
+   end1 = cid1 + strlen(cid1);
+   end2 = cid2 + strlen(cid2);
+   if(end1 > cid1 && end1[-1] == '>') end1--;
+   if(end2 > cid2 && end2[-1] == '>') end2--;
+
+   len1 = end1 - cid1;
+   len2 = end2 - cid2;
+   if(len1 <= 0 || len1 != len2) return FALSE;
+   if(strnicmp(cid1, cid2, len1)) return FALSE;
+   return TRUE;
+}
 
 /* Initialize CID registry */
 BOOL Initcidregistry(void)
@@ -48,199 +99,156 @@ BOOL Initcidregistry(void)
    return TRUE;
 }
 
-/* Register a part for cid: or data: URL lookup
- * For cid: URLs: referer_url is required, part_id is the Content-ID
- * For data: URLs: referer_url should be the owning document URL, part_id is the full data: URL string */
-void Registercidpart(UBYTE *referer_url, UBYTE *part_id,
+/* Register a part for cid: or data: URL lookup.
+ * Copies data into the AWeb memory pool; caller retains its buffer.
+ * Returns TRUE if a new entry was added. */
+BOOL Registercidpart(UBYTE *referer_url, UBYTE *part_id,
                      UBYTE *content_type, UBYTE *data, long datalen)
 {
    struct CidPart *part;
    struct CidPart *existing;
+   UBYTE *payload;
    BOOL is_data_url;
-   
-   if(!part_id || !data || datalen <= 0) return;
+
+   if(!part_id || !data || datalen <= 0 || !referer_url) return FALSE;
+
+   payload = CidCopyPayload(data, datalen);
+   if(!payload) return FALSE;
+
    is_data_url = (strnicmp(part_id, "data:", 5) == 0);
-   /* For cid: URLs, referer_url is required. For data: URLs, we also require referer_url
-    * so that document close can release the decoded buffers. */
-   if(!referer_url) return;
-   
+
    ObtainSemaphore(&cid_sema);
 
-   /* Avoid duplicates: if this referer+part_id already exists, keep the first and
-    * free the incoming data buffer (caller transferred ownership). */
-   for(existing = cid_parts.first; existing->next; existing = existing->next)
+   for(existing = cid_parts.first; existing; existing = existing->next)
    {
-      if(existing->part_id && STRIEQUAL(existing->part_id, part_id))
+      if(!existing->part_id || !existing->referer_url) continue;
+      if(!STRIEQUAL(existing->referer_url, referer_url)) continue;
+
+      if(is_data_url)
       {
-         if(is_data_url)
-         {
-            if(existing->referer_url && STRIEQUAL(existing->referer_url, referer_url))
-            {
-               FREE(data);
-               ReleaseSemaphore(&cid_sema);
-               return;
-            }
-         }
-         else
-         {
-            if(existing->referer_url && STRIEQUAL(existing->referer_url, referer_url))
-            {
-               FREE(data);
-               ReleaseSemaphore(&cid_sema);
-               return;
-            }
+         if(STRIEQUAL(existing->part_id, part_id))
+         {  FREE(payload);
+            ReleaseSemaphore(&cid_sema);
+            return FALSE;
          }
       }
+      else if(CidPartIdsMatch(existing->part_id, part_id))
+      {  FREE(payload);
+         ReleaseSemaphore(&cid_sema);
+         return FALSE;
+      }
    }
-   
+
    part = (struct CidPart *)Allocmem((long)sizeof(struct CidPart), MEMF_CLEAR);
-   if(part)
-   {
-      part->referer_url = Dupstr(referer_url, -1);
-      part->part_id = Dupstr(part_id, -1);
-      if(content_type)
-      {
-         part->content_type = Dupstr(content_type, -1);
-      }
-      else
-      {
-         part->content_type = Dupstr("application/octet-stream", -1);
-      }
-      part->data = data;  /* Transfer ownership - caller should not free */
-      part->datalen = datalen;
-      ADDTAIL(&cid_parts, part);
+   if(!part)
+   {  FREE(payload);
+      ReleaseSemaphore(&cid_sema);
+      return FALSE;
    }
-   
+
+   part->referer_url = Dupstr(referer_url, -1);
+   part->part_id = Dupstr(part_id, -1);
+   if(content_type)
+   {  part->content_type = Dupstr(content_type, -1);
+   }
+   else
+   {  part->content_type = Dupstr("application/octet-stream", -1);
+   }
+
+   if(!part->referer_url || !part->part_id || !part->content_type)
+   {  CidFreePart(part);
+      FREE(payload);
+      ReleaseSemaphore(&cid_sema);
+      return FALSE;
+   }
+
+   part->data = payload;
+   part->datalen = datalen;
+   ADDTAIL(&cid_parts, part);
+
    ReleaseSemaphore(&cid_sema);
+   return TRUE;
 }
 
-/* Find a part by referer and part ID (Content-ID for cid:, or data: URL string for data:)
- * For cid: URLs: referer_url is required, part_id is the Content-ID
- * For data: URLs: referer_url should be the owning document URL, part_id is the full data: URL string */
+/* Find a part by referer and part ID */
 BOOL Findcidpart(UBYTE *referer_url, UBYTE *part_id,
                  UBYTE **content_type, UBYTE **data, long *datalen)
 {
    struct CidPart *part;
-   BOOL found = FALSE;
-   UBYTE *cid1;
-   UBYTE *cid2;
-   UBYTE *end1;
-   UBYTE *end2;
+   BOOL found;
    BOOL is_data_url;
-   
-   if(!part_id) return FALSE;
-   
-   /* Check if this is a data: URL (starts with "data:") */
+
+   if(!part_id || !referer_url) return FALSE;
+
    is_data_url = (strnicmp(part_id, "data:", 5) == 0);
-   
-   /* referer_url is required for cleanup and to avoid cross-document collisions. */
-   if(!referer_url) return FALSE;
-   
+   found = FALSE;
+
    ObtainSemaphore(&cid_sema);
-   
-   for(part = cid_parts.first; part->next; part = part->next)
+
+   for(part = cid_parts.first; part; part = part->next)
    {
-      if(part->part_id)
+      if(!part->part_id || !part->referer_url) continue;
+      if(!STRIEQUAL(referer_url, part->referer_url)) continue;
+
+      if(is_data_url)
       {
-         if(is_data_url)
-         {  /* For data: URLs, match by referer + full data: URL string */
-            if(part->referer_url
-            && STRIEQUAL(referer_url, part->referer_url)
-            && STRIEQUAL(part_id, part->part_id))
-            {
-               if(content_type) *content_type = part->content_type;
-               if(data) *data = part->data;
-               if(datalen) *datalen = part->datalen;
-               found = TRUE;
-               break;
-            }
-         }
-         else
-         {  /* For cid: URLs, match by referer + Content-ID */
-            if(part->referer_url && STRIEQUAL(referer_url, part->referer_url))
-            {
-               /* Match Content-ID (case-insensitive, remove angle brackets if present) */
-               cid1 = part->part_id;
-               cid2 = part_id;
-               
-               /* Skip angle brackets if present */
-               if(*cid1 == '<') cid1++;
-               if(*cid2 == '<') cid2++;
-               
-               /* Find end, skipping closing bracket */
-               end1 = cid1 + strlen(cid1);
-               end2 = cid2 + strlen(cid2);
-               if(end1 > cid1 && end1[-1] == '>') end1--;
-               if(end2 > cid2 && end2[-1] == '>') end2--;
-               
-               /* Compare */
-               if((end1 - cid1) == (end2 - cid2))
-               {
-                  if(!strnicmp(cid1, cid2, end1 - cid1))
-                  {
-                     if(content_type) *content_type = part->content_type;
-                     if(data) *data = part->data;
-                     if(datalen) *datalen = part->datalen;
-                     found = TRUE;
-                     break;
-                  }
-               }
-            }
+         if(STRIEQUAL(part_id, part->part_id))
+         {  if(content_type) *content_type = part->content_type;
+            if(data) *data = part->data;
+            if(datalen) *datalen = part->datalen;
+            found = TRUE;
+            break;
          }
       }
+      else if(CidPartIdsMatch(part->part_id, part_id))
+      {  if(content_type) *content_type = part->content_type;
+         if(data) *data = part->data;
+         if(datalen) *datalen = part->datalen;
+         found = TRUE;
+         break;
+      }
    }
-   
+
    ReleaseSemaphore(&cid_sema);
    return found;
 }
 
-/* Unregister all parts for a referer URL (cleanup)
- * For cid: URLs: unregisters all parts for this referer
- * For data: URLs: data parts are registered under their owning document's referer URL and
- * are cleaned up here the same way. */
+/* Unregister all parts for a referer URL */
 void Unregistercidparts(UBYTE *referer_url)
 {
-   struct CidPart *part, *next;
-   
+   struct CidPart *part;
+   struct CidPart *next;
+
    if(!referer_url) return;
-   
+
    ObtainSemaphore(&cid_sema);
-   
-   for(part = cid_parts.first; part->next; part = next)
+
+   for(part = cid_parts.first; part; part = next)
    {
       next = part->next;
       if(part->referer_url && STRIEQUAL(referer_url, part->referer_url))
-      {
-         REMOVE(part);
-         if(part->referer_url) FREE(part->referer_url);
-         if(part->part_id) FREE(part->part_id);
-         if(part->content_type) FREE(part->content_type);
-         if(part->data) FREE(part->data);
-         Freemem(part);
+      {  REMOVE(part);
+         CidFreePart(part);
       }
    }
-   
+
    ReleaseSemaphore(&cid_sema);
 }
 
 /* Cleanup CID registry */
 void Cleanupcidregistry(void)
 {
-   struct CidPart *part, *next;
-   
+   struct CidPart *part;
+   struct CidPart *next;
+
    ObtainSemaphore(&cid_sema);
-   
-   for(part = cid_parts.first; part->next; part = next)
+
+   for(part = cid_parts.first; part; part = next)
    {
       next = part->next;
       REMOVE(part);
-      if(part->referer_url) FREE(part->referer_url);
-      if(part->part_id) FREE(part->part_id);
-      if(part->content_type) FREE(part->content_type);
-      if(part->data) FREE(part->data);
-      Freemem(part);
+      CidFreePart(part);
    }
-   
+
    ReleaseSemaphore(&cid_sema);
 }
-

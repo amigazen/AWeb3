@@ -323,43 +323,31 @@ void Dataurltask(struct Fetchdriver *fd)
          {  strcpy(full_data_url, "data:");
             strcat(full_data_url, data_uri);
             Registercidpart(fd->referer, full_data_url, content_type, data, datalen);
-            FREE(full_data_url); /* Registry owns the data, not the URL string */
+            FREE(full_data_url);
          }
          else
          {  
          }
       }
       
-      /* Send data directly from RAM (no copy needed)
-       * imgsource will use RAM mode (DTST_MEMORY) to render directly from this buffer,
-       * avoiding disk I/O. The registry keeps the original data in RAM for the document lifetime. */
+      /* Deliver to the document; registry already holds its own copy for reuse. */
       if(data && datalen > 0)
-      {  
-         Updatetaskattrs(
+      {  Updatetaskattrs(
             AOURL_Data, data,
             AOURL_Datalength, datalen,
             TAG_END);
-         /* NOTE: Do NOT free data here - it's owned by the CID registry and will remain
-          * valid for the document lifetime. imgsource will use it directly via RAM mode. */
-      }
-      else
-      {  
       }
       
-      /* Send EOF separately (imgsource processes this after data) */
       Updatetaskattrs(AOTSK_Async, TRUE,
          AOURL_Error, error,
          AOURL_Eof, eof,
          AOURL_Terminate, TRUE,
          TAG_END);
       
-      /* Free allocated strings (but NOT the data - registry owns it now) */
       if(content_type_allocated) FREE(content_type_allocated);
       if(mediatype_copy) FREE(mediatype_copy);
-      
-      /* NOTE: We don't free 'data' here because it's now owned by the registry.
-       * The registry keeps it in RAM for the document lifetime and will free it
-       * when Unregistercidparts() or Cleanupcidregistry() is called. */
+      if(decoded_data) FREE(decoded_data);
+      else if(data) FREE(data);
    }
    
 }

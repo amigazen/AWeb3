@@ -450,12 +450,12 @@ __asm __saveds long apsAwebcommand(register __d0 long portnr,
    return Supportarexxcmd(portnr,cmd,resultbuf,length);
 }
 
-__asm __saveds void apsRegistercidpart(register __a0 UBYTE *referer_url,
+__asm __saveds long apsRegistercidpart(register __a0 UBYTE *referer_url,
    register __a1 UBYTE *content_id,
    register __a2 UBYTE *content_type,
    register __a3 UBYTE *data,
    register __d0 long datalen)
-{  Registercidpart(referer_url,content_id,content_type,data,datalen);
+{  return (long)Registercidpart(referer_url,content_id,content_type,data,datalen);
 }
 
 __asm __saveds void apsUnregistercidparts(register __a0 UBYTE *referer_url)

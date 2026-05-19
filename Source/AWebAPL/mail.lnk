@@ -1,4 +1,4 @@
-FROM     mail.o
+FROM     mail.o mailimap.o mailutil.o
 TO       aweblib/mail.aweblib
 NODEBUG
 LIB      lib:scnb.lib

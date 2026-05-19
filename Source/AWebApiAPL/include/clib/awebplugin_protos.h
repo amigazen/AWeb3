@@ -60,7 +60,7 @@ void Releasebgrp(struct RastPort *bgrp);
 void Setfiltertype(void *handle,char *type);
 void Writefilter(void *handle,char *data,long length);
 
-void Registercidpart(char *referer_url,char *content_id,char *content_type,char *data,long datalen);
+long Registercidpart(char *referer_url,char *content_id,char *content_type,char *data,long datalen);
 void Unregistercidparts(char *referer_url);
 
 long Awebcommand(long portnr,char *command,char *resultbuf,long length);

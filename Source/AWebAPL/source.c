@@ -568,9 +568,16 @@ static void Makeinfo(struct Source *src,void *inf)
 static void Filterdata(struct Source *src,void *fetch,UBYTE *data,long length,BOOL eof)
 {  struct Sourcefilter sf={0};
    struct Pluginfilter pf={0};
+   UBYTE *copy;
+   copy=NULL;
+   if(data && length>0)
+   {  copy=ALLOCTYPE(UBYTE,length,MEMF_PUBLIC);
+      if(!copy) return;
+      memcpy(copy,data,length);
+   }
    pf.structsize=sizeof(pf);
    pf.handle=&sf;
-   pf.data=data;
+   pf.data=copy?copy:data;
    pf.length=length;
    pf.eof=eof;
    pf.contenttype=src->contenttype;
@@ -588,6 +595,7 @@ static void Filterdata(struct Source *src,void *fetch,UBYTE *data,long length,BO
       eof?AOURL_Eof:TAG_IGNORE,eof,
       TAG_END);
    Freebuffer(&sf.buf);
+   if(copy && copy!=data) FREE(copy);
 }
 
 /*------------------------------------------------------------------------*/

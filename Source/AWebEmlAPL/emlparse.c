@@ -24,14 +24,17 @@
 #include <ctype.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
+#include <pragmas/awebplugin_pragmas.h>
 
 /* Forward declarations */
 static void ParseMultipartBody(struct EmlParser *parser);
 static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end);
+static void FreeEmailBodyPart(struct EmailBodyPart *part, UBYTE *why);
+static BOOL BodyPartInList(struct EmailBodyPart *list, struct EmailBodyPart *part);
 extern UBYTE *DecodeContent(UBYTE *data, long datalen, UBYTE *encoding, long encodinglen, long *outputlen);
 
-/* Helper: Duplicate string */
-static UBYTE *DupString(UBYTE *start, long len)
+/* Helper: Duplicate string with AllocVec (do not use AWeb Dupstr/Freemem here). */
+UBYTE *EmlDupString(UBYTE *start, long len)
 {  UBYTE *result;
    
    if(!start || len <= 0) return NULL;
@@ -43,6 +46,19 @@ static UBYTE *DupString(UBYTE *start, long len)
    }
    return result;
 }
+
+void EmlReleaseExecPayload(UBYTE **data, long *datalen)
+{  UBYTE *p;
+
+   if(data)
+   {  p=*data;
+      if(p) FreeVec(p);
+      *data=NULL;
+   }
+   if(datalen) *datalen=0;
+}
+
+#define DupString EmlDupString
 
 /* Helper: Skip whitespace */
 static UBYTE *SkipWhitespace(UBYTE *p, UBYTE *end)
@@ -229,12 +245,22 @@ static BOOL FindBoundary(UBYTE *data, long datalen, UBYTE *boundary, long bounda
    return FALSE;
 }
 
+/* Return TRUE if part is already on the body_parts chain. */
+static BOOL BodyPartInList(struct EmailBodyPart *list, struct EmailBodyPart *part)
+{  while(list)
+   {  if(list == part) return TRUE;
+      list = list->next;
+   }
+   return FALSE;
+}
+
 /* Allocate and initialize parser */
 void InitEmlParser(struct EmlParser *parser)
 {  struct EmailMessage *message;
    struct EmailHeader *header;
    
    if(!parser) return;
+   EMLDBG1("InitEmlParser parser=%lx", (ULONG)parser);
    
    parser->buffer = NULL;
    parser->bufsize = 0;
@@ -253,12 +279,21 @@ void InitEmlParser(struct EmlParser *parser)
    parser->body_start = NULL;
    
    message = (struct EmailMessage *)AllocVec(sizeof(struct EmailMessage), MEMF_CLEAR);
+   EMLDBG1("InitEmlParser AllocVec message=%lx", (ULONG)message);
    if(message)
    {  header = (struct EmailHeader *)AllocVec(sizeof(struct EmailHeader), MEMF_CLEAR);
+      EMLDBG1("InitEmlParser AllocVec header=%lx", (ULONG)header);
       if(header)
       {  message->headers = header;
       }
-      message->body_parts = NULL;
+      else
+      {  EMLDBG0("InitEmlParser: header alloc failed, freeing message");
+         FreeVec(message);
+         message = NULL;
+      }
+   }
+   if(message)
+   {  message->body_parts = NULL;
       message->html_part = NULL;
       message->text_part = NULL;
       message->attachments = NULL;
@@ -268,6 +303,8 @@ void InitEmlParser(struct EmlParser *parser)
       message->boundarylen = 0;
    }
    parser->message = message;
+   EMLDBG2("InitEmlParser done message=%lx headers=%lx",
+      (ULONG)message, message ? (ULONG)message->headers : 0);
 }
 
 /* Parse a chunk of email data */
@@ -278,6 +315,10 @@ void ParseEmlChunk(struct EmlParser *parser, UBYTE *data, long length)
    UBYTE *lineend;
    
    if(!parser || !data || length <= 0) return;
+   if(!parser->message)
+   {  EMLDBG0("ParseEmlChunk: parser->message is NULL, skipping");
+      return;
+   }
    
    /* Append data to buffer */
    {  UBYTE *newbuffer;
@@ -295,12 +336,15 @@ void ParseEmlChunk(struct EmlParser *parser, UBYTE *data, long length)
             parser->bufsize = newlen + 4096;
          }
          else
-         {  return;
+         {  EMLDBG0("ParseEmlChunk: buffer realloc FAILED");
+            return;
          }
       }
       
       memcpy(parser->buffer + parser->buflen, data, length);
       parser->buflen += length;
+      EMLDBG3("ParseEmlChunk: buffer=%lx buflen=%ld bufsize=%ld",
+         (ULONG)parser->buffer, parser->buflen, parser->bufsize);
    }
    
    p = parser->buffer;
@@ -318,6 +362,9 @@ void ParseEmlChunk(struct EmlParser *parser, UBYTE *data, long length)
          {  /* Empty line - end of headers */
             parser->in_headers = FALSE;
             parser->headers_complete = TRUE;
+            EMLDBG2("ParseEmlChunk: headers complete multipart=%ld boundary=%lx",
+               (ULONG)parser->message->is_multipart,
+               (ULONG)parser->message->boundary);
             if(lineend < end)
             {  if(*lineend == '\r') lineend++;
                if(lineend < end && *lineend == '\n') lineend++;
@@ -358,25 +405,30 @@ void ParseEmlChunk(struct EmlParser *parser, UBYTE *data, long length)
          {  bodylen = end - body_start;
             
             if(bodylen > 0)
-            {  part = (struct EmailBodyPart *)AllocVec(sizeof(struct EmailBodyPart), MEMF_CLEAR);
-               if(part)
-               {  part->data = DupString(body_start, bodylen);
-                  if(part->data)
-                  {  part->datalen = bodylen;
+            {  /* Single-part body grows with each chunk: update one part, do not
+               * allocate a new struct per chunk (that leaked and duplicated data). */
+               part = message->body_parts;
+               if(!part)
+               {  part = (struct EmailBodyPart *)AllocVec(sizeof(struct EmailBodyPart), MEMF_CLEAR);
+                  if(part)
+                  {  message->body_parts = part;
                      part->is_text = TRUE;
                      part->is_html = FALSE;
-                     if(!message->body_parts)
-                     {  message->body_parts = part;
-                     }
-                     else
-                     {  struct EmailBodyPart *last;
-                        last = message->body_parts;
-                        while(last->next) last = last->next;
-                        last->next = part;
-                     }
                   }
-                  else
-                  {  FreeVec(part);
+               }
+               if(part)
+               {  UBYTE *newdata;
+                  newdata = DupString(body_start, bodylen);
+                  if(newdata)
+                  {  if(part->data)
+                     {  EMLDBG2("ParseEmlChunk: replace simple body data old=%lx new=%lx",
+                           (ULONG)part->data, (ULONG)newdata);
+                        FreeVec(part->data);
+                     }
+                     part->data = newdata;
+                     part->datalen = bodylen;
+                     EMLDBG2("ParseEmlChunk: simple body part=%lx datalen=%ld",
+                        (ULONG)part, bodylen);
                   }
                }
             }
@@ -562,6 +614,7 @@ static void ParseMultipartBody(struct EmlParser *parser)
    boundarylen += 2;
    
    in_part = FALSE;
+   part_start = NULL;
    
    while(p < end)
    {  /* Look for boundary */
@@ -578,7 +631,7 @@ static void ParseMultipartBody(struct EmlParser *parser)
                if(in_part && parser->current_part)
                {  /* Finish current part */
                   part_end = p;
-                  if(part_end > part_start)
+                  if(part_start && part_end > part_start)
                   {  long partlen;
                      UBYTE *partdata;
                      UBYTE *decoded;
@@ -621,10 +674,13 @@ static void ParseMultipartBody(struct EmlParser *parser)
                   }
                   
                   if(parser->current_attachment && parser->current_part->data)
-                  {  parser->current_attachment->data = parser->current_part->data;
+                  {  EMLDBG3("ParseMultipart: xfer data to attach part=%lx attach=%lx data=%lx",
+                        (ULONG)parser->current_part, (ULONG)parser->current_attachment,
+                        (ULONG)parser->current_part->data);
+                     parser->current_attachment->data = parser->current_part->data;
                      parser->current_attachment->datalen = parser->current_part->datalen;
-                     /* Don't free - attachment owns it now */
                      parser->current_part->data = NULL;
+                     parser->current_part->datalen = 0;
                   }
                }
                break;
@@ -634,7 +690,7 @@ static void ParseMultipartBody(struct EmlParser *parser)
             if(in_part && parser->current_part)
             {  /* End of current part */
                part_end = p;
-               if(part_end > part_start)
+               if(part_start && part_end > part_start)
                {  long partlen;
                   UBYTE *partdata;
                   UBYTE *decoded;
@@ -677,10 +733,13 @@ static void ParseMultipartBody(struct EmlParser *parser)
                }
                
                if(parser->current_attachment && parser->current_part->data)
-               {  parser->current_attachment->data = parser->current_part->data;
+               {  EMLDBG3("ParseMultipart: xfer data to attach part=%lx attach=%lx data=%lx",
+                     (ULONG)parser->current_part, (ULONG)parser->current_attachment,
+                     (ULONG)parser->current_part->data);
+                  parser->current_attachment->data = parser->current_part->data;
                   parser->current_attachment->datalen = parser->current_part->datalen;
-                  /* Don't free - attachment owns it now */
                   parser->current_part->data = NULL;
+                  parser->current_part->datalen = 0;
                }
                
                parser->current_part = NULL;
@@ -742,15 +801,20 @@ static void ParseMultipartBody(struct EmlParser *parser)
 /* Cleanup parser */
 void CleanupEmlParser(struct EmlParser *parser)
 {  if(!parser) return;
+   EMLDBG1("CleanupEmlParser parser=%lx", (ULONG)parser);
    
    if(parser->message)
-   {  FreeEmailMessage(parser->message);
+   {  EMLDBG1("CleanupEmlParser FreeEmailMessage message=%lx", (ULONG)parser->message);
+      FreeEmailMessage(parser->message);
+      EMLDBG1("CleanupEmlParser FreeVec message struct=%lx", (ULONG)parser->message);
       FreeVec(parser->message);
       parser->message = NULL;
    }
    
    if(parser->buffer)
-   {  FreeVec(parser->buffer);
+   {  EMLDBG2("CleanupEmlParser FreeVec buffer=%lx buflen=%ld",
+         (ULONG)parser->buffer, parser->buflen);
+      FreeVec(parser->buffer);
       parser->buffer = NULL;
    }
    
@@ -760,15 +824,34 @@ void CleanupEmlParser(struct EmlParser *parser)
    parser->end = NULL;
 }
 
+/* Free one body part (strings and struct; data may already be owned by CID registry). */
+static void FreeEmailBodyPart(struct EmailBodyPart *part, UBYTE *why)
+{  if(!part) return;
+   EMLDBG4("FreeEmailBodyPart tag=%lx part=%lx data=%lx datalen=%ld",
+      (ULONG)why, (ULONG)part, (ULONG)part->data, part->datalen);
+   if(part->content_type) FreeVec(part->content_type);
+   if(part->charset) FreeVec(part->charset);
+   if(part->content_transfer_encoding) FreeVec(part->content_transfer_encoding);
+   if(part->content_id) FreeVec(part->content_id);
+   if(part->data) FreeVec(part->data);
+   FreeVec(part);
+}
+
 /* Free email message */
 void FreeEmailMessage(struct EmailMessage *message)
 {  struct EmailHeader *header;
    struct EmailBodyPart *part;
    struct EmailBodyPart *nextpart;
+   struct EmailBodyPart *html_part;
+   struct EmailBodyPart *text_part;
    struct EmailAttachment *attach;
    struct EmailAttachment *nextattach;
    
    if(!message) return;
+   EMLDBG1("FreeEmailMessage message=%lx", (ULONG)message);
+   EMLDBG4("  html_part=%lx text_part=%lx body_parts=%lx attachments=%lx",
+      (ULONG)message->html_part, (ULONG)message->text_part,
+      (ULONG)message->body_parts, (ULONG)message->attachments);
    
    header = message->headers;
    if(header)
@@ -783,21 +866,46 @@ void FreeEmailMessage(struct EmailMessage *message)
       FreeVec(header);
    }
    
+   html_part = message->html_part;
+   text_part = message->text_part;
+   message->html_part = NULL;
+   message->text_part = NULL;
+   
+   if(html_part)
+   {  if(BodyPartInList(message->body_parts, html_part))
+      {  EMLDBG1("FreeEmailMessage: SKIP html_part=%lx (also on body_parts)",
+            (ULONG)html_part);
+      }
+      else
+      {  FreeEmailBodyPart(html_part, "html_part");
+      }
+   }
+   if(text_part)
+   {  if(text_part == html_part)
+      {  EMLDBG0("FreeEmailMessage: SKIP text_part (same as html_part)");
+      }
+      else if(BodyPartInList(message->body_parts, text_part))
+      {  EMLDBG1("FreeEmailMessage: SKIP text_part=%lx (also on body_parts)",
+            (ULONG)text_part);
+      }
+      else
+      {  FreeEmailBodyPart(text_part, "text_part");
+      }
+   }
+   
    part = message->body_parts;
    while(part)
    {  nextpart = part->next;
-      if(part->content_type) FreeVec(part->content_type);
-      if(part->charset) FreeVec(part->charset);
-      if(part->content_transfer_encoding) FreeVec(part->content_transfer_encoding);
-      if(part->content_id) FreeVec(part->content_id);
-      if(part->data) FreeVec(part->data);
-      FreeVec(part);
+      FreeEmailBodyPart(part, "body_parts");
       part = nextpart;
    }
+   message->body_parts = NULL;
    
    attach = message->attachments;
    while(attach)
    {  nextattach = attach->next;
+      EMLDBG3("FreeEmailMessage attach=%lx data=%lx datalen=%ld",
+         (ULONG)attach, (ULONG)attach->data, attach->datalen);
       if(attach->filename) FreeVec(attach->filename);
       if(attach->content_type) FreeVec(attach->content_type);
       if(attach->content_id) FreeVec(attach->content_id);
@@ -808,5 +916,6 @@ void FreeEmailMessage(struct EmailMessage *message)
    }
    
    if(message->boundary) FreeVec(message->boundary);
+   EMLDBG0("FreeEmailMessage done");
 }
 

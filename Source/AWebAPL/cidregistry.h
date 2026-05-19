@@ -28,7 +28,7 @@ extern BOOL Initcidregistry(void);
 /* Register a part for cid: or data: URL lookup
  * For cid: URLs: referer_url is required, part_id is the Content-ID
  * For data: URLs: referer_url can be NULL, part_id is the full data: URL string */
-extern void Registercidpart(UBYTE *referer_url, UBYTE *part_id,
+extern BOOL Registercidpart(UBYTE *referer_url, UBYTE *part_id,
                             UBYTE *content_type, UBYTE *data, long datalen);
 
 /* Find a part by referer and part ID (Content-ID for cid:, or data: URL string for data:)
