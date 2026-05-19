@@ -167,6 +167,11 @@ void Cidurltask(struct Fetchdriver *fd)
    {  /* Look up part data by Content-ID and referer */
       if(!Findcidpart(referer, content_id, &content_type, &data, &datalen))
       {  error = TRUE;
+         if(httpdebug)
+         {  AwebLog("cid","Cidurltask: Findcidpart failed referer=%s id=%s",
+               referer?referer:(UBYTE *)"(null)",
+               content_id?content_id:(UBYTE *)"(null)");
+         }
       }
    }
    

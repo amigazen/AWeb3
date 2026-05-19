@@ -101,6 +101,9 @@ struct EmailBodyPart
    long datalen;
    BOOL is_html;
    BOOL is_text;
+   BOOL is_multipart;
+   UBYTE *subboundary;
+   long subboundarylen;
 };
 
 /* Email message structure */

@@ -980,15 +980,27 @@ static void Mail_showmessage(struct Fetchdriver *fd,UBYTE *folder,unsigned long 
    {  ok=TRUE;
    }
    else
-   {  if(Mailimap_open(&mc,FALSE))
+   {  /* FALSE = wait for index/other IMAP use to finish (do not fail as "busy"). */
+      if(Mailimap_open(&mc,FALSE))
       {  if(Mailimap_select(&mc,folder))
          {  if(Mailimap_fetch_body(&mc,uid,&body,&bodylen))
             {  Mail_cache_write(fd,folder,uid,body,bodylen);
                Mailimap_store_seen(&mc,uid);
                ok=TRUE;
             }
+            else
+            {  Mail_debug("Mail_showmessage: BODY fetch failed uid=%lu",uid);
+            }
+         }
+         else
+         {  Mail_debug("Mail_showmessage: SELECT failed folder=%s",folder);
          }
          Mailimap_close(&mc);
+      }
+      else
+      {  Mail_debug("Mail_showmessage: IMAP open failed uid=%lu",uid);
+         /* Recover if a prior fetch left the global IMAP lock held. */
+         Mail_imap_release_stale();
       }
    }
    /* Deliver raw RFC822; source.c runs Filterplugin() via message/rfc822 MIME.

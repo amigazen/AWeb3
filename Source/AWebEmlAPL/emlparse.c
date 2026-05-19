@@ -28,10 +28,142 @@
 
 /* Forward declarations */
 static void ParseMultipartBody(struct EmlParser *parser);
+static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYTE *end,
+   UBYTE *boundary, long boundarylen);
+static void EmlCommitBodyPart(struct EmlParser *parser, struct EmailBodyPart *part,
+   UBYTE *raw_start, UBYTE *raw_end);
 static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end);
 static void FreeEmailBodyPart(struct EmailBodyPart *part, UBYTE *why);
 static BOOL BodyPartInList(struct EmailBodyPart *list, struct EmailBodyPart *part);
 extern UBYTE *DecodeContent(UBYTE *data, long datalen, UBYTE *encoding, long encodinglen, long *outputlen);
+
+#define DupString EmlDupString
+
+/* Extract multipart boundary= from a Content-Type value. */
+static BOOL EmlExtractBoundary(UBYTE *value, long valuelen, UBYTE **boundary_out, long *boundary_len_out)
+{  UBYTE *boundary;
+   UBYTE *p;
+   UBYTE *start;
+   UBYTE *result;
+   long len;
+
+   if(boundary_out) *boundary_out = NULL;
+   if(boundary_len_out) *boundary_len_out = 0;
+   if(!value || valuelen <= 0) return FALSE;
+
+   boundary = value;
+   if(valuelen > 0 && boundary[valuelen - 1] == '\0') valuelen--;
+   boundary = (UBYTE *)strstr((char *)value, "boundary=");
+   if(!boundary) return FALSE;
+   boundary += 9;
+   if(boundary >= value + valuelen) return FALSE;
+
+   p = boundary;
+   start = boundary;
+   if(*p == '"')
+   {  p++;
+      start = p;
+      while(p < value + valuelen && *p && *p != '"') p++;
+   }
+   else
+   {  while(p < value + valuelen && *p && *p != ';' && *p != ' ' && *p != '\r' && *p != '\n') p++;
+   }
+   len = p - start;
+   if(len <= 0) return FALSE;
+
+   result = DupString(start, len);
+   if(!result) return FALSE;
+   if(boundary_out) *boundary_out = result;
+   if(boundary_len_out) *boundary_len_out = len;
+   return TRUE;
+}
+
+/* Attach a leaf body part to the message (not a multipart container). */
+static void EmlLinkBodyPart(struct EmailMessage *message, struct EmailBodyPart *part)
+{  struct EmailBodyPart *last;
+
+   if(!message || !part) return;
+
+   if(part->is_html)
+   {  message->html_part = part;
+   }
+   else if(part->is_text)
+   {  message->text_part = part;
+   }
+   else
+   {  if(!message->body_parts)
+      {  message->body_parts = part;
+      }
+      else
+      {  last = message->body_parts;
+         while(last->next) last = last->next;
+         last->next = part;
+      }
+   }
+}
+
+/* Decode and commit a finished part; expand nested multipart (e.g. alternative inside mixed). */
+static void EmlCommitBodyPart(struct EmlParser *parser, struct EmailBodyPart *part,
+   UBYTE *raw_start, UBYTE *raw_end)
+{  long partlen;
+   UBYTE *partdata;
+   UBYTE *decoded;
+   long decodedlen;
+   struct EmailMessage *message;
+
+   if(!parser || !part) return;
+   message = parser->message;
+   if(!message) return;
+
+   if(raw_start && raw_end > raw_start)
+   {  partlen = raw_end - raw_start;
+      partdata = DupString(raw_start, partlen);
+      if(partdata)
+      {  decoded = DecodeContent(partdata, partlen,
+            part->content_transfer_encoding,
+            part->content_transfer_encodinglen,
+            &decodedlen);
+         if(decoded)
+         {  if(part->data) FreeVec(part->data);
+            part->data = decoded;
+            part->datalen = decodedlen;
+         }
+         FreeVec(partdata);
+      }
+   }
+
+   if(parser->current_attachment && part->data)
+   {  EMLDBG3("ParseMultipart: xfer data to attach part=%lx attach=%lx data=%lx",
+         (ULONG)part, (ULONG)parser->current_attachment, (ULONG)part->data);
+      parser->current_attachment->data = part->data;
+      parser->current_attachment->datalen = part->datalen;
+      part->data = NULL;
+      part->datalen = 0;
+      FreeEmailBodyPart(part, "xfer_to_attach");
+      return;
+   }
+
+   if(part->is_multipart && part->subboundary && part->subboundarylen > 0
+      && part->data && part->datalen > 0)
+   {  UBYTE *nested;
+      long nestedlen;
+
+      nested = part->data;
+      nestedlen = part->datalen;
+      EMLDBG2("EmlCommitBodyPart: nested multipart len=%ld boundary=%s",
+         nestedlen, part->subboundary);
+      part->data = NULL;
+      part->datalen = 0;
+      parser->current_part = NULL;
+      EmlParseMultipartRegion(parser, nested, nested + nestedlen,
+         part->subboundary, part->subboundarylen);
+      FreeVec(nested);
+      FreeEmailBodyPart(part, "nested_container");
+      return;
+   }
+
+   EmlLinkBodyPart(message, part);
+}
 
 /* Helper: Duplicate string with AllocVec (do not use AWeb Dupstr/Freemem here). */
 UBYTE *EmlDupString(UBYTE *start, long len)
@@ -57,8 +189,6 @@ void EmlReleaseExecPayload(UBYTE **data, long *datalen)
    }
    if(datalen) *datalen=0;
 }
-
-#define DupString EmlDupString
 
 /* Helper: Skip whitespace */
 static UBYTE *SkipWhitespace(UBYTE *p, UBYTE *end)
@@ -467,6 +597,17 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
       {  if(part->content_type) FreeVec(part->content_type);
          part->content_type = DupString(value, valuelen);
          if(part->content_type) part->content_typelen = valuelen;
+
+         part->is_multipart = FALSE;
+         if(part->subboundary)
+         {  FreeVec(part->subboundary);
+            part->subboundary = NULL;
+            part->subboundarylen = 0;
+         }
+         if(strstr(part->content_type, "multipart/"))
+         {  part->is_multipart = TRUE;
+            EmlExtractBoundary(value, valuelen, &part->subboundary, &part->subboundarylen);
+         }
          
          /* Check if HTML or text */
          if(strstr(part->content_type, "text/html"))
@@ -582,11 +723,10 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
    }
 }
 
-/* Parse multipart body */
-static void ParseMultipartBody(struct EmlParser *parser)
+/* Parse a MIME multipart region (top-level body or nested multipart/alternative). */
+static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYTE *end,
+   UBYTE *boundary, long boundary_rawlen)
 {  UBYTE *p;
-   UBYTE *end;
-   UBYTE *boundary;
    UBYTE *boundary_end;
    UBYTE *part_start;
    UBYTE *part_end;
@@ -596,178 +736,67 @@ static void ParseMultipartBody(struct EmlParser *parser)
    long boundarylen;
    BOOL in_part;
    BOOL found_boundary;
-   struct EmailMessage *message;
-   
-   if(!parser || !parser->message || !parser->message->boundary) return;
-   
-   message = parser->message;
-   
-   p = parser->current;
-   end = parser->end;
-   boundary = parser->message->boundary;
-   boundarylen = parser->message->boundarylen;
-   
-   /* Build boundary string: --boundary */
-   if(boundarylen + 3 > sizeof(boundary_str)) return;
+   struct EmailBodyPart *finished_part;
+
+   if(!parser || !parser->message || !boundary || boundary_rawlen <= 0) return;
+   if(!start || !end || end <= start) return;
+
+   if(boundary_rawlen + 3 > sizeof(boundary_str)) return;
    strcpy(boundary_str, "--");
-   strncat(boundary_str, boundary, boundarylen);
-   boundarylen += 2;
-   
+   strncat(boundary_str, boundary, boundary_rawlen);
+   boundarylen = boundary_rawlen + 2;
+
+   p = start;
    in_part = FALSE;
    part_start = NULL;
-   
+   finished_part = NULL;
+
    while(p < end)
-   {  /* Look for boundary */
-      found_boundary = FALSE;
-      
-      if(p + boundarylen < end && *p == '-' && p[1] == '-')
+   {  found_boundary = FALSE;
+
+      if(p + boundarylen <= end && *p == '-' && p[1] == '-')
       {  if(!strnicmp(p, boundary_str, boundarylen))
          {  found_boundary = TRUE;
             boundary_end = p + boundarylen;
-            
-            /* Check if this is the final boundary (--boundary--) */
-            if(boundary_end < end && *boundary_end == '-' && boundary_end[1] == '-')
-            {  /* Final boundary - end of multipart */
-               if(in_part && parser->current_part)
-               {  /* Finish current part */
-                  part_end = p;
-                  if(part_start && part_end > part_start)
-                  {  long partlen;
-                     UBYTE *partdata;
-                     UBYTE *decoded;
-                     long decodedlen;
-                     
-                     partlen = part_end - part_start;
-                     partdata = DupString(part_start, partlen);
-                     if(partdata)
-                     {  /* Decode content */
-                        decoded = DecodeContent(partdata, partlen,
-                           parser->current_part->content_transfer_encoding,
-                           parser->current_part->content_transfer_encodinglen,
-                           &decodedlen);
-                        if(decoded)
-                        {  if(parser->current_part->data) FreeVec(parser->current_part->data);
-                           parser->current_part->data = decoded;
-                           parser->current_part->datalen = decodedlen;
-                        }
-                        FreeVec(partdata);
-                     }
-                  }
-                  
-                  /* Link part to message */
-                  if(parser->current_part->is_html)
-                  {  message->html_part = parser->current_part;
-                  }
-                  else if(parser->current_part->is_text)
-                  {  message->text_part = parser->current_part;
-                  }
-                  else
-                  {  if(!message->body_parts)
-                     {  message->body_parts = parser->current_part;
-                     }
-                     else
-                     {  struct EmailBodyPart *last;
-                        last = message->body_parts;
-                        while(last->next) last = last->next;
-                        last->next = parser->current_part;
-                     }
-                  }
-                  
-                  if(parser->current_attachment && parser->current_part->data)
-                  {  EMLDBG3("ParseMultipart: xfer data to attach part=%lx attach=%lx data=%lx",
-                        (ULONG)parser->current_part, (ULONG)parser->current_attachment,
-                        (ULONG)parser->current_part->data);
-                     parser->current_attachment->data = parser->current_part->data;
-                     parser->current_attachment->datalen = parser->current_part->datalen;
-                     parser->current_part->data = NULL;
-                     parser->current_part->datalen = 0;
-                  }
+
+            if(boundary_end + 1 < end && *boundary_end == '-' && boundary_end[1] == '-')
+            {  if(in_part && parser->current_part)
+               {  part_end = p;
+                  finished_part = parser->current_part;
+                  EmlCommitBodyPart(parser, finished_part, part_start, part_end);
+                  parser->current_part = NULL;
+                  parser->current_attachment = NULL;
                }
                break;
             }
-            
-            /* Regular boundary - start or end of part */
+
             if(in_part && parser->current_part)
-            {  /* End of current part */
-               part_end = p;
-               if(part_start && part_end > part_start)
-               {  long partlen;
-                  UBYTE *partdata;
-                  UBYTE *decoded;
-                  long decodedlen;
-                  
-                  partlen = part_end - part_start;
-                  partdata = DupString(part_start, partlen);
-                  if(partdata)
-                  {  /* Decode content */
-                     decoded = DecodeContent(partdata, partlen,
-                        parser->current_part->content_transfer_encoding,
-                        parser->current_part->content_transfer_encodinglen,
-                        &decodedlen);
-                     if(decoded)
-                     {  if(parser->current_part->data) FreeVec(parser->current_part->data);
-                        parser->current_part->data = decoded;
-                        parser->current_part->datalen = decodedlen;
-                     }
-                     FreeVec(partdata);
-                  }
-               }
-               
-               /* Link part to message */
-               if(parser->current_part->is_html)
-               {  message->html_part = parser->current_part;
-               }
-               else if(parser->current_part->is_text)
-               {  message->text_part = parser->current_part;
-               }
-               else
-               {  if(!message->body_parts)
-                  {  message->body_parts = parser->current_part;
-                  }
-                  else
-                  {  struct EmailBodyPart *last;
-                     last = message->body_parts;
-                     while(last->next) last = last->next;
-                     last->next = parser->current_part;
-                  }
-               }
-               
-               if(parser->current_attachment && parser->current_part->data)
-               {  EMLDBG3("ParseMultipart: xfer data to attach part=%lx attach=%lx data=%lx",
-                     (ULONG)parser->current_part, (ULONG)parser->current_attachment,
-                     (ULONG)parser->current_part->data);
-                  parser->current_attachment->data = parser->current_part->data;
-                  parser->current_attachment->datalen = parser->current_part->datalen;
-                  parser->current_part->data = NULL;
-                  parser->current_part->datalen = 0;
-               }
-               
+            {  part_end = p;
+               finished_part = parser->current_part;
+               EmlCommitBodyPart(parser, finished_part, part_start, part_end);
                parser->current_part = NULL;
                parser->current_attachment = NULL;
                in_part = FALSE;
             }
-            
-            /* Skip boundary line */
+
             p = boundary_end;
             while(p < end && *p != '\r' && *p != '\n') p++;
             if(p < end && *p == '\r') p++;
             if(p < end && *p == '\n') p++;
-            
-            /* Start new part */
+
             if(p < end)
-            {  parser->current_part = (struct EmailBodyPart *)AllocVec(sizeof(struct EmailBodyPart), MEMF_CLEAR);
+            {  parser->current_part = (struct EmailBodyPart *)AllocVec(
+                  sizeof(struct EmailBodyPart), MEMF_CLEAR);
                if(parser->current_part)
                {  parser->in_part_headers = TRUE;
                   in_part = TRUE;
-                  
-                  /* Parse part headers */
+
                   while(p < end)
                   {  line = p;
                      lineend = FindLineEnd(line, end);
-                     
+
                      if(lineend == line)
-                     {  /* Empty line - end of headers */
-                        parser->in_part_headers = FALSE;
+                     {  parser->in_part_headers = FALSE;
                         if(lineend < end)
                         {  if(*lineend == '\r') lineend++;
                            if(lineend < end && *lineend == '\n') lineend++;
@@ -776,9 +805,9 @@ static void ParseMultipartBody(struct EmlParser *parser)
                         part_start = p;
                         break;
                      }
-                     
+
                      ParsePartHeader(parser, line, lineend);
-                     
+
                      if(lineend < end)
                      {  if(*lineend == '\r') lineend++;
                         if(lineend < end && *lineend == '\n') lineend++;
@@ -789,13 +818,22 @@ static void ParseMultipartBody(struct EmlParser *parser)
             }
          }
       }
-      
+
       if(!found_boundary)
       {  p++;
       }
    }
-   
-   parser->current = p;
+
+}
+
+/* Parse top-level multipart body using message boundary. */
+static void ParseMultipartBody(struct EmlParser *parser)
+{
+   if(!parser || !parser->message || !parser->message->boundary) return;
+
+   EmlParseMultipartRegion(parser, parser->current, parser->end,
+      parser->message->boundary, parser->message->boundarylen);
+   parser->current = parser->end;
 }
 
 /* Cleanup parser */
@@ -833,6 +871,7 @@ static void FreeEmailBodyPart(struct EmailBodyPart *part, UBYTE *why)
    if(part->charset) FreeVec(part->charset);
    if(part->content_transfer_encoding) FreeVec(part->content_transfer_encoding);
    if(part->content_id) FreeVec(part->content_id);
+   if(part->subboundary) FreeVec(part->subboundary);
    if(part->data) FreeVec(part->data);
    FreeVec(part);
 }

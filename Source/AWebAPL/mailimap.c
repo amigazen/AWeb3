@@ -42,7 +42,7 @@ static void Mail_imap_sema_init(void)
 
 static BOOL Mail_imap_lock(BOOL wait)
 {  Mail_imap_sema_init();
-   if(Mail_imap_locked) return FALSE;
+   /* Serialize across fetch tasks; wait=TRUE blocks until the session is free. */
    if(wait)
    {  ObtainSemaphore(&Mail_imap_sema);
    }
@@ -444,6 +444,7 @@ BOOL Mailimap_open(struct Mailconn *mc,BOOL optional)
    if(!imaphost[0])
    {  Mail_debug("Mailimap_open: empty IMAP host (set Mail host SMTP in prefs)");
       if(!optional) Tcperror(mc->fd,TCPERR_NOHOST,"IMAP");
+      Mailimap_close(mc);
       return FALSE;
    }
    /* IMAPS: implicit TLS like GEMINI:// and FTPS:// */
@@ -452,6 +453,7 @@ BOOL Mailimap_open(struct Mailconn *mc,BOOL optional)
    AwebTcpBase=Opentcp(&mc->socketbase,mc->fd,!optional);
    if(!mc->socketbase)
    {  Mail_debug("Mailimap_open: Opentcp failed");
+      Mailimap_close(mc);
       return FALSE;
    }
    strncpy(mc->hostname,imaphost,sizeof(mc->hostname)-1);
