@@ -416,13 +416,21 @@ hotmanager.o:  hotmanager.c aweblib.h task.h hotlist.h hotlisttask.h
 
 #- mail ----------
 
-aweblib/mail.aweblib: mail.o mail.lnk
+aweblib/mail.aweblib: mail.o mailimap.o mailutil.o mail.lnk
    c/remlib >nil: mail.aweblib
    slink with mail.lnk
 
-mail.o:     mail.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
+mail.o:     mail.c mail.h aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h awebssl.h
    @echo "        Compiling $*..."
    @sc idir=netinclude: $*
+
+mailimap.o: mailimap.c mail.h aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h awebssl.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+mailutil.o: mailutil.c mail.h aweblib.h fetchdriver.h
+   @echo "        Compiling $*..."
+   @sc $*
 
 #- news ----------
 

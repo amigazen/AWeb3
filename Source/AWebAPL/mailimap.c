@@ -19,7 +19,7 @@
 #include "mail.h"
 #include <stdarg.h>
 #include <ctype.h>
-#include <proto/dos.h>
+#include <proto/exec.h>
 #include <proto/socket.h>
 
 #ifndef LOCALONLY
@@ -27,44 +27,89 @@
 extern struct Library *AwebTcpBase;
 extern void *AwebPluginBase;
 
-/* One IMAP session at a time; never block forever on ObtainSemaphore. */
-static struct SignalSemaphore Mail_imap_sema;
-static BOOL Mail_imap_sema_inited;
-static BOOL Mail_imap_locked;
+/* One IMAP session at a time. Named system semaphore serializes mail fetch
+ * subtasks (same address space as aweblib; library statics are shared).
+ * Always Obtain/Release per open/close -- never skip Obtain because a flag is
+ * set (that let a second task run concurrent TCP sessions). Exec releases the
+ * semaphore if a task dies while holding it. */
+#define MAIL_IMAP_SEMA_NAME "AWebMailIMAP"
+
+static BOOL Mail_imap_owns_sema;
+static struct SignalSemaphore *Mail_imap_syssema;
 static BOOL Mail_draining;
 
-static void Mail_imap_sema_init(void)
-{  if(!Mail_imap_sema_inited)
-   {  InitSemaphore(&Mail_imap_sema);
-      Mail_imap_sema_inited=TRUE;
+static struct SignalSemaphore *Mail_imap_get_syssema(void)
+{
+   struct SignalSemaphore *sema;
+   struct SignalSemaphore *created;
+
+   Forbid();
+   sema=FindSemaphore((STRPTR)MAIL_IMAP_SEMA_NAME);
+   if(sema)
+   {  Permit();
+      return sema;
    }
+   Permit();
+
+   created=(struct SignalSemaphore *)AllocMem(
+      (ULONG)sizeof(struct SignalSemaphore),MEMF_PUBLIC|MEMF_CLEAR);
+   if(!created) return NULL;
+   created->ss_Link.ln_Type=NT_SIGNALSEM;
+   created->ss_Link.ln_Name=(UBYTE *)MAIL_IMAP_SEMA_NAME;
+   created->ss_Link.ln_Pri=0;
+   InitSemaphore(created);
+
+   Forbid();
+   sema=FindSemaphore((STRPTR)MAIL_IMAP_SEMA_NAME);
+   if(!sema)
+   {
+      AddSemaphore(created);
+      sema=created;
+   }
+   else
+   {
+      FreeMem(created,(ULONG)sizeof(struct SignalSemaphore));
+   }
+   Permit();
+
+   return sema;
 }
 
 static BOOL Mail_imap_lock(BOOL wait)
-{  Mail_imap_sema_init();
-   /* Serialize across fetch tasks; wait=TRUE blocks until the session is free. */
+{
+   if(!Mail_imap_syssema)
+      Mail_imap_syssema=Mail_imap_get_syssema();
+   if(!Mail_imap_syssema)
+   {  Mail_debug("Mailimap_lock: could not create IMAP system semaphore");
+      return FALSE;
+   }
    if(wait)
-   {  ObtainSemaphore(&Mail_imap_sema);
+   {
+      ObtainSemaphore(Mail_imap_syssema);
    }
-   else
-   {  if(!AttemptSemaphore(&Mail_imap_sema)) return FALSE;
+   else if(!AttemptSemaphore(Mail_imap_syssema))
+   {
+      Mail_debug("Mailimap_lock: IMAP session busy (another mail fetch active?)");
+      return FALSE;
    }
-   Mail_imap_locked=TRUE;
+   Mail_imap_owns_sema=TRUE;
    return TRUE;
 }
 
 static void Mail_imap_unlock(void)
-{  if(Mail_imap_locked)
-   {  Mail_imap_locked=FALSE;
-      ReleaseSemaphore(&Mail_imap_sema);
+{
+   if(Mail_imap_owns_sema && Mail_imap_syssema)
+   {
+      ReleaseSemaphore(Mail_imap_syssema);
+      Mail_imap_owns_sema=FALSE;
    }
 }
 
 void Mail_imap_release_stale(void)
-{  if(Mail_imap_locked)
-   {  Mail_debug("Mail_imap_release_stale: freeing abandoned session lock");
+{
+   /* Only drop a lock this process still holds; never touch another task's. */
+   if(Mail_imap_owns_sema)
       Mail_imap_unlock();
-   }
 }
 
 #if MAIL_DEBUG

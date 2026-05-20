@@ -644,10 +644,31 @@ static void Mail_cell_truncate(UBYTE *dst,long dstmax,UBYTE *src,long maxshow)
    }
 }
 
-static void Mail_short_date(UBYTE *dst,long dstmax,UBYTE *date)
-{  UBYTE *p;
-   UBYTE *q;
-   UBYTE *r;
+static const UBYTE *Mail_month_names[12]=
+{  (UBYTE *)"Jan",(UBYTE *)"Feb",(UBYTE *)"Mar",(UBYTE *)"Apr",
+   (UBYTE *)"May",(UBYTE *)"Jun",(UBYTE *)"Jul",(UBYTE *)"Aug",
+   (UBYTE *)"Sep",(UBYTE *)"Oct",(UBYTE *)"Nov",(UBYTE *)"Dec"
+};
+
+static long Mail_month_num(UBYTE *mon)
+{
+   long i;
+   if(!mon || !*mon) return 0;
+   for(i=0;i<12;i++)
+   {  if(!strnicmp(mon,Mail_month_names[i],3)) return i+1;
+   }
+   return 0;
+}
+
+/* Copy RFC822/IMAP date, drop weekday prefix, seconds, and timezone. */
+static void Mail_trim_rfc822_date(UBYTE *dst,long dstmax,UBYTE *date)
+{
+   UBYTE *p;
+   UBYTE *end;
+   UBYTE *z;
+   long len;
+   long alpha;
+
    if(!dst || dstmax<=0) return;
    dst[0]='\0';
    if(!date || !*date) return;
@@ -661,56 +682,241 @@ static void Mail_short_date(UBYTE *dst,long dstmax,UBYTE *date)
    {  strncpy(dst,date,dstmax-1);
    }
    dst[dstmax-1]='\0';
-   /* Drop :SS seconds if present (e.g. "05 Mar 2025 12:34:56 +0000"). */
-   r=dst+strlen(dst);
-   while(r>dst && (*r==' ' || *r=='+' || *r=='-' || (*r>='0' && *r<='9'))) r--;
-   if(r>dst && *r>='0' && *r<='9')
-   {  q=r;
-      while(q>dst && *q>='0' && *q<='9') q--;
-      if(q>dst && *q==':')
-      {  *q='\0';
-         while(q>dst && *(q-1)==' ') q--;
+   len=strlen(dst);
+   end=dst+len;
+   /* Drop trailing numeric zone offset (+0000 / -0500). */
+   if(len>=5)
+   {
+      p=end-5;
+      if((*p=='+' || *p=='-') && p[1]>='0' && p[4]>='0')
+      {  if(p>dst && p[-1]==' ')
+         {  p--;
+         }
+         *p='\0';
+         len=p-dst;
+         end=p;
+      }
+   }
+   /* Drop trailing named zone (GMT, UTC, ...). */
+   p=strrchr(dst,' ');
+   if(p && p>dst)
+   {
+      z=p+1;
+      alpha=0;
+      while(*z)
+      {  if((*z>='A' && *z<='Z') || (*z>='a' && *z<='z')) alpha++;
+         else alpha=0;
+         z++;
+      }
+      if(alpha>=3 && alpha<=5 && !strchr(p+1,':') && !strchr(p+1,'/'))
+      {  *p='\0';
+      }
+   }
+   /* Drop :SS seconds in time (HH:MM:SS -> HH:MM). */
+   p=strrchr(dst,':');
+   if(p && p>=dst+2)
+   {
+      if(p[1]>='0' && p[1]<='9' && p[2]>='0' && p[2]<='9'
+      && (!p[3] || p[3]==' '))
+      {
+         if(p[-1]>='0' && p[-2]==':')
+         {  *p='\0';
+         }
       }
    }
 }
 
-/* Message index: full-width table rows (subject / from / date). */
+static void Mail_now_ymd(long *year,long *month,long *day)
+{
+   ULONG t;
+   struct DateStamp ds;
+   UBYTE buf[24];
+   UBYTE mon[8];
+   long dy;
+   long dm;
+   long dd;
+
+   if(year) *year=0;
+   if(month) *month=0;
+   if(day) *day=0;
+   t=Today();
+   ds.ds_Days=(ULONG)(t/86400L);
+   ds.ds_Minute=(ULONG)((t/60L)%1440L);
+   ds.ds_Tick=(ULONG)((t%60L)*TICKS_PER_SECOND);
+   Lprintdate(buf,"%d-%b-%Y",&ds);
+   dy=0;
+   dd=0;
+   mon[0]='\0';
+   if(sscanf(buf,"%ld-%3s-%ld",&dd,mon,&dy)==3)
+   {
+      dm=Mail_month_num(mon);
+      if(year) *year=dy;
+      if(month) *month=dm;
+      if(day) *day=dd;
+   }
+}
+
+/* Parse "05 Mar 2025 12:34" into components. */
+static BOOL Mail_parse_msg_date(UBYTE *work,long *year,long *month,long *day,
+   long *hour,long *min,UBYTE *monout,long monmax)
+{
+   UBYTE mon[8];
+   long dy;
+   long dm;
+   long dd;
+   long hh;
+   long mi;
+   long ty;
+   long tm;
+   long td;
+   long n;
+
+   if(!work || !*work) return FALSE;
+   dy=0;
+   dd=0;
+   hh=0;
+   mi=0;
+   mon[0]='\0';
+   n=sscanf(work,"%ld %3s %ld %ld:%ld",&dd,mon,&dy,&hh,&mi);
+   if(n==5)
+   {
+      dm=Mail_month_num(mon);
+      if(dm<=0 || dd<=0) return FALSE;
+      if(year) *year=dy;
+      if(month) *month=dm;
+      if(day) *day=dd;
+      if(hour) *hour=hh;
+      if(min) *min=mi;
+      if(monout && monmax>0)
+      {  strncpy(monout,mon,monmax-1);
+         monout[monmax-1]='\0';
+      }
+      return TRUE;
+   }
+   n=sscanf(work,"%ld %3s %ld:%ld",&dd,mon,&hh,&mi);
+   if(n==4)
+   {
+      dm=Mail_month_num(mon);
+      if(dm<=0 || dd<=0) return FALSE;
+      Mail_now_ymd(&ty,&tm,&td);
+      if(year) *year=ty;
+      if(month) *month=dm;
+      if(day) *day=dd;
+      if(hour) *hour=hh;
+      if(min) *min=mi;
+      if(monout && monmax>0)
+      {  strncpy(monout,mon,monmax-1);
+         monout[monmax-1]='\0';
+      }
+      return TRUE;
+   }
+   return FALSE;
+}
+
+static void Mail_append_compose_button(struct Buffer *buf,UBYTE *scratch)
+{
+   Mail_bprintf(buf,scratch,
+      "<TABLE CELLPADDING=0 CELLSPACING=0><TR>"
+      "<TD STYLE=\"background-color:#E8E0D8;border:2px solid #666666;"
+      "border-color:#888888;border-top-color:#DDDDDD;border-left-color:#DDDDDD;"
+      "padding:5px 12px;\">"
+      "<A HREF='x-aweb:mail/compose' TARGET='MailCompose'"
+      " STYLE=\"text-decoration:none;font-weight:bold;color:#000000;\">"
+      "Compose</A></TD></TR></TABLE>\n");
+}
+
+/* Write date column HTML (time today; stacked date when year shown). */
+static void Mail_append_listdate_cell(struct Buffer *buf,UBYTE *scratch,UBYTE *date)
+{
+   UBYTE work[96];
+   UBYTE mon[8];
+   long my;
+   long mm;
+   long md;
+   long hh;
+   long mi;
+   long ty;
+   long tm;
+   long td;
+   const UBYTE *mname;
+
+   if(!date || !*date) return;
+   Mail_trim_rfc822_date(work,sizeof(work),date);
+   if(!Mail_parse_msg_date(work,&my,&mm,&md,&hh,&mi,mon,sizeof(mon)))
+   {
+      Mail_bprintf(buf,scratch,
+         "<TD STYLE=\"width:48px;font-size:x-small;text-align:right;"
+         "vertical-align:top;padding:3px 4px;color:#666666;\">");
+      Mail_addblock(buf,work,-1);
+      Mail_bprintf(buf,scratch,"</TD>\n");
+      return;
+   }
+   Mail_now_ymd(&ty,&tm,&td);
+   Mail_bprintf(buf,scratch,
+      "<TD STYLE=\"width:48px;font-size:x-small;text-align:right;"
+      "vertical-align:top;padding:3px 4px;color:#666666;\">");
+   if(my==ty && mm==tm && md==td)
+   {  Mail_bprintf(buf,scratch,"%02ld:%02ld",hh,mi);
+   }
+   else
+   {
+      mname=Mail_month_names[mm-1];
+      if(my==ty)
+      {  Mail_bprintf(buf,scratch,"%02ld %s",md,mname);
+      }
+      else
+      {  Mail_bprintf(buf,scratch,"%02ld %s<BR>%ld",md,mname,my);
+      }
+   }
+   Mail_bprintf(buf,scratch,"</TD>\n");
+}
+
+/* Message index: date column + subject/sender column (CSS table cell styles). */
 static void Mail_index_table_start(struct Buffer *buf,UBYTE *scratch)
-{  Mail_bprintf(buf,scratch,
+{
+   Mail_bprintf(buf,scratch,
       "<HTML><HEAD><TITLE>Mail</TITLE></HEAD>\n"
-      "<BODY TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0>\n"
-      "<TABLE BORDER=1 WIDTH=\"100%%\" CELLPADDING=2 CELLSPACING=0>\n");
+      "<BODY BGCOLOR=\"#FFFFFF\" TEXT=\"#000000\""
+      " TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0>\n"
+      "<TABLE BORDER=1 WIDTH=\"100%%\" CELLPADDING=2 CELLSPACING=0"
+      " BGCOLOR=\"#FFFFFF\" BORDERCOLOR=\"#CCCCCC\""
+      " STYLE=\"table-layout:fixed;width:100%%;border-collapse:collapse;\">\n"
+      "<COL WIDTH=\"48\"><COL>\n");
 }
 
 static void Mail_index_append_rows(struct Buffer *buf,UBYTE *scratch,
    UBYTE *enc,struct Mailuid *items,long nitems,long start,long count,
    unsigned long *uids)
-{  long i;
+{
+   long i;
    long k;
    UBYTE subj[72];
    UBYTE from[48];
-   UBYTE sdate[24];
    (void)uids;
    (void)start;
    (void)count;
    for(i=count-1;i>=start;i--)
-   {  k=i-start;
+   {
+      k=i-start;
       if(k>=nitems) continue;
       Mail_cell_truncate(subj,sizeof(subj),items[k].subject,56);
       Mail_cell_truncate(from,sizeof(from),items[k].from,36);
-      Mail_short_date(sdate,sizeof(sdate),items[k].date);
-      Mail_bprintf(buf,scratch,"<TR VALIGN=TOP><TD>");
-      if(items[k].unseen) Mail_bprintf(buf,scratch,"* ");
-      Mail_bprintf(buf,scratch,"<A HREF='mail:%s/uid/%lu' TARGET='MailMessage'>",enc,
+      Mail_bprintf(buf,scratch,"<TR VALIGN=TOP>\n");
+      Mail_append_listdate_cell(buf,scratch,items[k].date);
+      Mail_bprintf(buf,scratch,"<TD STYLE=\"font-size:small;"
+         "vertical-align:top;padding:3px 6px;\">");
+      if(items[k].unseen) Mail_bprintf(buf,scratch,"<B>");
+      Mail_bprintf(buf,scratch,
+         "<A HREF='mail:%s/uid/%lu' TARGET='MailMessage'>",enc,
          items[k].uid);
       Mail_addblock(buf,subj,-1);
-      Mail_bprintf(buf,scratch,"</A><BR>");
+      Mail_bprintf(buf,scratch,"</A>");
+      if(items[k].unseen) Mail_bprintf(buf,scratch,"</B>");
+      Mail_bprintf(buf,scratch,"<BR>");
+      Mail_bprintf(buf,scratch,
+         "<SPAN STYLE=\"font-size:x-small;color:#666666;\">");
       Mail_addblock(buf,from,-1);
-      if(sdate[0])
-      {  Mail_bprintf(buf,scratch,"<BR>");
-         Mail_addblock(buf,sdate,-1);
-      }
-      Mail_bprintf(buf,scratch,"</TD></TR>\n");
+      Mail_bprintf(buf,scratch,"</SPAN></TD></TR>\n");
    }
 }
 
@@ -797,8 +1003,10 @@ static void Mail_showfolders(struct Fetchdriver *fd)
    Updatetaskattrs(AOURL_Contenttype,"text/html",TAG_END);
    Mail_bprintf(&buf,fd->block,
       "<HTML><HEAD><TITLE>Mail</TITLE></HEAD>\n"
-      "<BODY TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0>\n"
-      "<TABLE BORDER=1 WIDTH=\"100%%\" CELLPADDING=3 CELLSPACING=0>\n");
+      "<BODY BGCOLOR=\"#FFFFFF\" TEXT=\"#000000\""
+      " TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0>\n"
+      "<TABLE BORDER=1 WIDTH=\"100%%\" CELLPADDING=3 CELLSPACING=0"
+      " BGCOLOR=\"#FFFFFF\" BORDERCOLOR=\"#CCCCCC\">\n");
    for(i=0;i<nfolders;i++)
    {  Mail_encode_folder(Mail_folder_cache[i].name,enc,sizeof(enc));
       Mail_folder_label(Mail_folder_cache[i].name,label,sizeof(label));
@@ -808,10 +1016,9 @@ static void Mail_showfolders(struct Fetchdriver *fd)
       Mail_addblock(&buf,label,-1);
       Mail_bprintf(&buf,fd->block,"</A></TD></TR>\n");
    }
-   Mail_bprintf(&buf,fd->block,"</TABLE>\n");
-   Mail_bprintf(&buf,fd->block,
-      "<P><A HREF='x-aweb:mail/compose' TARGET='MailCompose'>Compose new message</A></P>\n");
-   Mail_bprintf(&buf,fd->block,"</BODY></HTML>\n");
+   Mail_bprintf(&buf,fd->block,"</TABLE>\n<P>");
+   Mail_append_compose_button(&buf,fd->block);
+   Mail_bprintf(&buf,fd->block,"</P></BODY></HTML>\n");
    Updatetaskattrs(AOURL_Data,buf.buffer,AOURL_Datalength,buf.length,TAG_END);
    Freebuffer(&buf);
 }
@@ -905,7 +1112,7 @@ static void Mail_showindex(struct Fetchdriver *fd,UBYTE *folder)
    if(!list_built)
    {  Freebuffer(&buf);
       Mail_index_table_start(&buf,fd->block);
-      Mail_bprintf(&buf,fd->block,"<TR><TD>");
+      Mail_bprintf(&buf,fd->block,"<TR><TD COLSPAN=2 STYLE=\"padding:6px;\">");
       if(cancelled)
       {  Mail_bprintf(&buf,fd->block,"Message list load cancelled.");
       }
@@ -1044,8 +1251,9 @@ static void Mail_mainpage(struct Fetchdriver *fd)
    Mail_bprintf(&buf,fd->block,
       "<HTML><HEAD><TITLE>AWeb Mail</TITLE></HEAD><BODY>\n<H1>AWeb Mail</H1>\n");
    Mail_bprintf(&buf,fd->block,"<P><A HREF='mail:%s'>Open Inbox</A></P>\n",enc);
-   Mail_bprintf(&buf,fd->block,
-      "<P><A HREF='x-aweb:mail/compose' TARGET='MailCompose'>Compose new message</A></P>\n");
+   Mail_bprintf(&buf,fd->block,"<P>");
+   Mail_append_compose_button(&buf,fd->block);
+   Mail_bprintf(&buf,fd->block,"</P>\n");
    Mail_bprintf(&buf,fd->block,"</BODY></HTML>\n");
    Updatetaskattrs(AOURL_Data,buf.buffer,AOURL_Datalength,buf.length,TAG_END);
    Freebuffer(&buf);

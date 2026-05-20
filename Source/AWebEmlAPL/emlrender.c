@@ -89,147 +89,162 @@ static void EscapeHtml(UBYTE *dest, UBYTE *src, long len, long maxlen)
    *d = '\0';
 }
 
-/* Helper: Extract email address from header field */
+/* End of one address in a From/To/Cc list. */
+static UBYTE *EmlAddrSegEnd(UBYTE *p,UBYTE *end)
+{
+   while(p<end && *p!=',' && *p!=';') p++;
+   return p;
+}
+
+/* Write one mailto link; angle brackets shown around the address. */
+static void RenderEmailAddrLink(UBYTE *html,long *len,long maxlen,
+   UBYTE *email_start,UBYTE *email_end,
+   UBYTE *name_start,UBYTE *name_end)
+{
+   UBYTE escaped[512];
+   UBYTE email[256];
+   long emaillen;
+   long namelen;
+
+   if(!email_start || !email_end || email_end<=email_start) return;
+   if(*len>=maxlen-80) return;
+   emaillen=email_end-email_start;
+   if(emaillen>(long)sizeof(email)-1) emaillen=(long)sizeof(email)-1;
+   memcpy(email,email_start,emaillen);
+   email[emaillen]='\0';
+   if(name_start && name_end && name_end>name_start)
+   {
+      namelen=name_end-name_start;
+      if(namelen>(long)sizeof(escaped)-1) namelen=(long)sizeof(escaped)-1;
+      EscapeHtml(escaped,name_start,namelen,sizeof(escaped));
+      *len+=sprintf(html+*len,"%s &lt;",escaped);
+   }
+   EscapeHtml(escaped,email_start,emaillen,sizeof(escaped));
+   *len+=sprintf(html+*len,"<A HREF=\"mailto:%s\">%s</A>&gt;",email,escaped);
+}
+
+/* Parse header address fields; link the addr in &lt;...&gt; (or bare addr). */
 static void RenderEmailAddress(UBYTE *field, long fieldlen, UBYTE *html, long *len, long maxlen)
-{  UBYTE *p;
+{
+   UBYTE *p;
    UBYTE *end;
+   UBYTE *segend;
    UBYTE *email_start;
    UBYTE *email_end;
    UBYTE *name_start;
    UBYTE *name_end;
-   UBYTE *comma;
+   UBYTE *angle;
+   UBYTE *at_pos;
+   UBYTE *q;
    UBYTE escaped[512];
-   UBYTE email[256];
+   UBYTE *seg_start;
    BOOL first;
-   
-   if(!field || fieldlen <= 0 || !html || !len || maxlen <= 0) return;
-   
-   p = field;
-   end = field + fieldlen;
-   first = TRUE;
-   
-   while(p < end && *len < maxlen - 100)
-   {  /* Skip whitespace */
-      while(p < end && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) p++;
-      if(p >= end) break;
-      
-      if(!first)
-      {  if(*len + 2 < maxlen)
-         {  html[*len++] = ',';
-            html[*len++] = ' ';
-         }
+
+   if(!field || fieldlen<=0 || !html || !len || maxlen<=0) return;
+   p=field;
+   end=field+fieldlen;
+   first=TRUE;
+   while(p<end && *len<maxlen-100)
+   {
+      while(p<end && (*p==' ' || *p=='\t' || *p=='\r' || *p=='\n')) p++;
+      if(p>=end) break;
+      if(!first && *len+2<maxlen)
+      {
+         html[(*len)++]=',';
+         html[(*len)++]=' ';
       }
-      first = FALSE;
-      
-      name_start = NULL;
-      name_end = NULL;
-      email_start = NULL;
-      email_end = NULL;
-      
-      /* Check for format: "Name" <email@domain.com> or Name <email@domain.com> */
-      if(*p == '"')
-      {  name_start = p + 1;
+      first=FALSE;
+      seg_start=p;
+      segend=EmlAddrSegEnd(p,end);
+      name_start=NULL;
+      name_end=NULL;
+      email_start=NULL;
+      email_end=NULL;
+      if(*p=='"')
+      {
+         name_start=p+1;
          p++;
-         while(p < end && *p != '"') p++;
-         if(p < end)
-         {  name_end = p;
+         while(p<segend && *p!='"') p++;
+         if(p<segend) name_end=p++;
+         while(p<segend && (*p==' ' || *p=='\t')) p++;
+         if(p<segend && *p=='<')
+         {
+            email_start=p+1;
             p++;
-            while(p < end && (*p == ' ' || *p == '\t')) p++;
-            if(p < end && *p == '<')
-            {  email_start = p + 1;
-               p++;
-               while(p < end && *p != '>') p++;
-               if(p < end) email_end = p;
-            }
+            while(p<segend && *p!='>') p++;
+            if(p<segend) email_end=p++;
          }
-      }
-      else if(*p == '<')
-      {  email_start = p + 1;
-         p++;
-         while(p < end && *p != '>') p++;
-         if(p < end) email_end = p;
       }
       else
-      {  /* Try to find email address directly */
-         UBYTE *at_pos;
-         at_pos = NULL;
-         email_start = p;
-         /* First, scan for @ symbol */
-         while(p < end && *p != ',' && *p != ';' && *p != '<' && *p != '>')
-         {  if(*p == '@')
-            {  at_pos = p;
-               break;
+      {
+         angle=p;
+         while(angle<segend && *angle!='<') angle++;
+         if(angle<segend && *angle=='<')
+         {
+            if(angle>p)
+            {
+               name_start=p;
+               name_end=angle;
+               while(name_end>name_start
+               && (name_end[-1]==' ' || name_end[-1]=='\t')) name_end--;
             }
-            p++;
-         }
-         if(at_pos)
-         {  UBYTE *q;
-            /* Look backwards for start */
-            q = at_pos;
-            while(q > email_start && ((q[-1] >= 'a' && q[-1] <= 'z') ||
-                  (q[-1] >= 'A' && q[-1] <= 'Z') ||
-                  (q[-1] >= '0' && q[-1] <= '9') ||
-                  q[-1] == '.' || q[-1] == '_' || q[-1] == '+' || q[-1] == '-'))
-            {  q--;
-            }
-            email_start = q;
-            /* Look forwards for end */
-            q = at_pos + 1;
-            while(q < end && ((*q >= 'a' && *q <= 'z') ||
-                  (*q >= 'A' && *q <= 'Z') ||
-                  (*q >= '0' && *q <= '9') ||
-                  *q == '.' || *q == '_' || *q == '-' || *q == '@'))
-            {  q++;
-            }
-            email_end = q;
-            p = q;
+            email_start=angle+1;
+            q=email_start;
+            while(q<segend && *q!='>') q++;
+            if(q<segend) email_end=q;
+            p=segend;
          }
          else
-         {  /* No @ found, treat as plain text */
-            email_start = NULL;
-            email_end = NULL;
-            while(p < end && *p != ',' && *p != ';') p++;
+         {
+            at_pos=NULL;
+            q=p;
+            while(q<segend)
+            {
+               if(*q=='@') { at_pos=q; break; }
+               q++;
+            }
+            if(at_pos)
+            {
+               email_start=p;
+               q=at_pos;
+               while(q>email_start
+               && ((q[-1]>='a' && q[-1]<='z')
+                  || (q[-1]>='A' && q[-1]<='Z')
+                  || (q[-1]>='0' && q[-1]<='9')
+                  || q[-1]=='.' || q[-1]=='_' || q[-1]=='+' || q[-1]=='-'))
+               {  q--;
+               }
+               email_start=q;
+               q=at_pos+1;
+               while(q<segend
+               && ((*q>='a' && *q<='z')
+                  || (*q>='A' && *q<='Z')
+                  || (*q>='0' && *q<='9')
+                  || *q=='.' || *q=='_' || *q=='-' || *q=='@'))
+               {  q++;
+               }
+               email_end=q;
+               p=segend;
+            }
+            else
+            {
+               p=segend;
+            }
          }
       }
-      
-      if(email_start && email_end && email_end > email_start)
-      {  long emaillen;
-         emaillen = email_end - email_start;
-         if(emaillen > sizeof(email) - 1) emaillen = sizeof(email) - 1;
-         memcpy(email, email_start, emaillen);
-         email[emaillen] = '\0';
-         
-         if(name_start && name_end && name_end > name_start)
-         {  long namelen;
-            namelen = name_end - name_start;
-            if(namelen > sizeof(escaped) - 1) namelen = sizeof(escaped) - 1;
-            EscapeHtml(escaped, name_start, namelen, sizeof(escaped));
-            *len += sprintf(html + *len, "<A HREF=\"mailto:%s\">%s</A>", email, escaped);
-         }
-         else
-         {  EscapeHtml(escaped, email_start, emaillen, sizeof(escaped));
-            *len += sprintf(html + *len, "<A HREF=\"mailto:%s\">%s</A>", email, escaped);
-         }
+      if(email_start && email_end && email_end>email_start)
+      {
+         RenderEmailAddrLink(html,len,maxlen,email_start,email_end,name_start,name_end);
       }
-      else if(p < end)
-      {  /* No email found, just escape and display */
-         UBYTE *text_start;
-         text_start = p;
-         while(p < end && *p != ',' && *p != ';') p++;
-         if(p > text_start)
-         {  EscapeHtml(escaped, text_start, p - text_start, sizeof(escaped));
-            *len += sprintf(html + *len, "%s", escaped);
-         }
+      else if(segend>seg_start)
+      {
+         EscapeHtml(escaped,seg_start,segend-seg_start,sizeof(escaped));
+         *len+=sprintf(html+*len,"%s",escaped);
       }
-      
-      /* Find next address (comma or semicolon) */
-      comma = p;
-      while(comma < end && *comma != ',' && *comma != ';') comma++;
-      if(comma < end) p = comma + 1;
+      if(segend<end && (*segend==',' || *segend==';')) p=segend+1;
       else break;
    }
-   
-   html[*len] = '\0';
+   html[*len]='\0';
 }
 
 /* Maximum bytes accepted in one AppendHtml call (guards corrupted len). */
@@ -596,13 +611,65 @@ static void LogMessageLayout(struct EmailMessage *message)
    }
 }
 
+/* Trim seconds and timezone from a Date header for display. */
+static void EmlTrimHeaderDate(UBYTE *s, long smax)
+{
+   UBYTE *p;
+   UBYTE *end;
+   long len;
+
+   if(!s || smax<=0 || !*s) return;
+   len=strlen((char *)s);
+   if(len>=smax) len=smax-1;
+   end=s+len;
+   if(len>=5)
+   {
+      p=end-5;
+      if((*p=='+' || *p=='-') && p[1]>='0' && p[4]>='0')
+      {
+         if(p>s && p[-1]==' ') p--;
+         *p='\0';
+         end=p;
+         len=end-s;
+      }
+   }
+   p=strrchr((char *)s,' ');
+   if(p && p>s)
+   {
+      UBYTE *z;
+      long alpha;
+      z=p+1;
+      alpha=0;
+      while(*z)
+      {
+         if((*z>='A' && *z<='Z') || (*z>='a' && *z<='z')) alpha++;
+         else alpha=0;
+         z++;
+      }
+      if(alpha>=3 && alpha<=5 && !strchr((char *)p+1,':'))
+      {  *p='\0';
+      }
+   }
+   p=strrchr((char *)s,':');
+   if(p && p>=s+2)
+   {
+      if(p[1]>='0' && p[1]<='9' && p[2]>='0' && p[2]<='9'
+      && (!p[3] || p[3]==' '))
+      {
+         if(p[-1]>='0' && p[-2]==':') *p='\0';
+      }
+   }
+}
+
 /* Render email to HTML */
 void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
 {  struct EmailMessage *message;
    struct EmailHeader *header;
    UBYTE html[8192];
    UBYTE escaped[2048];
+   UBYTE datebuf[96];
    long len;
+   long dlen;
    struct EmailBodyPart *part;
    struct EmailAttachment *attach;
    
@@ -641,17 +708,16 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
          "</TITLE>\n"
          "<STYLE TYPE=\"text/css\">\n"
          "<!--\n"
-         "BODY { font-family: Arial, Helvetica, sans-serif; margin: 10px; padding: 10px; background: #F5F5F5; }\n"
-         ".email-header { background: #FFFFFF; border: 1px solid #CCCCCC; padding: 15px; margin-bottom: 15px; }\n"
-         ".email-header H1 { font-size: 18px; margin: 0 0 10px 0; color: #333333; border-bottom: 2px solid #0066CC; padding-bottom: 5px; }\n"
-         ".email-header TABLE { width: 100%%; border-collapse: collapse; }\n"
-         ".email-header TD { padding: 5px; vertical-align: top; }\n"
-         ".email-header .label { font-weight: bold; color: #666666; width: 100px; }\n"
-         ".email-header .value { color: #333333; }\n"
+         "BODY { font-family: Arial, Helvetica, sans-serif; font-size: small; margin: 0; padding: 0; background: #FFFFFF; }\n"
+         ".email-header { background: #FFFFFF; margin: 0; padding: 0; }\n"
+         ".email-header TABLE { width: 100%%; margin: 0; border-collapse: collapse; }\n"
+         ".email-header TD { padding: 2px 4px; vertical-align: top; font-size: x-small; background: #FFFFFF; }\n"
+         ".email-header .label { font-weight: bold; color: #333333; width: 4em; white-space: nowrap; }\n"
+         ".email-header .value { color: #000000; }\n"
+         ".email-header .subject { font-weight: bold; font-size: small; color: #000000; }\n"
          ".email-header .value A { color: #0066CC; text-decoration: none; }\n"
-         ".email-header .value A:hover { text-decoration: underline; }\n"
-         ".email-body { background: #FFFFFF; border: 1px solid #CCCCCC; padding: 15px; margin-bottom: 15px; }\n"
-         ".email-body P { margin: 10px 0; line-height: 1.6; color: #333333; }\n"
+         ".email-body { background: #FFFFFF; border: 0; padding: 8px; margin: 4px 0 8px 0; }\n"
+         ".email-body P { margin: 6px 0; line-height: 1.4; color: #333333; }\n"
          ".email-attachments { background: #FFFFFF; border: 1px solid #CCCCCC; padding: 15px; }\n"
          ".email-attachments H2 { font-size: 16px; margin: 0 0 10px 0; color: #333333; border-bottom: 1px solid #EEEEEE; padding-bottom: 5px; }\n"
          ".email-attachments UL { list-style: none; padding: 0; margin: 0; }\n"
@@ -661,20 +727,24 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
          "//-->\n"
          "</STYLE>\n"
          "</HEAD>\n"
-         "<BODY>\n");
-      
-      /* Email header section */
-      len += sprintf(html + len, "<DIV CLASS=\"email-header\">\n<H1>");
-      
+         "<BODY TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0"
+         " STYLE=\"margin:0;padding:0;background:#FFFFFF;\">\n"
+         "<TABLE CLASS=\"email-header\" BORDER=2 WIDTH=\"100%%\""
+         " BGCOLOR=\"#FFFFFF\" BORDERCOLOR=\"#888888\""
+         " BORDERCOLORLIGHT=\"#DDDDDD\" BORDERCOLORDARK=\"#555555\""
+         " CELLPADDING=2 CELLSPACING=0>\n");
+
       if(header->subject && header->subjectlen > 0)
       {  EscapeHtml(escaped, header->subject, header->subjectlen, sizeof(escaped));
-         len += sprintf(html + len, "%s", escaped);
+         len += sprintf(html + len,
+            "<TR><TD CLASS=\"label\">Subject:</TD>"
+            "<TD CLASS=\"value subject\">%s</TD></TR>\n", escaped);
       }
       else
-      {  len += sprintf(html + len, "(No Subject)");
+      {  len += sprintf(html + len,
+            "<TR><TD CLASS=\"label\">Subject:</TD>"
+            "<TD CLASS=\"value subject\">(No Subject)</TD></TR>\n");
       }
-      
-      len += sprintf(html + len, "</H1>\n<TABLE>\n");
       
       if(header->from && header->fromlen > 0)
       {  long len_before;
@@ -716,11 +786,16 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
       }
       
       if(header->date && header->datelen > 0)
-      {  EscapeHtml(escaped, header->date, header->datelen, sizeof(escaped));
+      {  dlen=header->datelen;
+         if(dlen>=(long)sizeof(datebuf)-1) dlen=(long)sizeof(datebuf)-1;
+         memcpy(datebuf,header->date,dlen);
+         datebuf[dlen]='\0';
+         EmlTrimHeaderDate(datebuf,sizeof(datebuf));
+         EscapeHtml(escaped, datebuf, strlen((char *)datebuf), sizeof(escaped));
          len += sprintf(html + len, "<TR><TD CLASS=\"label\">Date:</TD><TD CLASS=\"value\">%s</TD></TR>\n", escaped);
       }
       
-      len += sprintf(html + len, "</TABLE>\n</DIV>\n");
+      len += sprintf(html + len, "</TABLE>\n");
       
       AppendHtml(fd, html, len);
       fd->header_written = TRUE;
