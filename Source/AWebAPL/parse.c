@@ -563,6 +563,38 @@ static int UnicodeToUtf8(ULONG u, UBYTE *out)
    return 3;
 }
 
+/* Replace &name; / &#...; source bytes with the decoded character. For UTF-8
+ * documents write valid UTF-8 (e.g. nbsp -> C2 A0) and remove the whole entity
+ * span so consecutive entities (&nbsp;&nbsp;) are not corrupted.
+ * Returns replacement byte length, or -1 on failure. */
+static long Replaceentityspan(struct Buffer *buf,long pos,long elen,USHORT ch,
+   BOOL utf8doc,BOOL sjis)
+{
+   ULONG u;
+   UBYTE u8[4];
+   int ulen;
+   long replen;
+
+   if(elen <= 0 || pos < 0)
+   {
+      return -1;
+   }
+   u8[0] = (UBYTE)ch;
+   ulen = 1;
+   if(utf8doc && !sjis && ch > 127)
+   {
+      u = EntitybyteToUnicode(ch);
+      ulen = UnicodeToUtf8(u, u8);
+   }
+   replen = (long)ulen;
+   if(!Insertinbuffer(buf, u8, replen, pos))
+   {
+      return -1;
+   }
+   Deleteinbuffer(buf, pos + replen, elen);
+   return replen;
+}
+
 static struct Tagattr *Nextattr(struct Document *doc)
 {  struct Tagattr *ta;
    if(nextattr==MAXATTRS) REMOVE(&tagattr[--nextattr]);
@@ -611,6 +643,8 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL valid;
    BOOL strict=(doc->htmlmode==HTML_STRICT),lf=(doc->pmode==DPM_TEXTAREA);
    short l;
+   long entpos;
+   long entrep;
    BOOL sjis;
    BOOL utf8doc;
    
@@ -642,6 +676,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       UBYTE replacement = 0;
       UBYTE *replacement_str = NULL;
       BOOL skip_char = FALSE;
+      BOOL latin1_utf2;
       UBYTE b0;
       
       b0=*p;
@@ -664,16 +699,25 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          p++;
          continue;
       }
-      /* UTF-8 documents: keep valid UTF-8 byte sequences; do not fold to Latin-1 bullets.
-       * Entity references (&...;) are still processed below. Invalid bytes advance by one. */
-      if(utf8doc && b0!='&')
+      /* UTF-8 with ttengine: keep non-Latin-1 UTF-8; fold C2/C3 pairs to bytes 0x80-0xFF
+       * so <font>/diskfont runs (68k.news nbsp C2 A0) never show as Â + NBSP.
+       * Entity references (&...;) are still processed below. */
+      latin1_utf2=FALSE;
+      if(utf8doc && TTEngineAvailable() && b0!='&')
       {
+         if((b0 & 0xE0)==0xC0 && b0>=0xC2 && p+1<end && (p[1] & 0xC0)==0x80
+         && (b0==0xC2 || b0==0xC3))
+         {
+            latin1_utf2=TRUE;
+         }
+         if(!latin1_utf2)
+         {
          if(b0<0x80)
          {
             p++;
             continue;
          }
-         if((b0 & 0xE0)==0xC0 && p+1<end && (p[1] & 0xC0)==0x80)
+         if((b0 & 0xE0)==0xC0 && b0>=0xC2 && p+1<end && (p[1] & 0xC0)==0x80)
          {
             p+=2;
             continue;
@@ -691,6 +735,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          }
          p++;
          continue;
+         }
       }
       
       /* Check for 4-byte UTF-8 sequence (0xF0-0xF7) */
@@ -771,7 +816,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          }
       }
       /* Check for 2-byte UTF-8 sequence (0xC0-0xDF) */
-      else if((*p & 0xE0) == 0xC0 && p+1 < end && (p[1] & 0xC0) == 0x80)
+      else if((*p & 0xE0) == 0xC0 && *p >= 0xC2 && p+1 < end && (p[1] & 0xC0) == 0x80)
       {  /* 2-byte UTF-8: extract 11 bits from the two bytes */
          utf8_char = ((*p & 0x1F) << 6) | (p[1] & 0x3F);
          utf8_bytes = 2;
@@ -953,17 +998,29 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
              * Validity check and translation is done below.
              * First remember the exact source in case we don't know the character. */
             if(q<end)
-            {  if(*q!=';') q--;
-               l=q-p+1;
-               if(l>11) l=11;
-               strncpy(ebuf,p,l);
-               ebuf[l]='\0';
-               memmove(p,q,end+1-q);
+            {  if(*q==';')
+               {  q++;
+               }
             }
-            else q--;
+            else
+            {  q--;
+            }
+            l=q-p;
+            if(l>11) l=11;
+            strncpy(ebuf,p,l);
+            ebuf[l]='\0';
+            entpos=p-buf->buffer;
+            entrep=Replaceentityspan(buf,entpos,(long)l,(USHORT)n,utf8doc,sjis);
+            if(entrep>=0)
+            {  ta->length+=entrep-l;
+               end=buf->buffer+buf->length;
+               p=buf->buffer+entpos+entrep;
+               continue;
+            }
+            memmove(p,q,end+1-q);
             ta->length-=(q-p);
             end-=(q-p);
-            *p=n;
+            *p=(UBYTE)n;
          }
          else if(isattr && *q=='{')
          {  /* JavaScript expression */
@@ -1008,15 +1065,23 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
                if(STREQUAL(cd->name,name)
                && (!strict || (q>=end || !isalnum(*q))))
                {  q=p+1+strlen(cd->name); /* +1 because of & */
-                  if(q<end)
-                  {  if(*q!=';') q--;
-                     memmove(p,q,end+1-q);
+                  if(q<end && *q==';')
+                  {  q++;
                   }
-                  else q--;
+                  l=q-p;
+                  n=cd->ch;
+                  entpos=p-buf->buffer;
+                  entrep=Replaceentityspan(buf,entpos,(long)l,(USHORT)cd->ch,utf8doc,sjis);
+                  if(entrep>=0)
+                  {  ta->length+=entrep-l;
+                     end=buf->buffer+buf->length;
+                     p=buf->buffer+entpos+entrep;
+                     continue;
+                  }
+                  memmove(p,q,end+1-q);
                   ta->length-=(q-p);
                   end-=(q-p);
-                  n=cd->ch;
-                  *p=cd->ch;
+                  *p=(UBYTE)cd->ch;
                }
             }
          }
@@ -1101,35 +1166,6 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 9674:n=(UBYTE)0x25CA;break;
             default:
                r=ebuf;
-         }
-      }
-      /* UTF-8 documents + TTEngine: entity table stores Latin-1 / CP1252 bytes (e.g. lsquo=145, mdash=151).
-       * Those are invalid as standalone UTF-8; expand to UTF-8 for TTEngine (encoding + TextFit).
-       * Without TTEngine, layout uses diskfont Text() on Latin-1 bytes; keep single-byte entity output. */
-      if(utf8doc && TTEngineAvailable() && !sjis && !r && n > 127 && n <= 255)
-      {
-         ULONG u;
-         UBYTE u8[4];
-         int ulen;
-         long pos;
-
-         u = EntitybyteToUnicode((USHORT)n);
-         ulen = UnicodeToUtf8(u, u8);
-         if(ulen > 1)
-         {
-            pos = p - buf->buffer;
-            if(Insertinbuffer(buf, u8, (long)ulen, pos))
-            {
-               Deleteinbuffer(buf, pos + ulen, 1);
-               ta->length += ulen - 1;
-               end = buf->buffer + buf->length;
-               p = buf->buffer + pos + ulen;
-               continue;
-            }
-         }
-         else
-         {
-            *p = u8[0];
          }
       }
       if(r)

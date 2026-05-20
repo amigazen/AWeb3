@@ -151,12 +151,31 @@ UBYTE *Mimetypefromext(UBYTE *name)
    return NULL;
 }
 
+/* Drop "; charset=..." and other parameters so driver lookup sees "text/html". */
+static UBYTE *MimeBasetype(UBYTE *mimetype,UBYTE *buf,long buflen)
+{  UBYTE *p;
+   long n;
+   if(!buf || buflen<1) return mimetype;
+   if(!mimetype)
+   {  buf[0]='\0';
+      return buf;
+   }
+   n=buflen-1;
+   strncpy(buf,mimetype,n);
+   buf[n]='\0';
+   p=strchr(buf,';');
+   if(p) *p='\0';
+   return buf;
+}
+
 BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
-{  UBYTE *p,*end;
+{  UBYTE basetype[64];
+   UBYTE *p,*end;
    BOOL ok=TRUE;
+   type=MimeBasetype(type,basetype,sizeof(basetype));
    /* APPLICATION/OCTET-STREAM and X-UNKNOWN types are not "reasonable" - 
     * they indicate unknown content and should trigger content sniffing */
-   if(!type || STRIEQUAL(type,"application/octet-stream") 
+   if(!*type || STRIEQUAL(type,"application/octet-stream") 
       || STRIEQUAL(type,"x-unknown/x-unknown"))
    {  return FALSE;
    }
@@ -356,10 +375,12 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
 
 ULONG Getmimedriver(UBYTE *mimetype,UBYTE **name,UBYTE **args)
 {  struct Mime *m,*mvw=NULL;
+   UBYTE basetype[64];
    UBYTE wildtype[32],noxtype[32];
    UBYTE *p;
    ULONG mime=MIMEDRV_NONE;
-   if(mimetype)
+   mimetype=MimeBasetype(mimetype,basetype,sizeof(basetype));
+   if(mimetype && *mimetype)
    {  strcpy(wildtype,mimetype);
       strcpy(noxtype,mimetype);
       if(p=strchr(mimetype,'/')) strcpy(wildtype+(p+1-mimetype),"*");

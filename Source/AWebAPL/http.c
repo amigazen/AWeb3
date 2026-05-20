@@ -1515,13 +1515,16 @@ static BOOL Readheaders(struct Httpinfo *hi)
       }
       else if(STRNIEQUAL(hi->fd->block,"Content-Type:",13))
       {  UBYTE mimetype[32];
+         UBYTE charsetval[24];
          UBYTE *p,*q,*r;
          UBYTE qq;
          long l;
          BOOL foreign=FALSE;
          BOOL forward=TRUE;
+         BOOL have_charset=FALSE;
          
          mimetype[0] = '\0';  /* Initialize empty string */
+         charsetval[0] = '\0';
          if(!prefs.network.ignoremime)
          {  for(p=hi->fd->block+13;*p && isspace(*p);p++);
             for(q=p;*q && !isspace(*q) && *q!=';';q++);
@@ -1562,11 +1565,23 @@ static BOOL Readheaders(struct Httpinfo *hi)
                      *r='\0';
                   }
                   if(*q && !STRIEQUAL(q,"ISO-8859-1")) foreign=TRUE;
+                  strncpy(charsetval,q,sizeof(charsetval)-1);
+                  charsetval[sizeof(charsetval)-1]='\0';
+                  have_charset=TRUE;
                }
             }
             if(forward)
             {  if(l>31) p[31]='\0';
                strcpy(mimetype,p);
+               /* Keep charset= in AOURL_Contenttype so DocApplyContentCharsetFromUrl runs
+                * before <meta charset> on incremental loads (e.g. 68k.news UTF-8 nbsp). */
+               if(have_charset && charsetval[0])
+               {  l=(long)strlen(mimetype);
+                  if(l>0 && l+10+(long)strlen(charsetval)<(long)sizeof(mimetype))
+                  {  strcat(mimetype,"; charset=");
+                     strcat(mimetype,charsetval);
+                  }
+               }
             }
          }
          if(*mimetype)
@@ -1945,17 +1960,66 @@ static BOOL Readpartheaders(struct Httpinfo *hi)
       else if(STRNIEQUAL(hi->fd->block,"Content-Type:",13))
       {  debug_printf("DEBUG: Content-Type header found in Readpartheaders: '%s'\n", hi->fd->block);
          if(!prefs.network.ignoremime)
-         {  UBYTE *p,*q;
+         {  UBYTE mimetype[32];
+            UBYTE charsetval[24];
+            UBYTE *p,*q,*r;
+            UBYTE qq;
+            long l;
+            BOOL have_charset=FALSE;
+            
+            mimetype[0]='\0';
+            charsetval[0]='\0';
             for(p=hi->fd->block+13;*p && isspace(*p);p++);
-            q=strchr(p,';');
-            if(q) *q='\0';
-            if(strlen(p)>31) p[31]='\0';
-            strcpy(hi->parttype,p);
+            for(q=p;*q && !isspace(*q) && *q!=';';q++);
+            qq=*q;
+            *q='\0';
+            l=q-p;
+            if(qq && STRNIEQUAL(p,"TEXT/",5))
+            {  for(q++;*q && !STRNIEQUAL(q,"CHARSET=",8);q++);
+               if(*q)
+               {  q+=8;
+                  while(*q && isspace(*q)) q++;
+                  if(*q=='"')
+                  {  q++;
+                     for(r=q;*r && *r!='"';r++);
+                     *r='\0';
+                  }
+                  else
+                  {  for(r=q;*r && !isspace(*r);r++);
+                     *r='\0';
+                  }
+                  strncpy(charsetval,q,sizeof(charsetval)-1);
+                  charsetval[sizeof(charsetval)-1]='\0';
+                  have_charset=TRUE;
+               }
+            }
+            if(l>31) p[31]='\0';
+            strcpy(mimetype,p);
+            if(have_charset && charsetval[0])
+            {  l=(long)strlen(mimetype);
+               if(l>0 && l+10+(long)strlen(charsetval)<(long)sizeof(mimetype))
+               {  strcat(mimetype,"; charset=");
+                  strcat(mimetype,charsetval);
+               }
+            }
+            strncpy(hi->parttype,mimetype,sizeof(hi->parttype)-1);
+            hi->parttype[sizeof(hi->parttype)-1]='\0';
             debug_printf("DEBUG: Set parttype to: '%s'\n", hi->parttype);
          }
       }
       Nextline(hi);
    }
+}
+
+/* Move unconsumed gzip input to the start of gzipbuffer (zlib advances next_in). */
+static void HttpGzipCompactInput(z_stream *ds,UBYTE *gzipbuffer,long *gziplength)
+{
+   if(!ds || !gzipbuffer || !gziplength) return;
+   if(ds->avail_in > 0 && ds->next_in != gzipbuffer)
+   {  memmove(gzipbuffer,ds->next_in,ds->avail_in);
+      ds->next_in=gzipbuffer;
+   }
+   *gziplength=(long)ds->avail_in;
 }
 
 /* Read data and pass to main task. Returns FALSE if error or connection eof, TRUE if
@@ -1985,6 +2049,11 @@ static BOOL Readdata(struct Httpinfo *hi)
    UBYTE chunked_trailer_stash[512];
    long chunked_trailer_stash_len;
    
+   /* Content-Length on gzip body is compressed size; need room for all of it in flight. */
+   if(hi->partlength>INPUTBLOCKSIZE)
+   {  if(hi->partlength>524288L) gzip_buffer_size=524288L;
+      else gzip_buffer_size=hi->partlength;
+   }
    chunked_trailer_stash_len = 0;
    
    debug_printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld, partlength=%ld\n",
@@ -3065,9 +3134,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                         long bytes_to_append;
                         long used_space;
                         
-                        /* Calculate space used in buffer (from start to next_in + remaining) */
-                        used_space = (d_stream.next_in - gzipbuffer) + d_stream.avail_in;
-                        remaining_space = gzip_buffer_size - used_space;
+                        HttpGzipCompactInput(&d_stream,gzipbuffer,&gziplength);
+                        used_space=gziplength;
+                        remaining_space=gzip_buffer_size-used_space;
                         
                         if(remaining_space <= 0 || hi->blocklength > remaining_space)
                         {  debug_printf("DEBUG: Non-chunked gzip: Buffer full or block too large (remaining=%ld, block=%ld), cannot continue\n",
@@ -3078,16 +3147,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                         
                         bytes_to_append = MIN(hi->blocklength, remaining_space);
                         if(bytes_to_append > 0 && gziplength + bytes_to_append <= gzip_buffer_size)
-                        {  /* Move unprocessed data to start if needed */
-                           if(d_stream.next_in != gzipbuffer && d_stream.avail_in > 0)
-                           {  memmove(gzipbuffer, d_stream.next_in, d_stream.avail_in);
-                              gziplength = d_stream.avail_in;
-                           }
-                           else if(d_stream.avail_in == 0)
-                           {  gziplength = 0;
-                           }
-                           
-                           /* Append new data */
+                        {  /* Append new data */
                            memcpy(gzipbuffer + gziplength, hi->fd->block, bytes_to_append);
                            gziplength += bytes_to_append;
                            compressed_bytes_consumed += bytes_to_append;
@@ -4436,9 +4496,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                long bytes_to_append;
                long used_space;
                
-               /* Calculate space used in buffer */
-               used_space = (d_stream.next_in - gzipbuffer) + d_stream.avail_in;
-               remaining_space = gzip_buffer_size - used_space;
+               HttpGzipCompactInput(&d_stream,gzipbuffer,&gziplength);
+               used_space=gziplength;
+               remaining_space=gzip_buffer_size-used_space;
                
                if(remaining_space <= 0 || hi->blocklength > remaining_space)
                {  debug_printf("DEBUG: Non-chunked gzip: Buffer full (remaining=%ld, block=%ld), ending\n",
@@ -4449,17 +4509,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                
                bytes_to_append = MIN(hi->blocklength, remaining_space);
                if(bytes_to_append > 0)
-               {  /* Move unprocessed data to start if needed */
-                  if(d_stream.next_in != gzipbuffer && d_stream.avail_in > 0)
-                  {  memmove(gzipbuffer, d_stream.next_in, d_stream.avail_in);
-                     gziplength = d_stream.avail_in;
-                  }
-                  else if(d_stream.avail_in == 0)
-                  {  gziplength = 0;
-                  }
-                  
-                  /* Append new data */
-                  if(gziplength + bytes_to_append <= gzip_buffer_size)
+               {  if(gziplength + bytes_to_append <= gzip_buffer_size)
                   {  memcpy(gzipbuffer + gziplength, hi->fd->block, bytes_to_append);
                      gziplength += bytes_to_append;
                      compressed_bytes_consumed += bytes_to_append;

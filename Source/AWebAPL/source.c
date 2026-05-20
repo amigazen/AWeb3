@@ -197,8 +197,20 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
       
    /* If server has reported a MIME type, use it, else use the one from cache */
    if(*src->contenttype) type=src->contenttype;
-   else type=(UBYTE *)Agetattr(src->url,AOURL_Contenttype);
+   else
+   {  UBYTE *ct;
+      UBYTE *sc;
+      ct=(UBYTE *)Agetattr(src->url,AOURL_Contenttype);
+      if(ct)
+      {  strncpy(src->contenttype,ct,31);
+         src->contenttype[31]='\0';
+         sc=strchr(src->contenttype,';');
+         if(sc) *sc='\0';
+      }
+      type=src->contenttype;
+   }
    /* See if it is reasonable */
+   if(type && !*type) type=NULL;
    if(type && !Checkmimetype(data,length,type)) type=NULL;
    
    /* Check if URL suggests RSS/Atom feed - if so, check content and override type */
@@ -818,7 +830,12 @@ static long Srcupdatesource(struct Source *src,struct Amsrcupdate *ams)
                   tag->ti_Data=(ULONG)"text/plain";
                }
                else
-               {  strncpy(src->contenttype,ct,31);
+               {  UBYTE *sc;
+                  strncpy(src->contenttype,ct,31);
+                  src->contenttype[31]='\0';
+                  /* AOURL_Contenttype keeps charset= for encoding; strip here for MIME. */
+                  sc=strchr(src->contenttype,';');
+                  if(sc) *sc='\0';
                }
             }
             break;
