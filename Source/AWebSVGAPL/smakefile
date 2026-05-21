@@ -14,7 +14,7 @@ AR=oml
 RM=delete quiet
 
 # Main plugin object files
-PLUGIN_OBJS = startup.o awebsvg.o svgsource.o svgcopy.o xmlparse.o vrastport.o math64.o
+PLUGIN_OBJS = startup.o awebsvg.o svgsource.o svgcopy.o xmlparse.o
 
 # Default target
 all: awebsvg.awebplugin
@@ -30,20 +30,14 @@ startup.o: startup.c pluginlib.h
 awebsvg.o: awebsvg.c pluginlib.h awebsvg.h
    $(CC) awebsvg.c
 
-svgsource.o: svgsource.c pluginlib.h awebsvg.h xmlparse.h
+svgsource.o: svgsource.c pluginlib.h awebsvg.h xmlparse.h ezlists.h
    $(CC) svgsource.c
 
-svgcopy.o: svgcopy.c pluginlib.h awebsvg.h vrastport.h
+svgcopy.o: svgcopy.c pluginlib.h awebsvg.h
    $(CC) svgcopy.c
 
 xmlparse.o: xmlparse.c xmlparse.h
    $(CC) xmlparse.c
-
-vrastport.o: vrastport.c vrastport.h math64.h
-   $(CC) vrastport.c
-
-math64.o: math64.a
-   asm math64.a
 
 # Clean targets
 clean:

@@ -26,6 +26,7 @@ extern struct Library *AwebPluginBase;
 extern struct Library *GfxBase;
 extern struct Library *IntuitionBase;
 extern struct Library *UtilityBase;
+extern struct Library *P96Base;
 
 /* Pointer to our own library base */
 extern struct AwebSvgBase *PluginBase;

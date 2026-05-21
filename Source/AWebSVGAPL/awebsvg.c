@@ -33,24 +33,28 @@ struct Library *IntuitionBase;
 struct Library *UtilityBase;
 struct Library *AwebPluginBase;
 struct Library *DOSBase;
+struct Library *P96Base;
 
 ULONG Initpluginlib(struct AwebSvgBase *base)
-{  GfxBase=OpenLibrary("graphics.library",39);
-   IntuitionBase=OpenLibrary("intuition.library",39);
-   UtilityBase=OpenLibrary("utility.library",39);
-   AwebPluginBase=OpenLibrary("awebplugin.library",0);
-   DOSBase=OpenLibrary("dos.library",37);
+{  GfxBase=(struct Library *)OpenLibrary("graphics.library",39);
+   IntuitionBase=(struct Library *)OpenLibrary("intuition.library",39);
+   UtilityBase=(struct Library *)OpenLibrary("utility.library",39);
+   AwebPluginBase=(struct Library *)OpenLibrary("awebplugin.library",0);
+   DOSBase=(struct Library *)OpenLibrary("dos.library",37);
+   P96Base=OpenLibrary("Picasso96.library",0);
+   (void)base;
    return (ULONG)(GfxBase && IntuitionBase && UtilityBase && AwebPluginBase && DOSBase);
 }
 
 void Expungepluginlib(struct AwebSvgBase *base)
-{  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
-   if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
-   if(AwebPluginBase) CloseLibrary(AwebPluginBase);
-   if(UtilityBase) CloseLibrary(UtilityBase);
-   if(IntuitionBase) CloseLibrary(IntuitionBase);
-   if(GfxBase) CloseLibrary(GfxBase);
-   if(DOSBase != NULL) CloseLibrary(DOSBase);
+{  if(base->sourcedriver) { Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL); base->sourcedriver=0; }
+   if(base->copydriver)   { Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);   base->copydriver=0; }
+   if(AwebPluginBase) { CloseLibrary(AwebPluginBase); AwebPluginBase=NULL; }
+   if(UtilityBase)    { CloseLibrary(UtilityBase);    UtilityBase=NULL; }
+   if(IntuitionBase)  { CloseLibrary(IntuitionBase);  IntuitionBase=NULL; }
+   if(GfxBase)        { CloseLibrary(GfxBase);        GfxBase=NULL; }
+   if(DOSBase)        { CloseLibrary(DOSBase);        DOSBase=NULL; }
+   if(P96Base)        { CloseLibrary(P96Base);        P96Base=NULL; }
 }
 
 __asm ULONG Initplugin(register __a0 struct Plugininfo *pi)

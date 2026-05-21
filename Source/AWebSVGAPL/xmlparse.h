@@ -1,8 +1,8 @@
 /**********************************************************************
- * 
+ *
  * This file is part of the AWeb distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -15,71 +15,68 @@
  *
  **********************************************************************/
 
-/* xmlparse.h - Simple best-effort XML parser for SVG */
+/* xmlparse.h - Small DOM-style XML parser for the SVG plugin.
+ *
+ * Design notes:
+ *   - The parser is destructive: it overwrites separator bytes in the
+ *     input buffer with NULs so that name/value/text pointers can be
+ *     used directly as C strings.  The caller must not free the input
+ *     buffer until it is finished with the resulting tree.
+ *   - All nodes and attributes are allocated from a caller-supplied
+ *     memory pool (exec.library CreatePool).  When the caller is done
+ *     it calls DeletePool() and the whole tree disappears in one step,
+ *     no per-node bookkeeping required.
+ *   - The parser is intentionally lenient: malformed XML is recovered
+ *     by skipping forward to the next '<'.  This matches the way most
+ *     real-world SVG files behave (and the way browsers handle them).
+ */
 
 #ifndef XMLPARSE_H
 #define XMLPARSE_H
 
 #include <exec/types.h>
 
-/* XML parser state */
-struct XmlParser
-{  UBYTE *data;              /* Current data pointer */
-   UBYTE *dataend;           /* End of data */
-   UBYTE *tokenstart;        /* Start of current token */
-   UBYTE *tokenend;          /* End of current token */
-   UBYTE *attrname;          /* Current attribute name */
-   UBYTE *attrvalue;         /* Current attribute value */
-   LONG attrnamelen;          /* Length of attribute name */
-   LONG attrvaluelen;         /* Length of attribute value */
-   LONG line;                 /* Current line number */
-   LONG column;               /* Current column number */
-   USHORT flags;              /* Parser flags */
+/* Node types */
+#define XMLN_ELEMENT   1
+#define XMLN_TEXT      2
+
+struct XmlAttr
+{  struct XmlAttr *next;
+   UBYTE *name;            /* NUL-terminated (in-place in buffer) */
+   UBYTE *value;           /* NUL-terminated (in-place in buffer) */
+   LONG namelen;
+   LONG valuelen;
 };
 
-/* Parser flags */
-#define XMLPF_IN_TAG         0x0001   /* Inside a tag */
-#define XMLPF_IN_ATTR        0x0002   /* Reading attribute */
-#define XMLPF_IN_CDATA       0x0004   /* Inside CDATA section */
-#define XMLPF_IN_COMMENT     0x0008   /* Inside comment */
-#define XMLPF_ERROR          0x0010   /* Parser error */
+struct XmlNode
+{  USHORT type;
+   USHORT pad;
+   UBYTE *name;            /* element name, NUL-terminated */
+   UBYTE *text;            /* text content for XMLN_TEXT */
+   LONG namelen;
+   LONG textlen;
+   struct XmlAttr *attrs;
+   struct XmlNode *parent;
+   struct XmlNode *firstchild;
+   struct XmlNode *lastchild;
+   struct XmlNode *nextsibling;
+};
 
-/* Token types */
-#define XMLTOK_NONE          0
-#define XMLTOK_START_TAG     1
-#define XMLTOK_END_TAG       2
-#define XMLTOK_EMPTY_TAG     3
-#define XMLTOK_TEXT          4
-#define XMLTOK_ATTR          5
-#define XMLTOK_EOF           6
-#define XMLTOK_ERROR         7
+/* Parse a buffer in place.  pool must be a valid memory pool created
+ * with CreatePool().  Returns the root element node (the outermost
+ * tag, e.g. <svg>), or NULL on out-of-memory or completely-empty
+ * input.  The buffer is modified during parsing. */
+struct XmlNode *XmlParse(APTR pool, UBYTE *buffer, LONG length);
 
-/* Initialize parser */
-void XmlInitParser(struct XmlParser *parser, UBYTE *data, LONG length);
+/* Find an attribute by name (case-insensitive).  Returns NULL if no
+ * such attribute exists.  Returns the in-buffer NUL-terminated
+ * string. */
+UBYTE *XmlAttrValue(struct XmlNode *node, const char *name);
 
-/* Get next token */
-LONG XmlGetToken(struct XmlParser *parser);
+/* Same, but also returns the length. */
+UBYTE *XmlAttrValueLen(struct XmlNode *node, const char *name, LONG *length);
 
-/* Get current token name (element or attribute) */
-UBYTE *XmlGetTokenName(struct XmlParser *parser, LONG *length);
-
-/* Get current token text (for text nodes) */
-UBYTE *XmlGetTokenText(struct XmlParser *parser, LONG *length);
-
-/* Get current attribute name */
-UBYTE *XmlGetAttrName(struct XmlParser *parser, LONG *length);
-
-/* Get current attribute value */
-UBYTE *XmlGetAttrValue(struct XmlParser *parser, LONG *length);
-
-/* Skip whitespace */
-void XmlSkipWhitespace(struct XmlParser *parser);
-
-/* Check if character is whitespace */
-BOOL XmlIsWhitespace(UBYTE c);
-
-/* Unescape XML entities */
-void XmlUnescape(UBYTE *str, LONG *length);
+/* Case-insensitive name match (n bytes of element name vs. literal). */
+BOOL XmlNameIs(struct XmlNode *node, const char *name);
 
 #endif
-
