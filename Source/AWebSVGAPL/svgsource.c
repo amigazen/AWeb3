@@ -958,63 +958,136 @@ static void Drawellipse(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LONG ry,
    else     Drawellipse_stroke(dec,cx,cy,rx,ry,rgb);
 }
 
-/* Scanline-based polygon fill using the even-odd rule.  Works for
- * any simple polygon, convex or concave.  Robust against the
- * idiosyncrasies of graphics.library's AreaFill (which needs a
- * blitter-friendly chip-ram TmpRas), at the cost of O(rows * verts).
- * For SVG icons the vertex count is small so this is plenty fast. */
+/* Scanline-based polygon fill using the even-odd rule.
+ *
+ * The naive approach is O(rows * edges) - it walks every edge for
+ * every scanline.  For Inkscape-style boundary polygons of a few
+ * thousand vertices over a few hundred rows that is a million-plus
+ * comparisons per shape, which dominated SVG render time on the
+ * Kannur test map.
+ *
+ * This implementation uses the standard edge-binning + active edge
+ * list trick instead:
+ *
+ *   1. For each edge, decide which scanline it first becomes
+ *      relevant on and chain it into a per-row bucket.
+ *   2. Walk scanlines top to bottom maintaining an "active edge
+ *      list" of edges currently crossing y.
+ *   3. On each row, add new edges from the bucket, then drop edges
+ *      whose lower end has been reached, then compute x at y for
+ *      each remaining active edge and pair them up.
+ *
+ * Complexity drops to O(edges) setup + O(rows + active_edges_per_row
+ * * rows) work, which is typically ~50x faster than the naive form
+ * for complex polygons and is essentially the same speed for tiny
+ * rects since the linked-list per-row overhead is trivial. */
+struct Polyedge
+{  struct Polyedge *next;
+   LONG yA;                 /* scanline at which edge becomes active   */
+   LONG yB;                 /* scanline (exclusive) at which it ends   */
+   LONG xA;                 /* x coordinate at row yA                   */
+   LONG dx;                 /* xB - xA, signed                          */
+   LONG dy;                 /* yB - yA, always positive                 */
+};
+
 static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD count, ULONG rgb)
-{  LONG bmw=dec->bmw;
-   LONG bmh=dec->bmh;
-   LONG ymin,ymax;
-   LONG y;
-   LONG x0,y0,x1,y1;
-   LONG yA,yB,xA,xB;
+{  LONG bmw,bmh;
+   LONG ymin,ymax,y;
+   LONG nrows;
+   LONG poolnext;
    LONG xi;
    LONG sx0,sx1;
-   WORD i;
-   WORD j,k;
-   /* Max number of edges that can cross a single scanline in a simple
-    * polygon equals the vertex count, but in practice for natural
-    * shapes it is tiny (a dozen even for very complex maps).  Sized
-    * to keep heavy Inkscape boundary paths happy without blowing the
-    * stack frame. */
-   LONG xs[256];
+   WORD i,j,k;
    WORD nx;
+   LONG xs[256];
+   struct Polyedge *pool=NULL;
+   struct Polyedge **buckets=NULL;
+   struct Polyedge *active=NULL;
+   struct Polyedge *e,*next_e;
+   struct Polyedge **pnext;
    if(count<3) return;
+   bmw=dec->bmw;
+   bmh=dec->bmh;
+
+   /* Bounding box in raster Y. */
    ymin=pts[0].y;
    ymax=pts[0].y;
    for(i=1;i<count;i++)
    {  if(pts[i].y<ymin) ymin=pts[i].y;
       if(pts[i].y>ymax) ymax=pts[i].y;
    }
+   /* Whole-polygon off-screen culling. */
+   if(ymax<0 || ymin>=bmh) return;
    if(ymin<0) ymin=0;
    if(ymax>=bmh) ymax=bmh-1;
+   if(ymin>ymax) return;
+   nrows=ymax-ymin+1;
+
+   /* Allocate the edge pool and bucket array via AllocVec so they
+    * are released when the polygon is done - we do this hundreds of
+    * times per Parsertask and pool-allocating each call would
+    * accumulate megabytes of live memory across a complex map. */
+   pool=(struct Polyedge *)AllocVec(sizeof(struct Polyedge)*count,MEMF_PUBLIC);
+   buckets=(struct Polyedge **)AllocVec(sizeof(struct Polyedge *)*nrows,
+      MEMF_PUBLIC|MEMF_CLEAR);
+   if(!pool || !buckets)
+   {  if(pool) FreeVec(pool);
+      if(buckets) FreeVec(buckets);
+      return;
+   }
+
+   /* Build per-edge records and bucket them by the first scanline
+    * on which they contribute. */
+   poolnext=0;
+   for(i=0;i<count;i++)
+   {  LONG x0,y0,x1,y1;
+      LONG eyA,eyB,exA;
+      LONG edx;
+      LONG bucket_idx;
+      k=(WORD)((i+1)%count);
+      x0=pts[i].x; y0=pts[i].y;
+      x1=pts[k].x; y1=pts[k].y;
+      if(y0==y1) continue;             /* horizontal edge: ignored */
+      if(y0<y1) { eyA=y0; eyB=y1; exA=x0; edx=x1-x0; }
+      else       { eyA=y1; eyB=y0; exA=x1; edx=x0-x1; }
+      if(eyB<=ymin || eyA>ymax) continue;
+      e=&pool[poolnext++];
+      e->yA=eyA;
+      e->yB=eyB;
+      e->xA=exA;
+      e->dx=edx;
+      e->dy=eyB-eyA;
+      bucket_idx = (eyA<ymin) ? 0 : (eyA-ymin);
+      e->next=buckets[bucket_idx];
+      buckets[bucket_idx]=e;
+   }
+
+   /* Sweep scanlines. */
    for(y=ymin;y<=ymax;y++)
-   {  nx=0;
-      /* Collect x-intersections of the horizontal line y=y+0.5 with
-       * each polygon edge. */
-      for(i=0;i<count;i++)
-      {  k=(i+1)%count;
-         x0=pts[i].x;
-         y0=pts[i].y;
-         x1=pts[k].x;
-         y1=pts[k].y;
-         if(y0==y1) continue;                /* skip horizontal edge */
-         if(y0<y1) { yA=y0; yB=y1; xA=x0; xB=x1; }
-         else       { yA=y1; yB=y0; xA=x1; xB=x0; }
-         /* Half-open [yA, yB): include lower end, exclude upper. */
-         if(y<yA || y>=yB) continue;
-         xi=xA + ((y-yA)*(xB-xA))/(yB-yA);
-         if(nx<256)
-         {  /* Insertion sort into xs[]. */
-            j=nx;
-            while(j>0 && xs[j-1]>xi) { xs[j]=xs[j-1]; j--; }
-            xs[j]=xi;
-            nx++;
-         }
+   {  /* (1) Add edges entering at this row. */
+      e=buckets[y-ymin];
+      while(e)
+      {  next_e=e->next;
+         e->next=active;
+         active=e;
+         e=next_e;
       }
-      /* Pairs (xs[0],xs[1]), (xs[2],xs[3]), ... form filled spans. */
+      /* (2) Drop edges that have ended. */
+      pnext=&active;
+      while(*pnext)
+      {  if((*pnext)->yB<=y) *pnext=(*pnext)->next;
+         else                pnext=&(*pnext)->next;
+      }
+      /* (3) Compute and sort x-intersections of remaining edges. */
+      nx=0;
+      for(e=active;e;e=e->next)
+      {  xi=e->xA + ((y - e->yA) * e->dx) / e->dy;
+         j=nx;
+         while(j>0 && xs[j-1]>xi) { xs[j]=xs[j-1]; j--; }
+         xs[j]=xi;
+         if(nx<256) nx++;
+      }
+      /* (4) Fill paired spans. */
       for(i=0;i+1<nx;i+=2)
       {  sx0=xs[i];
          sx1=xs[i+1];
@@ -1023,6 +1096,9 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
          if(sx0<=sx1) Fillspan_rgb(dec,sx0,sx1,y,rgb);
       }
    }
+
+   FreeVec(buckets);
+   FreeVec(pool);
 }
 
 static void Drawpolygon(struct Decoder *dec, struct Point32 *pts, WORD count,
@@ -1106,18 +1182,35 @@ struct Pathemit
    BOOL hasctrl;
    BOOL subpathopen;
    BOOL truncated;           /* TRUE if vertex cap was hit */
+   BOOL bbox_init;
+   LONG bbox_xmin,bbox_ymin;
+   LONG bbox_xmax,bbox_ymax;
 };
 
 static void Pathreset(struct Pathemit *pe)
 {  pe->count=0;
    pe->hasctrl=FALSE;
    pe->truncated=FALSE;
+   pe->bbox_init=FALSE;
 }
 
 /* Append a raster-pixel point to the emitter.  Skips consecutive
- * duplicates and grows the array on demand. */
+ * duplicates and grows the array on demand.  Also accumulates the
+ * subpath's raster bounding box so Pathflush can skip work for
+ * subpaths that lie wholly off the bitmap. */
 static void Pathemitpt_raster(struct Pathemit *pe, LONG rx, LONG ry)
 {  if(pe->count>=POLY_MAX_VERTS) { pe->truncated=TRUE; return; }
+   if(!pe->bbox_init)
+   {  pe->bbox_xmin=pe->bbox_xmax=rx;
+      pe->bbox_ymin=pe->bbox_ymax=ry;
+      pe->bbox_init=TRUE;
+   }
+   else
+   {  if(rx<pe->bbox_xmin) pe->bbox_xmin=rx;
+      if(rx>pe->bbox_xmax) pe->bbox_xmax=rx;
+      if(ry<pe->bbox_ymin) pe->bbox_ymin=ry;
+      if(ry>pe->bbox_ymax) pe->bbox_ymax=ry;
+   }
    if(pe->count>0
    && pe->pts[pe->count-1].x==rx
    && pe->pts[pe->count-1].y==ry) return;
@@ -1146,7 +1239,27 @@ static void Pathemitpt(struct Pathemit *pe, LONG svgx, LONG svgy)
 /* Flush the current subpath, stroking or filling as needed. */
 static void Pathflush(struct Pathemit *pe, BOOL closepath)
 {  BOOL doclose;
-   if(pe->count<2) { pe->count=0; pe->subpathopen=FALSE; pe->truncated=FALSE; return; }
+   if(pe->count<2)
+   {  pe->count=0;
+      pe->subpathopen=FALSE;
+      pe->truncated=FALSE;
+      pe->bbox_init=FALSE;
+      return;
+   }
+   /* Off-screen subpath cull: if the raster bbox is wholly outside
+    * the bitmap there is nothing to draw, so skip both the polygon
+    * fill setup (which would alloc edges and buckets) and the
+    * stroke line loop (which would issue 1000+ no-op Drawline calls
+    * per subpath on a heavy map). */
+   if(pe->bbox_init
+   && (pe->bbox_xmax<0 || pe->bbox_xmin>=pe->dec->bmw
+    || pe->bbox_ymax<0 || pe->bbox_ymin>=pe->dec->bmh))
+   {  pe->count=0;
+      pe->subpathopen=FALSE;
+      pe->truncated=FALSE;
+      pe->bbox_init=FALSE;
+      return;
+   }
    /* If we hit the vertex cap, do not auto-close: connecting the last
     * kept vertex back to the first would draw a shortcut across the shape. */
    doclose=closepath;
@@ -1168,6 +1281,7 @@ static void Pathflush(struct Pathemit *pe, BOOL closepath)
    pe->count=0;
    pe->subpathopen=FALSE;
    pe->truncated=FALSE;
+   pe->bbox_init=FALSE;
 }
 
 /* Adaptive de Casteljau subdivision for cubic and quadratic Beziers.
@@ -1687,6 +1801,48 @@ static void Renderpoly(struct Decoder *dec, struct XmlNode *node,
    }
 }
 
+/* Rough upper bound on how many raster vertices a path may emit.
+ * Used to pre-size the emitter's point array so a 5000-vertex
+ * boundary path doesn't have to claw its way through six rounds of
+ * realloc-and-memcpy.
+ *
+ * Each path command consumes one or more parameter sets in the
+ * d="..." string.  We just count the command letters and assume the
+ * worst case for each: M/L/H/V/A emit one point, Z emits none, and
+ * the bezier commands C/S/Q/T may emit several after adaptive
+ * subdivision.  Pick generous multipliers - allocating slightly
+ * too much is far cheaper than re-allocing. */
+static WORD Pathestimate(const UBYTE *d)
+{  WORD n=8;                  /* startup slack for sub-path opens */
+   if(!d) return 64;
+   while(*d)
+   {  UBYTE c=*d;
+      switch(c)
+      {  case 'M': case 'm':
+         case 'L': case 'l':
+         case 'H': case 'h':
+         case 'V': case 'v':
+         case 'A': case 'a':
+            n++;
+            break;
+         case 'C': case 'c':
+         case 'S': case 's':
+            n+=16;
+            break;
+         case 'Q': case 'q':
+         case 'T': case 't':
+            n+=8;
+            break;
+         default:
+            break;
+      }
+      d++;
+   }
+   if(n<64) n=64;
+   if(n>POLY_MAX_VERTS) n=POLY_MAX_VERTS;
+   return n;
+}
+
 static void Renderpath(struct Decoder *dec, struct XmlNode *node, struct Renderstate *rs)
 {  UBYTE *d=XmlAttrValue(node,"d");
    struct Pathemit pe;
@@ -1694,7 +1850,7 @@ static void Renderpath(struct Decoder *dec, struct XmlNode *node, struct Renders
    pe.dec=dec;
    pe.rs=rs;
    pe.M=&rs->M;
-   pe.capacity=64;
+   pe.capacity=Pathestimate(d);
    pe.pts=(struct Point32 *)AllocPooled(dec->pool,sizeof(struct Point32)*pe.capacity);
    if(!pe.pts) return;
    Pathreset(&pe);
