@@ -358,21 +358,10 @@ static void Skipunits(UBYTE **pp, UBYTE *end)
    *pp=p;
 }
 
-/* Parse a single integer value (used for width/height attrs etc).  
- * Returns 0 if no digits were found. */
-static LONG Parselong(UBYTE *s)
-{  UBYTE *p=s;
-   UBYTE *end;
-   BOOL ok;
-   LONG v;
-   if(!s) return 0;
-   end=s;
-   while(*end) end++;
-   v=Parsefixed(&p,end,&ok);
-   if(!ok) return 0;
-   Skipunits(&p,end);
-   return v>>16;
-}
+/* Parselong() previously parsed width/height as plain integers.  It is
+ * unused since width/height now go through Numattr/Parsefixed.  Kept
+ * removed rather than #if'd because reintroducing it would also need
+ * unit-aware parsing for em/rem/etc. */
 
 /*--------------------------------------------------------------------*/
 /* Colour parsing                                                     */
@@ -449,7 +438,7 @@ static UBYTE Parsealphaval(const UBYTE *str)
    v=Parsefixed(&p,e,&ok);
    if(!ok) return 255;
    while(*p==' '||*p=='\t') p++;
-   if(*p=='%') { pct=TRUE; p++; }
+   if(*p=='%') pct=TRUE;
    /* v is 16.16 fixed.  Treat % as v/100, else v as is. */
    if(pct) v=v/100;
    if(v<=0) return 0;
@@ -532,6 +521,7 @@ static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled, UBYTE *alpha
       LONG v;
       UBYTE *qend;
       LONG cv;
+      c[0]=c[1]=c[2]=0; /* defensive: SAS/C cannot prove loop fills all */
       if(p[3]=='a' || p[3]=='A')
       {  hasalpha=TRUE;
          q=(UBYTE *)p+4;
@@ -573,7 +563,7 @@ static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled, UBYTE *alpha
          }
          apct=FALSE;
          while(*q==' '||*q=='\t') q++;
-         if(*q=='%') { apct=TRUE; q++; }
+         if(*q=='%') apct=TRUE;
          /* Alpha argument is a 0..1 fraction (or 0..100% if explicit). */
          if(v<=0) a=0;
          else if(apct)
@@ -794,6 +784,11 @@ static void Parsetransform(const UBYTE *str, struct Matrix *m)
       BOOL ok;
       LONG cs,sn,tn;
       struct Matrix T;
+      /* Pre-zero so reads beyond nargs are predictable and so SAS/C's
+       * flow analyser does not flag args[] as possibly-uninitialised
+       * when a transform reads further than its actual argument count
+       * (e.g. translate(50) reads args[1] under the y default). */
+      args[0]=args[1]=args[2]=args[3]=args[4]=args[5]=0;
       while(p<end && (*p==' '||*p=='\t'||*p=='\n'||*p=='\r'||*p==',')) p++;
       if(p>=end) break;
       kw=p;
@@ -1178,8 +1173,8 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
    WORD i,j,k;
    WORD nx;
    LONG xs[256];
-   struct Polyedge *pool=NULL;
-   struct Polyedge **buckets=NULL;
+   struct Polyedge *pool;
+   struct Polyedge **buckets;
    struct Polyedge *active=NULL;
    struct Polyedge *e,*next_e;
    struct Polyedge **pnext;
@@ -1572,13 +1567,15 @@ static void Bezier2(struct Pathemit *pe, LONG x0, LONG y0,
 
 /* Approximate an elliptical arc by a polyline.  We do not implement
  * the full SVG arc parameterisation here (it is fiddly).  Instead we
- * approximate by sampling along the straight chord, which means arcs
- * render as straight lines.  This is acceptable for most icon
- * artwork; a future enhancement could implement endpoint-to-centre
- * conversion. */
-static void Arcapprox(struct Pathemit *pe, LONG x0, LONG y0, LONG x1, LONG y1)
+ * approximate by drawing the chord directly, which means arcs render
+ * as straight lines.  This is acceptable for most icon artwork; a
+ * future enhancement could implement endpoint-to-centre conversion.
+ *
+ * Only the endpoint is needed because Pathemitpt() already has the
+ * current point, so rx/ry/rotation/large-arc/sweep are intentionally
+ * discarded by the caller. */
+static void Arcapprox(struct Pathemit *pe, LONG x1, LONG y1)
 {  Pathemitpt(pe,x1,y1);
-   (void)x0; (void)y0;
 }
 
 /* Parse and emit an SVG path 'd' attribute. */
@@ -1713,17 +1710,20 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             pe->curx=c; pe->cury=d0;
             break;
          case 'a':
-            /* A rx ry x-axis-rotation large-arc-flag sweep-flag x y */
-            a=Parsefixed(&p,end,&ok); if(!ok) goto done;
-            b=Parsefixed(&p,end,&ok); if(!ok) goto done;
-            c=Parsefixed(&p,end,&ok); if(!ok) goto done;
-            d0=Parsefixed(&p,end,&ok); if(!ok) goto done;
-            e=Parsefixed(&p,end,&ok); if(!ok) goto done;
+            /* A rx ry x-axis-rotation large-arc-flag sweep-flag x y
+             * Only the endpoint (f,g) is consumed by the simplified
+             * Arcapprox; rx/ry/rot/large/sweep are parsed and dropped
+             * to keep the path stream in sync but no temporaries are
+             * declared for them (would trigger dead-store warnings). */
+            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
+            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
+            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
+            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
+            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
             f=Parsefixed(&p,end,&ok); if(!ok) goto done;
             g=Parsefixed(&p,end,&ok); if(!ok) goto done;
             if(relative) { f+=pe->curx; g+=pe->cury; }
-            (void)a; (void)b; (void)c; (void)d0; (void)e;
-            Arcapprox(pe,pe->curx,pe->cury,f,g);
+            Arcapprox(pe,f,g);
             pe->curx=f; pe->cury=g;
             pe->hasctrl=FALSE;
             break;
@@ -1935,7 +1935,7 @@ static UBYTE *Lookupgradient(struct Decoder *dec, UBYTE *value,
  * previous paint untouched. */
 static BOOL Resolvepaint(struct Decoder *dec, UBYTE *value,
    ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out)
-{  BOOL resolved=FALSE;
+{  BOOL resolved;
    UBYTE *tail;
    *alpha_out=255;
    if(!value) { *enabled_out=FALSE; return FALSE; }
@@ -2443,13 +2443,14 @@ static void Renderelement(struct Decoder *dec, struct XmlNode *node, struct Rend
  * bitmap dimensions and root transform. */
 static void Setupviewport(struct Decoder *dec, struct XmlNode *root,
    long *bmw, long *bmh, struct Matrix *initial)
-{  LONG svgw=0, svgh=0;
+{  LONG svgw, svgh;
    LONG vbx=0, vby=0, vbw=0, vbh=0;
    BOOL havevb=FALSE;
    UBYTE *vbstr;
    LONG w,h;
    LONG sx,sy;
    LONG vbwu,vbhu;
+   (void)dec; /* reserved for future bbox-driven canvas sizing */
 
    svgw=Numattr(root,"width",0);
    svgh=Numattr(root,"height",0);
