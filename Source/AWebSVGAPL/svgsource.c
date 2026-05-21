@@ -61,7 +61,6 @@
 #include <proto/Picasso96.h>
 
 #include <string.h>
-#include <math.h>
 
 extern struct Library *P96Base;
 
@@ -140,7 +139,17 @@ struct Point32
    LONG y;
 };
 
-/* Render state inherited along the element tree. */
+/* Render state inherited along the element tree.
+ *
+ * Opacity model: each of `element_opacity`, `fill_opacity` and
+ * `stroke_opacity` is stored as a 0..255 alpha.  Effective per-channel
+ * alpha is the product of the three (combined via (a*b)/255).  We
+ * inherit element_opacity multiplicatively when descending into a
+ * group so nested transparent groups dim correctly.  When the final
+ * effective alpha falls below ALPHA_SKIP we skip the drawing call
+ * entirely - we don't have read-modify-write blending in the inner
+ * loops for performance reasons, so opacity acts as a soft visibility
+ * gate rather than true compositing. */
 struct Renderstate
 {  struct Matrix M;            /* Current transform: SVG -> raster pixels */
    UBYTE fillpen;
@@ -148,21 +157,47 @@ struct Renderstate
    UBYTE fillvalid;            /* TRUE means fill enabled */
    UBYTE strokevalid;          /* TRUE means stroke enabled */
    UBYTE visible;              /* FALSE means display:none in effect */
-   UBYTE pad0;
+   UBYTE element_opacity;      /* `opacity` cascade, inherited multiplicatively */
+   UBYTE fill_opacity;         /* `fill-opacity`, not inherited (per-element) */
+   UBYTE stroke_opacity;       /* `stroke-opacity`, not inherited            */
+   UBYTE fill_color_alpha;     /* alpha embedded in fill colour (gradient/rgba) */
+   UBYTE stroke_color_alpha;   /* alpha embedded in stroke colour            */
+   UBYTE pad0[2];
    LONG strokewidth;           /* Stroke width in 16.16 SVG units */
    ULONG fillrgb;              /* 0xRRGGBB for Picasso96 deep fills */
    ULONG strokergb;            /* 0xRRGGBB for Picasso96 deep strokes */
 };
 
+/* Below this final effective alpha, a paint operation is suppressed. */
+#define ALPHA_SKIP 24           /* ~10% */
+
 /* Hash entry for the id->node map.  Pool-allocated, so it lives as
- * long as the decoder's pool. */
+ * long as the decoder's pool.
+ *
+ * For gradient nodes (linearGradient / radialGradient) we also cache
+ * a single representative "average" colour.  Real gradient interpolation
+ * is too expensive for a 68k browser, but the alpha-weighted average of
+ * a gradient's stops is usually a recognisable mid-tone for the painted
+ * shape and is dramatically better than a black fallback.  Computed
+ * lazily on first reference and reused afterwards.
+ *
+ * grad_state values:
+ *   0  not yet computed (or node is not a gradient)
+ *   1  computed and grad_rgb / grad_alpha are valid
+ *   2  computed but the gradient had no usable stops (don't try again)
+ */
 struct Iddef
 {  struct Iddef *next;
    UBYTE *id;                  /* pointer into the in-place parse buffer */
    struct XmlNode *node;
+   ULONG grad_rgb;             /* 0xRRGGBB average over alpha-weighted stops */
+   UBYTE grad_alpha;           /* average stop alpha */
+   UBYTE grad_state;
+   UBYTE pad[2];
 };
 #define IDTABLE_SIZE 64
 #define USE_MAX_DEPTH 16
+#define GRAD_MAX_DEPTH 8         /* xlink:href chain depth cap          */
 
 /* Per-decoder colour cache.  Keeps repeated palette lookups fast and,
  * critically, avoids handing out stale pen numbers across decodes
@@ -215,6 +250,11 @@ struct Decoder
 
 static void Parsertask(void *userdata);
 static void Renderelement(struct Decoder *dec, struct XmlNode *node, struct Renderstate *parent);
+static struct XmlNode *Findid(struct Decoder *dec, const UBYTE *id);
+static struct Iddef *Findid_iddef(struct Decoder *dec, const UBYTE *id);
+static UBYTE *Resolvehref(struct XmlNode *node);
+static BOOL Resolvepaint(struct Decoder *dec, UBYTE *value,
+   ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out);
 
 /*--------------------------------------------------------------------*/
 /* Number parsing                                                     */
@@ -390,19 +430,70 @@ static int strieq(const UBYTE *a, const char *b)
    return (*a==0 && *b==0);
 }
 
-/* Parse an SVG colour spec.  Sets *rgb to 0xRRGGBB and returns TRUE.
- * Recognises "none" (returns FALSE, no fill/stroke), hex (#fff and
- * #ffffff), rgb(r,g,b) with byte or percent components, and the
- * named-colour table.  Returns FALSE for "currentColor" (treated as
- * black for now) - the renderer can override. */
-static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled)
+/* Parse an SVG opacity / fraction value.
+ *
+ * Accepts either a plain fraction in [0..1] (`0`, `1`, `0.75`) or a
+ * percentage (`50%`, `100%`).  Clamps to [0..1] and returns the
+ * value as a 0..255 alpha byte.  Returns 255 on any parse failure
+ * so opaque is the safe default. */
+static UBYTE Parsealphaval(const UBYTE *str)
+{  UBYTE *p,*e;
+   LONG v;
+   BOOL ok;
+   LONG a;
+   BOOL pct=FALSE;
+   if(!str) return 255;
+   p=(UBYTE *)str;
+   e=p;
+   while(*e) e++;
+   v=Parsefixed(&p,e,&ok);
+   if(!ok) return 255;
+   while(*p==' '||*p=='\t') p++;
+   if(*p=='%') { pct=TRUE; p++; }
+   /* v is 16.16 fixed.  Treat % as v/100, else v as is. */
+   if(pct) v=v/100;
+   if(v<=0) return 0;
+   if(v>=(1L<<16)) return 255;
+   a=(v*255)>>16;
+   if(a<0) a=0;
+   if(a>255) a=255;
+   return (UBYTE)a;
+}
+
+/* Multiply two 0..255 alpha values, rounded.  Used to combine the
+ * various opacity sources (element, fill/stroke, colour-embedded). */
+static UBYTE Combinealpha(UBYTE a, UBYTE b)
+{  ULONG r=(ULONG)a*(ULONG)b + 127UL;
+   return (UBYTE)(r/255);
+}
+
+/* Parse an SVG colour spec.
+ *
+ * Sets *rgb to 0xRRGGBB and *alpha to the colour-embedded opacity
+ * (255 unless the source said rgba() with an explicit alpha; 0 for
+ * "none"/"transparent").  Returns TRUE on a recognised value.  The
+ * caller is responsible for further combining *alpha with any
+ * separate fill-opacity / stroke-opacity / opacity properties.
+ *
+ * Recognises:
+ *   - none, transparent     -> *enabled = FALSE
+ *   - #rgb and #rrggbb hex
+ *   - rgb(r,g,b)            byte or percent components
+ *   - rgba(r,g,b,a)         alpha is 0..1 (or 0..100%)
+ *   - 22 CSS named colours  (the 17 standard plus a few extras)
+ *
+ * Returns FALSE for unrecognised values (including "currentColor",
+ * which we don't model) so the caller's previous colour stands. */
+static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled, UBYTE *alpha)
 {  const UBYTE *p=str;
+   if(alpha) *alpha=255;
    if(!p) { *enabled=FALSE; return FALSE; }
    while(*p==' '||*p=='\t') p++;
    if(*p==0) { *enabled=FALSE; return FALSE; }
    if(strieq(p,"none") || strieq(p,"transparent"))
    {  *enabled=FALSE;
       *rgb=0;
+      if(alpha) *alpha=0;
       return TRUE;
    }
    *enabled=TRUE;
@@ -431,14 +522,21 @@ static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled)
    if((p[0]=='r' || p[0]=='R')
    && (p[1]=='g' || p[1]=='G')
    && (p[2]=='b' || p[2]=='B'))
-   {  UBYTE *q=(UBYTE *)p+3;
+   {  /* rgb(...) or rgba(...) - peek at fourth letter to decide. */
+      BOOL hasalpha=FALSE;
+      UBYTE *q;
       LONG c[3];
       LONG i;
       BOOL ispct;
       BOOL ok;
       LONG v;
       UBYTE *qend;
-      double dv;
+      LONG cv;
+      if(p[3]=='a' || p[3]=='A')
+      {  hasalpha=TRUE;
+         q=(UBYTE *)p+4;
+      }
+      else q=(UBYTE *)p+3;
       while(*q==' '||*q=='\t') q++;
       if(*q!='(') { *enabled=FALSE; return FALSE; }
       q++;
@@ -451,15 +549,43 @@ static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled)
          while(*q==' '||*q=='\t') q++;
          if(*q=='%') { ispct=TRUE; q++; }
          while(*q==' '||*q=='\t'||*q==',') q++;
-         /* Convert via double to avoid 32-bit overflow for percents
-          * outside 0..100% and for fractional component inputs. */
-         dv=(double)v/65536.0;
-         if(ispct) dv=dv*255.0/100.0;
-         if(dv<0.0) dv=0.0;
-         if(dv>255.0) dv=255.0;
-         c[i]=(LONG)dv;
+         /* v is 16.16.  Avoid double here; SAS/C's float path pulls in
+          * runtime exit/check-break support that plugins do not link. */
+         if(v<=0) cv=0;
+         else if(ispct)
+         {  if(v>=(100L<<16)) cv=255;
+            else cv=(v*255)/(100L<<16);
+         }
+         else
+         {  if(v>=(255L<<16)) cv=255;
+            else cv=v>>16;
+         }
+         c[i]=cv;
       }
       *rgb=((ULONG)c[0]<<16)|((ULONG)c[1]<<8)|((ULONG)c[2]);
+      if(hasalpha)
+      {  LONG a;
+         BOOL apct;
+         v=Parsefixed(&q,qend,&ok);
+         if(!ok)
+         {  if(alpha) *alpha=255;
+            return TRUE;
+         }
+         apct=FALSE;
+         while(*q==' '||*q=='\t') q++;
+         if(*q=='%') { apct=TRUE; q++; }
+         /* Alpha argument is a 0..1 fraction (or 0..100% if explicit). */
+         if(v<=0) a=0;
+         else if(apct)
+         {  if(v>=(100L<<16)) a=255;
+            else a=(v*255)/(100L<<16);
+         }
+         else
+         {  if(v>=(1L<<16)) a=255;
+            else a=(v*255)>>16;
+         }
+         if(alpha) *alpha=(UBYTE)a;
+      }
       return TRUE;
    }
    /* Named colour. */
@@ -555,6 +681,57 @@ static LONG fmul(LONG a, LONG b)
         + (LONG)((al * bl) >> 16);
 }
 
+/* Fixed-point helpers used by transform parsing.
+ *
+ * Avoiding libm is important for this plugin: SAS/C's floating-point
+ * and transcendental paths can drag in sc.lib's Ctrl-C checking unit
+ * (_cxbrk.c), which expects normal C program exit support that an
+ * AWeb plugin does not provide.  These helpers keep rotate() and
+ * skewX/Y() self-contained.
+ */
+static LONG fdivclamp(LONG n, LONG d)
+{  LONG sign=1;
+   LONG q,r;
+   LONG limit=16L<<16;
+   if(d==0) return (n<0) ? -limit : limit;
+   if(n<0) { n=-n; sign=-sign; }
+   if(d<0) { d=-d; sign=-sign; }
+   q=n/d;
+   if(q>=16) return (sign<0) ? -limit : limit;
+   r=n%d;
+   q=(q<<16)+(((r<<8)/d)<<8);
+   return (sign<0) ? -q : q;
+}
+
+/* Approximate sin(degrees) where the input is 16.16 degrees and the
+ * return value is 16.16.  Uses Bhaskara's sine approximation over
+ * 0..180 degrees, exact at 0/90/180 and good enough for SVG
+ * transform attributes. */
+static LONG fsin_deg(LONG angle)
+{  LONG deg;
+   LONG sign=1;
+   LONG x;
+   LONG num,den;
+   deg=(angle+(1L<<15))>>16;
+   deg%=360;
+   if(deg<0) deg+=360;
+   if(deg>180)
+   {  deg-=180;
+      sign=-1;
+   }
+   x=deg;
+   num=4*x*(180-x);
+   den=40500 - x*(180-x);
+   if(den<=0) return 0;
+   x=(num<<16)/den;
+   if(x>0x10000L) x=0x10000L;
+   return (sign<0) ? -x : x;
+}
+
+static LONG fcos_deg(LONG angle)
+{  return fsin_deg(angle+(90L<<16));
+}
+
 /* Compose two matrices: result = M * T (T applied first then M). */
 static void Mcompose(struct Matrix *r, struct Matrix *M, struct Matrix *T)
 {  struct Matrix out;
@@ -615,6 +792,7 @@ static void Parsetransform(const UBYTE *str, struct Matrix *m)
       LONG args[6];
       LONG nargs=0;
       BOOL ok;
+      LONG cs,sn,tn;
       struct Matrix T;
       while(p<end && (*p==' '||*p=='\t'||*p=='\n'||*p=='\r'||*p==',')) p++;
       if(p>=end) break;
@@ -647,14 +825,13 @@ static void Parsetransform(const UBYTE *str, struct Matrix *m)
          }
          else if(kwlen==6 && (kw[0]=='r'||kw[0]=='R'))
          {  /* rotate(angle [, cx, cy]) */
-            double a_rad=(double)args[0]*3.14159265358979323846/180.0/65536.0;
-            double cs=cos(a_rad);
-            double sn=sin(a_rad);
+            cs=fcos_deg(args[0]);
+            sn=fsin_deg(args[0]);
             Midentity(&T);
-            T.a=(LONG)(cs*65536.0);
-            T.b=(LONG)(sn*65536.0);
-            T.c=(LONG)(-sn*65536.0);
-            T.d=(LONG)(cs*65536.0);
+            T.a=cs;
+            T.b=sn;
+            T.c=-sn;
+            T.d=cs;
             if(nargs>=3)
             {  struct Matrix Tt;
                Midentity(&Tt);
@@ -678,11 +855,12 @@ static void Parsetransform(const UBYTE *str, struct Matrix *m)
          }
          else if(kwlen==5 && (kw[0]=='s'||kw[0]=='S') && (kw[1]=='k'||kw[1]=='K'))
          {  /* skewX/skewY */
-            double a_rad=(double)args[0]*3.14159265358979323846/180.0/65536.0;
-            double tn=tan(a_rad);
+            cs=fcos_deg(args[0]);
+            sn=fsin_deg(args[0]);
+            tn=fdivclamp(sn,cs);
             Midentity(&T);
-            if(kw[4]=='X' || kw[4]=='x') T.c=(LONG)(tn*65536.0);
-            else                         T.b=(LONG)(tn*65536.0);
+            if(kw[4]=='X' || kw[4]=='x') T.c=tn;
+            else                         T.b=tn;
             Mcompose(m,m,&T);
          }
       }
@@ -1561,7 +1739,228 @@ done:
 }
 
 /*--------------------------------------------------------------------*/
-/* Style frame helpers                                                */
+/* Paint server resolution (gradients reduced to a solid colour)      */
+/*--------------------------------------------------------------------*/
+
+/* Context passed to the style-attribute callback while walking a
+ * single <stop> element.  We accumulate the colour and opacity from
+ * either presentation attributes or the in-line style="..." until
+ * we've seen them all. */
+struct GradstopCtx
+{  ULONG rgb;
+   UBYTE alpha;
+   BOOL enabled;
+};
+
+static void Gradstoppair(UBYTE *key, UBYTE *value, void *u)
+{  struct GradstopCtx *ctx=(struct GradstopCtx *)u;
+   if(strieq(key,"stop-color"))
+   {  ULONG rgb;
+      BOOL enabled;
+      UBYTE a=255;
+      if(Parsecolor(value,&rgb,&enabled,&a) && enabled)
+      {  ctx->rgb=rgb;
+         ctx->enabled=TRUE;
+         /* rgba()-embedded alpha is rare on stops but honour it. */
+         if(a<ctx->alpha) ctx->alpha=a;
+      }
+   }
+   else if(strieq(key,"stop-opacity"))
+   {  ctx->alpha=Parsealphaval(value);
+   }
+}
+
+/* Compute the alpha-weighted average colour of a gradient's <stop>
+ * children, recursing through xlink:href to inherit stops from
+ * another gradient if this one has none of its own (the Inkscape
+ * idiom is to put the actual stops on a base gradient and then have
+ * a series of derived gradients that only override the geometry).
+ *
+ * Real gradient interpolation would require per-pixel maths in the
+ * rasteriser, which is far too expensive for our target hardware.
+ * The averaged colour is a much better fallback than the black the
+ * caller would otherwise pick, and for most paintings the picked
+ * colour is visually recognisable. */
+static BOOL Gradaverage(struct Decoder *dec, struct XmlNode *grad,
+   ULONG *rgb_out, UBYTE *alpha_out, LONG depth)
+{  struct XmlNode *child;
+   ULONG sumR=0,sumG=0,sumB=0;
+   ULONG sumA=0;
+   LONG cnt=0;
+   if(!grad || depth>=GRAD_MAX_DEPTH) return FALSE;
+   for(child=grad->firstchild; child; child=child->nextsibling)
+   {  struct GradstopCtx sctx;
+      UBYTE *v;
+      if(child->type!=XMLN_ELEMENT) continue;
+      if(!XmlNameIs(child,"stop")) continue;
+      sctx.rgb=0;
+      sctx.alpha=255;
+      sctx.enabled=FALSE;
+      v=XmlAttrValue(child,"stop-color");
+      if(v)
+      {  ULONG rgb;
+         BOOL en;
+         UBYTE a=255;
+         if(Parsecolor(v,&rgb,&en,&a) && en)
+         {  sctx.rgb=rgb;
+            sctx.enabled=TRUE;
+            if(a<sctx.alpha) sctx.alpha=a;
+         }
+      }
+      v=XmlAttrValue(child,"stop-opacity");
+      if(v) sctx.alpha=Parsealphaval(v);
+      v=XmlAttrValue(child,"style");
+      if(v) Parsestyle(v,Gradstoppair,&sctx);
+      if(sctx.enabled)
+      {  ULONG a=sctx.alpha;
+         sumR += ((sctx.rgb>>16)&0xff) * a;
+         sumG += ((sctx.rgb>>8)&0xff) * a;
+         sumB += (sctx.rgb&0xff) * a;
+         sumA += a;
+         cnt++;
+      }
+   }
+   if(cnt==0)
+   {  /* Inherit stops via xlink:href, if any. */
+      UBYTE *idref=Resolvehref(grad);
+      if(idref)
+      {  struct XmlNode *target=Findid(dec,idref);
+         if(target && (XmlNameIs(target,"linearGradient")
+                    || XmlNameIs(target,"radialGradient")))
+         {  return Gradaverage(dec,target,rgb_out,alpha_out,depth+1);
+         }
+      }
+      return FALSE;
+   }
+   {  LONG R,G,B,A;
+      if(sumA==0)
+      {  R=G=B=0;
+      }
+      else
+      {  R=sumR/sumA;
+         G=sumG/sumA;
+         B=sumB/sumA;
+      }
+      A=sumA/cnt;                 /* mean stop opacity */
+      if(R>255) R=255;
+      if(G>255) G=255;
+      if(B>255) B=255;
+      if(A>255) A=255;
+      *rgb_out=((ULONG)R<<16)|((ULONG)G<<8)|(ULONG)B;
+      *alpha_out=(UBYTE)A;
+   }
+   return TRUE;
+}
+
+/* If `value` begins with "url(#id)", lookup the referenced node and,
+ * provided it is a linearGradient or radialGradient, fill in *rgb_out
+ * and *alpha_out from its cached average colour (computing the cache
+ * on first reference).  Returns the address of the first character
+ * past the closing ')' so the caller can parse a fallback colour from
+ * the remainder of the value if we couldn't resolve the URL.
+ * Returns NULL if `value` is not a url(...) reference at all. */
+static UBYTE *Lookupgradient(struct Decoder *dec, UBYTE *value,
+   ULONG *rgb_out, UBYTE *alpha_out, BOOL *resolved_out)
+{  UBYTE *p,*idstart,*idend;
+   UBYTE save;
+   struct Iddef *iddef;
+   *resolved_out=FALSE;
+   if(!value) return NULL;
+   p=value;
+   while(*p==' '||*p=='\t') p++;
+   if(p[0]!='u' && p[0]!='U') return NULL;
+   if(p[1]!='r' && p[1]!='R') return NULL;
+   if(p[2]!='l' && p[2]!='L') return NULL;
+   p+=3;
+   while(*p==' '||*p=='\t') p++;
+   if(*p!='(') return NULL;
+   p++;
+   while(*p==' '||*p=='\t') p++;
+   if(*p=='\'' || *p=='"') p++;
+   if(*p!='#') return NULL;
+   p++;
+   idstart=p;
+   while(*p && *p!=')' && *p!='\'' && *p!='"' && *p!=' ' && *p!='\t') p++;
+   idend=p;
+   /* Skip past closing quote / paren so the caller can parse a
+    * fallback colour from whatever follows. */
+   while(*p && *p!=')') p++;
+   if(*p==')') p++;
+   /* Temporarily NUL-terminate the id so the existing string
+    * comparator in Findid_iddef works.  The buffer we are slicing
+    * into is owned by the decoder so a transient modification is
+    * safe even on re-entry. */
+   if(idstart>=idend) return p;
+   save=*idend;
+   *idend=0;
+   iddef=Findid_iddef(dec,idstart);
+   *idend=save;
+   if(!iddef) return p;
+   if(iddef->grad_state==0)
+   {  /* Compute on first reference and cache. */
+      if(iddef->node
+      && (XmlNameIs(iddef->node,"linearGradient")
+       || XmlNameIs(iddef->node,"radialGradient")))
+      {  ULONG rgb;
+         UBYTE a;
+         if(Gradaverage(dec,iddef->node,&rgb,&a,0))
+         {  iddef->grad_rgb=rgb;
+            iddef->grad_alpha=a;
+            iddef->grad_state=1;
+         }
+         else iddef->grad_state=2;
+      }
+      else iddef->grad_state=2;
+   }
+   if(iddef->grad_state==1)
+   {  *rgb_out=iddef->grad_rgb;
+      *alpha_out=iddef->grad_alpha;
+      *resolved_out=TRUE;
+   }
+   return p;
+}
+
+/* Resolve an SVG paint value (the right-hand side of a fill or stroke
+ * declaration) into a single 0xRRGGBB colour with a 0..255 alpha.
+ *
+ * Handles:
+ *   - "none" / "transparent"   sets *enabled=FALSE
+ *   - "url(#id) fallback"      tries the gradient, falls back to the
+ *                              trailing colour spec if the lookup fails
+ *   - everything Parsecolor accepts
+ *
+ * Returns TRUE if the value was a recognised paint expression
+ * (regardless of whether it ended up enabled).  Returns FALSE only
+ * for unrecognised values, in which case the caller should leave its
+ * previous paint untouched. */
+static BOOL Resolvepaint(struct Decoder *dec, UBYTE *value,
+   ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out)
+{  BOOL resolved=FALSE;
+   UBYTE *tail;
+   *alpha_out=255;
+   if(!value) { *enabled_out=FALSE; return FALSE; }
+   tail=Lookupgradient(dec,value,rgb_out,alpha_out,&resolved);
+   if(resolved)
+   {  *enabled_out=(*alpha_out>0);
+      return TRUE;
+   }
+   if(tail)
+   {  /* We saw a url(...) but couldn't resolve it.  Try whatever
+       * follows it as a paint fallback. */
+      while(*tail==' '||*tail=='\t') tail++;
+      if(*tail)
+         return Parsecolor(tail,rgb_out,enabled_out,alpha_out);
+      /* No fallback supplied - treat as none so we don't paint a
+       * black blob where the author expected a gradient. */
+      *enabled_out=FALSE;
+      *alpha_out=0;
+      return TRUE;
+   }
+   return Parsecolor(value,rgb_out,enabled_out,alpha_out);
+}
+
+/*--------------------------------------------------------------------*/
+/* Style application                                                  */
 /*--------------------------------------------------------------------*/
 
 struct StyleCtx
@@ -1569,33 +1968,51 @@ struct StyleCtx
    struct Renderstate *rs;
 };
 
+static void Applyfill(struct Decoder *dec, struct Renderstate *rs, UBYTE *value)
+{  ULONG rgb;
+   UBYTE alpha;
+   BOOL enabled;
+   if(!Resolvepaint(dec,value,&rgb,&alpha,&enabled)) return;
+   rs->fillvalid=enabled;
+   rs->fill_color_alpha=alpha;
+   if(enabled)
+   {  rs->fillrgb=rgb;
+      rs->fillpen=Getpen(dec,rgb);
+   }
+}
+
+static void Applystroke(struct Decoder *dec, struct Renderstate *rs, UBYTE *value)
+{  ULONG rgb;
+   UBYTE alpha;
+   BOOL enabled;
+   if(!Resolvepaint(dec,value,&rgb,&alpha,&enabled)) return;
+   rs->strokevalid=enabled;
+   rs->stroke_color_alpha=alpha;
+   if(enabled)
+   {  rs->strokergb=rgb;
+      rs->strokepen=Getpen(dec,rgb);
+   }
+}
+
 static void Stylepair(UBYTE *key, UBYTE *value, void *u)
 {  struct StyleCtx *ctx=(struct StyleCtx *)u;
-   ULONG rgb;
-   BOOL enabled;
    if(strieq(key,"fill"))
-   {  if(Parsecolor(value,&rgb,&enabled))
-      {  ctx->rs->fillvalid=enabled;
-         if(enabled)
-         {  ctx->rs->fillrgb=rgb;
-            ctx->rs->fillpen=Getpen(ctx->dec,rgb);
-         }
-      }
-      else
-      {  ctx->rs->fillvalid=FALSE;
-      }
+   {  Applyfill(ctx->dec,ctx->rs,value);
    }
    else if(strieq(key,"stroke"))
-   {  if(Parsecolor(value,&rgb,&enabled))
-      {  ctx->rs->strokevalid=enabled;
-         if(enabled)
-         {  ctx->rs->strokergb=rgb;
-            ctx->rs->strokepen=Getpen(ctx->dec,rgb);
-         }
-      }
-      else
-      {  ctx->rs->strokevalid=FALSE;
-      }
+   {  Applystroke(ctx->dec,ctx->rs,value);
+   }
+   else if(strieq(key,"opacity"))
+   {  /* `opacity` cascades down by multiplication: a transparent group
+       * makes every descendant paint that much more see-through. */
+      ctx->rs->element_opacity=Combinealpha(ctx->rs->element_opacity,
+         Parsealphaval(value));
+   }
+   else if(strieq(key,"fill-opacity"))
+   {  ctx->rs->fill_opacity=Parsealphaval(value);
+   }
+   else if(strieq(key,"stroke-opacity"))
+   {  ctx->rs->stroke_opacity=Parsealphaval(value);
    }
    else if(strieq(key,"stroke-width"))
    {  UBYTE *p=value;
@@ -1619,27 +2036,24 @@ static void Stylepair(UBYTE *key, UBYTE *value, void *u)
    }
 }
 
-/* Read fill/stroke/style from a node and update the render state. */
+/* Read fill/stroke/style from a node and update the render state.
+ *
+ * Order matters: presentation attributes (`fill="..."`) are applied
+ * first, then the in-line style="..." overrides them.  This matches
+ * SVG's CSS-precedence rules well enough for the documents we
+ * actually encounter. */
 static void Applystyle(struct Decoder *dec, struct XmlNode *node, struct Renderstate *rs)
 {  UBYTE *v;
-   ULONG rgb;
-   BOOL enabled;
    v=XmlAttrValue(node,"fill");
-   if(v && Parsecolor(v,&rgb,&enabled))
-   {  rs->fillvalid=enabled;
-      if(enabled)
-      {  rs->fillrgb=rgb;
-         rs->fillpen=Getpen(dec,rgb);
-      }
-   }
+   if(v) Applyfill(dec,rs,v);
    v=XmlAttrValue(node,"stroke");
-   if(v && Parsecolor(v,&rgb,&enabled))
-   {  rs->strokevalid=enabled;
-      if(enabled)
-      {  rs->strokergb=rgb;
-         rs->strokepen=Getpen(dec,rgb);
-      }
-   }
+   if(v) Applystroke(dec,rs,v);
+   v=XmlAttrValue(node,"opacity");
+   if(v) rs->element_opacity=Combinealpha(rs->element_opacity,Parsealphaval(v));
+   v=XmlAttrValue(node,"fill-opacity");
+   if(v) rs->fill_opacity=Parsealphaval(v);
+   v=XmlAttrValue(node,"stroke-opacity");
+   if(v) rs->stroke_opacity=Parsealphaval(v);
    v=XmlAttrValue(node,"stroke-width");
    if(v)
    {  UBYTE *p=v;
@@ -1892,6 +2306,9 @@ static void Indexids(struct Decoder *dec, struct XmlNode *node)
          if(e)
          {  e->id=id;
             e->node=node;
+            e->grad_rgb=0;
+            e->grad_alpha=0;
+            e->grad_state=0;
             e->next=dec->idtable[h];
             dec->idtable[h]=e;
          }
@@ -1901,15 +2318,23 @@ static void Indexids(struct Decoder *dec, struct XmlNode *node)
       Indexids(dec,child);
 }
 
-/* Look up a node by id.  Returns NULL if not found. */
-static struct XmlNode *Findid(struct Decoder *dec, const UBYTE *id)
+/* Look up an Iddef by id.  Returns NULL if not found.  Used by both
+ * Findid (which returns just the node) and the gradient resolver
+ * (which also reads/writes the cached average colour). */
+static struct Iddef *Findid_iddef(struct Decoder *dec, const UBYTE *id)
 {  struct Iddef *e;
    ULONG h;
    if(!id || !*id) return NULL;
    h=Hashid(id);
    for(e=dec->idtable[h];e;e=e->next)
-      if(Streq(e->id,id)) return e->node;
+      if(Streq(e->id,id)) return e;
    return NULL;
+}
+
+/* Look up a node by id.  Returns NULL if not found. */
+static struct XmlNode *Findid(struct Decoder *dec, const UBYTE *id)
+{  struct Iddef *e=Findid_iddef(dec,id);
+   return e ? e->node : NULL;
 }
 
 /* Resolve a "#id" reference.  Returns the bare id (after stripping the
@@ -1971,11 +2396,24 @@ static void Renderuse(struct Decoder *dec, struct XmlNode *node, struct Renderst
 
 static void Renderelement(struct Decoder *dec, struct XmlNode *node, struct Renderstate *parent)
 {  struct Renderstate rs;
+   UBYTE feff,seff;
    if(!node || node->type!=XMLN_ELEMENT) return;
    rs=*parent;
    Applytransform(node,&rs);
    Applystyle(dec,node,&rs);
    if(!rs.visible) return;     /* display:none */
+
+   /* Combine the three opacity sources into a single effective alpha
+    * per channel and gate the paint flags.  We do not blend; below
+    * threshold we simply skip the drawing call.  This is a cheap
+    * proxy for real compositing that turns near-transparent shapes
+    * into a no-op rather than painting them as if they were opaque. */
+   feff=Combinealpha(rs.fill_color_alpha,rs.fill_opacity);
+   feff=Combinealpha(feff,rs.element_opacity);
+   if(feff<ALPHA_SKIP) rs.fillvalid=FALSE;
+   seff=Combinealpha(rs.stroke_color_alpha,rs.stroke_opacity);
+   seff=Combinealpha(seff,rs.element_opacity);
+   if(seff<ALPHA_SKIP) rs.strokevalid=FALSE;
 
    if(XmlNameIs(node,"g") || XmlNameIs(node,"svg") || XmlNameIs(node,"a"))
    {  struct XmlNode *child;
@@ -2010,6 +2448,8 @@ static void Setupviewport(struct Decoder *dec, struct XmlNode *root,
    BOOL havevb=FALSE;
    UBYTE *vbstr;
    LONG w,h;
+   LONG sx,sy;
+   LONG vbwu,vbhu;
 
    svgw=Numattr(root,"width",0);
    svgh=Numattr(root,"height",0);
@@ -2027,10 +2467,31 @@ static void Setupviewport(struct Decoder *dec, struct XmlNode *root,
       if(ok && vbw>0 && vbh>0) havevb=TRUE;
    }
 
+   /* Fill in missing root dimensions.
+    *
+    * Order of preference, matching SVG 1.1 spec section 7.10 as
+    * closely as is feasible without a real CSS layout engine:
+    *  1) An explicit value on the <svg> element wins.
+    *  2) If a viewBox is present, its width/height supplies the
+    *     missing dimension (so the rendered raster has the viewBox
+    *     aspect ratio).
+    *  3) If only one of width/height is given and there is no
+    *     viewBox, mirror the present one.  This is what fixes the
+    *     famous Inkscape tiger.svg (height="800", no width, no
+    *     viewBox) - the previous DEFAULT_DIM fallback produced a
+    *     100x800 column that clipped most of the picture.
+    *  4) If both are missing and there is no viewBox, default to a
+    *     3*DEFAULT_DIM square - 300x300 is what most browsers use
+    *     for an SVG with no intrinsic size.  We can't compute a
+    *     content bbox here without doing a full pre-walk of the DOM
+    *     with all transforms applied, which is too expensive to do
+    *     up front. */
    if(svgw<=0 && havevb) svgw=vbw;
    if(svgh<=0 && havevb) svgh=vbh;
-   if(svgw<=0) svgw=DEFAULT_DIM<<16;
-   if(svgh<=0) svgh=DEFAULT_DIM<<16;
+   if(svgw<=0 && svgh>0) svgw=svgh;
+   if(svgh<=0 && svgw>0) svgh=svgw;
+   if(svgw<=0) svgw=(DEFAULT_DIM*3)<<16;
+   if(svgh<=0) svgh=(DEFAULT_DIM*3)<<16;
 
    w=svgw>>16;
    h=svgh>>16;
@@ -2038,13 +2499,13 @@ static void Setupviewport(struct Decoder *dec, struct XmlNode *root,
    if(h<=0) h=DEFAULT_DIM;
    if(w>MAX_BITMAP_DIM)
    {  /* Preserve aspect ratio when clamping. */
-      LONG nh=(LONG)(((double)h*(double)MAX_BITMAP_DIM)/(double)w);
+      LONG nh=(h*MAX_BITMAP_DIM + (w/2))/w;
       if(nh<1) nh=1;
       w=MAX_BITMAP_DIM;
       h=nh;
    }
    if(h>MAX_BITMAP_DIM)
-   {  LONG nw=(LONG)(((double)w*(double)MAX_BITMAP_DIM)/(double)h);
+   {  LONG nw=(w*MAX_BITMAP_DIM + (h/2))/h;
       if(nw<1) nw=1;
       h=MAX_BITMAP_DIM;
       w=nw;
@@ -2055,20 +2516,16 @@ static void Setupviewport(struct Decoder *dec, struct XmlNode *root,
    Midentity(initial);
    if(havevb)
    {  /* Map (vbx,vby)..(vbx+vbw,vby+vbh) to (0,0)..(w,h).
-       * Use double through the divide to avoid trouble with
-       * sub-unit viewBox dimensions (which underflow 16.16). */
-      double dvbw=(double)vbw/65536.0;
-      double dvbh=(double)vbh/65536.0;
-      double sxf,syf;
-      LONG sx,sy;
-      if(dvbw<1.0/65536.0) dvbw=1.0;
-      if(dvbh<1.0/65536.0) dvbh=1.0;
-      sxf=((double)w/dvbw)*65536.0;
-      syf=((double)h/dvbh)*65536.0;
-      if(sxf>2147483000.0) sxf=2147483000.0;
-      if(syf>2147483000.0) syf=2147483000.0;
-      sx=(LONG)sxf;
-      sy=(LONG)syf;
+       * Keep this integer-only to avoid pulling in the SAS/C floating
+       * point runtime.  Fractional viewBox dimensions are rounded to
+       * the nearest user unit; that is acceptable for real-world SVGs
+       * and avoids fragile plugin link dependencies. */
+      vbwu=(vbw+(1L<<15))>>16;
+      vbhu=(vbh+(1L<<15))>>16;
+      if(vbwu<1) vbwu=1;
+      if(vbhu<1) vbhu=1;
+      sx=(w<<16)/vbwu;
+      sy=(h<<16)/vbhu;
       initial->a=sx;
       initial->d=sy;
       initial->e=-fmul(sx,vbx);
@@ -2248,6 +2705,14 @@ static void Parsertask(void *userdata)
    rs.strokewidth=0x10000L;
    rs.fillrgb=0x000000UL;
    rs.strokergb=0x000000UL;
+   /* Opacity model: everything fully opaque by default so the alpha
+    * gate in Renderelement is a no-op for SVGs that don't bother with
+    * opacity at all. */
+   rs.element_opacity=255;
+   rs.fill_opacity=255;
+   rs.stroke_opacity=255;
+   rs.fill_color_alpha=255;
+   rs.stroke_color_alpha=255;
    /* Resolve default black pen up front so primitives without
     * explicit fill don't trigger a per-call ObtainBestPen. */
    rs.fillpen=Getpen(&dec,0x000000UL);
