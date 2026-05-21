@@ -86,7 +86,6 @@ extern long Updatetaskattrs(ULONG tag,...);
  * across the shape.  Keep this <=16384 because the in-struct capacity
  * counter is a WORD and capacity*2 must not overflow. */
 #define POLY_MAX_VERTS     8192
-#define BEZIER_SUBDIV      16
 
 #define DECOF_P96MAP       0x0004
 #define DECOF_P96DEEP      0x0008
@@ -194,6 +193,7 @@ struct Decoder
    UBYTE *chunky;              /* R8G8B8 row scratch for p96WritePixelArray */
    long chunkybpr;
    struct RenderInfo ri;
+   short currentpen;           /* last SetAPen value, -1 if unset */
 };
 
 #define DECOF_STOP         0x0001
@@ -483,6 +483,17 @@ static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled)
 /* Convert 0..255 byte to RGB() macro form used by ObtainBestPen. */
 #define RGBEXP(b) (((ULONG)(b)<<24)|((ULONG)(b)<<16)|((ULONG)(b)<<8)|(ULONG)(b))
 
+/* SetAPen wrapper: skips the call entirely on P96 deep (we paint
+ * via the chunky buffer there, no pen state needed) and otherwise
+ * elides duplicates so a long run of same-coloured shapes only ever
+ * pokes the rastport once. */
+static void Setpen(struct Decoder *dec, UBYTE pen)
+{  if(dec->decflags&DECOF_P96DEEP) return;
+   if(dec->currentpen==(short)pen) return;
+   SetAPen(&dec->rp,pen);
+   dec->currentpen=(short)pen;
+}
+
 /* Obtain a screen pen for the given 0xRRGGBB colour.  The pen is
  * tracked in source->allocated so Disposesource releases it later.
  * Returns the pen number; on failure returns 0 (background pen).
@@ -519,15 +530,29 @@ static void Midentity(struct Matrix *m)
 {  m->a=0x10000L; m->b=0; m->c=0; m->d=0x10000L; m->e=0; m->f=0;
 }
 
-/* Fixed-point multiply: (a*b) >> 16 with 64-bit intermediate to avoid
- * overflow.  Inputs are 16.16, result is 16.16. */
+/* Fixed-point multiply: returns (a*b) >> 16.  Inputs are 16.16,
+ * result is 16.16.  Uses only 32-bit signed multiplication so the
+ * 68020 MULS.L instruction handles each partial product in one go -
+ * the previous implementation pulled in scm881.lib's double math,
+ * which is fine for a one-shot parser routine but disastrous when
+ * called inside the bezier sampler and matrix transform loops.
+ *
+ * Decomposition: a = ah*2^16 + al, b = bh*2^16 + bl.  Then
+ *   (a*b) >> 16 = ah*bh*2^16 + ah*bl + al*bh + (al*bl) >> 16.
+ *
+ * ah,bh are signed; al,bl are unsigned 16-bit halves so the mid
+ * products keep their sign correctly when one operand is negative. */
 static LONG fmul(LONG a, LONG b)
-{  double da=(double)a;
-   double db=(double)b;
-   double dr=(da*db)/65536.0;
-   if(dr>2147483647.0) return 2147483647L;
-   if(dr<-2147483648.0) return -2147483647L-1L;
-   return (LONG)dr;
+{  LONG  ah,bh;
+   ULONG al,bl;
+   ah = a >> 16;
+   bh = b >> 16;
+   al = (ULONG)a & 0xffffUL;
+   bl = (ULONG)b & 0xffffUL;
+   return ((ah * bh) << 16)
+        + ah * (LONG)bl
+        + (LONG)al * bh
+        + (LONG)((al * bl) >> 16);
 }
 
 /* Compose two matrices: result = M * T (T applied first then M). */
@@ -543,12 +568,37 @@ static void Mcompose(struct Matrix *r, struct Matrix *M, struct Matrix *T)
 }
 
 /* Transform an SVG point (16.16) to raster pixel (integer).
- * Returns raster-pixel coordinates. */
+ * Returns raster-pixel coordinates.  Fast-path: when the matrix
+ * has no rotation/skew components (b==c==0, the overwhelmingly
+ * common case for viewBox scaling + group translates) we skip two
+ * of the four multiplies. */
 static void Mxform(struct Matrix *M, LONG x, LONG y, LONG *rx, LONG *ry)
-{  LONG nx=fmul(M->a,x) + fmul(M->c,y) + M->e;
-   LONG ny=fmul(M->b,x) + fmul(M->d,y) + M->f;
+{  LONG nx,ny;
+   if(M->b==0 && M->c==0)
+   {  nx = fmul(M->a,x) + M->e;
+      ny = fmul(M->d,y) + M->f;
+   }
+   else
+   {  nx = fmul(M->a,x) + fmul(M->c,y) + M->e;
+      ny = fmul(M->b,x) + fmul(M->d,y) + M->f;
+   }
    *rx=nx>>16;
    *ry=ny>>16;
+}
+
+/* Transform an SVG point but return the raster coordinate in 16.16
+ * (i.e. without the final >>16 shift).  Used by the bezier sampler
+ * so it can subdivide in actual raster space with sub-pixel
+ * precision and stop as soon as the chord is flat enough. */
+static void Mxform_raw(struct Matrix *M, LONG x, LONG y, LONG *rx, LONG *ry)
+{  if(M->b==0 && M->c==0)
+   {  *rx = fmul(M->a,x) + M->e;
+      *ry = fmul(M->d,y) + M->f;
+   }
+   else
+   {  *rx = fmul(M->a,x) + fmul(M->c,y) + M->e;
+      *ry = fmul(M->b,x) + fmul(M->d,y) + M->f;
+   }
 }
 
 /* Parse an SVG transform attribute like
@@ -696,13 +746,17 @@ static LONG Clip(LONG v, LONG lo, LONG hi)
    return v;
 }
 
-/* Write one horizontal span in 0xRRGGBB.  On palette bitmaps this uses
- * RectFill with the current pen (caller must SetAPen first).  On
- * Picasso96 deep surfaces we blast true RGB via p96WritePixelArray. */
+/* Write one horizontal span.  On Picasso96 deep we write directly
+ * into the per-decoder R8G8B8 framebuffer; the whole frame is blitted
+ * to the bitmap in one shot at the end of Parsertask.  On palette
+ * bitmaps we go through graphics.library RectFill which the caller
+ * has primed with SetAPen.  Avoiding the per-span p96WritePixelArray
+ * round-trip is the single biggest win for SVG render time on RTG. */
 static void Fillspan_rgb(struct Decoder *dec, LONG x0, LONG x1, LONG y, ULONG rgb)
 {  LONG w;
    LONG i;
    UBYTE *p;
+   UBYTE r,g,b;
    if(x0>x1) return;
    if(y<0 || y>=dec->bmh) return;
    if(x0<0) x0=0;
@@ -710,15 +764,14 @@ static void Fillspan_rgb(struct Decoder *dec, LONG x0, LONG x1, LONG y, ULONG rg
    w=x1-x0+1;
    if(w<=0) return;
    if(dec->decflags&DECOF_P96DEEP)
-   {  p=dec->chunky;
+   {  r=(UBYTE)((rgb>>16)&0xff);
+      g=(UBYTE)((rgb>>8)&0xff);
+      b=(UBYTE)(rgb&0xff);
+      p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x0*3UL;
       for(i=0;i<w;i++)
-      {  p[(ULONG)i*3+0]=(UBYTE)((rgb>>16)&0xff);
-         p[(ULONG)i*3+1]=(UBYTE)((rgb>>8)&0xff);
-         p[(ULONG)i*3+2]=(UBYTE)(rgb&0xff);
+      {  p[0]=r; p[1]=g; p[2]=b;
+         p+=3;
       }
-      dec->ri.BytesPerRow=w*3;
-      p96WritePixelArray(&dec->ri,0,0,&dec->rp,x0,y,w,1);
-      dec->ri.BytesPerRow=dec->chunkybpr;
    }
    else
    {  RectFill(&dec->rp,x0,y,x1,y);
@@ -729,13 +782,10 @@ static void Plotpixel_rgb(struct Decoder *dec, LONG x, LONG y, ULONG rgb)
 {  UBYTE *p;
    if(x<0 || x>=dec->bmw || y<0 || y>=dec->bmh) return;
    if(dec->decflags&DECOF_P96DEEP)
-   {  p=dec->chunky;
+   {  p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x*3UL;
       p[0]=(UBYTE)((rgb>>16)&0xff);
       p[1]=(UBYTE)((rgb>>8)&0xff);
       p[2]=(UBYTE)(rgb&0xff);
-      dec->ri.BytesPerRow=3;
-      p96WritePixelArray(&dec->ri,0,0,&dec->rp,x,y,1,1);
-      dec->ri.BytesPerRow=dec->chunkybpr;
    }
    else
    {  WritePixel(&dec->rp,x,y);
@@ -1064,15 +1114,10 @@ static void Pathreset(struct Pathemit *pe)
    pe->truncated=FALSE;
 }
 
-static void Pathemitpt(struct Pathemit *pe, LONG svgx, LONG svgy)
-{  LONG rx,ry;
-   if(pe->count>=POLY_MAX_VERTS) { pe->truncated=TRUE; return; }
-   Mxform(pe->M,svgx,svgy,&rx,&ry);
-   /* Drop consecutive duplicate raster vertices.  Bezier subdivision
-    * generates 16 samples per curve; many adjacent samples land on the
-    * same integer pixel after Mxform, especially on small or nearly
-    * straight curves.  Coalescing them keeps the polygon below the
-    * vertex cap on complex maps without changing the rendered shape. */
+/* Append a raster-pixel point to the emitter.  Skips consecutive
+ * duplicates and grows the array on demand. */
+static void Pathemitpt_raster(struct Pathemit *pe, LONG rx, LONG ry)
+{  if(pe->count>=POLY_MAX_VERTS) { pe->truncated=TRUE; return; }
    if(pe->count>0
    && pe->pts[pe->count-1].x==rx
    && pe->pts[pe->count-1].y==ry) return;
@@ -1091,6 +1136,13 @@ static void Pathemitpt(struct Pathemit *pe, LONG svgx, LONG svgy)
    pe->count++;
 }
 
+/* Transform an SVG point and append it. */
+static void Pathemitpt(struct Pathemit *pe, LONG svgx, LONG svgy)
+{  LONG rx,ry;
+   Mxform(pe->M,svgx,svgy,&rx,&ry);
+   Pathemitpt_raster(pe,rx,ry);
+}
+
 /* Flush the current subpath, stroking or filling as needed. */
 static void Pathflush(struct Pathemit *pe, BOOL closepath)
 {  BOOL doclose;
@@ -1100,14 +1152,12 @@ static void Pathflush(struct Pathemit *pe, BOOL closepath)
    doclose=closepath;
    if(pe->truncated) doclose=FALSE;
    if(pe->rs->fillvalid && doclose && pe->count>=3)
-   {  if(!(pe->dec->decflags&DECOF_P96DEEP))
-         SetAPen(&pe->dec->rp,pe->rs->fillpen);
+   {  Setpen(pe->dec,pe->rs->fillpen);
       Drawpolygon_fill(pe->dec,pe->pts,pe->count,pe->rs->fillrgb);
    }
    if(pe->rs->strokevalid)
    {  WORD i;
-      if(!(pe->dec->decflags&DECOF_P96DEEP))
-         SetAPen(&pe->dec->rp,pe->rs->strokepen);
+      Setpen(pe->dec,pe->rs->strokepen);
       for(i=1;i<pe->count;i++)
          Drawline(pe->dec,pe->pts[i-1].x,pe->pts[i-1].y,
             pe->pts[i].x,pe->pts[i].y,pe->rs->strokergb);
@@ -1120,45 +1170,112 @@ static void Pathflush(struct Pathemit *pe, BOOL closepath)
    pe->truncated=FALSE;
 }
 
-/* Sample a cubic Bezier from p0..p3 into the path.  We use uniform
- * subdivision at BEZIER_SUBDIV steps - cheap, good enough for icons.
+/* Adaptive de Casteljau subdivision for cubic and quadratic Beziers.
  *
- * B(t) = (1-t)^3 p0 + 3(1-t)^2 t p1 + 3(1-t)t^2 p2 + t^3 p3
- * Done in 16.16 fixed point via fmul to avoid overflow. */
-static void Bezier3(struct Pathemit *pe, LONG x0, LONG y0,
-   LONG x1, LONG y1, LONG x2, LONG y2, LONG x3, LONG y3)
-{  int s;
-   LONG t,mt,mt2,mt3,t2,t3,c1,c2,x,y;
-   for(s=1;s<=BEZIER_SUBDIV;s++)
-   {  t=((LONG)s<<16)/BEZIER_SUBDIV;
-      mt=0x10000L - t;
-      mt2=fmul(mt,mt);
-      mt3=fmul(mt2,mt);
-      t2=fmul(t,t);
-      t3=fmul(t2,t);
-      c1=fmul(3L<<16,fmul(mt2,t));
-      c2=fmul(3L<<16,fmul(mt,t2));
-      x=fmul(mt3,x0)+fmul(c1,x1)+fmul(c2,x2)+fmul(t3,x3);
-      y=fmul(mt3,y0)+fmul(c1,y1)+fmul(c2,y2)+fmul(t3,y3);
-      Pathemitpt(pe,x,y);
-   }
+ * We sample in raster space (16.16 fixed point, the *_raw transform
+ * preserves all 32 bits) so the flatness test directly measures the
+ * deviation in pixels.  Each subdivision step is a small handful of
+ * integer averages - no fmul, no double, no per-sample matrix work.
+ *
+ * Subdivision stops as soon as both control points sit within ~1
+ * pixel of the chord, so smooth long curves emit just a few line
+ * segments while tight bends are sampled more densely.  Depth is
+ * capped at 10 (=> at most 1024 segments per curve) which is far
+ * more than any real SVG icon needs.
+ *
+ * The flatness predicate uses 2*signed-triangle-area = cross
+ * product as a proxy for perpendicular distance times chord
+ * length.  Comparing |cross| <= chord (where chord = |dx|+|dy| is
+ * the L1 norm) is conservative and keeps the math in 32-bit
+ * integers for raster bitmaps up to ~32K x 32K. */
+
+#define BEZIER_MAX_DEPTH   10
+
+static BOOL Cubic_flat(LONG x0,LONG y0, LONG x1,LONG y1,
+   LONG x2,LONG y2, LONG x3,LONG y3)
+{  LONG dx,dy,ux,uy,vx,vy;
+   LONG c1,c2,chord;
+   /* Reduce to integer pixels so cross products fit comfortably in
+    * a signed LONG even for the largest paths we handle. */
+   dx=(x3-x0)>>16;
+   dy=(y3-y0)>>16;
+   ux=(x1-x0)>>16;
+   uy=(y1-y0)>>16;
+   vx=(x2-x0)>>16;
+   vy=(y2-y0)>>16;
+   c1=ux*dy - uy*dx; if(c1<0) c1=-c1;
+   c2=vx*dy - vy*dx; if(c2<0) c2=-c2;
+   chord=(dx<0?-dx:dx)+(dy<0?-dy:dy);
+   if(chord<1) chord=1;
+   return (BOOL)(c1<=chord && c2<=chord);
 }
 
-/* Sample a quadratic Bezier.  Same idea, lower degree. */
+static void Bezier3_rec(struct Pathemit *pe,
+   LONG x0,LONG y0, LONG x1,LONG y1,
+   LONG x2,LONG y2, LONG x3,LONG y3, int depth)
+{  LONG q0x,q0y,q1x,q1y,q2x,q2y;
+   LONG r0x,r0y,r1x,r1y;
+   LONG sx,sy;
+   if(depth>=BEZIER_MAX_DEPTH || Cubic_flat(x0,y0,x1,y1,x2,y2,x3,y3))
+   {  Pathemitpt_raster(pe, x3>>16, y3>>16);
+      return;
+   }
+   q0x=(x0+x1)>>1; q0y=(y0+y1)>>1;
+   q1x=(x1+x2)>>1; q1y=(y1+y2)>>1;
+   q2x=(x2+x3)>>1; q2y=(y2+y3)>>1;
+   r0x=(q0x+q1x)>>1; r0y=(q0y+q1y)>>1;
+   r1x=(q1x+q2x)>>1; r1y=(q1y+q2y)>>1;
+   sx =(r0x+r1x)>>1; sy =(r0y+r1y)>>1;
+   Bezier3_rec(pe,x0,y0,q0x,q0y,r0x,r0y,sx,sy,depth+1);
+   Bezier3_rec(pe,sx,sy,r1x,r1y,q2x,q2y,x3,y3,depth+1);
+}
+
+/* Public entry point for cubics - transforms the four control
+ * points once, then recurses entirely in raster space. */
+static void Bezier3(struct Pathemit *pe, LONG x0, LONG y0,
+   LONG x1, LONG y1, LONG x2, LONG y2, LONG x3, LONG y3)
+{  LONG rx0,ry0,rx1,ry1,rx2,ry2,rx3,ry3;
+   Mxform_raw(pe->M,x0,y0,&rx0,&ry0);
+   Mxform_raw(pe->M,x1,y1,&rx1,&ry1);
+   Mxform_raw(pe->M,x2,y2,&rx2,&ry2);
+   Mxform_raw(pe->M,x3,y3,&rx3,&ry3);
+   Bezier3_rec(pe,rx0,ry0,rx1,ry1,rx2,ry2,rx3,ry3,0);
+}
+
+static BOOL Quad_flat(LONG x0,LONG y0, LONG x1,LONG y1, LONG x2,LONG y2)
+{  LONG dx,dy,ux,uy,c1,chord;
+   dx=(x2-x0)>>16;
+   dy=(y2-y0)>>16;
+   ux=(x1-x0)>>16;
+   uy=(y1-y0)>>16;
+   c1=ux*dy - uy*dx; if(c1<0) c1=-c1;
+   chord=(dx<0?-dx:dx)+(dy<0?-dy:dy);
+   if(chord<1) chord=1;
+   return (BOOL)(c1<=chord);
+}
+
+static void Bezier2_rec(struct Pathemit *pe,
+   LONG x0,LONG y0, LONG x1,LONG y1, LONG x2,LONG y2, int depth)
+{  LONG q0x,q0y,q1x,q1y;
+   LONG sx,sy;
+   if(depth>=BEZIER_MAX_DEPTH || Quad_flat(x0,y0,x1,y1,x2,y2))
+   {  Pathemitpt_raster(pe, x2>>16, y2>>16);
+      return;
+   }
+   q0x=(x0+x1)>>1; q0y=(y0+y1)>>1;
+   q1x=(x1+x2)>>1; q1y=(y1+y2)>>1;
+   sx=(q0x+q1x)>>1; sy=(q0y+q1y)>>1;
+   Bezier2_rec(pe,x0,y0,q0x,q0y,sx,sy,depth+1);
+   Bezier2_rec(pe,sx,sy,q1x,q1y,x2,y2,depth+1);
+}
+
 static void Bezier2(struct Pathemit *pe, LONG x0, LONG y0,
    LONG x1, LONG y1, LONG x2, LONG y2)
-{  int s;
-   LONG t,mt,mt2,t2,c1,x,y;
-   for(s=1;s<=BEZIER_SUBDIV;s++)
-   {  t=((LONG)s<<16)/BEZIER_SUBDIV;
-      mt=0x10000L - t;
-      mt2=fmul(mt,mt);
-      t2=fmul(t,t);
-      c1=fmul(2L<<16,fmul(mt,t));
-      x=fmul(mt2,x0)+fmul(c1,x1)+fmul(t2,x2);
-      y=fmul(mt2,y0)+fmul(c1,y1)+fmul(t2,y2);
-      Pathemitpt(pe,x,y);
-   }
+{  LONG rx0,ry0,rx1,ry1,rx2,ry2;
+   Mxform_raw(pe->M,x0,y0,&rx0,&ry0);
+   Mxform_raw(pe->M,x1,y1,&rx1,&ry1);
+   Mxform_raw(pe->M,x2,y2,&rx2,&ry2);
+   Bezier2_rec(pe,rx0,ry0,rx1,ry1,rx2,ry2,0);
 }
 
 /* Approximate an elliptical arc by a polyline.  We do not implement
@@ -1484,11 +1601,11 @@ static void Renderrect(struct Decoder *dec, struct XmlNode *node, struct Renders
    pts[2].x=x0; pts[2].y=y0;
    pts[3].x=x1; pts[3].y=y1;
    if(rs->fillvalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->fillpen);
+   {  Setpen(dec,rs->fillpen);
       Drawpolygon(dec,pts,4,TRUE,TRUE,rs->fillrgb,rs->strokergb);
    }
    if(rs->strokevalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->strokepen);
+   {  Setpen(dec,rs->strokepen);
       Drawpolygon(dec,pts,4,FALSE,TRUE,rs->fillrgb,rs->strokergb);
    }
 }
@@ -1506,11 +1623,11 @@ static void Rendercircle(struct Decoder *dec, struct XmlNode *node, struct Rende
    if(rr<0) rr=-rr;
    if(rr<=0) return;
    if(rs->fillvalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->fillpen);
+   {  Setpen(dec,rs->fillpen);
       Drawellipse(dec,rcx,rcy,rr,rr,TRUE,rs->fillrgb);
    }
    if(rs->strokevalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->strokepen);
+   {  Setpen(dec,rs->strokepen);
       Drawellipse(dec,rcx,rcy,rr,rr,FALSE,rs->strokergb);
    }
 }
@@ -1530,11 +1647,11 @@ static void Renderellipse(struct Decoder *dec, struct XmlNode *node, struct Rend
    rry=redgey-rcy; if(rry<0) rry=-rry;
    if(rrx<=0 || rry<=0) return;
    if(rs->fillvalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->fillpen);
+   {  Setpen(dec,rs->fillpen);
       Drawellipse(dec,rcx,rcy,rrx,rry,TRUE,rs->fillrgb);
    }
    if(rs->strokevalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->strokepen);
+   {  Setpen(dec,rs->strokepen);
       Drawellipse(dec,rcx,rcy,rrx,rry,FALSE,rs->strokergb);
    }
 }
@@ -1548,7 +1665,7 @@ static void Renderline(struct Decoder *dec, struct XmlNode *node, struct Renders
    if(!rs->strokevalid) return;
    Mxform(&rs->M,x1,y1,&rx1,&ry1);
    Mxform(&rs->M,x2,y2,&rx2,&ry2);
-   if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->strokepen);
+   Setpen(dec,rs->strokepen);
    Drawline(dec,rx1,ry1,rx2,ry2,rs->strokergb);
 }
 
@@ -1561,11 +1678,11 @@ static void Renderpoly(struct Decoder *dec, struct XmlNode *node,
    n=Parsepoints(dec,&rs->M,pts_str,&pts);
    if(n<2) return;
    if(rs->fillvalid && closeit && n>=3)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->fillpen);
+   {  Setpen(dec,rs->fillpen);
       Drawpolygon(dec,pts,n,TRUE,TRUE,rs->fillrgb,rs->strokergb);
    }
    if(rs->strokevalid)
-   {  if(!(dec->decflags&DECOF_P96DEEP)) SetAPen(&dec->rp,rs->strokepen);
+   {  Setpen(dec,rs->strokepen);
       Drawpolygon(dec,pts,n,FALSE,closeit,rs->fillrgb,rs->strokergb);
    }
 }
@@ -1819,6 +1936,7 @@ static void Parsertask(void *userdata)
    long offset;
 
    memset(&dec,0,sizeof(dec));
+   dec.currentpen=-1;
    ss=(struct Svgsource *)userdata;
    if(!ss)
    {  struct Task *t=FindTask(NULL);
@@ -1937,22 +2055,30 @@ static void Parsertask(void *userdata)
    InitRastPort(&dec.rp);
    dec.rp.BitMap=dec.bitmap;
    if(dec.decflags&DECOF_P96DEEP)
-   {  ULONG y;
-      UBYTE *p;
-      dec.chunky=(UBYTE *)AllocVec(bmw*4,MEMF_PUBLIC);
+   {  /* Allocate one R8G8B8 framebuffer for the entire SVG and write
+       * into it directly from every drawing primitive.  At the end
+       * of Parsertask we hand the whole thing to p96WritePixelArray
+       * in a single call - which is the only call into the RTG
+       * driver for the entire frame.  This is dramatically faster
+       * than the previous per-span p96 round-trip, especially on
+       * complex map-class SVGs that issue tens of thousands of
+       * spans.  Memory cost is width*height*3 bytes - well below
+       * the source data budget. */
+      dec.chunkybpr=bmw*3;
+      dec.chunky=(UBYTE *)AllocVec((ULONG)dec.chunkybpr*(ULONG)bmh,MEMF_PUBLIC);
       if(!dec.chunky) goto cleanup;
-      dec.chunkybpr=bmw*4;
+      /* Initialise to white - SVG has no background by default and
+       * sits in a layout cell that is itself painted before us, but
+       * white is what every Inkscape / Wikimedia file expects to
+       * see through the unpainted parts of an icon. */
+      memset(dec.chunky,0xff,(size_t)dec.chunkybpr*(size_t)bmh);
       dec.ri.Memory=dec.chunky;
       dec.ri.BytesPerRow=dec.chunkybpr;
       dec.ri.RGBFormat=RGBFB_R8G8B8;
-      p=dec.chunky;
-      for(y=0;y<(ULONG)bmh;y++)
-      {  memset(p,0,(size_t)bmw*4);
-         p96WritePixelArray(&dec.ri,0,0,&dec.rp,0,(LONG)y,bmw,1);
-      }
    }
    else
-   {  SetAPen(&dec.rp,0);
+   {  dec.currentpen=-1;
+      Setpen(&dec,0);
       RectFill(&dec.rp,0,0,bmw-1,bmh-1);
    }
 
@@ -1980,6 +2106,14 @@ static void Parsertask(void *userdata)
    }
    else
    {  Renderelement(&dec,root,&rs);
+   }
+
+   /* P96 deep: flush the entire R8G8B8 framebuffer to the output
+    * bitmap in a single RTG call.  Every drawing primitive above
+    * wrote straight into dec.chunky, so this is the only time the
+    * Picasso96 driver is touched for the whole frame. */
+   if(dec.decflags&DECOF_P96DEEP)
+   {  p96WritePixelArray(&dec.ri,0,0,&dec.rp,0,0,bmw,bmh);
    }
 
    /* Hand the bitmap to the source object. */
