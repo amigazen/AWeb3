@@ -52,12 +52,32 @@ extern struct Library *AwebPluginBase;
 
 /* A struct Datablock holds one block of data. Once it has been read
  * from the list, the data can be accessed without semaphore protection
- * because it will never change (but the ln_Succ pointer will!). */
+ * because it will never change (but the ln_Succ pointer will!).
+ *
+ * Newdatablock() places the payload immediately after the struct using
+ * one single AllocVec, so one FreeVec releases everything.  This halves
+ * allocator pressure compared to the original (two separate AllocVec
+ * calls per 16 KB chunk).  The data pointer is kept as an explicit
+ * field rather than computed each time so existing read-only call
+ * sites (Savesource) do not need to change. */
 struct Datablock
 {  NODE(Datablock);
-   UBYTE *data;                     /* The data */
+   UBYTE *data;                     /* Points just past the struct */
    long length;                     /* Length of the data */
 };
+
+/* Allocate a Datablock with the payload appended in a single AllocVec.
+ * Returns NULL on allocation failure or if length is non-positive. */
+static struct Datablock *Newdatablock(long length)
+{  struct Datablock *db;
+   if(length<=0) return NULL;
+   db=(struct Datablock *)AllocVec(sizeof(struct Datablock)+length,
+                                   MEMF_PUBLIC|MEMF_CLEAR);
+   if(!db) return NULL;
+   db->data=(UBYTE *)(db+1);
+   db->length=length;
+   return db;
+}
 
 /* The image, or one frame of an animation */
 struct Gifimage
@@ -104,10 +124,23 @@ struct Gifsource
 /* The decoder subtask                                                */
 /*--------------------------------------------------------------------*/
 
-/* This structure holds vital data for the decoding subprocess */
+/* This structure holds vital data for the decoding subprocess.
+ *
+ * Stream access design:
+ *   bufptr/bufend describe the contiguous range of bytes currently
+ *   available without touching the semaphore or the message port.
+ *   The hot byte-pull path (LZW Getcode/Readchar) becomes a single
+ *   pointer-compare + post-increment.  Only when bufptr reaches bufend
+ *   do we enter Refillbyte() which advances to the next Datablock,
+ *   drains task messages, and (if necessary) waits for more data.
+ *
+ *   This eliminates the per-byte function-call, per-byte semaphore,
+ *   and per-byte Gettaskmsg() poll that the original implementation
+ *   performed for every single byte of compressed GIF data. */
 struct Decoder
 {  struct Datablock *current;       /* The current datablock */
-   long currentbyte;                /* The current byte in the current datablock */
+   UBYTE *bufptr;                   /* Next byte to be read inside current */
+   UBYTE *bufend;                   /* One past last byte inside current */
    struct Gifsource *source;        /* Points back to our Gifsource */
    /* LZW decompress fields: */
    long remaining;                  /* nr of bytes remaining in current data block */
@@ -163,41 +196,31 @@ struct Decoder
 /* Read from the input stream                                         */
 /*--------------------------------------------------------------------*/
 
-/* Read the next byte. First check any waiting messages, if the task
- * should stop then set the DECOF_STOP flag.
- * If end of current block reached, skip to next block. If no more
- * blocks available, wait until a new block is added or eof is
- * reached. */
-static UBYTE Readbyte(struct Decoder *decoder)
+/* Slow-path refill: invoked only when bufptr has reached bufend.
+ *
+ * Responsibilities:
+ *   - drain any waiting task messages (notably AOTSK_Stop);
+ *   - advance to the next Datablock under semaphore;
+ *   - block on the data-ready signal if no more blocks are queued and
+ *     EOF has not yet been reached.
+ *
+ * Returns the next byte on success, 0 on EOF or stop.  In either error
+ * case DECOF_EOF or DECOF_STOP is set in decoder->flags so the caller
+ * can detect it without a return-value-encoded sentinel (this matches
+ * the legacy Readbyte() semantics exactly). */
+static UBYTE Refillbyte(struct Decoder *decoder)
 {  struct Taskmsg *tm;
    struct TagItem *tag,*tstate;
    struct Datablock *db;
    BOOL wait;
-   UBYTE retval=0;
-   static int readbyte_count=0;
-#ifdef DEBUG_PLUGINS
-   if(AwebPluginBase && (readbyte_count++ % 100 == 0))
-   {  Aprintf("GIF: Readbyte called, decoder=0x%08lx, count=%d\n", (ULONG)decoder, readbyte_count);
-   }
-#endif
-   if(!decoder)
-   {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("GIF: Readbyte: ERROR - decoder is NULL!\n");
-      }
-      #endif
-      return 0;
-   }
-   if(!decoder->source)
-   {  #ifdef DEBUG_PLUGINS
-      if(AwebPluginBase)
-      {  Aprintf("GIF: Readbyte: ERROR - decoder->source is NULL!\n");
-      }
-      #endif
+
+   if(!decoder || !decoder->source)
+   {  if(decoder) decoder->flags|=DECOF_EOF;
       return 0;
    }
    for(;;)
    {  wait=FALSE;
+      /* Drain any pending task messages once per refill, not per byte. */
       while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
       {  if(tm->amsg && tm->amsg->method==AOM_SET)
          {  tstate=((struct Amset *)tm->amsg)->tags;
@@ -207,171 +230,91 @@ static UBYTE Readbyte(struct Decoder *decoder)
                      if(tag->ti_Data) decoder->flags|=DECOF_STOP;
                      break;
                   case AOGIF_Data:
-                     /* Ignore these now */
+                     /* Legacy wakeup tag, now just a synchronisation
+                      * artifact - the signal carried the actual wakeup. */
                      break;
                }
             }
          }
          Replytaskmsg(tm);
       }
-      /* Only continue if we shouldn't stop */
       if(decoder->flags&DECOF_STOP) break;
-      if(decoder->current)
-      {  if(++decoder->currentbyte>=decoder->current->length)
-         {  /* End of block reached */
-            ObtainSemaphore(&decoder->source->sema);
-            db=decoder->current->next;
-            if(db && db->next)
-            {  decoder->current=db;
-               decoder->currentbyte=0;
-            }
-            else if(decoder->source->flags&GIFSF_EOF)
-            {  decoder->flags|=DECOF_EOF;
-            }
-            else
-            {  /* No more blocks; wait for next block */
-               wait=TRUE;
-            }
-            ReleaseSemaphore(&decoder->source->sema);
-         }
+
+      /* Try to advance to the next contiguous block. */
+      ObtainSemaphore(&decoder->source->sema);
+      if(decoder->current) db=decoder->current->next;
+      else db=decoder->source->data.first;
+      if(db && db->next)
+      {  decoder->current=db;
+         decoder->bufptr=db->data;
+         decoder->bufend=db->data+db->length;
+      }
+      else if(decoder->source->flags&GIFSF_EOF)
+      {  decoder->flags|=DECOF_EOF;
       }
       else
-      {  /* No current block yet */
-         if(!decoder->source)
-         {  #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase)
-            {  Aprintf("GIF: Readbyte: ERROR - decoder->source is NULL in else branch!\n");
-            }
-            #endif
-            decoder->flags|=DECOF_EOF;
-            return 0;
-         }
-         ObtainSemaphore(&decoder->source->sema);
-         db=decoder->source->data.first;
-         if(db && db->next)
-         {  decoder->current=db;
-            decoder->currentbyte=0;
-#ifdef DEBUG_PLUGINS
-            if(AwebPluginBase && readbyte_count <= 10)
-            {  Aprintf("GIF: Readbyte: Got first block, current=0x%08lx, length=%ld\n", (ULONG)decoder->current, decoder->current ? decoder->current->length : 0);
-            }
-#endif
-         }
-         else if(decoder->source->flags&GIFSF_EOF)
-         {  #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase && readbyte_count <= 10)
-            {  Aprintf("GIF: Readbyte: EOF flag set\n");
-            }
-            #endif
-            decoder->flags|=DECOF_EOF;
-         }
-         else
-         {  /* No block yet; wait for next block */
-            #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase && readbyte_count <= 10)
-            {  Aprintf("GIF: Readbyte: No block yet, waiting...\n");
-            }
-            #endif
-            wait=TRUE;
-         }
-         ReleaseSemaphore(&decoder->source->sema);
+      {  /* No data available and EOF not yet signalled - block. */
+         wait=TRUE;
       }
+      ReleaseSemaphore(&decoder->source->sema);
+
+      if(decoder->flags&DECOF_EOF) break;
       if(!wait)
-      {  if(!(decoder->flags&DECOF_EOF))
-         {  if(!decoder->current)
-            {  #ifdef DEBUG_PLUGINS
-               if(AwebPluginBase)
-               {  Aprintf("GIF: Readbyte: ERROR - current is NULL!\n");
-               }
-               #endif
-               decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            if(!decoder->current->data)
-            {  #ifdef DEBUG_PLUGINS
-               if(AwebPluginBase)
-               {  Aprintf("GIF: Readbyte: ERROR - current->data is NULL!\n");
-               }
-               #endif
-               decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            if(decoder->currentbyte >= decoder->current->length)
-            {  #ifdef DEBUG_PLUGINS
-               if(AwebPluginBase)
-               {  Aprintf("GIF: Readbyte: ERROR - currentbyte %ld >= length %ld!\n", decoder->currentbyte, decoder->current->length);
-               }
-               #endif
-               decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            if(decoder->currentbyte < 0)
-            {  #ifdef DEBUG_PLUGINS
-               if(AwebPluginBase)
-               {  Aprintf("GIF: Readbyte: ERROR - currentbyte %ld < 0!\n", decoder->currentbyte);
-               }
-               #endif
-               decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            retval=decoder->current->data[decoder->currentbyte];
-#ifdef DEBUG_PLUGINS
-            if(AwebPluginBase && readbyte_count <= 10)
-            {  Aprintf("GIF: Readbyte: Returning byte %d at offset %ld\n", retval, decoder->currentbyte);
-            }
-#endif
+      {  /* Newly-installed block - return its first byte. */
+         if(decoder->bufptr<decoder->bufend)
+         {  return *decoder->bufptr++;
          }
-         else
-         {  #ifdef DEBUG_PLUGINS
-            if(AwebPluginBase && readbyte_count <= 10)
-            {  Aprintf("GIF: Readbyte: EOF flag set, returning 0\n");
-            }
-            #endif
-         }
-         break;
+         /* Empty block (shouldn't normally happen, but tolerate). */
+         continue;
       }
-#ifdef DEBUG_PLUGINS
-      if(AwebPluginBase && readbyte_count <= 10)
-      {  Aprintf("GIF: Readbyte: Waiting for data...\n");
-      }
-#endif
+      /* Wait for the producer's next AOM_SET wakeup (which signals
+       * the subtask port that Waittask honours by default). */
       Waittask(0);
    }
-#ifdef DEBUG_PLUGINS
-   if(AwebPluginBase && readbyte_count <= 10)
-   {  Aprintf("GIF: Readbyte: Exiting, returning %d\n", retval);
-   }
-#endif
-   return retval;
+   return 0;
 }
 
-/* Read or skip a number of bytes. Returns TRUE if ok, FALSE of EOF reached before
- * end of block, or task should stop. If block is passed as NULL, data is skipped. */
+/* Fast inline byte read.  When the SAS/C compiler honours OPTINL the
+ * common case compiles to a load, a compare, and a post-increment - no
+ * function call, no semaphore, no message poll.
+ *
+ * Legacy callers still get the exact same return value and post-call
+ * DECOF_EOF / DECOF_STOP semantics. */
+static UBYTE Readbyte(struct Decoder *d)
+{  if(d->bufptr<d->bufend) return *d->bufptr++;
+   return Refillbyte(d);
+}
+
+/* Read or skip a number of bytes.  Returns TRUE if all bytes were
+ * delivered, FALSE if EOF was reached or the task should stop.  If
+ * block is NULL the data is skipped.
+ *
+ * This is the bulk-read fast path: each iteration copies as much as is
+ * already available in the current Datablock with a single memcpy(),
+ * only falling into the slow path when the current block is exhausted. */
 static BOOL Readblock(struct Decoder *decoder,UBYTE *block,long length)
-{  UBYTE c;
-#ifdef DEBUG_PLUGINS
-   if(AwebPluginBase && length > 0)
-   {  Aprintf("GIF: Readblock called, decoder=0x%08lx, length=%ld, block=0x%08lx\n", (ULONG)decoder, length, (ULONG)block);
-   }
-#endif
-   while(length && !(decoder->flags&(DECOF_STOP|DECOF_EOF)))
-   {  c=Readbyte(decoder);
-      if(decoder->flags&(DECOF_STOP|DECOF_EOF))
-      {  #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-         {  Aprintf("GIF: Readblock: EOF or STOP flag set, returning FALSE\n");
+{  long available,copylen;
+   UBYTE first;
+   if(!decoder) return FALSE;
+   while(length>0 && !(decoder->flags&(DECOF_STOP|DECOF_EOF)))
+   {  available=(long)(decoder->bufend-decoder->bufptr);
+      if(available>0)
+      {  copylen=(available<length)?available:length;
+         if(block)
+         {  memcpy(block,decoder->bufptr,copylen);
+            block+=copylen;
          }
-         #endif
-         return FALSE;
+         decoder->bufptr+=copylen;
+         length-=copylen;
+         continue;
       }
-      if(block) *block++=c;
+      /* No data immediately available - take the slow path for one
+       * byte to force a block transition or wait, then loop. */
+      first=Refillbyte(decoder);
+      if(decoder->flags&(DECOF_STOP|DECOF_EOF)) return FALSE;
+      if(block) *block++=first;
       length--;
    }
-#ifdef DEBUG_PLUGINS
-   if(AwebPluginBase && length == 0)
-   {  Aprintf("GIF: Readblock: Done, read all %ld bytes\n", length);
-   }
-#endif
    return (BOOL)!(decoder->flags&(DECOF_STOP|DECOF_EOF));
 }
 
@@ -1357,12 +1300,12 @@ static void Releaseimage(struct Gifsource *gs)
    Asetattrs(gs->source,AOSRC_Memory,0,TAG_END);
 }
 
-/* Delete all source data */
+/* Delete all source data.  The node and its payload share a single
+ * AllocVec (see Newdatablock), so one FreeVec releases everything. */
 static void Releasedata(struct Gifsource *gs)
 {  struct Datablock *db;
    while(db=REMHEAD(&gs->data))
-   {  if(db->data) FreeVec(db->data);
-      FreeVec(db);
+   {  FreeVec(db);
    }
 }
 
@@ -1658,18 +1601,12 @@ static ULONG Srcupdatesource(struct Gifsource *gs,struct Amsrcupdate *amsrcupdat
       }
    }
    if(data && datalength)
-   {  struct Datablock *db;
-      if(db=AllocVec(sizeof(struct Datablock),MEMF_PUBLIC|MEMF_CLEAR))
-      {  if(db->data=AllocVec(datalength,MEMF_PUBLIC))
-         {  memmove(db->data,data,datalength);
-            db->length=datalength;
-            ObtainSemaphore(&gs->sema);
-            ADDTAIL(&gs->data,db);
-            ReleaseSemaphore(&gs->sema);
-         }
-         else
-         {  FreeVec(db);
-         }
+   {  struct Datablock *db=Newdatablock(datalength);
+      if(db)
+      {  memcpy(db->data,data,datalength);
+         ObtainSemaphore(&gs->sema);
+         ADDTAIL(&gs->data,db);
+         ReleaseSemaphore(&gs->sema);
       }
       if(!gs->task)
       {  Startdecoder(gs);

@@ -141,6 +141,9 @@ ULONG Initpluginlib(struct AwebPngBase *base)
 void Expungepluginlib(struct AwebPngBase *base)
 {  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
    if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
+   /* Release the shared libpng allocation pool created lazily by the
+    * malloc() wrapper in pngsource.c. */
+   Pngsource_freepool();
    if(P96Base) CloseLibrary(P96Base);
 #ifdef DEBUG_PLUGINS
    if(LowLevelBase) CloseLibrary(LowLevelBase);

@@ -49,12 +49,29 @@
 
 /* A struct Datablock holds one block of data. Once it has been read
  * from the list, the data can be accessed without semaphore protection
- * because it will never change (but the ln_Succ pointer will!). */
+ * because it will never change (but the ln_Succ pointer will!).
+ *
+ * Newdatablock() places the payload immediately after the struct using
+ * one single AllocVec, so one FreeVec releases everything.  This halves
+ * allocator pressure compared to the original (two separate AllocVec
+ * calls per 16 KB chunk). */
 struct Datablock
 {  NODE(Datablock);
-   UBYTE *data;                     /* The data */
+   UBYTE *data;                     /* Points just past the struct */
    long length;                     /* Length of the data */
 };
+
+/* Allocate a Datablock with the payload appended in a single AllocVec. */
+static struct Datablock *Newdatablock(long length)
+{  struct Datablock *db;
+   if(length<=0) return NULL;
+   db=(struct Datablock *)AllocVec(sizeof(struct Datablock)+length,
+                                   MEMF_PUBLIC|MEMF_CLEAR);
+   if(!db) return NULL;
+   db->data=(UBYTE *)(db+1);
+   db->length=length;
+   return db;
+}
 
 /* The object instance data for the source driver */
 struct Jfifsource
@@ -117,6 +134,23 @@ struct Decoder
 /* Read from the input stream                                         */
 /*--------------------------------------------------------------------*/
 
+/* Note on the JPEG decoder data path
+ * ----------------------------------
+ * libjpeg already consumes the input buffer through next_input_byte /
+ * bytes_in_buffer pointers, so we never need a per-byte function call:
+ * one Jfiffillbuffer() call installs an entire Datablock (typically the
+ * full 16 KB chunk that the browser delivered) and libjpeg streams
+ * straight out of it.
+ *
+ * The remaining hot-path waste was:
+ *   - draining the task message port on every Jfiffillbuffer() call
+ *     even when data was immediately available;
+ *   - taking the source semaphore even when the current Datablock
+ *     already had bytes remaining;
+ *   - Jfifskipdata not honouring DECOF_STOP/DECOF_EOF between fills.
+ * These are all fixed below.  The libjpeg-side cost per chunk is now a
+ * pointer swap and a single ObtainSemaphore/ReleaseSemaphore pair. */
+
 struct Jfifsourcemgr
 {  struct jpeg_source_mgr pub;
    struct Decoder *decoder;
@@ -127,84 +161,91 @@ METHODDEF(void) Jfifsourceinit(j_decompress_ptr cinfo)
 {  
 }
 
-/* Fill the input buffer.
- * First check for any waiting messages. If the task should stop then
- * raise a fatal error.
- * Then return the next available data block, or wait for the next one if
- * none is available.
- */
+/* Drain pending task messages.  Only called when we are about to block
+ * waiting for more data, never on the fast path. */
+static void Jfifdrainmessages(struct Decoder *decoder)
+{  struct Taskmsg *tm;
+   struct TagItem *tag,*tstate;
+   while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
+   {  if(tm->amsg && tm->amsg->method==AOM_SET)
+      {  tstate=((struct Amset *)tm->amsg)->tags;
+         while((tag=NextTagItem(&tstate)))
+         {  switch(tag->ti_Tag)
+            {  case AOTSK_Stop:
+                  if(tag->ti_Data) decoder->flags|=DECOF_STOP;
+                  break;
+               case AOJFIF_Data:
+                  /* Legacy wakeup tag, the port-signal carried the
+                   * wake; nothing more to do here. */
+                  break;
+            }
+         }
+      }
+      Replytaskmsg(tm);
+   }
+}
+
+/* Fill the input buffer.  Returns the next available Datablock to
+ * libjpeg via next_input_byte/bytes_in_buffer, or installs a fabricated
+ * EOI marker once EOF has been reached.  Blocks via Waittask() when no
+ * data is queued and EOF has not yet been signalled. */
 METHODDEF(boolean) Jfiffillbuffer(j_decompress_ptr cinfo)
 {  static JOCTET eoimarker[2]={ 0xff, JPEG_EOI };
    struct Jfifsourcemgr *src=(struct Jfifsourcemgr *)cinfo->src;
    struct Decoder *decoder=src->decoder;
-   struct Taskmsg *tm;
-   struct TagItem *tag,*tstate;
    struct Datablock *db;
    BOOL wait;
    for(;;)
    {  wait=FALSE;
-      while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
-      {  if(tm->amsg && tm->amsg->method==AOM_SET)
-         {  tstate=((struct Amset *)tm->amsg)->tags;
-            while(tag=NextTagItem(&tstate))
-            {  switch(tag->ti_Tag)
-               {  case AOTSK_Stop:
-                     if(tag->ti_Data) decoder->flags|=DECOF_STOP;
-                     break;
-                  case AOJFIF_Data:
-                     /* Ignore these now */
-                     break;
-               }
-            }
-         }
-         Replytaskmsg(tm);
-      }
-      /* Only continue if we shouldn't stop */
       if(decoder->flags&DECOF_STOP)
       {  ERREXIT(cinfo,JERR_INPUT_EOF);
       }
       ObtainSemaphore(&decoder->source->sema);
-      if(decoder->current)
-      {  db=decoder->current->next;
-      }
-      else
-      {  db=decoder->source->data.first;
-      }
-      if(db->next)
-      {  /* We have a valid block */
+      if(decoder->current) db=decoder->current->next;
+      else db=decoder->source->data.first;
+      if(db && db->next)
+      {  /* Hot path: a queued block is immediately available. */
          decoder->current=db;
          src->pub.next_input_byte=db->data;
          src->pub.bytes_in_buffer=db->length;
       }
       else if(decoder->source->flags&JFIFSF_EOF)
-      {  /* EOF reached, fake an EOI marker */
+      {  /* EOF reached, fake an EOI marker. */
          decoder->flags|=DECOF_EOF;
          src->pub.next_input_byte=eoimarker;
          src->pub.bytes_in_buffer=2;
       }
       else
-      {  /* No more blocks; wait for next block */
+      {  /* No more blocks; have to wait for the producer. */
          wait=TRUE;
       }
       ReleaseSemaphore(&decoder->source->sema);
-      if(!wait)
-      {  break;
+      if(!wait) break;
+      /* Slow path only: drain messages and block. */
+      Jfifdrainmessages(decoder);
+      if(decoder->flags&DECOF_STOP)
+      {  ERREXIT(cinfo,JERR_INPUT_EOF);
       }
       Waittask(0);
    }
    return TRUE;
 }
 
-/* Skip data */
+/* Skip data.  Iteratively consumes available bytes in the current
+ * buffer, refilling only when needed.  Aborts cleanly if the task is
+ * asked to stop. */
 METHODDEF(void) Jfifskipdata(j_decompress_ptr cinfo,long nbytes)
 {  struct Jfifsourcemgr *src=(struct Jfifsourcemgr *)cinfo->src;
-   if(nbytes>0)
-   {  while(nbytes>src->pub.bytes_in_buffer)
-      {  nbytes-=src->pub.bytes_in_buffer;
-         Jfiffillbuffer(cinfo);
+   struct Decoder *decoder=src->decoder;
+   while(nbytes>0 && !(decoder->flags&(DECOF_STOP|DECOF_EOF)))
+   {  if((long)src->pub.bytes_in_buffer>=nbytes)
+      {  src->pub.next_input_byte+=nbytes;
+         src->pub.bytes_in_buffer-=nbytes;
+         return;
       }
-      src->pub.next_input_byte+=nbytes;
-      src->pub.bytes_in_buffer-=nbytes;
+      nbytes-=src->pub.bytes_in_buffer;
+      src->pub.bytes_in_buffer=0;
+      Jfiffillbuffer(cinfo);
    }
 }
 
@@ -519,12 +560,12 @@ static void Releaseimage(struct Jfifsource *js)
    Asetattrs(js->source,AOSRC_Memory,0,TAG_END);
 }
 
-/* Delete all source data */
+/* Delete all source data.  The node and its payload share a single
+ * AllocVec (see Newdatablock), so one FreeVec releases everything. */
 static void Releasedata(struct Jfifsource *js)
 {  struct Datablock *db;
    while(db=REMHEAD(&js->data))
-   {  if(db->data) FreeVec(db->data);
-      FreeVec(db);
+   {  FreeVec(db);
    }
 }
 
@@ -686,18 +727,12 @@ static ULONG Srcupdatesource(struct Jfifsource *js,struct Amsrcupdate *amsrcupda
       }
    }
    if(data && datalength)
-   {  struct Datablock *db;
-      if(db=AllocVec(sizeof(struct Datablock),MEMF_PUBLIC|MEMF_CLEAR))
-      {  if(db->data=AllocVec(datalength,MEMF_PUBLIC))
-         {  memmove(db->data,data,datalength);
-            db->length=datalength;
-            ObtainSemaphore(&js->sema);
-            ADDTAIL(&js->data,db);
-            ReleaseSemaphore(&js->sema);
-         }
-         else
-         {  FreeVec(db);
-         }
+   {  struct Datablock *db=Newdatablock(datalength);
+      if(db)
+      {  memcpy(db->data,data,datalength);
+         ObtainSemaphore(&js->sema);
+         ADDTAIL(&js->data,db);
+         ReleaseSemaphore(&js->sema);
       }
       if(!js->task)
       {  Startdecoder(js);

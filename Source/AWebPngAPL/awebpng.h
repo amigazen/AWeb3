@@ -43,6 +43,11 @@ extern __saveds __asm ULONG Dispatchcopy(
    register __a0 struct Aobject *,
    register __a1 struct Amessage *);
 
+/* Release the shared libpng allocation pool.  Called from
+ * Expungepluginlib() so the pool is freed when the plugin is unloaded.
+ * Implemented in pngsource.c. */
+extern void Pngsource_freepool(void);
+
 /* Definition of attribute IDs that are used internally. */
 
 #define AOPNG_Dummy     AOBJ_DUMMYTAG(AOTP_PLUGIN)
