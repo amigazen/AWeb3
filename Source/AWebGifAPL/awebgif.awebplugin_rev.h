@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -17,8 +17,8 @@
  **********************************************************************/
 
 #define VERSION		1
-#define REVISION	14
-#define DATE		"16.12.2025"
-#define VERS		"awebgif.awebplugin 1.14"
-#define VSTRING		"awebgif.awebplugin 1.14 (16.12.2025)\r\n"
-#define VERSTAG		"\0$VER: awebgif.awebplugin 1.14 (16.12.2025)"
+#define REVISION	15
+#define DATE		"23.05.2026"
+#define VERS		"awebgif.awebplugin 1.15"
+#define VSTRING		"awebgif.awebplugin 1.15 (23.05.2026)\r\n"
+#define VERSTAG		"\0$VER: awebgif.awebplugin 1.15 (23.05.2026)"

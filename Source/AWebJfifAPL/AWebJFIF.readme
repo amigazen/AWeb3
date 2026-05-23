@@ -1,8 +1,8 @@
-Short:    AWeb-II 'official' JFIF/JPEG plugin v1.11
+Short:    AWeb 'official' JFIF/JPEG plugin v1.12
 Uploader: yrozijn@xs4all.nl (Yvon Rozijn)
 Author:   yrozijn@xs4all.nl (Yvon Rozijn)
 Type:     comm/www
-Version:  1.11
+Version:  1.12
 
 AWebJFIF plugin
 ===============
@@ -16,7 +16,7 @@ Features include:
  * Support for scaling
  * Support for CyberGraphics
 
-The AWeb JFIF plugin is copyright � 1998 by Yvon Rozijn.
+The AWeb JFIF plugin is copyright ? 1998 by Yvon Rozijn.
 It uses code from the JPEG library that was written by the Independent
 JPEG Group (IJG).
 

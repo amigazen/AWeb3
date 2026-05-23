@@ -1,8 +1,8 @@
-Short:    AWeb 'official' GIF plugin v1.13
+Short:    AWeb 'official' GIF plugin v1.15
 Uploader: yrozijn@xs4all.nl (Yvon Rozijn)
 Author:   yrozijn@xs4all.nl (Yvon Rozijn)
 Type:     comm/www
-Version:  1.13
+Version:  1.15
 
 AWebGIF plugin
 ==============
@@ -22,4 +22,4 @@ Due to Aminet's policy on GIF software, the plugin isn't available on Aminet.
 You can download it from:
    http://www.amitrix.com/awebgif.lha
 
-The AWeb GIF plugin is copyright � 1998 by Yvon Rozijn.
+The AWeb GIF plugin is copyright (c) 1998 by Yvon Rozijn.

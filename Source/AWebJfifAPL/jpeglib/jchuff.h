@@ -18,6 +18,12 @@ typedef struct {
   /* If no code has been allocated for a symbol S, ehufsi[S] contains 0 */
 } c_derived_tbl;
 
+/* Maximum bit length of a DCT coefficient magnitude we are willing to
+ * encode (JPEG allows up to 15; 14 keeps tables smaller). */
+#ifndef MAX_COEF_BITS
+#define MAX_COEF_BITS  14
+#endif
+
 /* Short forms of external names for systems with brain-damaged linkers. */
 
 #ifdef NEED_SHORT_EXTERNAL_NAMES
@@ -27,7 +33,8 @@ typedef struct {
 
 /* Expand a Huffman table definition into the derived format */
 EXTERN(void) jpeg_make_c_derived_tbl
-	JPP((j_compress_ptr cinfo, JHUFF_TBL * htbl, c_derived_tbl ** pdtbl));
+	JPP((j_compress_ptr cinfo, boolean isDC, int tblno,
+	     c_derived_tbl ** pdtbl));
 
 /* Generate an optimal table definition given the specified counts */
 EXTERN(void) jpeg_gen_optimal_table

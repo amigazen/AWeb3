@@ -1,8 +1,9 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025-2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -38,9 +39,9 @@
 #include <exec/libraries.h>
 
 #define PLUGIN_VERSION     1
-#define PLUGIN_REVISION    14
+#define PLUGIN_REVISION    15
 #define PLUGIN_LIBNAME     "awebpng.awebplugin"
-#define PLUGIN_LIBID       "awebpng 1.14 " __AMIGADATE__
+#define PLUGIN_LIBID       "awebpng 1.15 " __AMIGADATE__
 #define PLUGIN_SIZE        sizeof(struct AwebPngBase)
 
 struct AwebPngBase

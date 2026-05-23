@@ -93,6 +93,12 @@ written by Jean-loup Gailly and Mark Adler.
 
 <h2>History</h2>
 
+awebpng.awebplugin 1.15 (23-05-2026)
+<ul>
+<li>Refactored PNG decoding around Amiga-friendly pooled libpng allocation, specialized row conversion loops, palette/RGB pen caching, and zero-copy deep RGB rows to substantially reduce allocator, semaphore, and per-pixel costs.</li>
+<li>Refactored input handling to reduce per-byte and per-block overhead, using contiguous buffer fast paths and single-allocation datablocks.</li>
+</ul>
+
 awebpng.awebplugin 1.14 (16-12-2025)
 <ul>
 <li>Updated libpng to latest version of the 1.6 series, version 1.6.43.

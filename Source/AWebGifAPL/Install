@@ -1,8 +1,8 @@
 ; $VER: Install_awebgif_awebplugin
-; Description: Installer script for the "awebgif" plugin for AWeb-II 3.0+
+; Description: Installer script for the "awebgif" plugin for AWeb 3.0+
 
 (set #welcome
-   (cat "This installation procedure will install the \"awebgif\" plugin module for AWeb-II version 3.0 or higher.\n"
+   (cat "This installation procedure will install the \"awebgif\" plugin module for AWeb version 3.0 or higher.\n"
         "\n"
         "This plugin enables you to view GIF images in AWeb without the use of datatypes. The plugin has the following features:\n"
         "Optional progressive display\n"
@@ -15,7 +15,7 @@
 
 (set #no-aweb3
    (cat "The \"AWeb:\" assign was not found.\n\n"
-        "This plugin can only be used with AWeb-II version 3.0 or higher."
+        "This plugin can only be used with AWeb version 3.0 or higher."
    )
 )
 

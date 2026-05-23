@@ -19,7 +19,10 @@
 #ifdef JPEG_INTERNALS
 
 #undef RIGHT_SHIFT_IS_UNSIGNED
-#define INLINE __inline__
+/* SAS/C 6.x rejects "__inline__" before LOCAL()/static on a separate
+ * line (jchuff.c emit_bits, jcphuff.c).  Leave INLINE empty per IJG
+ * makefile.sas / jconfig.sas guidance. */
+#define INLINE
 /* These are for configuring the JPEG memory manager. */
 #undef DEFAULT_MAX_MEM
 

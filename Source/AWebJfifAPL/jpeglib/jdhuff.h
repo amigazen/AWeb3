@@ -25,10 +25,9 @@
 
 typedef struct {
   /* Basic tables: (element [0] of each array is unused) */
-  INT32 mincode[17];		/* smallest code of length k */
   INT32 maxcode[18];		/* largest code of length k (-1 if none) */
   /* (maxcode[17] is a sentinel to ensure jpeg_huff_decode terminates) */
-  int valptr[17];		/* huffval[] index of 1st symbol of length k */
+  INT32 valoffset[18];		/* huffval[] offset for codes of length k */
 
   /* Link to public Huffman table (needed only in jpeg_huff_decode) */
   JHUFF_TBL *pub;
@@ -44,7 +43,8 @@ typedef struct {
 
 /* Expand a Huffman table definition into the derived format */
 EXTERN(void) jpeg_make_d_derived_tbl JPP((j_decompress_ptr cinfo,
-				JHUFF_TBL * htbl, d_derived_tbl ** pdtbl));
+				boolean isDC, int tblno,
+				d_derived_tbl ** pdtbl));
 
 
 /*

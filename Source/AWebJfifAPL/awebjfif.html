@@ -40,7 +40,7 @@ can install it by hand.
 <li>
 Copy the file named <code>awebjfif.awebplugin</code> to a location of your
 choice. The recommended location for plugins like this is a drawer
-<code>awebplugins</code> in the drawer where the AWeb-II program is located.
+<code>awebplugins</code> in the drawer where the AWeb program is located.
 <br><br>
 <li>Select a drawer on your hard disk for the temporary swap files. These files
 may be needed during decoding of large images. Add the following assign to
@@ -147,6 +147,12 @@ The AWeb JFIF plugin is copyright &copy; 1998 by Yvon Rozijn.<br>
 It uses code from the JPEG library that was written by the Independent JPEG Group (IJG).
 
 <h2>History</h2>
+
+awebjfif.awebplugin 1.12 (23-05-2026)
+<ul>
+<li>Optimisations to libjpeg configuration.</li>
+<li>Refactored input handling to reduce per-byte and per-block overhead, using contiguous buffer fast paths and single-allocation datablocks.</li>
+</ul>
 
 awebjfif.awebplugin 1.11 (29-11-2025)
 <ul>
