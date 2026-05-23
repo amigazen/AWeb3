@@ -106,67 +106,113 @@ static void Appendchild(struct XmlNode *parent, struct XmlNode *child)
    parent->lastchild=child;
 }
 
+/* Encode a Unicode scalar value as UTF-8.  Returns byte count written,
+ * or 0 for invalid scalar values.  Numeric XML entities in SVG often
+ * use punctuation above Latin-1 (e.g. &#8211; and &#8220;); emitting
+ * UTF-8 here lets ttengine.library receive the same encoding that the
+ * SVG text renderer asks for with TT_Encoding_UTF8. */
+static LONG Utf8encode(ULONG val, UBYTE *dst)
+{  if(val==0 || val>0x10FFFFUL) return 0;
+   if(val>=0xD800UL && val<=0xDFFFUL) return 0;
+   if(val<0x80UL)
+   {  dst[0]=(UBYTE)val;
+      return 1;
+   }
+   if(val<0x800UL)
+   {  dst[0]=(UBYTE)(0xC0 | (val>>6));
+      dst[1]=(UBYTE)(0x80 | (val&0x3FUL));
+      return 2;
+   }
+   if(val<0x10000UL)
+   {  dst[0]=(UBYTE)(0xE0 | (val>>12));
+      dst[1]=(UBYTE)(0x80 | ((val>>6)&0x3FUL));
+      dst[2]=(UBYTE)(0x80 | (val&0x3FUL));
+      return 3;
+   }
+   dst[0]=(UBYTE)(0xF0 | (val>>18));
+   dst[1]=(UBYTE)(0x80 | ((val>>12)&0x3FUL));
+   dst[2]=(UBYTE)(0x80 | ((val>>6)&0x3FUL));
+   dst[3]=(UBYTE)(0x80 | (val&0x3FUL));
+   return 4;
+}
+
 /* Decode XML entities in place.  Returns new length (always <= old).
- * Only the common five entities plus numeric &#nn; / &#xnn; are
- * handled - that is enough for SVG. */
+ * Handles the common five named entities plus numeric decimal/hex
+ * entities.  Numeric entities are emitted as UTF-8, not truncated to
+ * a single byte, because the SVG text renderer renders UTF-8 through
+ * ttengine.library. */
 static LONG Unescape(UBYTE *str, LONG length)
 {  UBYTE *src=str;
    UBYTE *dst=str;
    UBYTE *end=str+length;
+   UBYTE *p;
+   UBYTE *semi;
+   UBYTE *e;
+   UBYTE out[4];
+   UBYTE c;
+   ULONG val;
+   LONG i;
+   LONG j;
+   LONG elen;
+   LONG outlen;
+   BOOL ok;
+   BOOL have_digit;
    while(src<end)
    {  if(*src!='&')
       {  *dst++=*src++;
          continue;
       }
       /* Look for ; within a reasonable distance. */
-      {  UBYTE *p=src+1;
-         UBYTE *semi=NULL;
-         LONG i;
-         for(i=0;i<8 && p<end;i++,p++)
-         {  if(*p==';') { semi=p; break; }
-         }
-         if(!semi)
-         {  *dst++=*src++;
-            continue;
-         }
-         {  UBYTE *e=src+1;
-            LONG elen=(LONG)(semi-e);
-            UBYTE out=0;
-            BOOL ok=FALSE;
-            if(elen==2 && e[0]=='l' && e[1]=='t') { out='<'; ok=TRUE; }
-            else if(elen==2 && e[0]=='g' && e[1]=='t') { out='>'; ok=TRUE; }
-            else if(elen==3 && e[0]=='a' && e[1]=='m' && e[2]=='p') { out='&'; ok=TRUE; }
-            else if(elen==4 && e[0]=='q' && e[1]=='u' && e[2]=='o' && e[3]=='t') { out='"'; ok=TRUE; }
-            else if(elen==4 && e[0]=='a' && e[1]=='p' && e[2]=='o' && e[3]=='s') { out='\''; ok=TRUE; }
-            else if(elen>=2 && e[0]=='#')
-            {  ULONG val=0;
-               LONG j;
-               if(e[1]=='x' || e[1]=='X')
-               {  for(j=2;j<elen;j++)
-                  {  UBYTE c=e[j];
-                     if(c>='0'&&c<='9') val=(val<<4)|(c-'0');
-                     else if(c>='a'&&c<='f') val=(val<<4)|(c-'a'+10);
-                     else if(c>='A'&&c<='F') val=(val<<4)|(c-'A'+10);
-                     else { val=0; break; }
-                  }
-               }
-               else
-               {  for(j=1;j<elen;j++)
-                  {  UBYTE c=e[j];
-                     if(c<'0'||c>'9') { val=0; break; }
-                     val=val*10+(c-'0');
-                  }
-               }
-               if(val>0 && val<256) { out=(UBYTE)val; ok=TRUE; }
-            }
-            if(ok)
-            {  *dst++=out;
-               src=semi+1;
-            }
-            else
-            {  *dst++=*src++;
+      p=src+1;
+      semi=NULL;
+      for(i=0;i<12 && p<end;i++,p++)
+      {  if(*p==';') { semi=p; break; }
+      }
+      if(!semi)
+      {  *dst++=*src++;
+         continue;
+      }
+      e=src+1;
+      elen=(LONG)(semi-e);
+      outlen=0;
+      ok=FALSE;
+      if(elen==2 && e[0]=='l' && e[1]=='t') { out[0]='<'; outlen=1; ok=TRUE; }
+      else if(elen==2 && e[0]=='g' && e[1]=='t') { out[0]='>'; outlen=1; ok=TRUE; }
+      else if(elen==3 && e[0]=='a' && e[1]=='m' && e[2]=='p') { out[0]='&'; outlen=1; ok=TRUE; }
+      else if(elen==4 && e[0]=='q' && e[1]=='u' && e[2]=='o' && e[3]=='t') { out[0]='"'; outlen=1; ok=TRUE; }
+      else if(elen==4 && e[0]=='a' && e[1]=='p' && e[2]=='o' && e[3]=='s') { out[0]='\''; outlen=1; ok=TRUE; }
+      else if(elen>=2 && e[0]=='#')
+      {  val=0;
+         have_digit=FALSE;
+         if(e[1]=='x' || e[1]=='X')
+         {  for(j=2;j<elen;j++)
+            {  c=e[j];
+               if(c>='0'&&c<='9') val=(val<<4)|(c-'0');
+               else if(c>='a'&&c<='f') val=(val<<4)|(c-'a'+10);
+               else if(c>='A'&&c<='F') val=(val<<4)|(c-'A'+10);
+               else { val=0; have_digit=FALSE; break; }
+               have_digit=TRUE;
             }
          }
+         else
+         {  for(j=1;j<elen;j++)
+            {  c=e[j];
+               if(c<'0'||c>'9') { val=0; have_digit=FALSE; break; }
+               val=val*10+(c-'0');
+               have_digit=TRUE;
+            }
+         }
+         if(have_digit)
+         {  outlen=Utf8encode(val,out);
+            if(outlen>0) ok=TRUE;
+         }
+      }
+      if(ok)
+      {  for(i=0;i<outlen;i++) *dst++=out[i];
+         src=semi+1;
+      }
+      else
+      {  *dst++=*src++;
       }
    }
    return (LONG)(dst-str);
@@ -336,6 +382,15 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end);
  * or hit EOF.  parent is the open element. */
 static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp, UBYTE *end)
 {  UBYTE *p=*pp;
+   BOOL keep_ws_text=FALSE;
+   if(parent && parent->name)
+   {  if(stricmp_x(parent->name,"text")==0
+      || stricmp_x(parent->name,"tspan")==0
+      || stricmp_x(parent->name,"textPath")==0
+      || stricmp_x(parent->name,"a")==0)
+      {  keep_ws_text=TRUE;
+      }
+   }
    while(p<end)
    {  /* Text content until next '<'. */
       if(*p!='<')
@@ -347,7 +402,7 @@ static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp, UBYTE *
             for(i=0;i<textlen;i++)
             {  if(!isspace_x(textstart[i])) { allspace=FALSE; break; }
             }
-            if(!allspace)
+            if(!allspace || keep_ws_text)
             {  struct XmlNode *t=Newnode(pool,XMLN_TEXT);
                if(t)
                {  LONG newlen;
@@ -400,6 +455,8 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
    struct XmlNode *node;
    UBYTE *namestart;
    UBYTE *nameend;
+   UBYTE nameend_save;
+   UBYTE tagclose;
 
    if(p>=end || *p!='<') return NULL;
    p++;
@@ -414,6 +471,7 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
    if(!node) return NULL;
    node->name=namestart;
    node->namelen=(LONG)(nameend-namestart);
+   nameend_save=*nameend;
 
    /* Parse attributes. */
    while(p<end)
@@ -423,15 +481,16 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
       if(!Parseattr(pool,node,&p,end)) break;
    }
 
-   /* Now NUL-terminate the name (we deferred until attrs were parsed
-    * because the original char after the name might have been a
-    * letter for the first attribute - no, actually it cannot be: the
-    * only chars stopping a name are space, >, /. So we can terminate
-    * the name before parsing attrs as well, but it is safer to do it
-    * here so attribute parsing doesn't trip over it.) */
+   /* Now NUL-terminate the name.  If the element has no attributes
+    * nameend is the actual tag closer ('>' or '/'), so keep its saved
+    * value for the close handling below.  Without this, a tag like
+    * <tspan> had its '>' overwritten before p advanced past it, and
+    * the child text node began with a NUL byte.  ttengine rendered
+    * that NUL as a missing-glyph box before every tspan. */
    *nameend=0;
 
-   if(p<end && *p=='/')
+   tagclose=(p==nameend)?nameend_save:*p;
+   if(p<end && tagclose=='/')
    {  /* Empty element. */
       p++;
       while(p<end && *p!='>') p++;
@@ -439,7 +498,7 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
       *pp=p;
       return node;
    }
-   if(p<end && *p=='>') p++;
+   if(p<end && tagclose=='>') p++;
 
    /* Recurse into children. */
    Parsechildren(pool,node,&p,end);

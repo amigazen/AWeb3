@@ -14,7 +14,7 @@ AR=oml
 RM=delete quiet
 
 # Main plugin object files
-PLUGIN_OBJS = startup.o awebsvg.o svgsource.o svgcopy.o xmlparse.o
+PLUGIN_OBJS = startup.o awebsvg.o svgsource.o svgcopy.o svgtext.o xmlparse.o
 
 # Default target
 all: awebsvg.awebplugin
@@ -30,11 +30,19 @@ startup.o: startup.c pluginlib.h
 awebsvg.o: awebsvg.c pluginlib.h awebsvg.h
    $(CC) awebsvg.c
 
-svgsource.o: svgsource.c pluginlib.h awebsvg.h xmlparse.h ezlists.h
+svgsource.o: svgsource.c pluginlib.h awebsvg.h xmlparse.h ezlists.h svgtext.h
    $(CC) svgsource.c
 
 svgcopy.o: svgcopy.c pluginlib.h awebsvg.h
    $(CC) svgcopy.c
+
+# svgtext.o: optional ttengine.library based text renderer.  Compiled
+# unconditionally; the runtime check on TTEngineAvail / TTEngineBase
+# makes the module a no-op when ttengine.library is missing on the
+# user's system.  No SAS/C pragma link is needed because the pragma
+# header generates calls through the global TTEngineBase pointer.
+svgtext.o: svgtext.c pluginlib.h awebsvg.h svgtext.h xmlparse.h
+   $(CC) svgtext.c
 
 xmlparse.o: xmlparse.c xmlparse.h
    $(CC) xmlparse.c

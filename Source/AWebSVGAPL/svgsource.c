@@ -45,6 +45,7 @@
 #include "awebsvg.h"
 #include "xmlparse.h"
 #include "ezlists.h"
+#include "svgtext.h"
 
 #include <libraries/awebplugin.h>
 #include <exec/memory.h>
@@ -229,6 +230,11 @@ struct Decoder
    long chunkybpr;
    struct RenderInfo ri;
    short currentpen;           /* last SetAPen value, -1 if unset */
+   /* Deferred <text> rendering accumulator.  Populated by Rendertext()
+    * during the DOM walk and replayed via SvgTextRenderAll() once the
+    * vector layer has been committed to the output bitmap.  See
+    * svgtext.h for the rationale behind deferred rendering. */
+   struct SvgTextList textruns;
 };
 
 #define DECOF_STOP         0x0001
@@ -875,26 +881,28 @@ static void Parsestyle(UBYTE *str,
 {  UBYTE *p=str;
    if(!p) return;
    while(*p)
-   {  UBYTE *key,*val,*pend;
+   {  UBYTE *key,*val,*keyend,*valend;
+      UBYTE savekey,saveval;
       while(*p==' '||*p=='\t'||*p==';'||*p=='\n'||*p=='\r') p++;
       if(!*p) break;
       key=p;
       while(*p && *p!=':' && *p!=';') p++;
       if(*p!=':') { while(*p && *p!=';') p++; continue; }
-      pend=p;
-      while(pend>key && (pend[-1]==' '||pend[-1]=='\t')) pend--;
-      *pend=0;
+      keyend=p;
+      while(keyend>key && (keyend[-1]==' '||keyend[-1]=='\t')) keyend--;
+      savekey=*keyend;
+      *keyend=0;
       p++;
       while(*p==' '||*p=='\t') p++;
       val=p;
       while(*p && *p!=';') p++;
-      pend=p;
-      while(pend>val && (pend[-1]==' '||pend[-1]=='\t')) pend--;
-      {  UBYTE save=*pend;
-         *pend=0;
-         cb(key,val,userdata);
-         *pend=save;
-      }
+      valend=p;
+      while(valend>val && (valend[-1]==' '||valend[-1]=='\t')) valend--;
+      saveval=*valend;
+      *valend=0;
+      cb(key,val,userdata);
+      *valend=saveval;
+      *keyend=savekey;
       if(*p==';') p++;
    }
 }
@@ -2394,6 +2402,34 @@ static void Renderuse(struct Decoder *dec, struct XmlNode *node, struct Renderst
 /* Recursive renderer                                                 */
 /*--------------------------------------------------------------------*/
 
+/* Append a deferred <text> run to dec->textruns.  Real rendering does
+ * not happen until Parsertask has flushed the vector layer to the
+ * output BitMap; see svgtext.h for the rationale behind deferred
+ * text.  When ttengine.library is not available
+ * (SvgTextIsAvailable()==FALSE) the call is a documented no-op,
+ * which is precisely what we want here: an SVG icon without its
+ * labels is still useful. */
+static void Rendertext(struct Decoder *dec, struct XmlNode *node, struct Renderstate *rs)
+{  LONG Mvec[6];
+   if(!SvgTextIsAvailable()) return;
+   if(!rs->fillvalid) return;
+   /* Pack the 16.16 affine matrix into the layout svgtext.c expects
+    * (a,b,c,d,e,f).  Going via an explicit copy avoids relying on
+    * the in-memory ordering of struct Matrix members, which is
+    * compiler-stable but not part of the public contract. */
+   Mvec[0]=rs->M.a; Mvec[1]=rs->M.b; Mvec[2]=rs->M.c;
+   Mvec[3]=rs->M.d; Mvec[4]=rs->M.e; Mvec[5]=rs->M.f;
+   SvgTextAccumulate(dec->pool,&dec->textruns,node,
+      Mvec,rs->fillrgb,(BOOL)rs->fillvalid);
+}
+
+/* Trampoline used by SvgTextRenderAll's pen_obtain callback.  Routes
+ * back into the static Getpen() so allocated pens are tracked on
+ * source->allocated[] for proper Disposesource release. */
+static UBYTE Textrender_pen_cb(void *ctx, ULONG rgb)
+{  return Getpen((struct Decoder *)ctx,rgb);
+}
+
 static void Renderelement(struct Decoder *dec, struct XmlNode *node, struct Renderstate *parent)
 {  struct Renderstate rs;
    UBYTE feff,seff;
@@ -2430,6 +2466,7 @@ static void Renderelement(struct Decoder *dec, struct XmlNode *node, struct Rend
    if(XmlNameIs(node,"polygon"))      { Renderpoly(dec,node,&rs,TRUE); return; }
    if(XmlNameIs(node,"polyline"))     { Renderpoly(dec,node,&rs,FALSE); return; }
    if(XmlNameIs(node,"path"))         { Renderpath(dec,node,&rs); return; }
+   if(XmlNameIs(node,"text"))         { Rendertext(dec,node,&rs); return; }
    /* defs, symbol, title, desc, metadata, style, script - never
     * rendered during a regular walk.  Symbol contents are reached
     * exclusively via <use>. */
@@ -2551,6 +2588,7 @@ static void Parsertask(void *userdata)
 
    memset(&dec,0,sizeof(dec));
    dec.currentpen=-1;
+   SvgTextListInit(&dec.textruns);
    ss=(struct Svgsource *)userdata;
    if(!ss)
    {  struct Task *t=FindTask(NULL);
@@ -2736,6 +2774,20 @@ static void Parsertask(void *userdata)
     * Picasso96 driver is touched for the whole frame. */
    if(dec.decflags&DECOF_P96DEEP)
    {  p96WritePixelArray(&dec.ri,0,0,&dec.rp,0,0,bmw,bmh);
+   }
+
+   /* Render all accumulated <text> runs via ttengine.library.  This
+    * runs AFTER the chunky -> bitmap commit above because TT_Text
+    * writes directly into the BitMap (via the RastPort) and would
+    * otherwise be overwritten by the p96WritePixelArray flush.  The
+    * trade-off is that text always lands on top of the vector layer
+    * regardless of document order - acceptable for the SVG content
+    * domain (icons, diagrams, maps, charts, labels).  When
+    * ttengine.library is unavailable this call is a documented
+    * no-op and any queued runs are silently dropped. */
+   if(dec.textruns.count>0)
+   {  SvgTextRenderAll(&dec.rp,dec.screen,ss->colormap,&dec.textruns,
+         Textrender_pen_cb,&dec);
    }
 
    /* Hand the bitmap to the source object. */

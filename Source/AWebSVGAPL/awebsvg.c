@@ -22,10 +22,21 @@
 #include "awebsvg.h"
 #include <string.h>
 #include <libraries/awebplugin.h>
+#include <libraries/ttengine.h>
 
 #include <proto/awebplugin.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
+
+/* Use the library's documented minimum version rather than picking a
+ * tighter number locally.  AWeb's own InitTTEngine() opens with the
+ * same TTENGINEMINVERSION (see Source/AWebAPL/ttengine.c), so any
+ * install on which the HTML renderer can produce TrueType text will
+ * also let our SVG plugin draw text.  Requiring v7 here had the
+ * symptom of plugin text silently disappearing on installs that ship
+ * v6: OpenLibrary returned NULL, TTEngineAvail stayed FALSE, and
+ * SvgTextAccumulate became a no-op for every <text>. */
+#define SVG_TTENGINE_MIN_VERSION TTENGINEMINVERSION
 
 /* Library base variables */
 struct Library *GfxBase;
@@ -34,6 +45,8 @@ struct Library *UtilityBase;
 struct Library *AwebPluginBase;
 struct Library *DOSBase;
 struct Library *P96Base;
+struct Library *TTEngineBase;
+BOOL            TTEngineAvail;
 
 ULONG Initpluginlib(struct AwebSvgBase *base)
 {  GfxBase=(struct Library *)OpenLibrary("graphics.library",39);
@@ -42,6 +55,25 @@ ULONG Initpluginlib(struct AwebSvgBase *base)
    AwebPluginBase=(struct Library *)OpenLibrary("awebplugin.library",0);
    DOSBase=(struct Library *)OpenLibrary("dos.library",37);
    P96Base=OpenLibrary("Picasso96.library",0);
+   /* OPTIONAL: ttengine.library.  Failure is non-fatal; the renderer
+    * skips every <text> element when TTEngineAvail is FALSE. */
+   TTEngineBase=OpenLibrary("ttengine.library",SVG_TTENGINE_MIN_VERSION);
+   TTEngineAvail=(BOOL)(TTEngineBase!=NULL);
+   /* Always-on diagnostic: this prints to AWeb's debug log so the
+    * "did ttengine actually load?" question can be answered without
+    * a rebuild.  Aprintf is awebplugin.library's logging routine. */
+   if(AwebPluginBase)
+   {  if(TTEngineBase)
+      {  Aprintf("SVG[init]: ttengine.library opened (v%lu.%lu)\n",
+            (unsigned long)TTEngineBase->lib_Version,
+            (unsigned long)TTEngineBase->lib_Revision);
+      }
+      else
+      {  Aprintf("SVG[init]: ttengine.library NOT available "
+            "(OpenLibrary v>=%lu failed); <text> elements will be skipped\n",
+            (unsigned long)SVG_TTENGINE_MIN_VERSION);
+      }
+   }
    (void)base;
    return (ULONG)(GfxBase && IntuitionBase && UtilityBase && AwebPluginBase && DOSBase);
 }
@@ -49,12 +81,14 @@ ULONG Initpluginlib(struct AwebSvgBase *base)
 void Expungepluginlib(struct AwebSvgBase *base)
 {  if(base->sourcedriver) { Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL); base->sourcedriver=0; }
    if(base->copydriver)   { Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);   base->copydriver=0; }
+   if(TTEngineBase)   { CloseLibrary(TTEngineBase);   TTEngineBase=NULL; }
    if(AwebPluginBase) { CloseLibrary(AwebPluginBase); AwebPluginBase=NULL; }
    if(UtilityBase)    { CloseLibrary(UtilityBase);    UtilityBase=NULL; }
    if(IntuitionBase)  { CloseLibrary(IntuitionBase);  IntuitionBase=NULL; }
    if(GfxBase)        { CloseLibrary(GfxBase);        GfxBase=NULL; }
    if(DOSBase)        { CloseLibrary(DOSBase);        DOSBase=NULL; }
    if(P96Base)        { CloseLibrary(P96Base);        P96Base=NULL; }
+   TTEngineAvail=FALSE;
 }
 
 __asm ULONG Initplugin(register __a0 struct Plugininfo *pi)

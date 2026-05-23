@@ -1,4 +1,4 @@
-FROM     startup.o awebsvg.o svgsource.o svgcopy.o xmlparse.o
+FROM     startup.o awebsvg.o svgsource.o svgcopy.o svgtext.o xmlparse.o
 TO       awebsvg.awebplugin
 NODEBUG
 LIB      lib:debug.lib lib:amiga.lib
