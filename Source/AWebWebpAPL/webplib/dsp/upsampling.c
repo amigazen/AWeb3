@@ -132,9 +132,160 @@ static void FUNC_NAME(const uint8_t* top_y, const uint8_t* bottom_y,           \
 }
 
 // All variants implemented.
+#if defined(__SASC) || defined(AMIGA) || defined(_AMIGA)
+/* ----------------------------------------------------------------------
+ * Amiga / SAS-C hand-optimised point samplers for the two output modes
+ * the AWeb WebP plugin actually requests (MODE_RGB for opaque images,
+ * MODE_RGBA for transparent ones).  They produce identical output to the
+ * macro-generated SAMPLE_FUNC bodies but do two transformations the
+ * SAS/C 6.58 optimiser cannot perform on its own:
+ *
+ *   1. Each chroma sample (u[0], v[0]) fans out to four Y samples in the
+ *      2x2 point-sampled block.  The original code calls VP8YuvToRgb()
+ *      four times per chroma pair, so the V/U table lookups (VP8kVToR,
+ *      VP8kVToG, VP8kUToG, VP8kUToB) and the (VP8kVToG[v] + VP8kUToG[u])
+ *      >> YUV_FIX combine are repeated four times.  These lookups depend
+ *      only on (u, v) and are hoisted out of the per-Y loop body, saving
+ *      9 table reads and 3 arithmetic ops per 4-pixel block.
+ *
+ *   2. The clip table VP8kClip is indexed by (y + offset - YUV_RANGE_MIN).
+ *      YUV_RANGE_MIN is a constant (-227), so we pre-bias a local pointer
+ *      "clip" by -YUV_RANGE_MIN once and use plain clip[y + off] inside
+ *      the loop, dropping one subtract per output channel.
+ *
+ * SAS/C cannot do either of these via its global CSE because VP8kVToR
+ * et al. are extern arrays whose contents the compiler must conservatively
+ * assume can change between calls.  Doing the hoisting by hand removes
+ * roughly half of the per-pixel work in the YUV->RGB step, which is the
+ * dominant cost of the no_fancy_upsampling decode path on 68k hardware.
+ *
+ * Output: byte-for-byte identical to the macro-generated versions.
+ * -------------------------------------------------------------------- */
+
+static void SampleRgbLinePair(const uint8_t* top_y,
+                              const uint8_t* bottom_y,
+                              const uint8_t* u, const uint8_t* v,
+                              uint8_t* top_dst, uint8_t* bottom_dst,
+                              int len) {
+  const uint8_t* clip;
+  int i;
+  int u0, v0;
+  int r_off, g_off, b_off;
+  int y_t0, y_t1, y_b0, y_b1;
+  clip = VP8kClip - YUV_RANGE_MIN;
+  for (i = 0; i < len - 1; i += 2) {
+    u0 = u[0];
+    v0 = v[0];
+    r_off = VP8kVToR[v0];
+    g_off = (VP8kVToG[v0] + VP8kUToG[u0]) >> YUV_FIX;
+    b_off = VP8kUToB[u0];
+    y_t0 = top_y[0];
+    y_t1 = top_y[1];
+    y_b0 = bottom_y[0];
+    y_b1 = bottom_y[1];
+    top_dst[0] = clip[y_t0 + r_off];
+    top_dst[1] = clip[y_t0 + g_off];
+    top_dst[2] = clip[y_t0 + b_off];
+    top_dst[3] = clip[y_t1 + r_off];
+    top_dst[4] = clip[y_t1 + g_off];
+    top_dst[5] = clip[y_t1 + b_off];
+    bottom_dst[0] = clip[y_b0 + r_off];
+    bottom_dst[1] = clip[y_b0 + g_off];
+    bottom_dst[2] = clip[y_b0 + b_off];
+    bottom_dst[3] = clip[y_b1 + r_off];
+    bottom_dst[4] = clip[y_b1 + g_off];
+    bottom_dst[5] = clip[y_b1 + b_off];
+    top_y += 2;
+    bottom_y += 2;
+    u++;
+    v++;
+    top_dst += 6;
+    bottom_dst += 6;
+  }
+  if (i == len - 1) {  /* odd width: trailing single column */
+    u0 = u[0];
+    v0 = v[0];
+    r_off = VP8kVToR[v0];
+    g_off = (VP8kVToG[v0] + VP8kUToG[u0]) >> YUV_FIX;
+    b_off = VP8kUToB[u0];
+    y_t0 = top_y[0];
+    y_b0 = bottom_y[0];
+    top_dst[0] = clip[y_t0 + r_off];
+    top_dst[1] = clip[y_t0 + g_off];
+    top_dst[2] = clip[y_t0 + b_off];
+    bottom_dst[0] = clip[y_b0 + r_off];
+    bottom_dst[1] = clip[y_b0 + g_off];
+    bottom_dst[2] = clip[y_b0 + b_off];
+  }
+}
+
+static void SampleRgbaLinePair(const uint8_t* top_y,
+                               const uint8_t* bottom_y,
+                               const uint8_t* u, const uint8_t* v,
+                               uint8_t* top_dst, uint8_t* bottom_dst,
+                               int len) {
+  const uint8_t* clip;
+  int i;
+  int u0, v0;
+  int r_off, g_off, b_off;
+  int y_t0, y_t1, y_b0, y_b1;
+  clip = VP8kClip - YUV_RANGE_MIN;
+  for (i = 0; i < len - 1; i += 2) {
+    u0 = u[0];
+    v0 = v[0];
+    r_off = VP8kVToR[v0];
+    g_off = (VP8kVToG[v0] + VP8kUToG[u0]) >> YUV_FIX;
+    b_off = VP8kUToB[u0];
+    y_t0 = top_y[0];
+    y_t1 = top_y[1];
+    y_b0 = bottom_y[0];
+    y_b1 = bottom_y[1];
+    top_dst[0] = clip[y_t0 + r_off];
+    top_dst[1] = clip[y_t0 + g_off];
+    top_dst[2] = clip[y_t0 + b_off];
+    top_dst[3] = 0xff;
+    top_dst[4] = clip[y_t1 + r_off];
+    top_dst[5] = clip[y_t1 + g_off];
+    top_dst[6] = clip[y_t1 + b_off];
+    top_dst[7] = 0xff;
+    bottom_dst[0] = clip[y_b0 + r_off];
+    bottom_dst[1] = clip[y_b0 + g_off];
+    bottom_dst[2] = clip[y_b0 + b_off];
+    bottom_dst[3] = 0xff;
+    bottom_dst[4] = clip[y_b1 + r_off];
+    bottom_dst[5] = clip[y_b1 + g_off];
+    bottom_dst[6] = clip[y_b1 + b_off];
+    bottom_dst[7] = 0xff;
+    top_y += 2;
+    bottom_y += 2;
+    u++;
+    v++;
+    top_dst += 8;
+    bottom_dst += 8;
+  }
+  if (i == len - 1) {
+    u0 = u[0];
+    v0 = v[0];
+    r_off = VP8kVToR[v0];
+    g_off = (VP8kVToG[v0] + VP8kUToG[u0]) >> YUV_FIX;
+    b_off = VP8kUToB[u0];
+    y_t0 = top_y[0];
+    y_b0 = bottom_y[0];
+    top_dst[0] = clip[y_t0 + r_off];
+    top_dst[1] = clip[y_t0 + g_off];
+    top_dst[2] = clip[y_t0 + b_off];
+    top_dst[3] = 0xff;
+    bottom_dst[0] = clip[y_b0 + r_off];
+    bottom_dst[1] = clip[y_b0 + g_off];
+    bottom_dst[2] = clip[y_b0 + b_off];
+    bottom_dst[3] = 0xff;
+  }
+}
+#else
 SAMPLE_FUNC(SampleRgbLinePair,      VP8YuvToRgb,  3)
-SAMPLE_FUNC(SampleBgrLinePair,      VP8YuvToBgr,  3)
 SAMPLE_FUNC(SampleRgbaLinePair,     VP8YuvToRgba, 4)
+#endif
+SAMPLE_FUNC(SampleBgrLinePair,      VP8YuvToBgr,  3)
 SAMPLE_FUNC(SampleBgraLinePair,     VP8YuvToBgra, 4)
 SAMPLE_FUNC(SampleArgbLinePair,     VP8YuvToArgb, 4)
 SAMPLE_FUNC(SampleRgba4444LinePair, VP8YuvToRgba4444, 2)

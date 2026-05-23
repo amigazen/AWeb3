@@ -359,17 +359,52 @@ static int Webpreadfeatures(struct Decoder *decoder,
 static void Buildmaskrow(struct Decoder *decoder,long row)
 {  long x;
    long maskoff;
+   long w;
+   long groups;
+   long tail;
    UBYTE *src;
-   UBYTE a,bit;
+   UBYTE *dst;
+   UBYTE *a;
+   UBYTE byte;
+   UBYTE bit;
+   long j;
    if(!decoder->mask) return;
    if(!(decoder->flags&DECOF_TRANSPARENT)) return;
    src=decoder->rgba+row*decoder->rgbastride;
    maskoff=row*decoder->maskw;
-   for(x=0;x<decoder->width;x++)
-   {  a=src[x*4+3];
-      bit=(UBYTE)(0x80>>(x&7));
-      if(a>=THRESHOLD) decoder->mask[maskoff+(x>>3)]|=bit;
-      else decoder->mask[maskoff+(x>>3)]&=~bit;
+   dst=decoder->mask+maskoff;
+   w=decoder->width;
+   /* Process the row 8 pixels at a time, packing the threshold result
+    * directly into a byte and writing it once.  That replaces 8 read-
+    * modify-write operations against AmigaOS memory with a single
+    * write per byte, which is a measurable improvement on classic
+    * 68k systems where memory writes are expensive relative to ALU
+    * ops.  The alpha plane is interleaved into the RGBA buffer at
+    * src[x*4+3], so we step through it with a separate pointer "a". */
+   groups=w>>3;
+   tail=w&7L;
+   a=src+3;
+   for(x=0;x<groups;x++)
+   {  byte=0;
+      if(a[0*4]>=THRESHOLD) byte|=0x80;
+      if(a[1*4]>=THRESHOLD) byte|=0x40;
+      if(a[2*4]>=THRESHOLD) byte|=0x20;
+      if(a[3*4]>=THRESHOLD) byte|=0x10;
+      if(a[4*4]>=THRESHOLD) byte|=0x08;
+      if(a[5*4]>=THRESHOLD) byte|=0x04;
+      if(a[6*4]>=THRESHOLD) byte|=0x02;
+      if(a[7*4]>=THRESHOLD) byte|=0x01;
+      *dst++=byte;
+      a+=8*4;
+   }
+   if(tail!=0)
+   {  byte=0;
+      bit=0x80;
+      for(j=0;j<tail;j++)
+      {  if(a[j*4]>=THRESHOLD) byte|=bit;
+         bit>>=1;
+      }
+      *dst=byte;
    }
 }
 

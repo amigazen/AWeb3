@@ -6,7 +6,7 @@ contains the decoder portion of Google's libwebp v0.2.0.  The AWeb
 WebP plugin (awebwebp.awebplugin) links against this library to
 decode WebP images in the browser.
 
-This is a vendored copy of the upstream 0.2.0 source tree with seven
+This is a vendored copy of the upstream 0.2.0 source tree with eight
 small modifications, listed below.  No further patching is needed -
 just run "smake" in this directory and libwebp.lib will be built.
 
@@ -31,7 +31,9 @@ Files in this directory
                           upsampling_sse2.c (SIMD intrinsics not
                           available under SAS/C on m68k) and minus
                           enc.c, enc_sse2.c (encoder).
-                          lossless.c has the one-line patch noted below.
+                          lossless.c and upsampling.c carry the small
+                          patches noted below; dec.c carries the chroma
+                          DC fill replacement and the VE4 fix.
 
    utils/                 Utility sources, verbatim from upstream
                           src/utils/ minus bit_writer.c/.h,
@@ -49,7 +51,7 @@ Files in this directory
 
 PATCHES
 -------
-Compared to upstream libwebp 0.2.0, seven changes are present:
+Compared to upstream libwebp 0.2.0, eight changes are present:
 
 1.  webp/types.h replaced by an SAS/C-friendly variant.
     The original pulls in <inttypes.h> for int8_t/uint8_t/...; SAS/C
@@ -92,6 +94,17 @@ Compared to upstream libwebp 0.2.0, seven changes are present:
     PACK_CST residual non-zero packing constant.  Without this, lossy
     VP8 streams on m68k use the little-endian packing constant and can
     fail to render even though the RIFF/WebP headers parse correctly.
+
+8.  dsp/upsampling.c provides hand-optimised point samplers for the two
+    output colour modes the AWeb plugin actually requests (MODE_RGB and
+    MODE_RGBA).  The macro-generated SAMPLE_FUNC bodies call
+    VP8YuvToRgb()/VP8YuvToRgba() four times per chroma sample, repeating
+    the (u,v) table lookups each call; the SAS/C variants hoist these
+    out of the per-Y loop and pre-bias the clip-table base pointer.
+    The output is byte-for-byte identical to the upstream version but
+    the no_fancy_upsampling decode path is roughly twice as fast on
+    classic m68k systems.  All other colour modes still use the upstream
+    macro-generated samplers unchanged.
 
 Suppressed SAS/C diagnostics
 ----------------------------
