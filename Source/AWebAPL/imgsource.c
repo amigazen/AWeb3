@@ -353,9 +353,15 @@ static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
    if(depth>8) depth=8; /* Maximum for compatibility */
    imp->depth=depth;
    
-   /* Allocate bitmap */
+   /* Allocate bitmap.  This is a cached icon master, used only as a blit
+    * source for BltBitMapRastPort.  DrawImage() does not require a
+    * displayable destination, so omit BMF_DISPLAYABLE and let
+    * graphics.library place the planes in Fast RAM.  The screen friend
+    * stays so DrawImage() inherits the screen's pen system and depth
+    * hint.  BMF_MINPLANES is required to honour our explicit depth (a
+    * deeper screen friend would otherwise grow the bitmap). */
    tempbitmap=AllocBitMap(imp->width,imp->height,depth,
-      BMF_CLEAR|BMF_DISPLAYABLE,
+      BMF_CLEAR|BMF_MINPLANES,
       imp->screen ? imp->screen->RastPort.BitMap : NULL);
    if(!tempbitmap) return FALSE;
    
@@ -983,6 +989,23 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    return result;
 }
 
+/* True when URL is an inline data: image (mail EML body). */
+static BOOL ImsIsDataImage(struct Imgsource *ims)
+{
+   void *url;
+   UBYTE *urlname;
+   UBYTE *ctype;
+
+   if(!ims || !ims->source) return FALSE;
+   url=(void *)Agetattr(ims->source,AOSRC_Url);
+   if(!url) return FALSE;
+   urlname=(UBYTE *)Agetattr(url,AOURL_Url);
+   if(!urlname || !STRNIEQUAL(urlname,"data:",5)) return FALSE;
+   ctype=(UBYTE *)Agetattr(url,AOURL_Contenttype);
+   if(!ctype || !strstr((char *)ctype,"image/")) return FALSE;
+   return TRUE;
+}
+
 /* Create a datatype object and the mask */
 static BOOL Makeobject(struct Imgprocess *imp)
 {  BOOL result=FALSE;
@@ -1110,6 +1133,29 @@ static void Imagetask(struct Imgsource *ims)
 
 /*------------------------------------------------------------------------*/
 
+/* Map image Content-Type to a file extension for datatype decode (cid: URLs). */
+static UBYTE *MimeToFileExt(UBYTE *ctype)
+{
+   if(!ctype) return NULL;
+   if(strstr(ctype,"image/jpeg") || strstr(ctype,"image/jpg"))
+   {  return Dupstr("jpg",3);
+   }
+   if(strstr(ctype,"image/png"))
+   {  return Dupstr("png",3);
+   }
+   if(strstr(ctype,"image/gif"))
+   {  return Dupstr("gif",3);
+   }
+   if(strstr(ctype,"image/bmp"))
+   {  return Dupstr("bmp",3);
+   }
+   if(strstr(ctype,"image/webp"))
+   {  return Dupstr("webp",4);
+   }
+   if(Isxbm(ctype)) return Dupstr("xbm",3);
+   return NULL;
+}
+
 /* Create a new file object if data isn't stored in cache */
 static void *Newfile(struct Imgsource *ims,struct Amsrcupdate *ams)
 {  void *url,*cache;
@@ -1133,7 +1179,7 @@ static void *Newfile(struct Imgsource *ims,struct Amsrcupdate *ams)
       }
       if(!ext)
       {  if(ctype=(UBYTE *)Agetattr(url,AOURL_Contenttype))
-         {  if(Isxbm(ctype)) ext=Dupstr("xbm",3);
+         {  ext=MimeToFileExt(ctype);
          }
       }
       file=Anewobject(AOTP_FILE,
@@ -1400,9 +1446,28 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
       ims->filename=(UBYTE *)Agetattr(ims->file,AOFIL_Name);
    }
    if(eof && ims->filename && !(ims->flags&IMSF_ERROR))
-   {  ims->flags|=IMSF_EOF;
+   {  BOOL decode_now;
+
+      ims->flags|=IMSF_EOF;
+      decode_now=FALSE;
+      if(ImsIsDataImage(ims))
+      {  ims->flags|=IMSF_EAGERDECODE|IMSF_DECODEWAIT;
+         decode_now=TRUE;
+      }
 #if !LAZY_IMAGE_DECODE
       if(!ims->task && Agetattr(Aweb(),AOAPP_Screenvalid))
+      {  decode_now=TRUE;
+      }
+#endif
+#if LAZY_IMAGE_DECODE
+      if(ims->flags&IMSF_EAGERDECODE)
+      {  decode_now=TRUE;
+      }
+      else if(ims->flags&IMSF_DECODEWAIT)
+      {  Trydecodeimg(ims);
+      }
+#endif
+      if(decode_now && !ims->task && Agetattr(Aweb(),AOAPP_Screenvalid))
       {  ObtainSemaphore(&imagetask.screensema);
          if(!imagetask.screen)
          {  imagetask.screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
@@ -1410,22 +1475,6 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
          ReleaseSemaphore(&imagetask.screensema);
          Startprocessimg(ims);
       }
-#endif
-#if LAZY_IMAGE_DECODE
-      if(ims->flags&IMSF_EAGERDECODE)
-      {  if(!ims->task && Agetattr(Aweb(),AOAPP_Screenvalid))
-         {  ObtainSemaphore(&imagetask.screensema);
-            if(!imagetask.screen)
-            {  imagetask.screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
-            }
-            ReleaseSemaphore(&imagetask.screensema);
-            Startprocessimg(ims);
-         }
-      }
-      else if(ims->flags&IMSF_DECODEWAIT)
-      {  Trydecodeimg(ims);
-      }
-#endif
    }
    return 0;
 }

@@ -624,8 +624,15 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          if(P96Base && decoder->source->friendbitmap
          && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
          {  depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
+            /* Cached image master, never used as a screen surface itself —
+             * only ever a blit source for BltBitMapRastPort and a write
+             * target for p96WritePixelArray.  Both work fine on a
+             * non-displayable P96 bitmap, so omit BMF_DISPLAYABLE: that
+             * keeps the master out of (often-tighter) VRAM, and on a
+             * defensive fallback to classic prevents pinning a full-image
+             * bitmap in Chip RAM.  Matches the GIF/JFIF policy. */
             decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
-               BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap,RGBFB_NONE);
+               BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
             if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
             {  decoder->flags|=DECOF_P96MAP;
                if(depth>8)
@@ -702,10 +709,15 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          }
          else
          {  /* The colour mapping process needs a temporary RastPort plus BitMap
-             * for the PixelLine8 functions. */
+             * for the PixelLine8 functions.  This 1-row scratch bitmap is
+             * never displayed, so allocate it as a non-displayable planar
+             * master (BMF_MINPLANES|BMF_CLEAR, friend of decoder->bitmap):
+             * graphics.library is then free to place it in Fast RAM and
+             * we don't pin Chip RAM for a single transient row.  Matches
+             * the GIF/JFIF policy for the same scratch surface. */
             InitRastPort(&decoder->temprp);
             error=!(decoder->temprp.BitMap=AllocBitMap(
-                  8*(((decoder->width+15)>>4)<<1),1,8,BMF_DISPLAYABLE,decoder->bitmap))
+                  8*(((decoder->width+15)>>4)<<1),1,8,BMF_MINPLANES|BMF_CLEAR,decoder->bitmap))
                || !(decoder->chunky=AllocVec(((decoder->width+15)>>4)<<4,MEMF_PUBLIC));
             /* Initialize RenderInfo for 8-bit mode */
             decoder->renderinfo.Memory=decoder->chunky;

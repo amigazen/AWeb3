@@ -85,8 +85,13 @@ static void Newbitmap(struct Imgcopy *img)
          img->height=img->sheight;
          img->flags|=IMGF_LAZYSCALE;
       }
+      /* Scaled cache of the source image, never used as a screen surface
+       * itself — only blitted into the screen via BltBitMapRastPort.
+       * Omit BMF_DISPLAYABLE so graphics.library can place the scaled
+       * master in Fast RAM (Chip is reserved for the actual display
+       * surface and blitter masks). */
       else if(img->bitmap=AllocBitMap(img->swidth,img->sheight,img->source->depth,
-         BMF_MINPLANES|BMF_DISPLAYABLE,img->source->bitmap))
+         BMF_MINPLANES|BMF_CLEAR,img->source->bitmap))
       {  struct BitScaleArgs bsa={0};
          int memfchip=0;
          bsa.bsa_SrcX=0;
@@ -221,7 +226,13 @@ static long Renderimgcopy(struct Imgcopy *img,struct Amrender *amr)
                   if(sx+sw>img->source->width) sw=img->source->width-sx;
                   if(sy+sh>img->source->height) sh=img->source->height-sy;
                   if(sw>0 && sh>0)
-                  {  tbm=AllocBitMap(w,h,img->source->depth,BMF_MINPLANES|BMF_DISPLAYABLE,img->source->bitmap);
+                  {  /* Per-render lazy-scale scratch.  Allocated, used as a
+                      * BltBitMapRastPort source and freed inside this same
+                      * Renderimgcopy() call, so it is never displayed.
+                      * Non-displayable allocation avoids thrashing Chip RAM
+                      * across every paint event when scrolling a page with
+                      * scaled images. */
+                     tbm=AllocBitMap(w,h,img->source->depth,BMF_MINPLANES|BMF_CLEAR,img->source->bitmap);
                      if(tbm)
                      {  bsa.bsa_SrcX=sx;
                         bsa.bsa_SrcY=sy;

@@ -2609,9 +2609,19 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
    maxbytes=256UL*1024UL;
    if(estbytes>maxbytes) return NULL;
 
+   /* Background composition target — the layout engine paints the
+    * background pattern/colour into this bitmap and then blits the
+    * result onto the screen via BltBitMapRastPort.  It is never
+    * displayed directly, so omit BMF_DISPLAYABLE: graphics.library is
+    * then free to place the planes in Fast RAM, which is what we want
+    * for an off-screen composition surface (Chip stays reserved for the
+    * actual display surface and blitter masks).  The screen friend is
+    * kept so the bitmap inherits the screen's depth/format hint, which
+    * matters for blits back to the screen.  The 256 KB size guard above
+    * still applies regardless of where the planes land. */
    if((screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen))
    && (bitmap=AllocBitMap(bw,bh,Agetattr(Aweb(),AOAPP_Screendepth),
-         BMF_MINPLANES|BMF_DISPLAYABLE,screen->RastPort.BitMap)))
+         BMF_MINPLANES|BMF_CLEAR,screen->RastPort.BitMap)))
    {  if(rp=ALLOCSTRUCT(RastPort,1,MEMF_PUBLIC|MEMF_CLEAR))
       {  InitRastPort(rp);
          rp->BitMap=bitmap;
@@ -2702,6 +2712,19 @@ void Releasebgrp(struct RastPort *rp)
    }
 }
 
+/* Mail compose target: new window without navigation or button bar. */
+static void *Mailcompose_window(struct Frame *fr,UBYTE *name)
+{  void *win;
+   win=Anewobject(AOTP_WINDOW,
+      AOWIN_Name,name,
+      AOWIN_Noproxy,Agetattr(fr->win,AOWIN_Noproxy),
+      AOWIN_Navigation,FALSE,
+      AOWIN_Buttonbar,FALSE,
+      TAG_END);
+   if(win) return (void *)Agetattr(win,AOBJ_Frame);
+   return NULL;
+}
+
 /* Target frame, but only optionally open new window if no frame found */
 struct Frame *Targetframeoptnew(struct Frame *fr,UBYTE *name,BOOL opennew)
 {  void *target=fr,*t2=NULL;
@@ -2787,7 +2810,10 @@ struct Frame *Targetframeoptnew(struct Frame *fr,UBYTE *name,BOOL opennew)
                {  
 #ifndef DEMOVERSION
                   Asetattrs(Aweb(),AOAPP_Iconify,FALSE,TAG_END);
-                  if(win=Anewobject(AOTP_WINDOW,
+                  if(name && STRIEQUAL(name,"MailCompose"))
+                  {  target=Mailcompose_window(fr,name);
+                  }
+                  else if(win=Anewobject(AOTP_WINDOW,
                      AOWIN_Name,name,
                      AOWIN_Noproxy,Agetattr(fr->win,AOWIN_Noproxy),
                      TAG_END))
