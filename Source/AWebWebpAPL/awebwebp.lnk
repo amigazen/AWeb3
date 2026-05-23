@@ -1,0 +1,8 @@
+FROM     startup.o awebwebp.o webpsource.o webpcopy.o
+TO       awebwebp.awebplugin
+NODEBUG
+LIB      webplib/libwebp.lib lib:scm881.lib lib:sc.lib
+MAP      awebwebp.map
+DEFINE   @__chkabort=@__dummy
+DEFINE   __XCEXIT=@__dummy
+NOICONS

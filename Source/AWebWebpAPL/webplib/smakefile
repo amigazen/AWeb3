@@ -1,0 +1,147 @@
+## SAS/C smakefile for libwebp 0.2.0 (decoder-only)
+##
+## Builds libwebp.lib for static linking by the AWeb WebP plugin.
+## Only the decoder source files are compiled; encoder, muxer,
+## demuxer, and SIMD assembly files are not present in this tree.
+##
+## Layout (already in this directory):
+##
+##    webplib/
+##       smakefile          (this file)
+##       SCOPTIONS          SAS/C options applied to all .c files here
+##       webp/              public headers (decode.h, types.h,
+##                          format_constants.h)
+##       dec/               libwebp decoder sources
+##       dsp/               libwebp scalar DSP sources
+##       utils/             libwebp decoder-side utility sources
+##
+## Output: libwebp.lib in this directory.
+##
+## See README.txt for the (small) list of patches that were applied
+## to the upstream 0.2.0 tree, and for source provenance.
+
+# Compiler and flags
+CC=sc
+CFLAGS= NOSTKCHK PARMS=REG MemorySize=h ppbuf=32768\
+        OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4\
+        IGNORE=63 IGNORE=79 IGNORE=85\
+        IGNORE=100 IGNORE=104 IGNORE=193\
+        IGNORE=304 IGNORE=306 IGNORE=308\
+        IGNORE=315 IGNORE=316\
+        INCLUDEDIR=.\
+        define CPU="68020" cpu=68020
+
+# Library tools
+AR=oml
+RM=delete quiet
+
+# Decoder object files (libwebp 0.2.0 dec/).
+# 'layer.c' is present in 0.2.0 and required by the build even
+# though enhancement-layer bitstreams are not produced in practice.
+DEC_OBJS = dec/alpha.o dec/buffer.o dec/frame.o dec/idec.o \
+           dec/io.o dec/layer.o dec/quant.o dec/tree.o \
+           dec/vp8.o dec/vp8l.o dec/webp.o
+
+# DSP object files (libwebp 0.2.0 dsp/, scalar only).
+DSP_OBJS = dsp/cpu.o dsp/dec.o dsp/lossless.o dsp/upsampling.o dsp/yuv.o
+
+# Utility object files (libwebp 0.2.0 utils/, decoder helpers only).
+# quant_levels_dec.o is our slim replacement for the upstream
+# quant_levels.c (which also contains the encoder QuantizeLevels).
+UTILS_OBJS = utils/bit_reader.o utils/color_cache.o utils/filters.o \
+             utils/huffman.o utils/quant_levels_dec.o \
+             utils/rescaler.o utils/thread.o utils/utils.o
+
+WEBP_OBJS = $(DEC_OBJS) $(DSP_OBJS) $(UTILS_OBJS)
+
+all: libwebp.lib
+
+libwebp.lib: $(WEBP_OBJS)
+   -$(RM) libwebp.lib
+   $(AR) libwebp.lib r $(WEBP_OBJS)
+
+# ----- Explicit rules per object file ----------------------------------------
+# We avoid relying on the .c.o inference rule because SAS/C smake on
+# AmigaOS does not handle path-qualified targets uniformly across all
+# releases.  This pattern mirrors the AWeb PNG plugin's pnglib/ rules.
+
+dec/alpha.o: dec/alpha.c dec/vp8i.h dec/vp8li.h utils/filters.h utils/quant_levels.h webp/format_constants.h
+   $(CC) $(CFLAGS) dec/alpha.c
+
+dec/buffer.o: dec/buffer.c dec/vp8i.h dec/webpi.h webp/decode.h webp/types.h
+   $(CC) $(CFLAGS) dec/buffer.c
+
+dec/frame.o: dec/frame.c dec/vp8i.h dec/webpi.h
+   $(CC) $(CFLAGS) dec/frame.c
+
+dec/idec.o: dec/idec.c dec/webpi.h dec/vp8i.h dec/vp8li.h utils/utils.h
+   $(CC) $(CFLAGS) dec/idec.c
+
+dec/io.o: dec/io.c dec/vp8i.h dec/webpi.h dsp/dsp.h dsp/yuv.h utils/utils.h
+   $(CC) $(CFLAGS) dec/io.c
+
+dec/layer.o: dec/layer.c dec/vp8i.h
+   $(CC) $(CFLAGS) dec/layer.c
+
+dec/quant.o: dec/quant.c dec/vp8i.h
+   $(CC) $(CFLAGS) dec/quant.c
+
+dec/tree.o: dec/tree.c dec/vp8i.h
+   $(CC) $(CFLAGS) dec/tree.c
+
+dec/vp8.o: dec/vp8.c dec/vp8i.h dec/webpi.h
+   $(CC) $(CFLAGS) dec/vp8.c
+
+dec/vp8l.o: dec/vp8l.c dec/vp8li.h dec/vp8i.h dsp/lossless.h utils/huffman.h utils/utils.h
+   $(CC) $(CFLAGS) dec/vp8l.c
+
+dec/webp.o: dec/webp.c dec/vp8i.h dec/vp8li.h dec/webpi.h webp/format_constants.h
+   $(CC) $(CFLAGS) dec/webp.c
+
+dsp/cpu.o: dsp/cpu.c dsp/dsp.h
+   $(CC) $(CFLAGS) dsp/cpu.c
+
+dsp/dec.o: dsp/dec.c dsp/dsp.h
+   $(CC) $(CFLAGS) dsp/dec.c
+
+dsp/lossless.o: dsp/lossless.c dsp/lossless.h dsp/yuv.h dsp/dsp.h dec/vp8li.h
+   $(CC) $(CFLAGS) dsp/lossless.c
+
+dsp/upsampling.o: dsp/upsampling.c dsp/dsp.h dsp/yuv.h
+   $(CC) $(CFLAGS) dsp/upsampling.c
+
+dsp/yuv.o: dsp/yuv.c dsp/yuv.h
+   $(CC) $(CFLAGS) dsp/yuv.c
+
+utils/bit_reader.o: utils/bit_reader.c utils/bit_reader.h
+   $(CC) $(CFLAGS) utils/bit_reader.c
+
+utils/color_cache.o: utils/color_cache.c utils/color_cache.h
+   $(CC) $(CFLAGS) utils/color_cache.c
+
+utils/filters.o: utils/filters.c utils/filters.h
+   $(CC) $(CFLAGS) utils/filters.c
+
+utils/huffman.o: utils/huffman.c utils/huffman.h utils/utils.h
+   $(CC) $(CFLAGS) utils/huffman.c
+
+utils/quant_levels_dec.o: utils/quant_levels_dec.c utils/quant_levels.h
+   $(CC) $(CFLAGS) utils/quant_levels_dec.c
+
+utils/rescaler.o: utils/rescaler.c utils/rescaler.h
+   $(CC) $(CFLAGS) utils/rescaler.c
+
+utils/thread.o: utils/thread.c utils/thread.h
+   $(CC) $(CFLAGS) utils/thread.c
+
+utils/utils.o: utils/utils.c utils/utils.h
+   $(CC) $(CFLAGS) utils/utils.c
+
+clean:
+   -$(RM) dec/(\#?).o
+   -$(RM) dsp/(\#?).o
+   -$(RM) utils/(\#?).o
+
+cleanall: clean
+   -$(RM) libwebp.lib

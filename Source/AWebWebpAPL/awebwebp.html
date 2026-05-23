@@ -1,0 +1,138 @@
+<html>
+<head>
+<title>AWeb WebP plugin</title>
+</head>
+<body background="file:///AWeb:Docs/awebbg.iff">
+<h1><img src="file:///AWeb:Docs/aweb.iff" width=192 height=93 alt="(logo)">&nbsp;
+   AWeb WebP plugin</h1>
+
+<h2>General</h2>
+The <em>awebwebp</em> plugin for AWeb decodes <strong>WebP</strong>
+images directly inside the browser, without requiring any datatype.
+WebP is Google's open image format used widely on the modern web; it
+provides better compression than JPEG and PNG and supports lossless
+mode and transparency.
+<p>
+Features:
+<ul>
+<li>Decodes both lossy (VP8) and lossless (VP8L) WebP images.
+<li>Full alpha-channel transparency support, rendered through a
+    1bpp planar mask compatible with AWeb's normal blitter path.
+<li>Progressive display while data is still arriving from the network.
+<li>Support for image scaling (the same scaling code paths as
+    the JFIF and PNG plugins).
+<li>Native Picasso96 deep-bitmap rendering on RTG screens, plus
+    fall-back to classic 8-bit planar bitmaps on AGA / ECS screens.
+</ul>
+
+<h2>Installation</h2>
+Follow these steps to install the AWeb WebP plugin.
+<ol>
+<li>
+Run the supplied Installer script. It will copy the necessary files to
+the drawer <code>awebplugin</code> in the drawer where the AWeb
+program is located.
+<p>
+Decoding a WebP image needs some scratch memory; large images can
+need a few megabytes briefly during decoding. The installer will
+prompt for a swap directory location for temporary files when
+necessary.
+<br><br>
+<li>
+<form action="x-aweb:rexx/AWeb:Docs/awebwebp.awebrx">
+Run the <input type=submit value="Setup script">.
+</form>
+</ol>
+
+<h2>Manual Installation</h2>
+If, for some reason, you don't want to install the plugin
+automatically, you can install it by hand.
+<ol>
+<li>
+Copy the file <code>awebwebp.awebplugin</code> to a location of your
+choice. The recommended location for plugins like this is the
+<code>awebplugin</code> drawer in the AWeb program directory.
+<br><br>
+<li>
+Start AWeb, open the browser settings and bring up the
+<em>Viewers</em> page. Add an entry for MIME type
+<code>image/webp</code> with the following settings:
+<ul>
+   <li>Action: "AWeb Plugin (A)"
+   <li>Name: the location where you copied
+       <code>awebwebp.awebplugin</code>
+   <li>Arguments: leave blank or supply optional parameters, see below
+</ul>
+<br><br>
+<li>
+Don't forget to save your settings.
+</ol>
+
+<h2><a name=parameters>Parameters</a></h2>
+The awebwebp plugin supports a few optional parameters. You can type
+the chosen parameters in the "Arguments:" field of the settings
+window. Separate the parameters by a comma or space, if you specify
+more than one.
+
+<dl>
+<dt><code><b>PROGRESS=</b>0|<var>number</var></code>
+<dd>Specifies the number of image scan lines to decode before the
+   display is updated. A higher number is faster but results in
+   chunkier building of the image. PROGRESS=1 gives the smoothest
+   progressive display but is relatively slow. The default value is 4,
+   which is a good compromise between speed and visual attractiveness.
+<p>
+   If you specify PROGRESS=0, progressive display is disabled. The
+   image is not displayed until decoding is complete.
+<p>
+<dt><code><b>MAXMEM=</b><var>number</var></code>
+<dd>Specifies the maximum amount of scratch memory (in kB) to be used
+   for the decoding of each image. Large images may take quite a lot
+   of memory during decoding. Default for this parameter is 1024 (=
+   1 megabyte). Note that the maximum is applied on a per-image basis,
+   not for all images together.
+<p>
+<dt><code><b>LOWPRI</b></code>
+<dd>The LOWPRI argument will run the decoder at a lower priority than
+   default. If you are using your Amiga for other tasks while AWeb is
+   downloading images, this feature helps you to keep the GUI
+   responsive when many images are being decoded.
+<p>
+   Note that the LOWPRI argument might not be effective when you use
+   a custom task scheduler like Executive. Use task name "AWebWEBP
+   decoder" to configure the decoder task in custom schedulers.
+</dl>
+
+<h2>Support</h2>
+The AWeb WebP plugin is part of the AWeb distribution maintained
+by the
+<a href="mailto:aweb@amigazen.com">amigazen project</a>.
+
+<h2>Disclaimer</h2>
+This software is provided "as is". No warranties are made, either
+expressed or implied, with respect to reliability, quality, performance,
+or operation of this software. The use of this program is at your own
+risk. The amigazen project assumes no responsibility or liability for
+any damage or losses resulting from the use of this software, even if
+advised of the possibility of such damage or loss.
+
+<h2>Copyright</h2>
+The AWeb WebP plugin is copyright &copy; 2026 amigazen project.<br>
+It uses the <code>libwebp</code> library, copyright &copy; Google Inc.,
+which is distributed under a BSD-style licence. See the file
+<code>webplib/README.txt</code> for details on obtaining the libwebp
+source.
+
+<h2>History</h2>
+
+awebwebp.awebplugin 1.0
+<ul>
+<li>Initial version.  Streams VP8 and VP8L bitstreams through
+    libwebp's incremental decoder.  Supports alpha channel via the
+    standard AWeb planar mask.  Renders into Picasso96 deep bitmaps
+    natively and falls back to 8-bit planar bitmaps with hashed
+    ObtainBestPen for classic screens.
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,27 @@
+AWebWEBP plugin
+===============
+
+This distribution contains the sources for the WebP
+image plugin for AWeb 3.6 APL.
+
+Source files in this distribution are subject to the
+AWeb Public License. See the notice at the start of
+each individual source file.
+
+In short, the APL means that you are allowed to modify
+these sources and/or use them in your own products,
+provided that these products will also be distributed
+subject to the APL. It also means that you must make
+the sources of your product available to the public.
+Refer to the file "apl.txt", included in this
+distribution, for more details.
+
+Sources in the webplib/ directory are derived from
+Google's libwebp library which is BSD-licensed and is
+NOT subject to the AWeb Public License.  See the file
+webplib/README.txt and the upstream COPYING / PATENTS
+files for details.
+
+All files are published without warranty or support.
+
+amigazen project, 2026.

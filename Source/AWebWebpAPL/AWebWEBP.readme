@@ -1,0 +1,29 @@
+Short:    AWeb WebP image plugin v1.0
+Uploader: aweb@amigazen.com (amigazen project)
+Author:   amigazen project
+Type:     comm/www
+Version:  1.0
+
+AWebWEBP plugin
+===============
+
+The AWebWEBP plugin for AWeb (version 3.6 or higher) allows you
+to view WebP (Web Picture) images directly inside the browser.
+WebP is Google's modern image format used widely on the web; it
+provides better compression than JPEG and PNG and supports
+lossless mode and full alpha transparency.
+
+Features include:
+
+ * Decodes both lossy (VP8) and lossless (VP8L) WebP bitstreams
+ * Full alpha-channel transparency through the standard AWeb
+   planar mask path
+ * Optional progressive display of loading images
+ * Support for image scaling
+ * Native Picasso96 deep-bitmap rendering on RTG screens
+ * Fall-back to classic 8-bit planar bitmaps on AGA/ECS screens
+   with hashed ObtainBestPen for fast colour mapping
+
+The AWeb WebP plugin is copyright (c) 2026 amigazen project.
+It uses Google's libwebp library version 0.2.0 distributed under a
+BSD-style licence; see webplib/README.txt for details.

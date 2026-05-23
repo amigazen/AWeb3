@@ -1,0 +1,157 @@
+/* awebwebp.awebrx - Install or uninstall the AWeb WebP plugin */
+
+options results
+
+if left(address(),5)~="AWEB." then do
+   ports=show("P")
+   parse var ports dummy "AWEB." portnr .
+   if portnr="" then do
+      address command "run AWeb:AWeb"
+      address command "WaitForPort AWEB.1"
+      portnr=1
+   end
+   address value "AWEB."portnr
+   'get activeport'
+   address value result
+end
+
+parse arg args
+parse source dummy1 dummy2 called .
+i=lastpos(called,'/')
+if i==0 then i=lastpos(called,':')
+if i>0 then path=left(called,i)
+else path=''
+
+if args='' then do
+   if ~open(tf,"T:awebwebpsetup.html","W") then exit
+
+   call writeln tf,"<html><head><title>AWeb WebP Setup</title></head>"
+   call writeln tf,"<body><h1>AWeb WebP Setup</h1>"
+
+   if exists("AWeb:awebplugin/awebwebp.awebplugin") then do
+      installed=0
+      progress=4
+      maxmem=1024
+      lowpri=0
+      'getcfg MIME stem m'
+      do i=1 to m.0
+         if upper(left(m.i.value,11))="IMAGE/WEBP;" then do
+            parse var m.i.value type ";" ext ";" action ";" file ";" args
+            if action='A' & upper(right(file,19))="AWEBWEBP.AWEBPLUGIN" then do
+               installed=1
+               j=index(upper(args),"PROGRESS=")
+               if j>0 then do
+                  progress=substr(args,j+9)
+                  j=verify(progress,"0123456789")
+                  if j>0 then progress=left(progress,j-1)
+               end
+               j=index(upper(args),"MAXMEM=")
+               if j>0 then do
+                  maxmem=substr(args,j+7)
+                  j=verify(maxmem,"0123456789")
+                  if j>0 then maxmem=left(maxmem,j-1)
+               end
+               lowpri=(index(upper(args),"LOWPRI")>0)
+            end
+            leave
+         end
+      end
+
+      call writeln tf,"<table border width=100% bgcolor=#aaccaa><tr><td>"
+      call writeln tf,"<form action='x-aweb:rexx/"called"'>"
+      call writeln tf,"This form configures AWeb-II to use the <strong>AWeb WebP plugin</strong>."
+      call writeln tf,"<input type=hidden name=defprogress value="progress">"
+      call writeln tf,"<ol><li>Select the required modes of operation "
+      call writeln tf,"(see <a href='file:///AWeb:awebplugin/docs/awebwebp.html#parameters'>documentation</a> for details)"
+
+      call writeln tf,"<p><ul><li>Progressive display:<br>"
+      call writeln tf,"<input type=radio name=progress value=0"
+      if progress=0 then call writeln tf," checked"
+      call writeln tf,"> No progressive display (fastest)<br>"
+      call writeln tf,"<input type=radio name=progress value=4"
+      if progress=4 then call writeln tf," checked"
+      call writeln tf,"> Standard progressive display<br>"
+      call writeln tf,"<input type=radio name=progress value=1"
+      if progress=1 then call writeln tf," checked"
+      call writeln tf,"> Smooth progressive display (slowest)<br>"
+
+      call writeln tf,"<p><li>Maximum scratch memory usage per image during decoding.<br>"
+      call writeln tf,"<input name=maxmem size=8 value="maxmem"> kB"
+
+      call writeln tf,"<p><li>Multitasking:<br>"
+      call writeln tf,"<input type=checkbox name=lowpri value='LOWPRI'"
+      if lowpri then call writeln tf," checked"
+      call writeln tf,"> Run decoder at low priority<br>"
+
+      call writeln tf,"</ul>"
+      call writeln tf,"<p><li><input type=checkbox name=save value=yes checked> Save the new settings"
+      call writeln tf,"<p><li><input type=submit value='Install AWeb WebP plugin'>"
+      call writeln tf,"</ol></form></table>"
+
+      if installed>0 then do
+         call writeln tf,"<p><table border width=100% bgcolor=#ccaaaa><tr><td>"
+         call writeln tf,"<form action='x-aweb:rexx/"called"'>"
+         call writeln tf,"<input type=hidden name=deinstall value=''>"
+         call writeln tf,"This form will deinstall the AWeb WebP plugin and reset the default decoder for WebP images."
+         call writeln tf,"<ol><li><input type=checkbox name=save value=yes checked> Save the new settings"
+         call writeln tf,"<p><li><input type=submit value='De-install AWeb WebP plugin'>"
+         call writeln tf,"</ol></form></table>"
+      end
+
+   end
+   else do
+      call writeln tf,"Plugin file not found. You have to run the install script first."
+   end
+
+   call writeln tf,"<p><hr><p><a href='file:///AWeb:awebplugin/docs/awebwebp.html'>Back to documentation</a>"
+
+   call close tf
+   'open "file:///T:awebwebpsetup.html" reload'
+   'wait "file:///T:awebwebpsetup.html"'
+   'allowcmd'
+   address command 'delete T:awebwebpsetup.html quiet'
+
+end
+else do
+
+   ext="webp"
+   rest=";"
+
+   'getcfg MIME stem m'
+   do i=1 to m.0
+      if upper(left(m.i.value,11))="IMAGE/WEBP;" then do
+         parse var m.i.value type ";" ext ";" action ";" rest
+         leave
+      end
+   end
+
+   if upper(left(args,9))="DEINSTALL" then do
+      mime="IMAGE/WEBP;"ext";;"rest
+   end
+   else do
+      progress=""
+      defprogress="4"
+      maxmem="1024"
+      lowpri=""
+      save=""
+
+      do while args~=""
+         parse var args nextarg args
+         interpret nextarg
+      end
+
+      if progress="" then progress=defprogress
+      mime="IMAGE/WEBP;"ext";A;AWeb:awebplugin/awebwebp.awebplugin;PROGRESS="progress" MAXMEM="maxmem lowpri
+   end
+
+   'setcfg MIME "'mime'" ADD'
+
+   if upper(save)="YES" then do
+      'savesettings'
+   end
+
+   'open "file:///AWeb:awebplugin/docs/awebwebp.html"'
+
+end
+
+exit

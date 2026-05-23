@@ -1,0 +1,87 @@
+; $VER: Install_awebwebp_awebplugin
+; Description: Installer script for the "awebwebp" plugin for AWeb 3.6+
+
+(set #welcome
+   (cat "This installation procedure will install the \"awebwebp\" plugin module for AWeb version 3.6 or higher.\n"
+        "\n"
+        "This plugin enables you to view WebP images (both lossy and lossless, with or without transparency) in AWeb without the use of datatypes. The plugin has the following features:\n"
+        "Optional progressive display\n"
+        "Support for image scaling\n"
+        "Support for Picasso96\n"
+        "Full alpha-channel transparency\n"
+   )
+)
+
+(set #no-aweb3
+   (cat "The \"AWeb:\" assign was not found.\n\n"
+        "This plugin can only be used with AWeb version 3.6 or higher."
+   )
+)
+
+(set #show-docs
+   (cat "All necessary files have been copied. "
+      "To use the plugin, you have to do some additional setup. "
+      "This is described in the documentation. "
+      "From the documentation, you can run the setup script that performs the additional setup automatically. "
+      "\n"
+      "Do you want to view the documentation now?\n"
+   )
+)
+
+; ---------------------------------------------------------------------------
+
+(complete 0)
+
+(message #welcome)
+
+(if (not (exists "AWeb:"))
+   (abort #no-aweb3)
+)
+
+(complete 10)
+
+(if (not (exists "AWeb:awebplugin"))
+   (makedir "AWeb:awebplugin"
+      (infos)
+   )
+)
+
+(set srcdir (pathonly @icon))
+
+(copyfiles
+   (source (tackon srcdir "awebwebp.awebplugin"))
+   (dest "AWeb:awebplugin")
+   (infos)
+)
+
+(complete 40)
+
+(if (not (exists "AWeb:awebplugin/Docs"))
+   (makedir "AWeb:Docs"
+      (infos)
+   )
+)
+
+(copyfiles
+   (source srcdir)
+   (choices "awebwebp.html" "awebwebp.awebrx")
+   (dest "AWeb:Docs")
+   (infos)
+)
+
+(complete 80)
+
+(if
+   (askbool
+      (prompt #show-docs)
+      (help #show-docs)
+      (default 1)
+   )
+   (
+      (run "run AWeb:AWeb file:///AWeb:Docs/awebwebp.html")
+   )
+)
+
+(set @default-dest (expandpath "AWeb:awebplugin"))
+
+(complete 100)

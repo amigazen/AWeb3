@@ -1,0 +1,71 @@
+## SAS/C smakefile for awebwebp aweb plugin module
+##
+## Builds awebwebp.awebplugin - the AWeb WebP image plugin - from the
+## sources in this directory and from libwebp built in webplib/.
+##
+## Build order
+## -----------
+## libwebp.lib lives in webplib/ and is built by its own smakefile
+## (because libwebp's sources need a different set of SCOPTIONS
+## IGNOREs to compile under SAS/C).  Build it first, then build the
+## plugin here:
+##
+##     cd webplib                      ; build libwebp.lib
+##     smake
+##     cd /
+##     smake                           ; build awebwebp.awebplugin
+##
+## See webplib/README.txt for the libwebp vendoring details and
+## webplib/smakefile for the per-source-file rules.
+
+# Compiler and flags
+CC=sc
+CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4\
+        INCLUDEDIR=webplib\
+        define CPU="68020" cpu=68020
+
+# Linker and flags
+LN=slink
+LDFLAGS= SD ND BATCH
+
+# Library tools
+AR=oml
+RM=delete quiet
+
+# Main plugin object files
+PLUGIN_OBJS = startup.o awebwebp.o webpsource.o webpcopy.o
+
+# Default target.  The libwebp.lib dependency is listed so smake
+# will refuse to link if the library is missing; build it first by
+# running smake inside webplib/.
+all: awebwebp.awebplugin
+
+awebwebp.awebplugin: $(PLUGIN_OBJS) awebwebp.lnk webplib/libwebp.lib
+   $(LN) with awebwebp.lnk
+
+# Individual object file rules.
+startup.o: startup.c pluginlib.h
+   $(CC) $(CFLAGS) startup.c
+
+awebwebp.o: awebwebp.c pluginlib.h awebwebp.h
+   $(CC) $(CFLAGS) awebwebp.c
+
+webpsource.o: webpsource.c pluginlib.h awebwebp.h ezlists.h webplib/webp/decode.h webplib/webp/types.h
+   $(CC) $(CFLAGS) webpsource.c
+
+webpcopy.o: webpcopy.c pluginlib.h awebwebp.h
+   $(CC) $(CFLAGS) webpcopy.c
+
+# Clean targets.  cleanlib is provided separately because clean
+# in the top-level only removes the plugin's own objects.
+clean:
+   -$(RM) (\#?).o
+
+cleanall: clean
+   -$(RM) awebwebp.awebplugin awebwebp.map
+
+install: awebwebp.awebplugin
+   -copy clone awebwebp.awebplugin TO //Internet/AWeb/awebplugin/awebwebp.awebplugin
+   -copy clone awebwebp.awebrx TO //Internet/AWeb/Docs/awebwebp.awebrx
+   -copy clone awebwebp.html TO //Internet/AWeb/Docs/awebwebp.html
