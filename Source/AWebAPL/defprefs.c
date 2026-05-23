@@ -1515,6 +1515,14 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.browser.mimelist,
+      "image","webp","webp",
+#ifdef OSVERSION
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebwebp.awebplugin",""
+#else
+      MDRIVER_INTERNAL,"",""
+#endif
+      )) return FALSE;
+   if(!Addmimeinfo(&defprefs.browser.mimelist,
       "image","*","",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.browser.mimelist,
       "video","mpeg","mpg mpeg",MDRIVER_NONE,"","")) return FALSE;
