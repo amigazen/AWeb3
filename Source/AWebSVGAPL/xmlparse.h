@@ -19,9 +19,10 @@
  *
  * Design notes:
  *   - The parser is destructive: it overwrites separator bytes in the
- *     input buffer with NULs so that name/value/text pointers can be
- *     used directly as C strings.  The caller must not free the input
- *     buffer until it is finished with the resulting tree.
+ *     input buffer with NULs so that element and attribute names can
+ *     be used directly as C strings.  Attribute values and text nodes
+ *     are entity-decoded into the caller's pool.  The caller must not
+ *     free the input buffer until it is finished with the tree.
  *   - All nodes and attributes are allocated from a caller-supplied
  *     memory pool (exec.library CreatePool).  When the caller is done
  *     it calls DeletePool() and the whole tree disappears in one step,
@@ -43,7 +44,7 @@
 struct XmlAttr
 {  struct XmlAttr *next;
    UBYTE *name;            /* NUL-terminated (in-place in buffer) */
-   UBYTE *value;           /* NUL-terminated (in-place in buffer) */
+   UBYTE *value;           /* NUL-terminated, pool allocated */
    LONG namelen;
    LONG valuelen;
 };
@@ -52,7 +53,7 @@ struct XmlNode
 {  USHORT type;
    USHORT pad;
    UBYTE *name;            /* element name, NUL-terminated */
-   UBYTE *text;            /* text content for XMLN_TEXT */
+   UBYTE *text;            /* text content for XMLN_TEXT, pool allocated */
    LONG namelen;
    LONG textlen;
    struct XmlAttr *attrs;
@@ -69,8 +70,8 @@ struct XmlNode
 struct XmlNode *XmlParse(APTR pool, UBYTE *buffer, LONG length);
 
 /* Find an attribute by name (case-insensitive).  Returns NULL if no
- * such attribute exists.  Returns the in-buffer NUL-terminated
- * string. */
+ * such attribute exists.  Returns a NUL-terminated string owned by the
+ * parser pool. */
 UBYTE *XmlAttrValue(struct XmlNode *node, const char *name);
 
 /* Same, but also returns the length. */

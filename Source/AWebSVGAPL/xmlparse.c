@@ -20,10 +20,10 @@
  * See xmlparse.h for the public API.
  *
  * The parser does a single linear pass over the buffer, mutating it in
- * place: separator bytes are replaced with NULs so that name/value
- * pointers double as C strings.  Entity decoding (&amp; &lt; etc.) is
- * done in place inside attribute values and text nodes - it can only
- * shrink the string so this is always safe.
+ * place: separator bytes are replaced with NULs so that names can be
+ * used directly as C strings.  Attribute values and text nodes are
+ * entity-decoded into pool memory, which lets SVGs that use internal
+ * DTD entities for long style strings expand correctly.
  *
  * No floating point, no library calls beyond exec.library memory pool
  * operations - everything else is plain ANSI C / C89 so the code is
@@ -63,6 +63,33 @@ static int stricmp_x(const UBYTE *a, const char *b)
    }
    return tolower_x(*a)-tolower_x((UBYTE)*b);
 }
+
+static int strnicmp_x(const UBYTE *a, const char *b, LONG n)
+{  LONG i;
+   for(i=0;i<n;i++)
+   {  int ca=tolower_x(a[i]);
+      int cb=tolower_x((UBYTE)b[i]);
+      if(ca!=cb) return ca-cb;
+      if(!a[i] || !b[i]) return ca-cb;
+   }
+   return 0;
+}
+
+struct XmlEntity
+{  struct XmlEntity *next;
+   UBYTE *name;
+   UBYTE *value;
+   LONG namelen;
+   LONG valuelen;
+};
+
+struct Decodebuf
+{  APTR pool;
+   UBYTE *buf;
+   LONG len;
+   LONG cap;
+   BOOL failed;
+};
 
 /* Allocate a zeroed XmlNode from the pool. */
 static struct XmlNode *Newnode(APTR pool, USHORT type)
@@ -136,57 +163,139 @@ static LONG Utf8encode(ULONG val, UBYTE *dst)
    return 4;
 }
 
-/* Decode XML entities in place.  Returns new length (always <= old).
- * Handles the common five named entities plus numeric decimal/hex
- * entities.  Numeric entities are emitted as UTF-8, not truncated to
- * a single byte, because the SVG text renderer renders UTF-8 through
- * ttengine.library. */
-static LONG Unescape(UBYTE *str, LONG length)
+static BOOL Dbinit(struct Decodebuf *db, APTR pool, LONG cap)
+{  if(cap<16) cap=16;
+   db->pool=pool;
+   db->len=0;
+   db->cap=cap;
+   db->failed=FALSE;
+   db->buf=(UBYTE *)AllocPooled(pool,(ULONG)(cap+1));
+   if(!db->buf)
+   {  db->cap=0;
+      db->failed=TRUE;
+      return FALSE;
+   }
+   db->buf[0]=0;
+   return TRUE;
+}
+
+static BOOL Dbgrow(struct Decodebuf *db, LONG need)
+{  LONG newcap;
+   UBYTE *nbuf;
+   if(db->failed) return FALSE;
+   if(need<=db->cap) return TRUE;
+   newcap=db->cap;
+   while(newcap<need)
+   {  if(newcap>0x3fffffffL)
+      {  db->failed=TRUE;
+         return FALSE;
+      }
+      newcap*=2;
+   }
+   nbuf=(UBYTE *)AllocPooled(db->pool,(ULONG)(newcap+1));
+   if(!nbuf)
+   {  db->failed=TRUE;
+      return FALSE;
+   }
+   if(db->len>0) CopyMem(db->buf,nbuf,db->len);
+   db->buf=nbuf;
+   db->cap=newcap;
+   return TRUE;
+}
+
+static BOOL Dbputc(struct Decodebuf *db, UBYTE c)
+{  if(!Dbgrow(db,db->len+1)) return FALSE;
+   db->buf[db->len++]=c;
+   return TRUE;
+}
+
+static BOOL Dbputmem(struct Decodebuf *db, const UBYTE *src, LONG len)
+{  if(len<=0) return TRUE;
+   if(!Dbgrow(db,db->len+len)) return FALSE;
+   CopyMem((APTR)src,db->buf+db->len,len);
+   db->len+=len;
+   return TRUE;
+}
+
+static struct XmlEntity *Findentity(struct XmlEntity *entities,
+   const UBYTE *name, LONG namelen)
+{  struct XmlEntity *e;
+   for(e=entities;e;e=e->next)
+   {  if(e->namelen==namelen)
+      {  LONG i;
+         BOOL same=TRUE;
+         for(i=0;i<namelen;i++)
+         {  if(e->name[i]!=name[i]) { same=FALSE; break; }
+         }
+         if(same) return e;
+      }
+   }
+   return NULL;
+}
+
+/* Decode XML entities into pool memory.  The built-in XML entities and
+ * numeric decimal/hex entities are handled directly; internal DTD
+ * general entities are looked up in `entities`.  SVG authoring tools
+ * often use those entities to share long style strings, so decoding
+ * cannot be limited to in-place shrinking. */
+static BOOL Decodeentities(APTR pool, UBYTE *str, LONG length,
+   struct XmlEntity *entities, UBYTE **outstr, LONG *outlen)
 {  UBYTE *src=str;
-   UBYTE *dst=str;
    UBYTE *end=str+length;
    UBYTE *p;
    UBYTE *semi;
-   UBYTE *e;
+   UBYTE *ename;
    UBYTE out[4];
    UBYTE c;
    ULONG val;
    LONG i;
    LONG j;
    LONG elen;
-   LONG outlen;
+   LONG blen;
+   LONG boutlen;
    BOOL ok;
    BOOL have_digit;
+   struct Decodebuf db;
+   struct XmlEntity *ent;
+
+   *outstr=NULL;
+   *outlen=0;
+   if(!Dbinit(&db,pool,length)) return FALSE;
    while(src<end)
    {  if(*src!='&')
-      {  *dst++=*src++;
+      {  if(!Dbputc(&db,*src++)) return FALSE;
          continue;
       }
-      /* Look for ; within a reasonable distance. */
       p=src+1;
       semi=NULL;
-      for(i=0;i<12 && p<end;i++,p++)
+      for(i=0;i<64 && p<end;i++,p++)
       {  if(*p==';') { semi=p; break; }
       }
       if(!semi)
-      {  *dst++=*src++;
+      {  if(!Dbputc(&db,*src++)) return FALSE;
          continue;
       }
-      e=src+1;
-      elen=(LONG)(semi-e);
-      outlen=0;
+      ename=src+1;
+      elen=(LONG)(semi-ename);
+      ent=Findentity(entities,ename,elen);
+      if(ent)
+      {  if(!Dbputmem(&db,ent->value,ent->valuelen)) return FALSE;
+         src=semi+1;
+         continue;
+      }
+      boutlen=0;
       ok=FALSE;
-      if(elen==2 && e[0]=='l' && e[1]=='t') { out[0]='<'; outlen=1; ok=TRUE; }
-      else if(elen==2 && e[0]=='g' && e[1]=='t') { out[0]='>'; outlen=1; ok=TRUE; }
-      else if(elen==3 && e[0]=='a' && e[1]=='m' && e[2]=='p') { out[0]='&'; outlen=1; ok=TRUE; }
-      else if(elen==4 && e[0]=='q' && e[1]=='u' && e[2]=='o' && e[3]=='t') { out[0]='"'; outlen=1; ok=TRUE; }
-      else if(elen==4 && e[0]=='a' && e[1]=='p' && e[2]=='o' && e[3]=='s') { out[0]='\''; outlen=1; ok=TRUE; }
-      else if(elen>=2 && e[0]=='#')
+      if(elen==2 && ename[0]=='l' && ename[1]=='t') { out[0]='<'; boutlen=1; ok=TRUE; }
+      else if(elen==2 && ename[0]=='g' && ename[1]=='t') { out[0]='>'; boutlen=1; ok=TRUE; }
+      else if(elen==3 && ename[0]=='a' && ename[1]=='m' && ename[2]=='p') { out[0]='&'; boutlen=1; ok=TRUE; }
+      else if(elen==4 && ename[0]=='q' && ename[1]=='u' && ename[2]=='o' && ename[3]=='t') { out[0]='"'; boutlen=1; ok=TRUE; }
+      else if(elen==4 && ename[0]=='a' && ename[1]=='p' && ename[2]=='o' && ename[3]=='s') { out[0]='\''; boutlen=1; ok=TRUE; }
+      else if(elen>=2 && ename[0]=='#')
       {  val=0;
          have_digit=FALSE;
-         if(e[1]=='x' || e[1]=='X')
+         if(ename[1]=='x' || ename[1]=='X')
          {  for(j=2;j<elen;j++)
-            {  c=e[j];
+            {  c=ename[j];
                if(c>='0'&&c<='9') val=(val<<4)|(c-'0');
                else if(c>='a'&&c<='f') val=(val<<4)|(c-'a'+10);
                else if(c>='A'&&c<='F') val=(val<<4)|(c-'A'+10);
@@ -196,26 +305,153 @@ static LONG Unescape(UBYTE *str, LONG length)
          }
          else
          {  for(j=1;j<elen;j++)
-            {  c=e[j];
+            {  c=ename[j];
                if(c<'0'||c>'9') { val=0; have_digit=FALSE; break; }
                val=val*10+(c-'0');
                have_digit=TRUE;
             }
          }
          if(have_digit)
-         {  outlen=Utf8encode(val,out);
-            if(outlen>0) ok=TRUE;
+         {  boutlen=Utf8encode(val,out);
+            if(boutlen>0) ok=TRUE;
          }
       }
       if(ok)
-      {  for(i=0;i<outlen;i++) *dst++=out[i];
+      {  for(j=0;j<boutlen;j++)
+         {  if(!Dbputc(&db,out[j])) return FALSE;
+         }
          src=semi+1;
       }
       else
-      {  *dst++=*src++;
+      {  blen=(LONG)(semi-src)+1;
+         if(!Dbputmem(&db,src,blen)) return FALSE;
+         src=semi+1;
       }
    }
-   return (LONG)(dst-str);
+   if(!Dbgrow(&db,db.len+1)) return FALSE;
+   db.buf[db.len]=0;
+   *outstr=db.buf;
+   *outlen=db.len;
+   return TRUE;
+}
+
+static BOOL Isdoctype(UBYTE *p, UBYTE *end)
+{  if(p+9>=end) return FALSE;
+   if(p[0]!='<' || p[1]!='!') return FALSE;
+   return (BOOL)(strnicmp_x(p+2,"DOCTYPE",7)==0);
+}
+
+static UBYTE *Scandeclend(UBYTE *p, UBYTE *end,
+   UBYTE **subsetstart, UBYTE **subsetend)
+{  LONG depth=0;
+   UBYTE quote=0;
+   UBYTE *q=p+2;
+   *subsetstart=NULL;
+   *subsetend=NULL;
+   while(q<end)
+   {  if(quote)
+      {  if(*q==quote) quote=0;
+      }
+      else if(*q=='"' || *q=='\'')
+      {  quote=*q;
+      }
+      else if(*q=='[')
+      {  if(depth==0) *subsetstart=q+1;
+         depth++;
+      }
+      else if(*q==']' && depth>0)
+      {  depth--;
+         if(depth==0) *subsetend=q;
+      }
+      else if(*q=='>' && depth==0)
+      {  return q+1;
+      }
+      q++;
+   }
+   return end;
+}
+
+static BOOL Addentity(APTR pool, struct XmlEntity **entities,
+   UBYTE *name, LONG namelen, UBYTE *value, LONG valuelen)
+{  struct XmlEntity *ent;
+   UBYTE *ncopy;
+   UBYTE *vcopy;
+   LONG vlen;
+   LONG i;
+   if(namelen<=0) return TRUE;
+   ncopy=(UBYTE *)AllocPooled(pool,(ULONG)(namelen+1));
+   if(!ncopy) return FALSE;
+   for(i=0;i<namelen;i++) ncopy[i]=name[i];
+   ncopy[namelen]=0;
+   if(!Decodeentities(pool,value,valuelen,*entities,&vcopy,&vlen))
+      return FALSE;
+   ent=(struct XmlEntity *)AllocPooled(pool,sizeof(struct XmlEntity));
+   if(!ent) return FALSE;
+   ent->name=ncopy;
+   ent->namelen=namelen;
+   ent->value=vcopy;
+   ent->valuelen=vlen;
+   ent->next=*entities;
+   *entities=ent;
+   return TRUE;
+}
+
+static void Parsedoctypeentities(APTR pool, UBYTE *decl, UBYTE *end,
+   struct XmlEntity **entities)
+{  UBYTE *subsetstart;
+   UBYTE *subsetend;
+   UBYTE *after;
+   UBYTE *p;
+   after=Scandeclend(decl,end,&subsetstart,&subsetend);
+   (void)after;
+   if(!subsetstart || !subsetend || subsetstart>=subsetend) return;
+   p=subsetstart;
+   while(p<subsetend)
+   {  if(p+8<subsetend && p[0]=='<' && p[1]=='!'
+      && strnicmp_x(p+2,"ENTITY",6)==0
+      && isspace_x(p[8]))
+      {  UBYTE *q=p+9;
+         UBYTE *namestart;
+         UBYTE *nameend;
+         UBYTE *valuestart;
+         UBYTE quote;
+         while(q<subsetend && isspace_x(*q)) q++;
+         if(q<subsetend && *q=='%')
+         {  while(q<subsetend && *q!='>') q++;
+            if(q<subsetend) q++;
+            p=q;
+            continue;
+         }
+         if(q>=subsetend || !isnamestart_x(*q))
+         {  p++;
+            continue;
+         }
+         namestart=q;
+         while(q<subsetend && isnamechar_x(*q)) q++;
+         nameend=q;
+         while(q<subsetend && isspace_x(*q)) q++;
+         if(q>=subsetend || (*q!='"' && *q!='\''))
+         {  while(q<subsetend && *q!='>') q++;
+            if(q<subsetend) q++;
+            p=q;
+            continue;
+         }
+         quote=*q++;
+         valuestart=q;
+         while(q<subsetend && *q!=quote) q++;
+         if(q<subsetend)
+         {  if(!Addentity(pool,entities,namestart,(LONG)(nameend-namestart),
+               valuestart,(LONG)(q-valuestart)))
+            {  return;
+            }
+            q++;
+         }
+         while(q<subsetend && *q!='>') q++;
+         if(q<subsetend) q++;
+         p=q;
+      }
+      else p++;
+   }
 }
 
 /* Skip XML declaration <?xml ... ?>, processing instruction <?...?>,
@@ -256,17 +492,9 @@ static UBYTE *Skipprolog(UBYTE *p, UBYTE *end)
       return end;
    }
    if(p+1<end && p[1]=='!')
-   {  /* DOCTYPE or other declaration - scan forward to matching '>'
-       * tracking [ ] depth so internal subsets are handled. */
-      LONG depth=0;
-      p+=2;
-      while(p<end)
-      {  if(*p=='[') depth++;
-         else if(*p==']' && depth>0) depth--;
-         else if(*p=='>' && depth==0) return p+1;
-         p++;
-      }
-      return end;
+   {  UBYTE *subsetstart;
+      UBYTE *subsetend;
+      return Scandeclend(p,end,&subsetstart,&subsetend);
    }
    return NULL;
 }
@@ -275,7 +503,8 @@ static UBYTE *Skipprolog(UBYTE *p, UBYTE *end)
  * and advances *pp past the attribute; returns FALSE if no further
  * attribute is found (e.g. we hit '>' or '/').  On success the
  * attribute is appended to node->attrs. */
-static BOOL Parseattr(APTR pool, struct XmlNode *node, UBYTE **pp, UBYTE *end)
+static BOOL Parseattr(APTR pool, struct XmlNode *node, UBYTE **pp,
+   UBYTE *end, struct XmlEntity *entities)
 {  UBYTE *p=*pp;
    UBYTE *namestart;
    UBYTE *valuestart;
@@ -326,18 +555,23 @@ static BOOL Parseattr(APTR pool, struct XmlNode *node, UBYTE **pp, UBYTE *end)
          {  UBYTE *valueend=p;
             LONG valuelen=(LONG)(valueend-valuestart);
             UBYTE *vcopy;
+            UBYTE *decoded;
+            LONG decodedlen;
             vcopy=(UBYTE *)AllocPooled(pool,(ULONG)(valuelen+1));
             if(!vcopy) { *pp=p; return FALSE; }
             if(valuelen>0) CopyMem(valuestart,vcopy,valuelen);
             vcopy[valuelen]=0;
-            valuelen=Unescape(vcopy,valuelen);
-            vcopy[valuelen]=0;
+            if(!Decodeentities(pool,vcopy,valuelen,entities,
+               &decoded,&decodedlen))
+            {  *pp=p;
+               return FALSE;
+            }
             a=Newattr(pool);
             if(!a) { *pp=p; return FALSE; }
             a->name=namestart;
             a->namelen=namelen;
-            a->value=vcopy;
-            a->valuelen=valuelen;
+            a->value=decoded;
+            a->valuelen=decodedlen;
             goto append;
          }
       }
@@ -347,16 +581,21 @@ static BOOL Parseattr(APTR pool, struct XmlNode *node, UBYTE **pp, UBYTE *end)
       if(p>=end) { *pp=p; return FALSE; }
       {  UBYTE *valueend=p;
          LONG valuelen=(LONG)(valueend-valuestart);
+         UBYTE *decoded;
+         LONG decodedlen;
          *valueend=0;
-         valuelen=Unescape(valuestart,valuelen);
-         valuestart[valuelen]=0;
+         if(!Decodeentities(pool,valuestart,valuelen,entities,
+            &decoded,&decodedlen))
+         {  *pp=p;
+            return FALSE;
+         }
          p++; /* past closing quote */
          a=Newattr(pool);
          if(!a) { *pp=p; return FALSE; }
          a->name=namestart;
          a->namelen=namelen;
-         a->value=valuestart;
-         a->valuelen=valuelen;
+         a->value=decoded;
+         a->valuelen=decodedlen;
          goto append;
       }
    }
@@ -376,11 +615,13 @@ append:
  * past the '/>' for an empty element).  If this routine consumes an
  * end tag that does not match, it stops and returns whatever it has;
  * the parent recursion picks up. */
-static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end);
+static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end,
+   struct XmlEntity *entities);
 
 /* Parse the children of an element until we see a matching </name>
  * or hit EOF.  parent is the open element. */
-static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp, UBYTE *end)
+static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp,
+   UBYTE *end, struct XmlEntity *entities)
 {  UBYTE *p=*pp;
    BOOL keep_ws_text=FALSE;
    if(parent && parent->name)
@@ -406,18 +647,14 @@ static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp, UBYTE *
             {  struct XmlNode *t=Newnode(pool,XMLN_TEXT);
                if(t)
                {  LONG newlen;
-                  /* Decode in place; terminator overwrites the '<'
-                   * once we save it.  We need a NUL at the end of
-                   * the text string for C-string compatibility, but
-                   * we cannot overwrite the '<' because the outer
-                   * loop needs it.  Solution: leave the buffer text
-                   * un-NUL-terminated and rely on textlen + a NUL we
-                   * write into newlen position only if the decoded
-                   * string is strictly shorter. */
-                  newlen=Unescape(textstart,textlen);
-                  t->text=textstart;
+                  UBYTE *decoded;
+                  if(!Decodeentities(pool,textstart,textlen,entities,
+                     &decoded,&newlen))
+                  {  *pp=p;
+                     return;
+                  }
+                  t->text=decoded;
                   t->textlen=newlen;
-                  if(newlen<textlen) textstart[newlen]=0;
                   Appendchild(parent,t);
                }
             }
@@ -442,7 +679,7 @@ static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp, UBYTE *
          return;
       }
       /* Start tag - recurse. */
-      {  struct XmlNode *child=Parseelement(pool,&p,end);
+      {  struct XmlNode *child=Parseelement(pool,&p,end,entities);
          if(child) Appendchild(parent,child);
          else break;
       }
@@ -450,7 +687,8 @@ static void Parsechildren(APTR pool, struct XmlNode *parent, UBYTE **pp, UBYTE *
    *pp=p;
 }
 
-static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
+static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end,
+   struct XmlEntity *entities)
 {  UBYTE *p=*pp;
    struct XmlNode *node;
    UBYTE *namestart;
@@ -478,7 +716,7 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
    {  while(p<end && isspace_x(*p)) p++;
       if(p>=end) break;
       if(*p=='/' || *p=='>') break;
-      if(!Parseattr(pool,node,&p,end)) break;
+      if(!Parseattr(pool,node,&p,end,entities)) break;
    }
 
    /* Now NUL-terminate the name.  If the element has no attributes
@@ -501,7 +739,7 @@ static struct XmlNode *Parseelement(APTR pool, UBYTE **pp, UBYTE *end)
    if(p<end && tagclose=='>') p++;
 
    /* Recurse into children. */
-   Parsechildren(pool,node,&p,end);
+   Parsechildren(pool,node,&p,end,entities);
    *pp=p;
    return node;
 }
@@ -512,6 +750,7 @@ struct XmlNode *XmlParse(APTR pool, UBYTE *buffer, LONG length)
 {  UBYTE *p=buffer;
    UBYTE *end=buffer+length;
    struct XmlNode *root=NULL;
+   struct XmlEntity *entities=NULL;
 
    if(!pool || !buffer || length<=0) return NULL;
 
@@ -523,6 +762,13 @@ struct XmlNode *XmlParse(APTR pool, UBYTE *buffer, LONG length)
          while(p<end && *p!='<') p++;
          continue;
       }
+      if(Isdoctype(p,end))
+      {  UBYTE *subsetstart;
+         UBYTE *subsetend;
+         Parsedoctypeentities(pool,p,end,&entities);
+         p=Scandeclend(p,end,&subsetstart,&subsetend);
+         continue;
+      }
       {  UBYTE *after=Skipprolog(p,end);
          if(after) { p=after; continue; }
       }
@@ -532,7 +778,7 @@ struct XmlNode *XmlParse(APTR pool, UBYTE *buffer, LONG length)
          if(p<end) p++;
          continue;
       }
-      root=Parseelement(pool,&p,end);
+      root=Parseelement(pool,&p,end,entities);
       if(root) break;
       /* Failed to parse - advance one char and try again. */
       p++;
