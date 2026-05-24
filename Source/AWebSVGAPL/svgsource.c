@@ -2685,14 +2685,8 @@ static void Parsertask(void *userdata)
       if(P96Base && ss->friendbitmap
       && p96GetBitMapAttr(ss->friendbitmap,P96BMA_ISP96))
       {  depth=p96GetBitMapAttr(ss->friendbitmap,P96BMA_DEPTH);
-         /* Cached SVG canvas, never used as a screen surface itself —
-          * only ever a blit source for BltBitMapRastPort (and on P96
-          * deep, a one-shot p96WritePixelArray destination).  Both work
-          * fine on a non-displayable P96 bitmap, so omit BMF_DISPLAYABLE
-          * to keep the master out of VRAM and out of Chip on a defensive
-          * fallback path.  Matches the PNG/GIF/JFIF policy. */
          dec.bitmap=p96AllocBitMap(bmw,bmh,depth,
-            BMF_MINPLANES|BMF_CLEAR,ss->friendbitmap,RGBFB_NONE);
+            BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,ss->friendbitmap,RGBFB_NONE);
          if(dec.bitmap && p96GetBitMapAttr(dec.bitmap,P96BMA_ISP96))
          {  dec.decflags|=DECOF_P96MAP;
             if(depth>8) dec.decflags|=DECOF_P96DEEP;
@@ -2702,19 +2696,11 @@ static void Parsertask(void *userdata)
          }
       }
       if(!dec.bitmap)
-      {  /* Classic planar fallback.  Use BMF_MINPLANES with NULL friend so
-          * graphics.library is free to place the planes in Fast RAM —
-          * passing the screen RastPort BitMap as friend can encourage
-          * Chip placement on a planar screen even without BMF_DISPLAYABLE,
-          * and the bitmap is never displayed directly anyway (it is always
-          * blitted into the screen via BltBitMapRastPort).  depth is
-          * already capped at 8 above which is what the pen renderer
-          * needs. */
-         if(dec.screen->RastPort.BitMap)
+      {  if(dec.screen->RastPort.BitMap)
             depth=GetBitMapAttr(dec.screen->RastPort.BitMap,BMA_DEPTH);
          if(depth<1) depth=8;
          if(depth>8) depth=8;
-         dec.bitmap=AllocBitMap(bmw,bmh,depth,BMF_CLEAR|BMF_MINPLANES,NULL);
+         dec.bitmap=AllocBitMap(bmw,bmh,depth,BMF_CLEAR,dec.screen->RastPort.BitMap);
       }
    }
    if(!dec.bitmap) goto cleanup;

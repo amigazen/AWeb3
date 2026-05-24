@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * This file is part of the AWeb distribution
+ * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2026 amigazen project
@@ -606,15 +606,9 @@ static BOOL Allocbitmap(struct Decoder *decoder)
       && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
    {  decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,
          P96BMA_DEPTH);
-      /* Cached image master, never used as a screen surface itself —
-       * only ever a blit source for BltBitMapRastPort and a write target
-       * for p96WritePixelArray, both of which work fine on a non-displayable
-       * P96 bitmap.  Omitting BMF_DISPLAYABLE keeps the master out of VRAM
-       * and prevents Chip pinning on a defensive fallback to classic.
-       * Matches the PNG/GIF/JFIF/SVG policy. */
       decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,
          decoder->depth,
-         BMF_MINPLANES|BMF_CLEAR,
+         BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,
          decoder->source->friendbitmap,RGBFB_NONE);
       if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
       {  decoder->flags|=DECOF_P96MAP;
