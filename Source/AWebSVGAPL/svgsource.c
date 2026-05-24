@@ -167,24 +167,88 @@ struct Renderstate
    LONG strokewidth;           /* Stroke width in 16.16 SVG units */
    ULONG fillrgb;              /* 0xRRGGBB for Picasso96 deep fills */
    ULONG strokergb;            /* 0xRRGGBB for Picasso96 deep strokes */
+   struct Gradient *fillgrad;  /* parsed gradient for per-pixel fill, or NULL */
+};
+
+/* Paint context handed to the span filler.  Solid fills set grad to
+ * NULL and the rasteriser takes the fast path; gradient fills also
+ * include the per-shape evaluator state (linear scalar projection or
+ * radial distance from centre, both already in gradient coordinates).
+ *
+ * For linear gradients we precompute the t value at the leftmost
+ * column of the shape's bounding box and the per-pixel `dt`; for
+ * radial gradients we keep the pixel-space inverse mapping and the
+ * centre/radius in gradient coords. */
+struct Paintctx
+{  UBYTE has_grad;
+   UBYTE alpha;                /* combined element*fill alpha, 0..255 */
+   UBYTE pad[2];
+   ULONG rgb;                  /* solid fallback / cached average colour */
+   struct Gradient *grad;
+   /* Per-shape inverse matrix: raster pixel -> gradient coordinates. */
+   struct Matrix inv;
+   /* Linear: scalar-projection state. */
+   LONG t_x0;                  /* t at pixel (0,0) in raster space    */
+   LONG dt_dx;                 /* delta t per +1 raster x             */
+   LONG dt_dy;                 /* delta t per +1 raster y             */
+   /* Radial: r^2 cached. */
+   LONG r_sq;
 };
 
 /* Below this final effective alpha, a paint operation is suppressed. */
 #define ALPHA_SKIP 24           /* ~10% */
 
+/* Maximum number of stops we record per gradient.  Real-world SVG
+ * gradients almost never have more than 8; the Wikipedia logo caps
+ * out at 4.  Sixteen is generous and keeps the per-Iddef cost small. */
+#define GRAD_MAX_STOPS 16
+
+#define GRAD_TYPE_LINEAR  0
+#define GRAD_TYPE_RADIAL  1
+
+#define GRAD_UNITS_USER   0     /* userSpaceOnUse (the default for our  */
+                                /* purposes; objectBoundingBox is below) */
+#define GRAD_UNITS_OBJBB  1
+
+/* One stop on a parsed gradient.  Offset is 16.16 in [0,1]. */
+struct Gradstop_p
+{  LONG offset;
+   UBYTE r;
+   UBYTE g;
+   UBYTE b;
+   UBYTE a;
+};
+
+/* Resolved gradient paint server, cached on the Iddef of the original
+ * <linearGradient> or <radialGradient> node.  All coordinates are in
+ * the gradient's coordinate space (i.e. they have NOT had the SVG
+ * gradientTransform applied yet - that is stored in `gt` and composed
+ * with the rendering CTM when building a per-shape paint context). */
+struct Gradient
+{  UBYTE type;                 /* GRAD_TYPE_LINEAR or _RADIAL */
+   UBYTE units;                /* GRAD_UNITS_USER or _OBJBB */
+   UBYTE nstops;
+   UBYTE has_gt;               /* TRUE if gradientTransform was supplied */
+   struct Gradstop_p stops[GRAD_MAX_STOPS];
+   LONG x1, y1, x2, y2;        /* linear endpoints (16.16, gradient coords) */
+   LONG cx, cy, r, fx, fy;     /* radial centre/focus/radius (16.16)        */
+   struct Matrix gt;           /* gradientTransform: grad coords -> user    */
+};
+
 /* Hash entry for the id->node map.  Pool-allocated, so it lives as
  * long as the decoder's pool.
  *
- * For gradient nodes (linearGradient / radialGradient) we also cache
- * a single representative "average" colour.  Real gradient interpolation
- * is too expensive for a 68k browser, but the alpha-weighted average of
- * a gradient's stops is usually a recognisable mid-tone for the painted
- * shape and is dramatically better than a black fallback.  Computed
- * lazily on first reference and reused afterwards.
+ * For gradient nodes (linearGradient / radialGradient) we cache both
+ * a fully parsed Gradient (used for real per-pixel gradient fills on
+ * Picasso96 deep destinations) AND an alpha-weighted average colour
+ * used as the fallback on palette destinations, on stroke (we do not
+ * stroke gradients) and when gradient parsing fails.  Both forms are
+ * computed lazily on first reference and reused afterwards.
  *
  * grad_state values:
  *   0  not yet computed (or node is not a gradient)
- *   1  computed and grad_rgb / grad_alpha are valid
+ *   1  computed and grad_rgb / grad_alpha are valid; `grad` is non-NULL
+ *      when the per-pixel gradient parsed successfully
  *   2  computed but the gradient had no usable stops (don't try again)
  */
 struct Iddef
@@ -195,6 +259,7 @@ struct Iddef
    UBYTE grad_alpha;           /* average stop alpha */
    UBYTE grad_state;
    UBYTE pad[2];
+   struct Gradient *grad;      /* parsed gradient for per-pixel fills, or NULL */
 };
 #define IDTABLE_SIZE 64
 #define USE_MAX_DEPTH 16
@@ -260,7 +325,16 @@ static struct XmlNode *Findid(struct Decoder *dec, const UBYTE *id);
 static struct Iddef *Findid_iddef(struct Decoder *dec, const UBYTE *id);
 static UBYTE *Resolvehref(struct XmlNode *node);
 static BOOL Resolvepaint(struct Decoder *dec, UBYTE *value,
-   ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out);
+   ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out,
+   struct Gradient **grad_out);
+static ULONG Gradsample(const struct Gradient *g, LONG t, UBYTE *out_a);
+static ULONG Gradeval_pixel(const struct Paintctx *pctx, LONG rx, LONG ry,
+   UBYTE *out_a);
+static UBYTE Effectivefillalpha(struct Renderstate *rs);
+static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
+   struct Renderstate *rs, UBYTE eff_alpha);
+static BOOL Buildpaintctx(struct Paintctx *pctx, struct Renderstate *rs,
+   struct Gradient *g);
 
 /*--------------------------------------------------------------------*/
 /* Number parsing                                                     */
@@ -728,6 +802,66 @@ static LONG fcos_deg(LONG angle)
 {  return fsin_deg(angle+(90L<<16));
 }
 
+/* Divide two 16.16 fixed-point values producing a 16.16 quotient
+ * using a 32-bit-only shift-subtract long division.  Returns clamped
+ * maximum on divide-by-zero or overflow.  Only called when building
+ * a paint context for a gradient (once per shape) so the per-bit
+ * loop is not in any inner rendering path. */
+static LONG fdiv(LONG num, LONG denom)
+{  LONG sign=1;
+   ULONG n_hi, n_lo;
+   ULONG d;
+   ULONG q=0;
+   int i;
+   if(denom==0) return (num<0) ? -0x7fffffffL : 0x7fffffffL;
+   if(num<0)   { num=-num;     sign=-sign; }
+   if(denom<0) { denom=-denom; sign=-sign; }
+   /* Build a 48-bit dividend (num << 16) split as n_hi:n_lo where
+    * n_hi holds the high 16 bits and n_lo the low 32 bits.  The low
+    * 16 bits of n_lo are always zero (they are the shift-fill). */
+   n_hi=(ULONG)num >> 16;
+   n_lo=(ULONG)num << 16;
+   d=(ULONG)denom;
+   for(i=0; i<32; i++)
+   {  n_hi=(n_hi<<1) | (n_lo>>31);
+      n_lo=n_lo<<1;
+      q=q<<1;
+      if(n_hi>=d)
+      {  n_hi-=d;
+         q|=1;
+      }
+   }
+   /* Round to nearest: if 2 * remainder >= denom, bump the quotient.
+    * Halves the accumulated bias when fdiv is called inside a
+    * per-pixel inner loop (gradient evaluator). */
+   if((n_hi<<1) >= d && q<0x7fffffffUL) q++;
+   if(q>0x7fffffffUL) q=0x7fffffffUL;
+   return (sign<0) ? -(LONG)q : (LONG)q;
+}
+
+/* Invert a 2x3 affine matrix.  Returns FALSE (and leaves *I untouched)
+ * if the matrix is singular.  Used once per shape to build a pixel ->
+ * gradient-coords transform. */
+static BOOL Minverse(const struct Matrix *M, struct Matrix *I)
+{  LONG det;
+   det = fmul(M->a,M->d) - fmul(M->c,M->b);
+   if(det==0) return FALSE;
+   I->a =  fdiv(M->d, det);
+   I->b = -fdiv(M->b, det);
+   I->c = -fdiv(M->c, det);
+   I->d =  fdiv(M->a, det);
+   I->e = -fmul(I->a, M->e) - fmul(I->c, M->f);
+   I->f = -fmul(I->b, M->e) - fmul(I->d, M->f);
+   return TRUE;
+}
+
+/* Project a vector (dx,dy) (raster pixels) onto another vector (vx,vy)
+ * scaled by 1/lensq.  Returns the scalar projection in 16.16.  Used by
+ * the linear gradient per-pixel evaluator to derive `t` and `dt`. */
+static LONG Gradproj(LONG dx, LONG dy, LONG vx, LONG vy, LONG inv_lensq)
+{  return fmul(fmul(dx,vx) + fmul(dy,vy), inv_lensq);
+}
+
 /* Compose two matrices: result = M * T (T applied first then M). */
 static void Mcompose(struct Matrix *r, struct Matrix *M, struct Matrix *T)
 {  struct Matrix out;
@@ -927,36 +1061,106 @@ static LONG Clip(LONG v, LONG lo, LONG hi)
    return v;
 }
 
-/* Write one horizontal span.  On Picasso96 deep we write directly
- * into the per-decoder R8G8B8 framebuffer; the whole frame is blitted
- * to the bitmap in one shot at the end of Parsertask.  On palette
- * bitmaps we go through graphics.library RectFill which the caller
- * has primed with SetAPen.  Avoiding the per-span p96WritePixelArray
- * round-trip is the single biggest win for SVG render time on RTG. */
-static void Fillspan_rgb(struct Decoder *dec, LONG x0, LONG x1, LONG y, ULONG rgb)
-{  LONG w;
-   LONG i;
+/* Write one horizontal span using a paint context.  On Picasso96 deep
+ * we write straight into the per-decoder R8G8B8 framebuffer (the whole
+ * frame is committed to the bitmap once at the end of Parsertask);
+ * gradient fills are evaluated per pixel and partial alpha is blended
+ * with the existing pixel.  On palette bitmaps we go through
+ * graphics.library RectFill which the caller has primed with SetAPen
+ * - gradient fills are not supported there and the caller will have
+ * fallen back to the averaged colour. */
+static void Fillspan(struct Decoder *dec, LONG x0, LONG x1, LONG y,
+   const struct Paintctx *pctx)
+{  LONG w,i;
    UBYTE *p;
    UBYTE r,g,b;
+   UBYTE sa;
+   ULONG rgb;
    if(x0>x1) return;
    if(y<0 || y>=dec->bmh) return;
    if(x0<0) x0=0;
    if(x1>=dec->bmw) x1=dec->bmw-1;
    w=x1-x0+1;
    if(w<=0) return;
+
    if(dec->decflags&DECOF_P96DEEP)
-   {  r=(UBYTE)((rgb>>16)&0xff);
-      g=(UBYTE)((rgb>>8)&0xff);
-      b=(UBYTE)(rgb&0xff);
-      p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x0*3UL;
-      for(i=0;i<w;i++)
-      {  p[0]=r; p[1]=g; p[2]=b;
-         p+=3;
+   {  p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x0*3UL;
+
+      if(pctx->has_grad && pctx->grad)
+      {  const struct Gradient *grad=pctx->grad;
+         LONG t,dt;
+         if(grad->type==GRAD_TYPE_LINEAR)
+         {  t=pctx->t_x0 + fmul(pctx->dt_dx,(LONG)x0<<16)
+                        + fmul(pctx->dt_dy,(LONG)y<<16);
+            dt=pctx->dt_dx;
+         }
+         else { t=0; dt=0; }
+         for(i=0;i<w;i++)
+         {  UBYTE pa;
+            ULONG prgb;
+            UBYTE eff;
+            if(grad->type==GRAD_TYPE_LINEAR)
+            {  LONG ct=t;
+               if(ct<0) ct=0;
+               if(ct>0x10000L) ct=0x10000L;
+               prgb=Gradsample(grad,ct,&pa);
+               t+=dt;
+            }
+            else
+            {  prgb=Gradeval_pixel(pctx,(LONG)(x0+i),y,&pa);
+            }
+            eff=Combinealpha(pa,pctx->alpha);
+            if(eff<ALPHA_SKIP) { p+=3; continue; }
+            if(eff>=240)
+            {  p[0]=(UBYTE)((prgb>>16)&0xff);
+               p[1]=(UBYTE)((prgb>>8)&0xff);
+               p[2]=(UBYTE)(prgb&0xff);
+            }
+            else
+            {  /* Source-over blend: out = src*a + dst*(255-a) */
+               ULONG na=(ULONG)eff;
+               ULONG ia=255UL-na;
+               p[0]=(UBYTE)(((((prgb>>16)&0xff)*na) + ((ULONG)p[0]*ia) + 127UL)/255UL);
+               p[1]=(UBYTE)(((((prgb>>8 )&0xff)*na) + ((ULONG)p[1]*ia) + 127UL)/255UL);
+               p[2]=(UBYTE)((((prgb     &0xff)*na) + ((ULONG)p[2]*ia) + 127UL)/255UL);
+            }
+            p+=3;
+         }
+         return;
       }
+
+      rgb=pctx->rgb;
+      sa=pctx->alpha;
+      if(sa>=240)
+      {  r=(UBYTE)((rgb>>16)&0xff);
+         g=(UBYTE)((rgb>>8)&0xff);
+         b=(UBYTE)(rgb&0xff);
+         for(i=0;i<w;i++)
+         {  p[0]=r; p[1]=g; p[2]=b;
+            p+=3;
+         }
+      }
+      else if(sa<ALPHA_SKIP) return;
+      else
+      {  ULONG na=(ULONG)sa;
+         ULONG ia=255UL-na;
+         ULONG sr=(rgb>>16)&0xff;
+         ULONG sg=(rgb>>8)&0xff;
+         ULONG sb=rgb&0xff;
+         for(i=0;i<w;i++)
+         {  p[0]=(UBYTE)((sr*na + (ULONG)p[0]*ia + 127UL)/255UL);
+            p[1]=(UBYTE)((sg*na + (ULONG)p[1]*ia + 127UL)/255UL);
+            p[2]=(UBYTE)((sb*na + (ULONG)p[2]*ia + 127UL)/255UL);
+            p+=3;
+         }
+      }
+      return;
    }
-   else
-   {  RectFill(&dec->rp,x0,y,x1,y);
-   }
+
+   /* Palette destination - the caller has already SetAPen'd the
+    * solid colour (averaged colour for gradient fills) so we just
+    * issue a horizontal RectFill. */
+   RectFill(&dec->rp,x0,y,x1,y);
 }
 
 static void Plotpixel_rgb(struct Decoder *dec, LONG x, LONG y, ULONG rgb)
@@ -1003,7 +1207,7 @@ static void Drawline(struct Decoder *dec, LONG x0, LONG y0, LONG x1, LONG y1, UL
  * Uses the standard midpoint algorithm.  Y axis points down (raster
  * convention).  cx,cy is the centre and rx,ry are the half-axes, all
  * in raster pixels. */
-static void Drawellipse_fill(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LONG ry, ULONG rgb)
+static void Drawellipse_fill(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LONG ry, const struct Paintctx *pctx)
 {  LONG bmw=dec->bmw;
    LONG bmh=dec->bmh;
    LONG x,y;
@@ -1029,8 +1233,8 @@ static void Drawellipse_fill(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LON
          xr=Clip(cx+x,0,bmw-1);
          yt=cy-y;
          yb=cy+y;
-         if(yt>=0 && yt<bmh && xl<=xr) Fillspan_rgb(dec,xl,xr,yt,rgb);
-         if(yb>=0 && yb<bmh && yb!=yt && xl<=xr) Fillspan_rgb(dec,xl,xr,yb,rgb);
+         if(yt>=0 && yt<bmh && xl<=xr) Fillspan(dec,xl,xr,yt,pctx);
+         if(yb>=0 && yb<bmh && yb!=yt && xl<=xr) Fillspan(dec,xl,xr,yb,pctx);
          lasty=y;
       }
       x++;
@@ -1053,8 +1257,8 @@ static void Drawellipse_fill(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LON
          xr=Clip(cx+x,0,bmw-1);
          yt=cy-y;
          yb=cy+y;
-         if(yt>=0 && yt<bmh && xl<=xr) Fillspan_rgb(dec,xl,xr,yt,rgb);
-         if(yb>=0 && yb<bmh && yb!=yt && xl<=xr) Fillspan_rgb(dec,xl,xr,yb,rgb);
+         if(yt>=0 && yt<bmh && xl<=xr) Fillspan(dec,xl,xr,yt,pctx);
+         if(yb>=0 && yb<bmh && yb!=yt && xl<=xr) Fillspan(dec,xl,xr,yb,pctx);
          lasty=y;
       }
       y--;
@@ -1134,9 +1338,9 @@ static void Drawellipse_stroke(struct Decoder *dec, LONG cx, LONG cy, LONG rx, L
    }
 }
 
-static void Drawellipse(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LONG ry, BOOL fill, ULONG rgb)
-{  if(fill) Drawellipse_fill(dec,cx,cy,rx,ry,rgb);
-   else     Drawellipse_stroke(dec,cx,cy,rx,ry,rgb);
+static void Drawellipse(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LONG ry, BOOL fill, const struct Paintctx *pctx, ULONG strokergb)
+{  if(fill) Drawellipse_fill(dec,cx,cy,rx,ry,pctx);
+   else     Drawellipse_stroke(dec,cx,cy,rx,ry,strokergb);
 }
 
 /* Scanline-based polygon fill using the even-odd rule.
@@ -1171,7 +1375,7 @@ struct Polyedge
    LONG dy;                 /* yB - yA, always positive                 */
 };
 
-static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD count, ULONG rgb)
+static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD count, const struct Paintctx *pctx)
 {  LONG bmw,bmh;
    LONG ymin,ymax,y;
    LONG nrows;
@@ -1274,7 +1478,7 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
          sx1=xs[i+1];
          if(sx0<0) sx0=0;
          if(sx1>=bmw) sx1=bmw-1;
-         if(sx0<=sx1) Fillspan_rgb(dec,sx0,sx1,y,rgb);
+         if(sx0<=sx1) Fillspan(dec,sx0,sx1,y,pctx);
       }
    }
 
@@ -1283,12 +1487,12 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
 }
 
 static void Drawpolygon(struct Decoder *dec, struct Point32 *pts, WORD count,
-   BOOL fill, BOOL close, ULONG fillrgb, ULONG strokergb)
+   BOOL fill, BOOL close, const struct Paintctx *pctx, ULONG strokergb)
 {  WORD i;
    if(count<2) return;
    if(count>POLY_MAX_VERTS) count=POLY_MAX_VERTS;
    if(fill && count>=3)
-   {  Drawpolygon_fill(dec,pts,count,fillrgb);
+   {  Drawpolygon_fill(dec,pts,count,pctx);
    }
    else
    {  for(i=1;i<count;i++)
@@ -1446,8 +1650,10 @@ static void Pathflush(struct Pathemit *pe, BOOL closepath)
    doclose=closepath;
    if(pe->truncated) doclose=FALSE;
    if(pe->rs->fillvalid && doclose && pe->count>=3)
-   {  Setpen(pe->dec,pe->rs->fillpen);
-      Drawpolygon_fill(pe->dec,pe->pts,pe->count,pe->rs->fillrgb);
+   {  struct Paintctx pctx;
+      Buildfillctx(&pctx,pe->dec,pe->rs,Effectivefillalpha(pe->rs));
+      Setpen(pe->dec,pe->rs->fillpen);
+      Drawpolygon_fill(pe->dec,pe->pts,pe->count,&pctx);
    }
    if(pe->rs->strokevalid)
    {  WORD i;
@@ -1860,15 +2066,412 @@ static BOOL Gradaverage(struct Decoder *dec, struct XmlNode *grad,
    return TRUE;
 }
 
+/*--------------------------------------------------------------------*/
+/* Per-pixel gradient parser and evaluator                            */
+/*--------------------------------------------------------------------*/
+
+/* Parse a single number out of the attribute string `v` and store it
+ * in *out (16.16).  Returns TRUE on success, leaving *out untouched on
+ * failure.  Tolerates CSS unit suffixes. */
+static BOOL Gradnumattr(struct XmlNode *node, const char *name, LONG *out)
+{  UBYTE *v=XmlAttrValue(node,name);
+   UBYTE *p,*e;
+   BOOL ok;
+   LONG r;
+   if(!v) return FALSE;
+   p=v;
+   e=v;
+   while(*e) e++;
+   r=Parsefixed(&p,e,&ok);
+   if(!ok) return FALSE;
+   Skipunits(&p,e);
+   *out=r;
+   return TRUE;
+}
+
+/* Collect one stop into a Gradient's stop array.  `style_only` causes
+ * us to read just the in-line style attribute - used when the caller
+ * has already seen and stored the presentation attributes. */
+static void Gradparse_stop(struct XmlNode *child, struct Gradient *g)
+{  struct GradstopCtx sctx;
+   UBYTE *v;
+   LONG offset=0;
+   BOOL ok;
+   UBYTE *p,*e;
+   if(g->nstops>=GRAD_MAX_STOPS) return;
+   sctx.rgb=0;
+   sctx.alpha=255;
+   sctx.enabled=FALSE;
+   v=XmlAttrValue(child,"stop-color");
+   if(v)
+   {  ULONG rgb;
+      BOOL en;
+      UBYTE a=255;
+      if(Parsecolor(v,&rgb,&en,&a) && en)
+      {  sctx.rgb=rgb;
+         sctx.enabled=TRUE;
+         if(a<sctx.alpha) sctx.alpha=a;
+      }
+   }
+   v=XmlAttrValue(child,"stop-opacity");
+   if(v) sctx.alpha=Parsealphaval(v);
+   v=XmlAttrValue(child,"style");
+   if(v) Parsestyle(v,Gradstoppair,&sctx);
+
+   v=XmlAttrValue(child,"offset");
+   if(v)
+   {  p=v;
+      e=v;
+      while(*e) e++;
+      offset=Parsefixed(&p,e,&ok);
+      if(ok)
+      {  while(*p==' '||*p=='\t') p++;
+         if(*p=='%') offset=offset/100;
+      }
+      else offset=0;
+   }
+   if(offset<0) offset=0;
+   if(offset>0x10000L) offset=0x10000L;
+
+   if(!sctx.enabled)
+   {  /* Spec: a stop with no colour inherits its colour from the
+       * previous stop and contributes only an offset and opacity.
+       * Approximate by skipping it if we have no previous stop, or
+       * cloning the previous stop's colour otherwise. */
+      if(g->nstops==0) return;
+      g->stops[g->nstops].r=g->stops[g->nstops-1].r;
+      g->stops[g->nstops].g=g->stops[g->nstops-1].g;
+      g->stops[g->nstops].b=g->stops[g->nstops-1].b;
+   }
+   else
+   {  g->stops[g->nstops].r=(UBYTE)((sctx.rgb>>16)&0xff);
+      g->stops[g->nstops].g=(UBYTE)((sctx.rgb>>8)&0xff);
+      g->stops[g->nstops].b=(UBYTE)(sctx.rgb&0xff);
+   }
+   g->stops[g->nstops].a=sctx.alpha;
+   g->stops[g->nstops].offset=offset;
+   g->nstops++;
+}
+
+/* Walk a gradient node and (a) populate the stops array, (b) fill in
+ * any geometry attributes present on the node, recursing through
+ * xlink:href to inherit anything missing.  The base node's stops and
+ * geometry are used for whatever this node does not override - the
+ * standard Inkscape idiom for a derived gradient with a moved axis but
+ * shared stops.
+ *
+ * The `seen_*` flags track which geometry attributes have already been
+ * set during the walk so later inheritance does not stomp on them.  */
+static void Gradparse_walk(struct Decoder *dec, struct XmlNode *node,
+   struct Gradient *g, BOOL *seen_x1, BOOL *seen_y1,
+   BOOL *seen_x2, BOOL *seen_y2,
+   BOOL *seen_cx, BOOL *seen_cy, BOOL *seen_r,
+   BOOL *seen_fx, BOOL *seen_fy, LONG depth)
+{  struct XmlNode *child;
+   UBYTE *v;
+   LONG val;
+   BOOL had_stops;
+   if(!node || depth>=GRAD_MAX_DEPTH) return;
+
+   /* Geometry: only adopt attributes we have not yet seen. */
+   if(!*seen_x1 && Gradnumattr(node,"x1",&val)) { g->x1=val; *seen_x1=TRUE; }
+   if(!*seen_y1 && Gradnumattr(node,"y1",&val)) { g->y1=val; *seen_y1=TRUE; }
+   if(!*seen_x2 && Gradnumattr(node,"x2",&val)) { g->x2=val; *seen_x2=TRUE; }
+   if(!*seen_y2 && Gradnumattr(node,"y2",&val)) { g->y2=val; *seen_y2=TRUE; }
+   if(!*seen_cx && Gradnumattr(node,"cx",&val)) { g->cx=val; *seen_cx=TRUE; }
+   if(!*seen_cy && Gradnumattr(node,"cy",&val)) { g->cy=val; *seen_cy=TRUE; }
+   if(!*seen_r  && Gradnumattr(node,"r" ,&val)) { g->r =val; *seen_r =TRUE; }
+   if(!*seen_fx && Gradnumattr(node,"fx",&val)) { g->fx=val; *seen_fx=TRUE; }
+   if(!*seen_fy && Gradnumattr(node,"fy",&val)) { g->fy=val; *seen_fy=TRUE; }
+
+   v=XmlAttrValue(node,"gradientUnits");
+   if(v)
+   {  if(strieq(v,"objectBoundingBox")) g->units=GRAD_UNITS_OBJBB;
+      else g->units=GRAD_UNITS_USER;
+   }
+   v=XmlAttrValue(node,"gradientTransform");
+   if(v && !g->has_gt)
+   {  Midentity(&g->gt);
+      Parsetransform(v,&g->gt);
+      g->has_gt=1;
+   }
+
+   /* Stops: only adopt this node's stops if we have none yet (so
+    * inherited stops do not overwrite our own).  Then recurse into
+    * the xlink:href base if we still have no stops at all. */
+   had_stops=(BOOL)(g->nstops>0);
+   if(!had_stops)
+   {  for(child=node->firstchild; child; child=child->nextsibling)
+      {  if(child->type!=XMLN_ELEMENT) continue;
+         if(!XmlNameIs(child,"stop")) continue;
+         Gradparse_stop(child,g);
+      }
+   }
+
+   /* Recurse into the referenced base gradient for anything still
+    * missing.  Most Inkscape SVGs use this for stops. */
+   {  UBYTE *idref=Resolvehref(node);
+      if(idref)
+      {  struct XmlNode *target=Findid(dec,idref);
+         if(target && (XmlNameIs(target,"linearGradient")
+                    || XmlNameIs(target,"radialGradient")))
+         {  Gradparse_walk(dec,target,g,
+               seen_x1,seen_y1,seen_x2,seen_y2,
+               seen_cx,seen_cy,seen_r,seen_fx,seen_fy,depth+1);
+         }
+      }
+   }
+}
+
+/* Insertion-sort stops by offset (already-sorted is the common case so
+ * a tiny insertion sort is both shortest and fastest). */
+static void Gradparse_sortstops(struct Gradient *g)
+{  int i,j;
+   struct Gradstop_p tmp;
+   for(i=1;i<g->nstops;i++)
+   {  tmp=g->stops[i];
+      j=i-1;
+      while(j>=0 && g->stops[j].offset>tmp.offset)
+      {  g->stops[j+1]=g->stops[j];
+         j--;
+      }
+      g->stops[j+1]=tmp;
+   }
+}
+
+/* Build a fully resolved Gradient struct for the given gradient node.
+ * Returns NULL if the node has no usable stops.  Allocated from the
+ * decoder pool. */
+static struct Gradient *Gradparse(struct Decoder *dec, struct XmlNode *node)
+{  struct Gradient *g;
+   BOOL seen_x1=FALSE, seen_y1=FALSE, seen_x2=FALSE, seen_y2=FALSE;
+   BOOL seen_cx=FALSE, seen_cy=FALSE, seen_r=FALSE;
+   BOOL seen_fx=FALSE, seen_fy=FALSE;
+   if(!node) return NULL;
+   g=(struct Gradient *)AllocPooled(dec->pool,sizeof(*g));
+   if(!g) return NULL;
+   memset(g,0,sizeof(*g));
+   g->type   = XmlNameIs(node,"radialGradient") ? GRAD_TYPE_RADIAL : GRAD_TYPE_LINEAR;
+   g->units  = GRAD_UNITS_USER;
+   g->nstops = 0;
+   g->has_gt = 0;
+   /* SVG spec defaults: linear x1=y1=0, x2=1, y2=0; radial cx=cy=0.5,
+    * r=0.5 in objectBoundingBox terms.  In user space they default to
+    * the bounding box of the painted shape (which we cannot fully
+    * model here); reasonable user-space defaults are 0..1 the same. */
+   g->x1=0;          g->y1=0;
+   g->x2=0x10000L;   g->y2=0;
+   g->cx=0x8000L;    g->cy=0x8000L;
+   g->r =0x8000L;
+   g->fx=g->cx;      g->fy=g->cy;
+   Midentity(&g->gt);
+
+   Gradparse_walk(dec,node,g,
+      &seen_x1,&seen_y1,&seen_x2,&seen_y2,
+      &seen_cx,&seen_cy,&seen_r,&seen_fx,&seen_fy,0);
+
+   /* Radial focus defaults to the centre when not supplied. */
+   if(!seen_fx) g->fx=g->cx;
+   if(!seen_fy) g->fy=g->cy;
+
+   if(g->nstops==0) return NULL;
+   if(g->nstops==1)
+   {  /* Single-stop gradient: clone the only stop at offset 1.0 so
+       * the evaluator can interpolate trivially. */
+      g->stops[1]=g->stops[0];
+      g->stops[1].offset=0x10000L;
+      g->nstops=2;
+   }
+   Gradparse_sortstops(g);
+   return g;
+}
+
+/* Compose per-shape evaluator state into *pctx given a gradient and
+ * the CTM in use when the shape is rendered.
+ *
+ * For both linear and radial gradients we precompute:
+ *   inv = inverse of (CTM * gradientTransform)
+ * i.e. the affine that maps raster pixels back into the gradient's
+ * own coordinate system.  Linear gradients then maintain a per-pixel
+ * `t` value by stepping `dt_dx`/`dt_dy` deltas in raster space;
+ * radial gradients evaluate distance from centre per pixel using the
+ * `inv` matrix directly. */
+static BOOL Buildpaintctx(struct Paintctx *pctx, struct Renderstate *rs,
+   struct Gradient *g)
+{  struct Matrix tot, inv;
+   /* Note: pctx->alpha and pctx->rgb are owned by the caller
+    * (Buildfillctx).  We only set the gradient-specific evaluator
+    * fields here and clear them on failure. */
+   pctx->has_grad=0;
+   pctx->grad=NULL;
+   if(!g) return FALSE;
+
+   tot=rs->M;
+   if(g->has_gt) Mcompose(&tot,&tot,&g->gt);
+   if(!Minverse(&tot,&inv)) return FALSE;
+   pctx->inv=inv;
+   pctx->grad=g;
+   pctx->has_grad=1;
+
+   if(g->type==GRAD_TYPE_LINEAR)
+   {  LONG vx, vy;
+      LONG lensq;
+      LONG inv_lensq;
+      LONG g00x, g00y;          /* gradient coords at raster (0,0) */
+      LONG g10x, g10y;          /* gradient coords at raster (1,0) */
+      LONG g01x, g01y;          /* gradient coords at raster (0,1) */
+      vx=g->x2 - g->x1;
+      vy=g->y2 - g->y1;
+      lensq=fmul(vx,vx) + fmul(vy,vy);
+      if(lensq<=0)
+      {  pctx->has_grad=0;
+         pctx->grad=NULL;
+         return FALSE;
+      }
+      inv_lensq=fdiv(0x10000L, lensq);
+
+      g00x=fmul(inv.a,0)        + fmul(inv.c,0)        + inv.e;
+      g00y=fmul(inv.b,0)        + fmul(inv.d,0)        + inv.f;
+      g10x=fmul(inv.a,1L<<16)   + fmul(inv.c,0)        + inv.e;
+      g10y=fmul(inv.b,1L<<16)   + fmul(inv.d,0)        + inv.f;
+      g01x=fmul(inv.a,0)        + fmul(inv.c,1L<<16)   + inv.e;
+      g01y=fmul(inv.b,0)        + fmul(inv.d,1L<<16)   + inv.f;
+
+      pctx->t_x0 = Gradproj(g00x - g->x1, g00y - g->y1, vx, vy, inv_lensq);
+      pctx->dt_dx= Gradproj(g10x - g00x , g10y - g00y , vx, vy, inv_lensq);
+      pctx->dt_dy= Gradproj(g01x - g00x , g01y - g00y , vx, vy, inv_lensq);
+   }
+   else
+   {  pctx->r_sq=fmul(g->r,g->r);
+      if(pctx->r_sq<=0)
+      {  pctx->has_grad=0;
+         pctx->grad=NULL;
+         return FALSE;
+      }
+   }
+   return TRUE;
+}
+
+/* Pick a colour out of a Gradient at a normalised parameter t in
+ * [0,1].  Linear interpolation between adjacent stops; constant
+ * extension outside the [0,1] range (the SVG default `pad` spread
+ * method - we do not implement `reflect` or `repeat` yet).  Returns
+ * the colour as 0xRRGGBB and writes the stop alpha into *out_a. */
+static ULONG Gradsample(const struct Gradient *g, LONG t, UBYTE *out_a)
+{  int i;
+   LONG t0,t1,span,frac;
+   LONG r0,g0,b0,a0;
+   LONG r1,g1,b1,a1;
+   LONG R,G,B,A;
+   if(t<=g->stops[0].offset)
+   {  *out_a=g->stops[0].a;
+      return ((ULONG)g->stops[0].r<<16)|((ULONG)g->stops[0].g<<8)|(ULONG)g->stops[0].b;
+   }
+   if(t>=g->stops[g->nstops-1].offset)
+   {  *out_a=g->stops[g->nstops-1].a;
+      return ((ULONG)g->stops[g->nstops-1].r<<16)
+            |((ULONG)g->stops[g->nstops-1].g<<8)
+            |(ULONG)g->stops[g->nstops-1].b;
+   }
+   for(i=1;i<g->nstops;i++)
+   {  if(t<g->stops[i].offset)
+      {  t0=g->stops[i-1].offset;
+         t1=g->stops[i].offset;
+         span=t1-t0;
+         if(span<=0)
+         {  *out_a=g->stops[i].a;
+            return ((ULONG)g->stops[i].r<<16)
+                  |((ULONG)g->stops[i].g<<8)
+                  |(ULONG)g->stops[i].b;
+         }
+         /* frac in 0..256 for an 8-bit lerp. */
+         frac=((t-t0)<<8)/span;
+         if(frac<0) frac=0;
+         if(frac>256) frac=256;
+         r0=g->stops[i-1].r;  r1=g->stops[i].r;
+         g0=g->stops[i-1].g;  g1=g->stops[i].g;
+         b0=g->stops[i-1].b;  b1=g->stops[i].b;
+         a0=g->stops[i-1].a;  a1=g->stops[i].a;
+         R=r0 + ((r1-r0)*frac>>8);
+         G=g0 + ((g1-g0)*frac>>8);
+         B=b0 + ((b1-b0)*frac>>8);
+         A=a0 + ((a1-a0)*frac>>8);
+         if(R<0) R=0; if(R>255) R=255;
+         if(G<0) G=0; if(G>255) G=255;
+         if(B<0) B=0; if(B>255) B=255;
+         if(A<0) A=0; if(A>255) A=255;
+         *out_a=(UBYTE)A;
+         return ((ULONG)R<<16)|((ULONG)G<<8)|(ULONG)B;
+      }
+   }
+   *out_a=g->stops[g->nstops-1].a;
+   return ((ULONG)g->stops[g->nstops-1].r<<16)
+         |((ULONG)g->stops[g->nstops-1].g<<8)
+         |(ULONG)g->stops[g->nstops-1].b;
+}
+
+/* Sample the gradient at raster pixel (rx,ry) using the per-shape
+ * state in *pctx.  Caller is responsible for clamping (rx,ry) to the
+ * destination bitmap; we only need the gradient-coord transform. */
+static ULONG Gradeval_pixel(const struct Paintctx *pctx, LONG rx, LONG ry,
+   UBYTE *out_a)
+{  const struct Gradient *g=pctx->grad;
+   LONG t;
+   if(g->type==GRAD_TYPE_LINEAR)
+   {  /* Caller normally uses the precomputed step state directly; this
+       * function is here for sites that need a one-off sample. */
+      t=pctx->t_x0 + pctx->dt_dx*rx + pctx->dt_dy*ry;
+   }
+   else
+   {  LONG gx,gy,dx,dy,distsq;
+      LONG rx16=rx<<16, ry16=ry<<16;
+      gx=fmul(pctx->inv.a,rx16) + fmul(pctx->inv.c,ry16) + pctx->inv.e;
+      gy=fmul(pctx->inv.b,rx16) + fmul(pctx->inv.d,ry16) + pctx->inv.f;
+      dx=gx - g->cx;
+      dy=gy - g->cy;
+      distsq=fmul(dx,dx) + fmul(dy,dy);
+      /* t = sqrt(distsq) / r => t^2 = distsq / r^2 in normalised form.
+       * We avoid the sqrt by sampling against squared offsets, which
+       * means stops near the rim are visited slightly later than a
+       * true distance metric would - acceptable for icon rendering. */
+      t=fdiv(distsq, pctx->r_sq);
+      /* Square the offset in the stop comparison would be exact but
+       * costs us a square per stop walk.  Instead approximate by
+       * mapping squared distance into the same [0,1] range as the
+       * stops via sqrt-by-Newton would be expensive; use the
+       * cheap-enough  estimate sqrt(t) ~= t for small t and adjust. */
+      /* Cheap sqrt approximation: t in 16.16, sqrt(t) ~= (t+1)/2 + ... */
+      if(t<=0) t=0;
+      else
+      {  /* Newton-Raphson: y_{n+1} = (y + t/y)/2.  Start at the larger
+          * of (t>>1, 1.0) so we converge from above. */
+         LONG y;
+         int k;
+         y = (t>0x20000L) ? (t>>1) : 0x10000L;
+         for(k=0;k<6;k++)
+         {  if(y<=0) { y=0; break; }
+            y=(y + fdiv(t,y))>>1;
+         }
+         t=y;
+      }
+   }
+   if(t<0) t=0;
+   if(t>0x10000L) t=0x10000L;
+   return Gradsample(g,t,out_a);
+}
+
 /* If `value` begins with "url(#id)", lookup the referenced node and,
  * provided it is a linearGradient or radialGradient, fill in *rgb_out
  * and *alpha_out from its cached average colour (computing the cache
- * on first reference).  Returns the address of the first character
- * past the closing ')' so the caller can parse a fallback colour from
- * the remainder of the value if we couldn't resolve the URL.
- * Returns NULL if `value` is not a url(...) reference at all. */
+ * on first reference).  Also writes the parsed Gradient pointer into
+ * *grad_out (if non-NULL) for callers that want per-pixel evaluation.
+ * Returns the address of the first character past the closing ')' so
+ * the caller can parse a fallback colour from the remainder of the
+ * value if we couldn't resolve the URL.  Returns NULL if `value` is
+ * not a url(...) reference at all. */
 static UBYTE *Lookupgradient(struct Decoder *dec, UBYTE *value,
-   ULONG *rgb_out, UBYTE *alpha_out, BOOL *resolved_out)
+   ULONG *rgb_out, UBYTE *alpha_out, BOOL *resolved_out,
+   struct Gradient **grad_out)
 {  UBYTE *p,*idstart,*idend;
    UBYTE save;
    struct Iddef *iddef;
@@ -1915,6 +2518,10 @@ static UBYTE *Lookupgradient(struct Decoder *dec, UBYTE *value,
          {  iddef->grad_rgb=rgb;
             iddef->grad_alpha=a;
             iddef->grad_state=1;
+            /* Real per-pixel gradient (only on P96 deep destinations,
+             * but parse it unconditionally so the cache is consistent
+             * across multiple shapes that share the same id). */
+            iddef->grad=Gradparse(dec,iddef->node);
          }
          else iddef->grad_state=2;
       }
@@ -1924,6 +2531,7 @@ static UBYTE *Lookupgradient(struct Decoder *dec, UBYTE *value,
    {  *rgb_out=iddef->grad_rgb;
       *alpha_out=iddef->grad_alpha;
       *resolved_out=TRUE;
+      if(grad_out) *grad_out=iddef->grad;
    }
    return p;
 }
@@ -1942,12 +2550,14 @@ static UBYTE *Lookupgradient(struct Decoder *dec, UBYTE *value,
  * for unrecognised values, in which case the caller should leave its
  * previous paint untouched. */
 static BOOL Resolvepaint(struct Decoder *dec, UBYTE *value,
-   ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out)
+   ULONG *rgb_out, UBYTE *alpha_out, BOOL *enabled_out,
+   struct Gradient **grad_out)
 {  BOOL resolved;
    UBYTE *tail;
    *alpha_out=255;
+   if(grad_out) *grad_out=NULL;
    if(!value) { *enabled_out=FALSE; return FALSE; }
-   tail=Lookupgradient(dec,value,rgb_out,alpha_out,&resolved);
+   tail=Lookupgradient(dec,value,rgb_out,alpha_out,&resolved,grad_out);
    if(resolved)
    {  *enabled_out=(*alpha_out>0);
       return TRUE;
@@ -1980,9 +2590,11 @@ static void Applyfill(struct Decoder *dec, struct Renderstate *rs, UBYTE *value)
 {  ULONG rgb;
    UBYTE alpha;
    BOOL enabled;
-   if(!Resolvepaint(dec,value,&rgb,&alpha,&enabled)) return;
+   struct Gradient *grad=NULL;
+   if(!Resolvepaint(dec,value,&rgb,&alpha,&enabled,&grad)) return;
    rs->fillvalid=enabled;
    rs->fill_color_alpha=alpha;
+   rs->fillgrad=grad;
    if(enabled)
    {  rs->fillrgb=rgb;
       rs->fillpen=Getpen(dec,rgb);
@@ -1993,7 +2605,10 @@ static void Applystroke(struct Decoder *dec, struct Renderstate *rs, UBYTE *valu
 {  ULONG rgb;
    UBYTE alpha;
    BOOL enabled;
-   if(!Resolvepaint(dec,value,&rgb,&alpha,&enabled)) return;
+   /* Strokes through a gradient are unusual and we render strokes as
+    * 1-pixel-wide lines through graphics.library, where a real
+    * gradient stroke is impractical.  Reduce to the averaged colour. */
+   if(!Resolvepaint(dec,value,&rgb,&alpha,&enabled,NULL)) return;
    rs->strokevalid=enabled;
    rs->stroke_color_alpha=alpha;
    if(enabled)
@@ -2093,6 +2708,40 @@ static void Applytransform(struct XmlNode *node, struct Renderstate *rs)
 }
 
 /*--------------------------------------------------------------------*/
+/* Fill paint-context assembly                                        */
+/*--------------------------------------------------------------------*/
+
+/* Combine the three fill alpha sources (colour-embedded, fill-opacity,
+ * inherited element opacity) into a single effective 0..255. */
+static UBYTE Effectivefillalpha(struct Renderstate *rs)
+{  UBYTE a;
+   a=Combinealpha(rs->fill_color_alpha, rs->fill_opacity);
+   a=Combinealpha(a, rs->element_opacity);
+   return a;
+}
+
+/* Compose a Paintctx for the current shape given the active Renderstate
+ * and the combined effective fill alpha (the renderer has already
+ * folded element_opacity, fill_opacity and the colour-embedded alpha
+ * into one value).  When the fill is a gradient and we are rendering
+ * to a P96 deep destination, this attempts to build per-pixel
+ * evaluator state; if that fails (singular CTM, no resolved gradient,
+ * etc) we transparently fall back to the averaged solid colour. */
+static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
+   struct Renderstate *rs, UBYTE eff_alpha)
+{  pctx->has_grad=0;
+   pctx->grad=NULL;
+   pctx->alpha=eff_alpha;
+   pctx->rgb=rs->fillrgb;
+   if(rs->fillgrad && (dec->decflags&DECOF_P96DEEP))
+   {  if(!Buildpaintctx(pctx,rs,rs->fillgrad))
+      {  pctx->has_grad=0;
+         pctx->grad=NULL;
+      }
+   }
+}
+
+/*--------------------------------------------------------------------*/
 /* Shape attribute helpers                                            */
 /*--------------------------------------------------------------------*/
 
@@ -2125,6 +2774,7 @@ static void Renderrect(struct Decoder *dec, struct XmlNode *node, struct Renders
    LONG h=Numattr(node,"height",0);
    LONG x0,y0,x1,y1;
    struct Point32 pts[4];
+   struct Paintctx pctx;
    if(w<=0 || h<=0) return;
    /* Build the 4 corners in SVG space then transform.  This handles
     * rotation/skew correctly. */
@@ -2137,12 +2787,13 @@ static void Renderrect(struct Decoder *dec, struct XmlNode *node, struct Renders
    pts[2].x=x0; pts[2].y=y0;
    pts[3].x=x1; pts[3].y=y1;
    if(rs->fillvalid)
-   {  Setpen(dec,rs->fillpen);
-      Drawpolygon(dec,pts,4,TRUE,TRUE,rs->fillrgb,rs->strokergb);
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+      Setpen(dec,rs->fillpen);
+      Drawpolygon(dec,pts,4,TRUE,TRUE,&pctx,rs->strokergb);
    }
    if(rs->strokevalid)
    {  Setpen(dec,rs->strokepen);
-      Drawpolygon(dec,pts,4,FALSE,TRUE,rs->fillrgb,rs->strokergb);
+      Drawpolygon(dec,pts,4,FALSE,TRUE,NULL,rs->strokergb);
    }
 }
 
@@ -2152,6 +2803,7 @@ static void Rendercircle(struct Decoder *dec, struct XmlNode *node, struct Rende
    LONG r=Numattr(node,"r",0);
    LONG rcx,rcy,redge,dummy;
    LONG rr;
+   struct Paintctx pctx;
    if(r<=0) return;
    Mxform(&rs->M,cx,cy,&rcx,&rcy);
    Mxform(&rs->M,cx+r,cy,&redge,&dummy);
@@ -2159,12 +2811,13 @@ static void Rendercircle(struct Decoder *dec, struct XmlNode *node, struct Rende
    if(rr<0) rr=-rr;
    if(rr<=0) return;
    if(rs->fillvalid)
-   {  Setpen(dec,rs->fillpen);
-      Drawellipse(dec,rcx,rcy,rr,rr,TRUE,rs->fillrgb);
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+      Setpen(dec,rs->fillpen);
+      Drawellipse(dec,rcx,rcy,rr,rr,TRUE,&pctx,rs->strokergb);
    }
    if(rs->strokevalid)
    {  Setpen(dec,rs->strokepen);
-      Drawellipse(dec,rcx,rcy,rr,rr,FALSE,rs->strokergb);
+      Drawellipse(dec,rcx,rcy,rr,rr,FALSE,NULL,rs->strokergb);
    }
 }
 
@@ -2175,6 +2828,7 @@ static void Renderellipse(struct Decoder *dec, struct XmlNode *node, struct Rend
    LONG ry=Numattr(node,"ry",0);
    LONG rcx,rcy,redgex,redgey,dummyx,dummyy;
    LONG rrx,rry;
+   struct Paintctx pctx;
    if(rx<=0 || ry<=0) return;
    Mxform(&rs->M,cx,cy,&rcx,&rcy);
    Mxform(&rs->M,cx+rx,cy,&redgex,&dummyy);
@@ -2183,12 +2837,13 @@ static void Renderellipse(struct Decoder *dec, struct XmlNode *node, struct Rend
    rry=redgey-rcy; if(rry<0) rry=-rry;
    if(rrx<=0 || rry<=0) return;
    if(rs->fillvalid)
-   {  Setpen(dec,rs->fillpen);
-      Drawellipse(dec,rcx,rcy,rrx,rry,TRUE,rs->fillrgb);
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+      Setpen(dec,rs->fillpen);
+      Drawellipse(dec,rcx,rcy,rrx,rry,TRUE,&pctx,rs->strokergb);
    }
    if(rs->strokevalid)
    {  Setpen(dec,rs->strokepen);
-      Drawellipse(dec,rcx,rcy,rrx,rry,FALSE,rs->strokergb);
+      Drawellipse(dec,rcx,rcy,rrx,rry,FALSE,NULL,rs->strokergb);
    }
 }
 
@@ -2210,16 +2865,18 @@ static void Renderpoly(struct Decoder *dec, struct XmlNode *node,
 {  UBYTE *pts_str=XmlAttrValue(node,"points");
    struct Point32 *pts;
    WORD n;
+   struct Paintctx pctx;
    if(!pts_str) return;
    n=Parsepoints(dec,&rs->M,pts_str,&pts);
    if(n<2) return;
    if(rs->fillvalid && closeit && n>=3)
-   {  Setpen(dec,rs->fillpen);
-      Drawpolygon(dec,pts,n,TRUE,TRUE,rs->fillrgb,rs->strokergb);
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+      Setpen(dec,rs->fillpen);
+      Drawpolygon(dec,pts,n,TRUE,TRUE,&pctx,rs->strokergb);
    }
    if(rs->strokevalid)
    {  Setpen(dec,rs->strokepen);
-      Drawpolygon(dec,pts,n,FALSE,closeit,rs->fillrgb,rs->strokergb);
+      Drawpolygon(dec,pts,n,FALSE,closeit,NULL,rs->strokergb);
    }
 }
 
@@ -2317,6 +2974,7 @@ static void Indexids(struct Decoder *dec, struct XmlNode *node)
             e->grad_rgb=0;
             e->grad_alpha=0;
             e->grad_state=0;
+            e->grad=NULL;
             e->next=dec->idtable[h];
             dec->idtable[h]=e;
          }
@@ -2752,6 +3410,7 @@ static void Parsertask(void *userdata)
    rs.stroke_opacity=255;
    rs.fill_color_alpha=255;
    rs.stroke_color_alpha=255;
+   rs.fillgrad=NULL;
    /* Resolve default black pen up front so primitives without
     * explicit fill don't trigger a per-call ObtainBestPen. */
    rs.fillpen=Getpen(&dec,0x000000UL);
