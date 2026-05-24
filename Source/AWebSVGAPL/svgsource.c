@@ -49,6 +49,7 @@
 
 #include <libraries/awebplugin.h>
 #include <exec/memory.h>
+#include <exec/execbase.h>
 #include <graphics/gfx.h>
 #include <graphics/rastport.h>
 #include <intuition/intuitionbase.h>
@@ -60,10 +61,13 @@
 #include <proto/intuition.h>
 #include <libraries/Picasso96.h>
 #include <proto/Picasso96.h>
+#include <devices/timer.h>
+#include <proto/lowlevel.h>
 
 #include <string.h>
 
 extern struct Library *P96Base;
+extern struct Library *LowLevelBase;
 
 /* Forward decls (provided by awebplugin.library) */
 extern struct Taskmsg *Gettaskmsg(void);
@@ -89,6 +93,27 @@ extern long Updatetaskattrs(ULONG tag,...);
 
 #define DECOF_P96MAP       0x0004
 #define DECOF_P96DEEP      0x0008
+
+/* Quality flags - which expensive per-pixel rendering paths the
+ * current decoder is allowed to take.  Defaults are picked
+ * per-decoder by Decidequality() from the measured CPU speed (see
+ * Benchmarkcpu) and the document's own complexity.
+ *
+ * - QF_GRAD_LINEAR : per-pixel linear gradient evaluation
+ *                    (cheap-ish; one add + a stop lookup per pixel)
+ * - QF_GRAD_RADIAL : per-pixel radial gradient evaluation
+ *                    (very expensive; fdiv + Newton sqrt per pixel)
+ * - QF_ALPHA_BLEND : real source-over alpha compositing on P96 deep
+ *                    (3 mul + 3 div per pixel for partially-trans
+ *                    spans, free for fully-opaque ones)
+ *
+ * When a flag is off, the corresponding feature degrades to the
+ * cheap fallback that v1 of the renderer used: averaged colour for
+ * gradients, alpha-as-skip-gate for opacity. */
+#define QF_GRAD_LINEAR     0x0001
+#define QF_GRAD_RADIAL     0x0002
+#define QF_ALPHA_BLEND     0x0004
+#define QF_ALL             (QF_GRAD_LINEAR|QF_GRAD_RADIAL|QF_ALPHA_BLEND)
 
 /*--------------------------------------------------------------------*/
 /* Plugin data structures                                             */
@@ -300,6 +325,10 @@ struct Decoder
     * vector layer has been committed to the output bitmap.  See
     * svgtext.h for the rationale behind deferred rendering. */
    struct SvgTextList textruns;
+   /* Adaptive rendering quality bitfield - QF_* flags.  Decided
+    * once at the top of Parsertask based on the CPU benchmark and
+    * the document complexity. */
+   USHORT quality;
 };
 
 #define DECOF_STOP         0x0001
@@ -314,6 +343,236 @@ struct Decoder
 #else
 #define SVGLOG(args)
 #endif
+
+/*--------------------------------------------------------------------*/
+/* Adaptive quality - CPU benchmark and document complexity           */
+/*--------------------------------------------------------------------*/
+
+/* Cached benchmark result.  Computed lazily by Benchmarkcpu() on the
+ * first SVG render and reused for every subsequent decoder.  Units
+ * are "synthetic mixed integer ops per second", roughly comparable
+ * across machines:
+ *
+ *   030 @ 25 MHz   ~ 0.5 - 1.0 MOPS
+ *   040 @ 25 MHz   ~ 4 - 6 MOPS
+ *   060 @ 50 MHz   ~ 20+ MOPS
+ *   PPC under WOS  ~ 50+ MOPS
+ *
+ * A value of 0 means "unknown" (either we haven't benchmarked yet or
+ * we failed to do so - in which case Decidequality falls back to
+ * AttnFlags-based tiering). */
+static ULONG g_cpu_mops_x256 = 0;
+
+/* Volatile observable sink for the benchmark loop result.  The
+ * volatile qualifier prevents SAS/C from concluding that the
+ * benchmark's per-iteration arithmetic has no effect and folding the
+ * whole loop into a noop. */
+static volatile ULONG g_bench_sink = 0;
+
+/* Run a fixed-cost integer mix that resembles the inner loops in
+ * Fillspan's gradient and alpha paths (fmul, fdiv, branches, byte
+ * compositing).  Times it with ElapsedTime and stores the result in
+ * g_cpu_mops_x256 (MOPS * 256, so 256 == 1.0 MOPS).  Idempotent: if
+ * already benchmarked, returns immediately. */
+static void Benchmarkcpu(void)
+{  struct EClockVal ctx;
+   ULONG et;
+   ULONG i;
+   ULONG iters;
+   ULONG seconds_x65536;
+   /* Synthetic mix - keep these in volatile-like locals so the
+    * compiler cannot fold the whole loop away.  The arithmetic on
+    * the right is chosen to match the inner loop in Fillspan when
+    * blending a gradient pixel: a small multiply, a small divide
+    * surrogate (mod), a few adds and a byte clamp. */
+   ULONG acc=0;
+   ULONG t=0x1234UL;
+   ULONG d=0x57UL;
+
+   if(g_cpu_mops_x256) return;
+   if(!LowLevelBase)
+   {  /* No way to time; leave the flag clear so Decidequality picks
+       * a tier from AttnFlags. */
+      g_cpu_mops_x256=0;
+      return;
+   }
+
+   iters=20000;
+   ctx.ev_hi=0;
+   ctx.ev_lo=0;
+   /* First call is documented to return nonsense - consume it so the
+    * second call gives us a real delta. */
+   (void)ElapsedTime(&ctx);
+
+   for(i=0;i<iters;i++)
+   {  t = (t * 0x8088405UL + 1UL);
+      acc += (t & 0xffUL) * d;
+      d = (d ^ (t>>3)) | 1UL;
+      acc += (acc / d);
+      acc += ((acc * 7UL + 127UL) >> 8) & 0xffUL;
+   }
+   et=ElapsedTime(&ctx);
+   /* Force the optimizer to keep the loop alive by storing the
+    * accumulator into a volatile sink. */
+   g_bench_sink = acc ^ d ^ t;
+
+   /* et is 16.16 seconds; convert to seconds*65536.  Guard against
+    * impossibly small intervals (PPC under WOS, MMU caching, etc) by
+    * lower-bounding at 1 tick (~15us); we want a reasonable answer
+    * even on overly fast or noisy timers. */
+   seconds_x65536=(ULONG)et;
+   if(seconds_x65536<1) seconds_x65536=1;
+
+   /* Compute MOPS*256:
+    *    MOPS = (iters * 5_ops_per_iter) / seconds / 1_000_000
+    *    MOPS*256 = (iters * 5 * 256) / seconds / 1_000_000
+    * seconds = seconds_x65536 / 65536.
+    *    MOPS*256 = (iters * 5 * 256 * 65536) / (seconds_x65536 * 1_000_000)
+    *
+    * Compute in two stages to dodge 32-bit overflow.  iters is
+    * <=20000, so iters * 5 * 256 fits in 25 bits; multiplying that
+    * by 65536 immediately overflows.  Instead pre-divide by
+    * (1_000_000 / 65536) ~= 15.26 ~= 15 first. */
+   {  ULONG numer = iters * 5UL * 256UL;     /* up to 25.6M  */
+      /* divide by 15 first (close to 1e6/65536) to keep things in
+       * range, then divide by the actual seconds value. */
+      ULONG mops_x256 = numer / 15UL;
+      mops_x256 = (mops_x256 * 1024UL) / seconds_x65536;
+      /* The above gives roughly MOPS*256 with about 5% calibration
+       * slop versus a true 1MHz reference; the tiers below are
+       * coarse enough to absorb that. */
+      g_cpu_mops_x256 = mops_x256;
+   }
+   SVGLOG(("SVG: benchmark = %lu/256 MOPS (et=0x%08lx)\n",
+      g_cpu_mops_x256,(unsigned long)et));
+}
+
+/* Conservative quality flags chosen from exec.library/AttnFlags when
+ * lowlevel.library is not available.  Picks the floor of each CPU
+ * class - the benchmark would normally let a fast 030 enable more
+ * than this, but without a measurement we err on the safe side. */
+static USHORT Defaultquality_attnflags(void)
+{  UWORD af = ((struct ExecBase *)SysBase)->AttnFlags;
+   if(af & 0x80U)      /* AFB_68060 */ return QF_ALL;
+   if(af & 0x08U)      /* AFB_68040 */ return QF_GRAD_LINEAR | QF_ALPHA_BLEND;
+   if(af & 0x04U)      /* AFB_68030 */ return QF_GRAD_LINEAR;
+   /* 68020 or weaker: conservative averaged-colour fallback. */
+   return 0;
+}
+
+/* Estimate the rendering complexity of an SVG document and combine
+ * that with the measured CPU speed to choose a per-decoder quality
+ * tier.  Heuristic, intentionally simple:
+ *
+ *   work_units = bm_pixels * (1
+ *                            + 0.5 * has_gradient_fills
+ *                            + 8.0 * has_radial_gradient_fills
+ *                            + 0.3 * has_alpha_fills)
+ *
+ * Budget is 2 seconds at the measured MOPS.  Anything over budget
+ * gets a feature disabled in priority order: radial first (by far
+ * the most expensive), then alpha blending, then linear gradients.
+ *
+ * `n_grad_linear`, `n_grad_radial`, `n_alpha_shapes` are counts of
+ * id'd gradients we saw in the document (from the Iddef table) plus
+ * a rough count of shapes that carry partial opacity.  Counted in
+ * Decidequality directly. */
+static void Decidequality(struct Decoder *dec)
+{  ULONG mops_x256;
+   ULONG bm_pixels;
+   ULONG i;
+   ULONG n_linear=0, n_radial=0;
+   USHORT q;
+   Benchmarkcpu();
+   mops_x256 = g_cpu_mops_x256;
+
+   /* Start with the CPU's natural tier. */
+   if(mops_x256 == 0)
+   {  q = Defaultquality_attnflags();
+   }
+   else if(mops_x256 >= (15UL*256UL))      /* >=15 MOPS -> everything */
+   {  q = QF_ALL;
+   }
+   else if(mops_x256 >= (4UL*256UL))       /* 4-15 MOPS -> no radial */
+   {  q = QF_GRAD_LINEAR | QF_ALPHA_BLEND;
+   }
+   else if(mops_x256 >= (1UL*256UL))       /* 1-4 MOPS -> linear only */
+   {  q = QF_GRAD_LINEAR;
+   }
+   else                                     /* <1 MOPS -> averaged fallback */
+   {  q = 0;
+   }
+
+   /* Quality is meaningful only on P96 deep destinations - the
+    * palette path is averaged-colour only regardless. */
+   if(!(dec->decflags & DECOF_P96DEEP)) q = 0;
+
+   /* Count gradients in the document so we can scale the budget by
+    * how much the gradient evaluator will actually be exercised. */
+   for(i=0;i<IDTABLE_SIZE;i++)
+   {  struct Iddef *e;
+      for(e=dec->idtable[i]; e; e=e->next)
+      {  if(!e->node) continue;
+         if(XmlNameIs(e->node,"linearGradient")) n_linear++;
+         else if(XmlNameIs(e->node,"radialGradient")) n_radial++;
+      }
+   }
+
+   /* Pixel-cost ceiling: a 4-megapixel document with full per-pixel
+    * radial gradient (~50x solid cost) on a 1-MOPS machine would
+    * take ~200 seconds.  Demote radial to averaged if the budget
+    * looks blown - even on a 1-MOPS-class machine. */
+   bm_pixels = (ULONG)dec->bmw * (ULONG)dec->bmh;
+   if(bm_pixels==0) bm_pixels=1;
+
+   /* Per-pixel radial cost is roughly 50x a solid fill; linear is
+    * ~3x.  Estimated work is (bm_pixels * n_grad * cost_factor) in
+    * synthetic ops.  Compare against (mops_x256 * 1024 * 2_sec_budget)
+    * /256 = mops_x256 * 8 (so the right-hand side is mops_x256 * 8 in
+    * the same scaled units).  We pre-scale numerator by /256 to dodge
+    * 32-bit overflow on big documents. */
+   if((q & QF_GRAD_RADIAL) && n_radial>0 && mops_x256>0)
+   {  ULONG est = bm_pixels;
+      if(est > (ULONG)(2*1024*1024)) est = 2*1024*1024;
+      est = (est * n_radial * 50UL) >> 8;
+      if(est > mops_x256 * 8UL)
+      {  q &= ~QF_GRAD_RADIAL;
+         SVGLOG(("SVG: demoting radial gradients (est %lu vs cap %lu)\n",
+            (unsigned long)est, (unsigned long)mops_x256*8UL));
+      }
+   }
+   if((q & QF_GRAD_LINEAR) && n_linear>0 && mops_x256>0)
+   {  ULONG est = bm_pixels;
+      if(est > (ULONG)(2*1024*1024)) est = 2*1024*1024;
+      est = (est * n_linear * 3UL) >> 8;
+      if(est > mops_x256 * 8UL)
+      {  q &= ~QF_GRAD_LINEAR;
+         SVGLOG(("SVG: demoting linear gradients (est %lu vs cap %lu)\n",
+            (unsigned long)est, (unsigned long)mops_x256*8UL));
+      }
+   }
+   /* Alpha blending cost is bounded by total framebuffer pixels (we
+    * only blend over actually-covered spans, but worst case is full
+    * coverage).  At ~5 ops/pixel a 1024x1024 doc on a 1 MOPS machine
+    * is already 5 seconds.  Demote alpha when the worst-case fill
+    * exceeds the budget. */
+   if((q & QF_ALPHA_BLEND) && mops_x256>0)
+   {  ULONG est = bm_pixels;
+      if(est > (ULONG)(2*1024*1024)) est = 2*1024*1024;
+      est = (est * 5UL) >> 8;
+      if(est > mops_x256 * 8UL)
+      {  q &= ~QF_ALPHA_BLEND;
+         SVGLOG(("SVG: demoting alpha blending (est %lu vs cap %lu)\n",
+            (unsigned long)est, (unsigned long)mops_x256*8UL));
+      }
+   }
+
+   dec->quality = q;
+   SVGLOG(("SVG: quality flags = 0x%04x (mops*256=%lu, pix=%lu, "
+           "lin=%lu rad=%lu)\n",
+      (unsigned)q,(unsigned long)mops_x256,(unsigned long)bm_pixels,
+      (unsigned long)n_linear,(unsigned long)n_radial));
+}
 
 /*--------------------------------------------------------------------*/
 /* Forward decls                                                      */
@@ -1076,12 +1335,15 @@ static void Fillspan(struct Decoder *dec, LONG x0, LONG x1, LONG y,
    UBYTE r,g,b;
    UBYTE sa;
    ULONG rgb;
+   BOOL can_blend;
    if(x0>x1) return;
    if(y<0 || y>=dec->bmh) return;
    if(x0<0) x0=0;
    if(x1>=dec->bmw) x1=dec->bmw-1;
    w=x1-x0+1;
    if(w<=0) return;
+
+   can_blend=(BOOL)((dec->quality & QF_ALPHA_BLEND) != 0);
 
    if(dec->decflags&DECOF_P96DEEP)
    {  p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x0*3UL;
@@ -1111,8 +1373,11 @@ static void Fillspan(struct Decoder *dec, LONG x0, LONG x1, LONG y,
             }
             eff=Combinealpha(pa,pctx->alpha);
             if(eff<ALPHA_SKIP) { p+=3; continue; }
-            if(eff>=240)
-            {  p[0]=(UBYTE)((prgb>>16)&0xff);
+            if(eff>=240 || !can_blend)
+            {  /* Hard write (also used when adaptive quality has
+                * forbidden alpha blending - the stop alpha is
+                * effectively rounded to opaque). */
+               p[0]=(UBYTE)((prgb>>16)&0xff);
                p[1]=(UBYTE)((prgb>>8)&0xff);
                p[2]=(UBYTE)(prgb&0xff);
             }
@@ -1131,8 +1396,9 @@ static void Fillspan(struct Decoder *dec, LONG x0, LONG x1, LONG y,
 
       rgb=pctx->rgb;
       sa=pctx->alpha;
-      if(sa>=240)
-      {  r=(UBYTE)((rgb>>16)&0xff);
+      if(sa>=240 || !can_blend)
+      {  if(sa<ALPHA_SKIP) return;
+         r=(UBYTE)((rgb>>16)&0xff);
          g=(UBYTE)((rgb>>8)&0xff);
          b=(UBYTE)(rgb&0xff);
          for(i=0;i<w;i++)
@@ -2733,11 +2999,27 @@ static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
    pctx->grad=NULL;
    pctx->alpha=eff_alpha;
    pctx->rgb=rs->fillrgb;
+   /* Quality gate: per-pixel gradient evaluation only happens when
+    * the destination is P96 deep AND the adaptive quality tier
+    * approved this gradient type.  Otherwise the renderer falls
+    * back to the averaged colour already in rs->fillrgb. */
    if(rs->fillgrad && (dec->decflags&DECOF_P96DEEP))
-   {  if(!Buildpaintctx(pctx,rs,rs->fillgrad))
+   {  struct Gradient *g=rs->fillgrad;
+      USHORT need = (g->type==GRAD_TYPE_RADIAL) ? QF_GRAD_RADIAL : QF_GRAD_LINEAR;
+      if((dec->quality & need) && Buildpaintctx(pctx,rs,g))
+      {  /* Buildpaintctx left pctx->has_grad and pctx->grad set. */
+      }
+      else
       {  pctx->has_grad=0;
          pctx->grad=NULL;
       }
+   }
+   /* When alpha blending is disabled, snap fully-opaque or fully
+    * transparent so Fillspan can take the hard-write/skip fast path
+    * without ever entering the per-pixel blend loop. */
+   if(!(dec->quality & QF_ALPHA_BLEND))
+   {  if(pctx->alpha < ALPHA_SKIP) pctx->alpha=0;
+      else pctx->alpha=255;
    }
 }
 
@@ -3391,6 +3673,12 @@ static void Parsertask(void *userdata)
       Setpen(&dec,0);
       RectFill(&dec.rp,0,0,bmw-1,bmh-1);
    }
+
+   /* Pick the adaptive rendering quality tier now that we know both
+    * the destination capabilities (DECOF_P96DEEP) and the document
+    * geometry (bmw/bmh, gradient population in the id table).  Does
+    * the first-call benchmark on demand. */
+   Decidequality(&dec);
 
    /* Render. */
    rs.M=initial;

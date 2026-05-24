@@ -46,6 +46,7 @@ struct Library *AwebPluginBase;
 struct Library *DOSBase;
 struct Library *P96Base;
 struct Library *TTEngineBase;
+struct Library *LowLevelBase;
 BOOL            TTEngineAvail;
 
 ULONG Initpluginlib(struct AwebSvgBase *base)
@@ -55,13 +56,19 @@ ULONG Initpluginlib(struct AwebSvgBase *base)
    AwebPluginBase=(struct Library *)OpenLibrary("awebplugin.library",0);
    DOSBase=(struct Library *)OpenLibrary("dos.library",37);
    P96Base=OpenLibrary("Picasso96.library",0);
+   /* OPTIONAL: lowlevel.library v40+.  Used by the SVG renderer to
+    * pick an adaptive quality tier (see Benchmarkcpu in svgsource.c).
+    * Failure is silent - we fall back to AttnFlags-based detection. */
+   LowLevelBase=OpenLibrary("lowlevel.library",40);
    /* OPTIONAL: ttengine.library.  Failure is non-fatal; the renderer
     * skips every <text> element when TTEngineAvail is FALSE. */
    TTEngineBase=OpenLibrary("ttengine.library",SVG_TTENGINE_MIN_VERSION);
    TTEngineAvail=(BOOL)(TTEngineBase!=NULL);
-   /* Always-on diagnostic: this prints to AWeb's debug log so the
-    * "did ttengine actually load?" question can be answered without
-    * a rebuild.  Aprintf is awebplugin.library's logging routine. */
+#ifdef DEBUG_PLUGINS
+   /* Diagnostic: prints to AWeb's debug log so "did ttengine actually
+    * load?" is answerable without a rebuild.  Gated on DEBUG_PLUGINS
+    * to keep release builds quiet; flip the define in awebsvg.h (or
+    * the smakefile) to bring it back. */
    if(AwebPluginBase)
    {  if(TTEngineBase)
       {  Aprintf("SVG[init]: ttengine.library opened (v%lu.%lu)\n",
@@ -74,6 +81,7 @@ ULONG Initpluginlib(struct AwebSvgBase *base)
             (unsigned long)SVG_TTENGINE_MIN_VERSION);
       }
    }
+#endif
    (void)base;
    return (ULONG)(GfxBase && IntuitionBase && UtilityBase && AwebPluginBase && DOSBase);
 }
@@ -82,6 +90,7 @@ void Expungepluginlib(struct AwebSvgBase *base)
 {  if(base->sourcedriver) { Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL); base->sourcedriver=0; }
    if(base->copydriver)   { Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);   base->copydriver=0; }
    if(TTEngineBase)   { CloseLibrary(TTEngineBase);   TTEngineBase=NULL; }
+   if(LowLevelBase)   { CloseLibrary(LowLevelBase);   LowLevelBase=NULL; }
    if(AwebPluginBase) { CloseLibrary(AwebPluginBase); AwebPluginBase=NULL; }
    if(UtilityBase)    { CloseLibrary(UtilityBase);    UtilityBase=NULL; }
    if(IntuitionBase)  { CloseLibrary(IntuitionBase);  IntuitionBase=NULL; }

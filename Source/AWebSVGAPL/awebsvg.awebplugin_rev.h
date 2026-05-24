@@ -17,8 +17,8 @@
 
 #define VERSION		1
 #define REVISION	0
-#define DATE		"29.11.2025"
+#define DATE		"24.5.2026"
 #define VERS		"awebsvg.awebplugin 1.0"
-#define VSTRING		"awebsvg.awebplugin 1.0 (29.11.2025)\r\n"
-#define VERSTAG		"\0$VER: awebsvg.awebplugin 1.0 (29.11.2025)"
+#define VSTRING		"awebsvg.awebplugin 1.0 (24.5.2026)\r\n"
+#define VERSTAG		"\0$VER: awebsvg.awebplugin 1.0 (24.5.2026)"
 

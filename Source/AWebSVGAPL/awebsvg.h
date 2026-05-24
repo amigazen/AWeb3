@@ -31,6 +31,13 @@ extern struct Library *P96Base;
 extern struct Library *TTEngineBase;
 extern BOOL            TTEngineAvail;
 
+/* OPTIONAL: lowlevel.library v40+.  When present the SVG decoder
+ * runs a one-shot CPU benchmark on its first render to decide
+ * whether to enable the expensive per-pixel gradient and alpha
+ * compositing paths.  When absent the decoder falls back to a
+ * conservative tier picked from AttnFlags. */
+extern struct Library *LowLevelBase;
+
 /* Pointer to our own library base */
 extern struct AwebSvgBase *PluginBase;
 

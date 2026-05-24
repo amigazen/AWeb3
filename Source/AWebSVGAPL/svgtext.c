@@ -72,11 +72,16 @@
 /* Aprintf hits the same debug stream AWeb's own logging uses (the
  * "SVG[...]" facility is just a string prefix; AWeb passes the line
  * through to whatever the user has set up - launchpad CLI, sashimono
- * trace file, console, etc.).  We keep these always on because
- * <text> rendering is brand new and silent failure modes (no
- * ttengine, no matching font, empty content) are the symptom we are
- * actively debugging in real installs. */
+ * trace file, console, etc.).  Gated on DEBUG_PLUGINS so release
+ * builds stay quiet - early <text> rendering was noisy by default
+ * while we were chasing silent ttengine/font failure modes; that
+ * work has stabilised so the diagnostic is now opt-in.  Flip the
+ * define in awebsvg.h (or the smakefile) to bring the noise back. */
+#ifdef DEBUG_PLUGINS
 #define SVGT_LOG(args) do { if(AwebPluginBase) Aprintf args; } while(0)
+#else
+#define SVGT_LOG(args)
+#endif
 
 /* ------------------------------------------------------------------ */
 /* Small ANSI helpers                                                  */
