@@ -501,8 +501,10 @@ static void Maprowto8bit(struct Decoder *decoder,UBYTE *src)
       {  chunky[x]=prevmap;
          continue;
       }
-      /* Multiplicative hash (Knuth) folded down to 8 bits. */
-      slot=(short)(((key*2654435761UL)>>24)&0xffUL);
+      /* Match the PNG plugin's RGB cache hash.  This keeps the key
+       * exact while avoiding a 32-bit multiply in the shallow target
+       * path, where any cache miss is dominated by ObtainBestPen(). */
+      slot=(short)(((key>>16)^(key>>8)^key)&0xffUL);
       if(decoder->rgbcache_rgb[slot]==key)
       {  map=decoder->rgbcache_pen[slot];
       }
