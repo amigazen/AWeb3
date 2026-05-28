@@ -90,7 +90,7 @@ static struct TagItem savesettingsasmap[]=
 };
 
 static UBYTE lastopenpath[STRINGBUFSIZE];
-static UBYTE lastopenpattern[STRINGBUFSIZE]="#?.(html|htm|shtml|phtml|asp)";
+static UBYTE lastopenpattern[STRINGBUFSIZE]="#?";
 static UBYTE lastarexxpath[STRINGBUFSIZE];
 static UBYTE lasthotlistpath[STRINGBUFSIZE];
 
