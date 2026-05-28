@@ -82,6 +82,29 @@ extern long Updatetaskattrs(ULONG tag,...);
 /* Limits */
 #define MAX_BITMAP_DIM     2048L
 #define DEFAULT_DIM        100L
+/* Hard floor on the bitmap dimensions we will ever shrink down to.
+ * Keeps thumbnail-class renders legible even when chip RAM is low. */
+#define MIN_BITMAP_DIM         64L
+/* Public-RAM aware sizing.  CHUNKY_BUDGET_DIVISOR is the fraction of
+ * AvailMem(MEMF_PUBLIC|MEMF_LARGEST) we are allowed to use for the
+ * intermediate chunky framebuffer; CHUNKY_HARD_CEILING is the
+ * absolute cap regardless of how much memory the user has. */
+#define CHUNKY_BUDGET_DIVISOR  4UL
+#define CHUNKY_HARD_CEILING    (4UL * 1024UL * 1024UL)
+/* Chip-RAM aware sizing.  The plugin's palette-mode AllocBitMap
+ * lands in chip on AGA/ECS targets, and the picture super in the
+ * datatype variant uses chip as well, so a downstream chip
+ * exhaustion silently produces a blank picture.  Pre-clamp here to
+ * the budget computed below. */
+#define CHIP_BUDGET_DIVISOR    2UL
+#define CHIP_HEADROOM_BYTES    (256UL * 1024UL)
+#define CHIP_MIN_BUDGET_BYTES  (32UL * 1024UL)
+/* Heuristic to detect "this is probably an RTG system, relax the
+ * chip cap": treat large fast/chip ratios with a healthy fast-RAM
+ * floor as an indicator that the bitmap will live in graphics card
+ * memory rather than chip. */
+#define CHIP_RTG_FAST_RATIO    4UL
+#define CHIP_RTG_FAST_FLOOR    (8UL * 1024UL * 1024UL)
 /* Maximum number of vertices we will accumulate for a single subpath
  * before silently truncating.  Inkscape-generated maps in the wild can
  * easily reach a few thousand sampled bezier vertices on a single big
@@ -90,6 +113,14 @@ extern long Updatetaskattrs(ULONG tag,...);
  * across the shape.  Keep this <=16384 because the in-struct capacity
  * counter is a WORD and capacity*2 must not overflow. */
 #define POLY_MAX_VERTS     8192
+
+/* Maximum number of subpaths we will accumulate into a single
+ * compound fill (outer outline plus N inner holes).  The SVG
+ * "O" / "B" / yin-yang idiom needs at least two; complex stylised
+ * logos can use a dozen.  Going past this cap is handled
+ * gracefully - extra subpaths are still stroked but excluded from
+ * the compound fill, degrading to the previous overpaint behaviour. */
+#define MAX_SUBPATHS_PER_PATH  128
 
 #define DECOF_P96MAP       0x0004
 #define DECOF_P96DEEP      0x0008
@@ -216,8 +247,14 @@ struct Paintctx
    LONG t_x0;                  /* t at pixel (0,0) in raster space    */
    LONG dt_dx;                 /* delta t per +1 raster x             */
    LONG dt_dy;                 /* delta t per +1 raster y             */
-   /* Radial: r^2 cached. */
-   LONG r_sq;
+   /* Radial: pre-normalised focal-point evaluator state.  All
+    * coords are divided by g->r so the boundary circle is at unit
+    * radius - this keeps fmul inputs small enough to avoid 16.16
+    * overflow when the SVG specifies large user-space coordinates
+    * (e.g. cx=300, r=100). */
+   LONG inv_r;                 /* 1/r in 16.16 */
+   LONG Dx_n, Dy_n;            /* (fx-cx)/r, (fy-cy)/r */
+   LONG DD_minus_1;            /* Dx_n^2 + Dy_n^2 - 1 (cached) */
 };
 
 /* Below this final effective alpha, a paint operation is suppressed. */
@@ -234,6 +271,16 @@ struct Paintctx
 #define GRAD_UNITS_USER   0     /* userSpaceOnUse (the default for our  */
                                 /* purposes; objectBoundingBox is below) */
 #define GRAD_UNITS_OBJBB  1
+
+/* SVG spreadMethod values - how the gradient extends past its
+ * defined range [0,1].
+ *   PAD     : clamp to nearest endpoint (the SVG default)
+ *   REFLECT : ping-pong, t -> 1-frac(t) on odd reflections
+ *   REPEAT  : tile, t -> frac(t)
+ */
+#define GRAD_SPREAD_PAD     0
+#define GRAD_SPREAD_REFLECT 1
+#define GRAD_SPREAD_REPEAT  2
 
 /* One stop on a parsed gradient.  Offset is 16.16 in [0,1]. */
 struct Gradstop_p
@@ -254,10 +301,21 @@ struct Gradient
    UBYTE units;                /* GRAD_UNITS_USER or _OBJBB */
    UBYTE nstops;
    UBYTE has_gt;               /* TRUE if gradientTransform was supplied */
+   UBYTE spread;               /* GRAD_SPREAD_PAD / _REFLECT / _REPEAT     */
+   UBYTE pad0[3];
    struct Gradstop_p stops[GRAD_MAX_STOPS];
    LONG x1, y1, x2, y2;        /* linear endpoints (16.16, gradient coords) */
    LONG cx, cy, r, fx, fy;     /* radial centre/focus/radius (16.16)        */
    struct Matrix gt;           /* gradientTransform: grad coords -> user    */
+};
+
+/* Axis-aligned bounding box in 16.16 user-space coordinates.
+ * Used to map objectBoundingBox gradients onto the shape they
+ * decorate, and to feed the radial-gradient focal-point evaluator
+ * a normalised reference frame. */
+struct Bbox
+{  BOOL valid;
+   LONG xmin, ymin, xmax, ymax;
 };
 
 /* Hash entry for the id->node map.  Pool-allocated, so it lives as
@@ -590,10 +648,26 @@ static ULONG Gradsample(const struct Gradient *g, LONG t, UBYTE *out_a);
 static ULONG Gradeval_pixel(const struct Paintctx *pctx, LONG rx, LONG ry,
    UBYTE *out_a);
 static UBYTE Effectivefillalpha(struct Renderstate *rs);
+static UBYTE Effectivestrokealpha(struct Renderstate *rs);
 static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
+   struct Renderstate *rs, UBYTE eff_alpha, const struct Bbox *bb);
+static void Buildstrokectx(struct Paintctx *pctx, struct Decoder *dec,
    struct Renderstate *rs, UBYTE eff_alpha);
 static BOOL Buildpaintctx(struct Paintctx *pctx, struct Renderstate *rs,
-   struct Gradient *g);
+   struct Gradient *g, const struct Bbox *bb);
+static LONG Strokewidth_px(struct Renderstate *rs);
+static LONG fsqrt(LONG x);
+static LONG fatan2_deg(LONG y, LONG x);
+static LONG Isqrt32(LONG x);
+static LONG Gradspread(const struct Gradient *g, LONG t);
+static void Drawpolygon_fill_compound(struct Decoder *dec, struct Point32 *pts,
+   const WORD *subpath_ends, WORD subpath_count, const struct Paintctx *pctx);
+static void Strokepolyline(struct Decoder *dec, struct Point32 *pts, WORD count,
+   BOOL closepath, struct Renderstate *rs);
+static void Strokeellipse(struct Decoder *dec, LONG cx, LONG cy,
+   LONG rx, LONG ry, struct Renderstate *rs);
+static void Drawellipse_fill(struct Decoder *dec, LONG cx, LONG cy,
+   LONG rx, LONG ry, const struct Paintctx *pctx);
 
 /*--------------------------------------------------------------------*/
 /* Number parsing                                                     */
@@ -1098,6 +1172,85 @@ static LONG fdiv(LONG num, LONG denom)
    return (sign<0) ? -(LONG)q : (LONG)q;
 }
 
+/* 16.16 square root.  Newton-Raphson with a leading-bit seed.
+ * Returns 0 for non-positive input. */
+static LONG fsqrt(LONG x)
+{  LONG y;
+   LONG t;
+   int i;
+   if(x<=0) return 0;
+   y=0x10000L;
+   t=x;
+   while(t>=(LONG)0x00040000L && y<(LONG)0x40000000L) { y<<=1; t>>=2; }
+   while(t<0x00010000L) { y>>=1; t<<=2; if(y==0) { y=1; break; } }
+   for(i=0;i<8;i++)
+   {  LONG ny;
+      if(y<=0) { y=0x10000L; break; }
+      ny=(y + fdiv(x,y))>>1;
+      if(ny==y) break;
+      y=ny;
+   }
+   return y;
+}
+
+/* atan2(y,x) in degrees as 16.16 fixed point.  Result in (-180, 180].
+ * Uses Rajan's first-quadrant approximation; max error ~0.3 degrees
+ * which is more than sufficient for SVG arc rendering. */
+static LONG fatan2_deg(LONG y, LONG x)
+{  LONG ax,ay;
+   LONG ratio;
+   LONG result;
+   BOOL swapped=FALSE;
+   BOOL negx,negy;
+   LONG one_minus_r;
+   LONG poly;
+
+   if(x==0 && y==0) return 0;
+   if(x==0) return (y>0) ? (90L<<16) : -(90L<<16);
+   if(y==0) return (x>0) ? 0L : (180L<<16);
+
+   negx=(BOOL)(x<0);
+   negy=(BOOL)(y<0);
+   ax=negx?-x:x;
+   ay=negy?-y:y;
+
+   if(ay>ax)
+   {  LONG tmp=ax; ax=ay; ay=tmp;
+      swapped=TRUE;
+   }
+   ratio=fdiv(ay,ax);                  /* 16.16, in [0,1] */
+
+   /* atan_deg(r) ~= 45*r + r*(1-r)*(14.02 + 3.80*r) for r in [0,1].
+    * Constants are 16.16 fixed point. */
+   one_minus_r=(1L<<16)-ratio;
+   poly=918944L + fmul(249037L,ratio); /* 14.02 + 3.80*ratio */
+   result=fmul(45L<<16,ratio) + fmul(fmul(ratio,one_minus_r),poly);
+
+   if(swapped) result=(90L<<16)-result;
+   if(negx)    result=(180L<<16)-result;
+   if(negy)    result=-result;
+   return result;
+}
+
+/* Integer 32-bit isqrt for pixel-space stroke geometry.  Used by
+ * Drawthickseg to avoid lifting raster lengths into 16.16 just to
+ * call fsqrt.  Returns floor(sqrt(x)) for x >= 0, 0 for x <= 0. */
+static LONG Isqrt32(LONG x)
+{  LONG r=0;
+   LONG bit;
+   if(x<=0) return 0;
+   /* Top bit of the binary-decomposition method.  For 32-bit unsigned
+    * values, the highest possible bit pair is 30,31 -> shift = 30. */
+   bit=1L<<30;
+   while(bit>x) bit>>=2;
+   while(bit!=0)
+   {  if(x>=r+bit) { x-=r+bit; r=(r>>1)+bit; }
+      else                    r=r>>1;
+      bit>>=2;
+   }
+   return r;
+}
+
 /* Invert a 2x3 affine matrix.  Returns FALSE (and leaves *I untouched)
  * if the matrix is singular.  Used once per shape to build a pixel ->
  * gradient-coords transform. */
@@ -1465,10 +1618,6 @@ static void Drawline_rgb(struct Decoder *dec, LONG x0, LONG y0, LONG x1, LONG y1
    }
 }
 
-static void Drawline(struct Decoder *dec, LONG x0, LONG y0, LONG x1, LONG y1, ULONG rgb)
-{  Drawline_rgb(dec,x0,y0,x1,y1,rgb);
-}
-
 /* Draw a filled ellipse by horizontal-scanline rasterisation.
  * Uses the standard midpoint algorithm.  Y axis points down (raster
  * convention).  cx,cy is the centre and rx,ry are the half-axes, all
@@ -1604,11 +1753,6 @@ static void Drawellipse_stroke(struct Decoder *dec, LONG cx, LONG cy, LONG rx, L
    }
 }
 
-static void Drawellipse(struct Decoder *dec, LONG cx, LONG cy, LONG rx, LONG ry, BOOL fill, const struct Paintctx *pctx, ULONG strokergb)
-{  if(fill) Drawellipse_fill(dec,cx,cy,rx,ry,pctx);
-   else     Drawellipse_stroke(dec,cx,cy,rx,ry,strokergb);
-}
-
 /* Scanline-based polygon fill using the even-odd rule.
  *
  * The naive approach is O(rows * edges) - it walks every edge for
@@ -1641,7 +1785,20 @@ struct Polyedge
    LONG dy;                 /* yB - yA, always positive                 */
 };
 
-static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD count, const struct Paintctx *pctx)
+/* Compound polygon fill.  Each subpath i is described by the
+ * half-open vertex range
+ *
+ *   [ (i==0 ? 0 : subpath_ends[i-1]) .. subpath_ends[i] )
+ *
+ * inside `pts`.  Edges are generated within a single subpath and
+ * wrap from each subpath's last vertex back to its FIRST vertex,
+ * never bridging across subpaths.  The scanline stage then runs
+ * the usual even-odd rule across all collected edges, which gives
+ * the SVG "outer ring plus inner hole" idiom for free - the inner
+ * subpath's edges flip parity across its interior and cut a hole
+ * through the outer fill. */
+static void Drawpolygon_fill_compound(struct Decoder *dec, struct Point32 *pts,
+   const WORD *subpath_ends, WORD subpath_count, const struct Paintctx *pctx)
 {  LONG bmw,bmh;
    LONG ymin,ymax,y;
    LONG nrows;
@@ -1649,6 +1806,9 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
    LONG xi;
    LONG sx0,sx1;
    WORD i,j,k;
+   WORD s;
+   WORD start,end;
+   WORD total;
    WORD nx;
    LONG xs[256];
    struct Polyedge *pool;
@@ -1656,29 +1816,25 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
    struct Polyedge *active=NULL;
    struct Polyedge *e,*next_e;
    struct Polyedge **pnext;
-   if(count<3) return;
+   if(subpath_count<=0) return;
+   total=subpath_ends[subpath_count-1];
+   if(total<3) return;
    bmw=dec->bmw;
    bmh=dec->bmh;
 
-   /* Bounding box in raster Y. */
    ymin=pts[0].y;
    ymax=pts[0].y;
-   for(i=1;i<count;i++)
+   for(i=1;i<total;i++)
    {  if(pts[i].y<ymin) ymin=pts[i].y;
       if(pts[i].y>ymax) ymax=pts[i].y;
    }
-   /* Whole-polygon off-screen culling. */
    if(ymax<0 || ymin>=bmh) return;
    if(ymin<0) ymin=0;
    if(ymax>=bmh) ymax=bmh-1;
    if(ymin>ymax) return;
    nrows=ymax-ymin+1;
 
-   /* Allocate the edge pool and bucket array via AllocVec so they
-    * are released when the polygon is done - we do this hundreds of
-    * times per Parsertask and pool-allocating each call would
-    * accumulate megabytes of live memory across a complex map. */
-   pool=(struct Polyedge *)AllocVec(sizeof(struct Polyedge)*count,MEMF_PUBLIC);
+   pool=(struct Polyedge *)AllocVec(sizeof(struct Polyedge)*total,MEMF_PUBLIC);
    buckets=(struct Polyedge **)AllocVec(sizeof(struct Polyedge *)*nrows,
       MEMF_PUBLIC|MEMF_CLEAR);
    if(!pool || !buckets)
@@ -1687,49 +1843,53 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
       return;
    }
 
-   /* Build per-edge records and bucket them by the first scanline
-    * on which they contribute. */
    poolnext=0;
-   for(i=0;i<count;i++)
-   {  LONG x0,y0,x1,y1;
-      LONG eyA,eyB,exA;
-      LONG edx;
-      LONG bucket_idx;
-      k=(WORD)((i+1)%count);
-      x0=pts[i].x; y0=pts[i].y;
-      x1=pts[k].x; y1=pts[k].y;
-      if(y0==y1) continue;             /* horizontal edge: ignored */
-      if(y0<y1) { eyA=y0; eyB=y1; exA=x0; edx=x1-x0; }
-      else       { eyA=y1; eyB=y0; exA=x1; edx=x0-x1; }
-      if(eyB<=ymin || eyA>ymax) continue;
-      e=&pool[poolnext++];
-      e->yA=eyA;
-      e->yB=eyB;
-      e->xA=exA;
-      e->dx=edx;
-      e->dy=eyB-eyA;
-      bucket_idx = (eyA<ymin) ? 0 : (eyA-ymin);
-      e->next=buckets[bucket_idx];
-      buckets[bucket_idx]=e;
+   for(s=0;s<subpath_count;s++)
+   {  start=(s==0) ? 0 : subpath_ends[s-1];
+      end=subpath_ends[s];
+      /* Fill closes subpaths implicitly, but a filled contour still
+       * needs an area.  Keep two-point subpaths for stroke handling
+       * in Pathend; skip them here so a stroked line with inherited
+       * fill does not become a one-pixel filled sliver. */
+      if(end-start<3) continue;
+      for(i=start;i<end;i++)
+      {  LONG x0,y0,x1,y1;
+         LONG eyA,eyB,exA;
+         LONG edx;
+         LONG bucket_idx;
+         k=(WORD)((i+1<end) ? (i+1) : start);
+         x0=pts[i].x; y0=pts[i].y;
+         x1=pts[k].x; y1=pts[k].y;
+         if(y0==y1) continue;          /* horizontal edge: ignored */
+         if(y0<y1) { eyA=y0; eyB=y1; exA=x0; edx=x1-x0; }
+         else      { eyA=y1; eyB=y0; exA=x1; edx=x0-x1; }
+         if(eyB<=ymin || eyA>ymax) continue;
+         e=&pool[poolnext++];
+         e->yA=eyA;
+         e->yB=eyB;
+         e->xA=exA;
+         e->dx=edx;
+         e->dy=eyB-eyA;
+         bucket_idx = (eyA<ymin) ? 0 : (eyA-ymin);
+         e->next=buckets[bucket_idx];
+         buckets[bucket_idx]=e;
+      }
    }
 
    /* Sweep scanlines. */
    for(y=ymin;y<=ymax;y++)
-   {  /* (1) Add edges entering at this row. */
-      e=buckets[y-ymin];
+   {  e=buckets[y-ymin];
       while(e)
       {  next_e=e->next;
          e->next=active;
          active=e;
          e=next_e;
       }
-      /* (2) Drop edges that have ended. */
       pnext=&active;
       while(*pnext)
       {  if((*pnext)->yB<=y) *pnext=(*pnext)->next;
          else                pnext=&(*pnext)->next;
       }
-      /* (3) Compute and sort x-intersections of remaining edges. */
       nx=0;
       for(e=active;e;e=e->next)
       {  xi=e->xA + ((y - e->yA) * e->dx) / e->dy;
@@ -1738,7 +1898,6 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
          xs[j]=xi;
          if(nx<256) nx++;
       }
-      /* (4) Fill paired spans. */
       for(i=0;i+1<nx;i+=2)
       {  sx0=xs[i];
          sx1=xs[i+1];
@@ -1752,20 +1911,177 @@ static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts, WORD coun
    FreeVec(pool);
 }
 
-static void Drawpolygon(struct Decoder *dec, struct Point32 *pts, WORD count,
-   BOOL fill, BOOL close, const struct Paintctx *pctx, ULONG strokergb)
-{  WORD i;
-   if(count<2) return;
-   if(count>POLY_MAX_VERTS) count=POLY_MAX_VERTS;
-   if(fill && count>=3)
-   {  Drawpolygon_fill(dec,pts,count,pctx);
+/* Single-subpath wrapper around the compound fill.  Callers that
+ * draw a simple closed polygon (eg. wide-stroke quads, a single SVG
+ * path with no compound holes) hand us a point array with one
+ * implicit closing edge; this builds a one-entry subpath_ends and
+ * dispatches to the compound code path. */
+static void Drawpolygon_fill(struct Decoder *dec, struct Point32 *pts,
+   WORD count, const struct Paintctx *pctx)
+{  WORD ends[1];
+   if(count<3) return;
+   ends[0]=count;
+   Drawpolygon_fill_compound(dec,pts,ends,1,pctx);
+}
+
+/* Draw a single thick segment as a four-vertex polygon perpendicular
+ * to the segment direction.  halfw_px is the half-width in 16.16
+ * raster pixels.  Caller is responsible for adding round caps/joins
+ * via Drawellipse_fill at the endpoints if desired.
+ *
+ * The perpendicular vector is computed in pure integer pixel-space:
+ * perp = (-dy, dx) * halfw / len.  dx/dy/halfw/len are all small
+ * integers (raster pixels, single-byte stroke widths) so the
+ * numerator stays well under 2^31 - lifting into 16.16 before the
+ * multiply overflowed the signed LONG for any segment longer than
+ * ~30 pixels and caused complex stroked paths to draw nothing. */
+static void Drawthickseg(struct Decoder *dec, LONG x0, LONG y0,
+   LONG x1, LONG y1, LONG halfw_px, const struct Paintctx *pctx)
+{  LONG dx,dy;
+   LONG len_sq,len;
+   LONG halfw;
+   LONG perp_x,perp_y;
+   LONG num_x,num_y;
+   struct Point32 pts[4];
+
+   halfw=halfw_px>>16;
+   if(halfw<1) halfw=1;
+
+   dx=x1-x0;
+   dy=y1-y0;
+   if(dx==0 && dy==0)
+   {  Drawellipse_fill(dec,x0,y0,halfw,halfw,pctx);
+      return;
    }
-   else
-   {  for(i=1;i<count;i++)
-         Drawline(dec,pts[i-1].x,pts[i-1].y,pts[i].x,pts[i].y,strokergb);
-      if(close && count>=3)
-         Drawline(dec,pts[count-1].x,pts[count-1].y,pts[0].x,pts[0].y,strokergb);
+   len_sq = dx*dx + dy*dy;
+   if(len_sq<=0) return;
+   len=Isqrt32(len_sq);
+   if(len<=0) return;
+
+   num_x = -dy * halfw;
+   num_y =  dx * halfw;
+   /* Rounded integer division - the signs of num_x / num_y can
+    * differ from len (which is always positive), so add half-len
+    * with matching sign to round to nearest rather than toward
+    * zero. */
+   if(num_x>=0) perp_x = (num_x + (len>>1)) / len;
+   else         perp_x = (num_x - (len>>1)) / len;
+   if(num_y>=0) perp_y = (num_y + (len>>1)) / len;
+   else         perp_y = (num_y - (len>>1)) / len;
+   if(perp_x==0 && perp_y==0)
+   {  if(dy!=0) perp_x = (dy<0) ? 1 : -1;
+      else      perp_y = (dx<0) ? -1 : 1;
    }
+
+   pts[0].x=x0+perp_x; pts[0].y=y0+perp_y;
+   pts[1].x=x1+perp_x; pts[1].y=y1+perp_y;
+   pts[2].x=x1-perp_x; pts[2].y=y1-perp_y;
+   pts[3].x=x0-perp_x; pts[3].y=y0-perp_y;
+   Drawpolygon_fill(dec,pts,4,pctx);
+}
+
+/* Stroke a polyline with the current renderstate's stroke width and
+ * colour.  Uses filled quads per segment plus filled disks at each
+ * vertex for round joins and (for open polylines) round caps.
+ *
+ * Sub-pixel-thin strokes (final raster half-width below 1 pixel) drop
+ * through to the cheap Bresenham fallback which writes pixels without
+ * alpha blending - acceptable for hairlines where individual pixel
+ * blending would be invisible anyway. */
+static void Strokepolyline(struct Decoder *dec, struct Point32 *pts,
+   WORD n, BOOL closed, struct Renderstate *rs)
+{  LONG halfw_px;
+   int halfw_int;
+   struct Paintctx sctx;
+   UBYTE eff;
+   WORD i;
+
+   if(n<2) return;
+
+   halfw_px = Strokewidth_px(rs)>>1;
+   halfw_int=(int)(halfw_px>>16);
+
+   if(halfw_int<1)
+   {  /* Sub-pixel: 1-pixel Bresenham fallback, ignoring alpha.
+       * Drawline_rgb's palette branch issues Move/Draw against the
+       * RastPort's current pen, so swap to strokepen first. */
+      Setpen(dec,rs->strokepen);
+      for(i=1;i<n;i++)
+         Drawline_rgb(dec,pts[i-1].x,pts[i-1].y,
+            pts[i].x,pts[i].y,rs->strokergb);
+      if(closed && n>=3)
+         Drawline_rgb(dec,pts[n-1].x,pts[n-1].y,
+            pts[0].x,pts[0].y,rs->strokergb);
+      return;
+   }
+
+   eff=Effectivestrokealpha(rs);
+   if(eff<ALPHA_SKIP) return;
+   Buildstrokectx(&sctx,dec,rs,eff);
+   /* Palette destinations: Fillspan / Drawellipse_fill / RectFill
+    * all draw with the active pen.  Switch from any previously
+    * stale (fill) pen to the stroke pen now so the wide-stroke
+    * quads and round caps come out in the right colour.  No-op on
+    * P96 deep paths because those write directly into chunky. */
+   Setpen(dec,rs->strokepen);
+
+   for(i=1;i<n;i++)
+      Drawthickseg(dec,pts[i-1].x,pts[i-1].y,
+         pts[i].x,pts[i].y,halfw_px,&sctx);
+   if(closed && n>=3)
+      Drawthickseg(dec,pts[n-1].x,pts[n-1].y,
+         pts[0].x,pts[0].y,halfw_px,&sctx);
+
+   /* Round joins / caps - filled disks of the stroke half-width at
+    * every vertex.  For closed loops every vertex is an interior
+    * join; for open polylines the two endpoints become round caps. */
+   for(i=0;i<n;i++)
+      Drawellipse_fill(dec,pts[i].x,pts[i].y,
+         halfw_int,halfw_int,&sctx);
+}
+
+/* Wide stroke of an axis-aligned ellipse: sample to a polyline and
+ * defer to Strokepolyline.  When the stroke width is sub-pixel we
+ * fall back to the cheap 1-pixel Bresenham outline. */
+static void Strokeellipse(struct Decoder *dec, LONG cx, LONG cy,
+   LONG rx, LONG ry, struct Renderstate *rs)
+{  LONG halfw_px;
+   int halfw_int;
+   int steps;
+   int i;
+   LONG max_r;
+   LONG step_ang;
+   struct Point32 pts[128];
+
+   if(rx<=0 || ry<=0) return;
+
+   halfw_px = Strokewidth_px(rs)>>1;
+   halfw_int=(int)(halfw_px>>16);
+   if(halfw_int<1)
+   {  /* Palette: Plotpixel_rgb -> WritePixel needs the strokepen
+       * set first.  Harmless on P96 deep paths. */
+      Setpen(dec,rs->strokepen);
+      Drawellipse_stroke(dec,cx,cy,rx,ry,rs->strokergb);
+      return;
+   }
+
+   max_r=(rx>ry)?rx:ry;
+   steps=(int)(max_r/2);
+   if(steps<16) steps=16;
+   if(steps>128) steps=128;
+
+   step_ang=(360L<<16)/steps;
+   for(i=0;i<steps;i++)
+   {  LONG ang=step_ang*i;
+      LONG ct=fcos_deg(ang);
+      LONG st=fsin_deg(ang);
+      LONG xp=fmul((LONG)rx<<16,ct);
+      LONG yp=fmul((LONG)ry<<16,st);
+      pts[i].x=cx + ((xp + ((xp<0)?-0x8000L:0x8000L))>>16);
+      pts[i].y=cy + ((yp + ((yp<0)?-0x8000L:0x8000L))>>16);
+   }
+
+   Strokepolyline(dec,pts,(WORD)steps,TRUE,rs);
 }
 
 /*--------------------------------------------------------------------*/
@@ -1775,7 +2091,7 @@ static void Drawpolygon(struct Decoder *dec, struct Point32 *pts, WORD count,
 /* Parse the "points" attribute of polygon/polyline into a transformed
  * Point32 array allocated from the pool.  Returns vertex count or 0. */
 static WORD Parsepoints(struct Decoder *dec, struct Matrix *M, UBYTE *str,
-   struct Point32 **outpts)
+   struct Point32 **outpts, struct Bbox *bb)
 {  UBYTE *p=str;
    UBYTE *end;
    WORD count=0;
@@ -1783,6 +2099,7 @@ static WORD Parsepoints(struct Decoder *dec, struct Matrix *M, UBYTE *str,
    struct Point32 *pts;
    BOOL ok;
    *outpts=NULL;
+   if(bb) bb->valid=FALSE;
    if(!p) return 0;
    end=p;
    while(*end) end++;
@@ -1804,6 +2121,25 @@ static WORD Parsepoints(struct Decoder *dec, struct Matrix *M, UBYTE *str,
          /* Old pts leaks until pool delete - acceptable. */
          pts=npts;
          capacity=newcap;
+      }
+      /* Track the user-space bounding box BEFORE transformation so
+       * objectBoundingBox gradients (and any other bbox-driven
+       * decisions) see the geometry the SVG author wrote, not the
+       * raster-space projection of it.  Without this, a polygon
+       * rendered through a rotated CTM gets a rotated bbox and the
+       * gradient lands in the wrong place. */
+      if(bb)
+      {  if(!bb->valid)
+         {  bb->xmin=bb->xmax=fx;
+            bb->ymin=bb->ymax=fy;
+            bb->valid=TRUE;
+         }
+         else
+         {  if(fx<bb->xmin) bb->xmin=fx;
+            if(fx>bb->xmax) bb->xmax=fx;
+            if(fy<bb->ymin) bb->ymin=fy;
+            if(fy>bb->ymax) bb->ymax=fy;
+         }
       }
       Mxform(M,fx,fy,&rx,&ry);
       pts[count].x=rx;
@@ -1836,6 +2172,27 @@ struct Pathemit
    BOOL bbox_init;
    LONG bbox_xmin,bbox_ymin;
    LONG bbox_xmax,bbox_ymax;
+   /* User-space bounding box in 16.16 SVG units.  Accumulated by
+    * Pebbox_update at every Parsepath endpoint, persists across
+    * subpath boundaries so an objectBoundingBox gradient sees the
+    * whole path's extent. */
+   BOOL ubbox_init;
+   LONG ubbox_xmin,ubbox_ymin;
+   LONG ubbox_xmax,ubbox_ymax;
+   /* Compound-path tracking.  pe->pts keeps growing across M
+    * boundaries; subpath_ends[i] is one-past-last vertex of
+    * subpath i, subpath_closed[i] is its per-subpath Z flag.
+    * Pathflush only RECORDS into this table; Pathend then runs
+    * the compound even-odd fill followed by per-subpath stroke,
+    * in that order, so SVG paint order (fill, then stroke on top)
+    * is preserved on shapes that carry both. */
+   WORD subpath_count;
+   WORD subpath_ends[MAX_SUBPATHS_PER_PATH];
+   UBYTE subpath_closed[MAX_SUBPATHS_PER_PATH];
+   /* TRUE if at least one subpath ended with Z.  This is retained for
+    * diagnostics and stroke state, not for fill eligibility: the SVG
+    * fill algorithm always treats subpaths as closed. */
+   BOOL any_closed;
 };
 
 static void Pathreset(struct Pathemit *pe)
@@ -1843,14 +2200,36 @@ static void Pathreset(struct Pathemit *pe)
    pe->hasctrl=FALSE;
    pe->truncated=FALSE;
    pe->bbox_init=FALSE;
+   pe->ubbox_init=FALSE;
+   pe->subpath_count=0;
+   pe->any_closed=FALSE;
+}
+
+/* Extend the path emitter's user-space bbox to include (x,y).
+ * Coordinates are 16.16 SVG units, taken from Parsepath at each
+ * command's endpoint or control point. */
+static void Pebbox_update(struct Pathemit *pe, LONG x, LONG y)
+{  if(!pe->ubbox_init)
+   {  pe->ubbox_xmin=pe->ubbox_xmax=x;
+      pe->ubbox_ymin=pe->ubbox_ymax=y;
+      pe->ubbox_init=TRUE;
+      return;
+   }
+   if(x<pe->ubbox_xmin) pe->ubbox_xmin=x;
+   if(x>pe->ubbox_xmax) pe->ubbox_xmax=x;
+   if(y<pe->ubbox_ymin) pe->ubbox_ymin=y;
+   if(y>pe->ubbox_ymax) pe->ubbox_ymax=y;
 }
 
 /* Append a raster-pixel point to the emitter.  Skips consecutive
- * duplicates and grows the array on demand.  Also accumulates the
- * subpath's raster bounding box so Pathflush can skip work for
- * subpaths that lie wholly off the bitmap. */
+ * duplicates WITHIN the current subpath (a moveto starting vertex
+ * that coincides with the previous subpath's last point must NOT
+ * be dropped, otherwise the compound fill loses a closing edge),
+ * grows the array on demand, and accumulates the path's raster
+ * bounding box so Pathflush can skip work for subpaths off-screen. */
 static void Pathemitpt_raster(struct Pathemit *pe, LONG rx, LONG ry)
-{  if(pe->count>=POLY_MAX_VERTS) { pe->truncated=TRUE; return; }
+{  WORD subpath_start;
+   if(pe->count>=POLY_MAX_VERTS) { pe->truncated=TRUE; return; }
    if(!pe->bbox_init)
    {  pe->bbox_xmin=pe->bbox_xmax=rx;
       pe->bbox_ymin=pe->bbox_ymax=ry;
@@ -1862,7 +2241,9 @@ static void Pathemitpt_raster(struct Pathemit *pe, LONG rx, LONG ry)
       if(ry<pe->bbox_ymin) pe->bbox_ymin=ry;
       if(ry>pe->bbox_ymax) pe->bbox_ymax=ry;
    }
-   if(pe->count>0
+   subpath_start=(pe->subpath_count==0) ? 0
+                                        : pe->subpath_ends[pe->subpath_count-1];
+   if(pe->count>subpath_start
    && pe->pts[pe->count-1].x==rx
    && pe->pts[pe->count-1].y==ry) return;
    if(pe->count>=pe->capacity)
@@ -1887,54 +2268,157 @@ static void Pathemitpt(struct Pathemit *pe, LONG svgx, LONG svgy)
    Pathemitpt_raster(pe,rx,ry);
 }
 
-/* Flush the current subpath, stroking or filling as needed. */
+/* Finalise the currently-open subpath.
+ *
+ * Pathflush is RECORD-ONLY: it never draws.  It performs the
+ * off-screen cull and either appends the just-completed subpath to
+ * (subpath_ends, subpath_closed) for later drawing by Pathend, or
+ * rolls pe->count back to discard a degenerate / culled / truncated
+ * subpath.  Deferring fill+stroke until Pathend is needed for two
+ * reasons:
+ *
+ *   1) Multi-subpath compound fills (outer ring + inner hole, the
+ *      SVG "O" / yin-yang idiom) must be drawn as one polygon so
+ *      the even-odd rule produces the hole; per-subpath fill would
+ *      overpaint it.
+ *
+ *   2) SVG paint order is fill-then-stroke.  If Pathflush stroked
+ *      each subpath immediately and Pathend filled at the end, the
+ *      fill would erase the stroke on every shape that uses both.
+ *
+ * closepath is the standard SVG meaning: TRUE iff the subpath
+ * ended with Z.  It is kept per-subpath for stroke and OR'd into
+ * pe->any_closed for the fill gate. */
 static void Pathflush(struct Pathemit *pe, BOOL closepath)
-{  BOOL doclose;
-   if(pe->count<2)
-   {  pe->count=0;
+{  WORD subpath_start;
+   WORD subpath_len;
+   WORD i;
+   LONG sbxmin,sbxmax,sbymin,sbymax;
+   LONG margin;
+   LONG w;
+
+   subpath_start=(pe->subpath_count==0) ? 0
+                                        : pe->subpath_ends[pe->subpath_count-1];
+   subpath_len=(WORD)(pe->count-subpath_start);
+
+   if(subpath_len<2)
+   {  pe->count=subpath_start;
       pe->subpathopen=FALSE;
-      pe->truncated=FALSE;
       pe->bbox_init=FALSE;
       return;
    }
-   /* Off-screen subpath cull: if the raster bbox is wholly outside
-    * the bitmap there is nothing to draw, so skip both the polygon
-    * fill setup (which would alloc edges and buckets) and the
-    * stroke line loop (which would issue 1000+ no-op Drawline calls
-    * per subpath on a heavy map). */
-   if(pe->bbox_init
-   && (pe->bbox_xmax<0 || pe->bbox_xmin>=pe->dec->bmw
-    || pe->bbox_ymax<0 || pe->bbox_ymin>=pe->dec->bmh))
-   {  pe->count=0;
-      pe->subpathopen=FALSE;
-      pe->truncated=FALSE;
-      pe->bbox_init=FALSE;
-      return;
+
+   /* Off-screen cull (per-subpath bbox computed on the fly - the
+    * Pathemit's bbox_* is path-cumulative).  Subpaths whose raster
+    * bbox falls entirely outside the canvas plus a stroke half-width
+    * slop margin cannot contribute to any visible scanline and can
+    * therefore be dropped without affecting even-odd parity at any
+    * visible row. */
+   sbxmin=sbxmax=pe->pts[subpath_start].x;
+   sbymin=sbymax=pe->pts[subpath_start].y;
+   for(i=(WORD)(subpath_start+1);i<pe->count;i++)
+   {  if(pe->pts[i].x<sbxmin) sbxmin=pe->pts[i].x;
+      if(pe->pts[i].x>sbxmax) sbxmax=pe->pts[i].x;
+      if(pe->pts[i].y<sbymin) sbymin=pe->pts[i].y;
+      if(pe->pts[i].y>sbymax) sbymax=pe->pts[i].y;
    }
-   /* If we hit the vertex cap, do not auto-close: connecting the last
-    * kept vertex back to the first would draw a shortcut across the shape. */
-   doclose=closepath;
-   if(pe->truncated) doclose=FALSE;
-   if(pe->rs->fillvalid && doclose && pe->count>=3)
-   {  struct Paintctx pctx;
-      Buildfillctx(&pctx,pe->dec,pe->rs,Effectivefillalpha(pe->rs));
-      Setpen(pe->dec,pe->rs->fillpen);
-      Drawpolygon_fill(pe->dec,pe->pts,pe->count,&pctx);
-   }
+   margin=0;
    if(pe->rs->strokevalid)
-   {  WORD i;
-      Setpen(pe->dec,pe->rs->strokepen);
-      for(i=1;i<pe->count;i++)
-         Drawline(pe->dec,pe->pts[i-1].x,pe->pts[i-1].y,
-            pe->pts[i].x,pe->pts[i].y,pe->rs->strokergb);
-      if(doclose)
-         Drawline(pe->dec,pe->pts[pe->count-1].x,pe->pts[pe->count-1].y,
-            pe->pts[0].x,pe->pts[0].y,pe->rs->strokergb);
+   {  w=Strokewidth_px(pe->rs);
+      margin=(w>>17)+1;
    }
+   if(sbxmax<-margin
+   || sbxmin>=pe->dec->bmw+margin
+   || sbymax<-margin
+   || sbymin>=pe->dec->bmh+margin)
+   {  pe->count=subpath_start;
+      pe->subpathopen=FALSE;
+      pe->bbox_init=FALSE;
+      return;
+   }
+
+   /* Record the subpath for Pathend.  If we ran out of subpath slots
+    * or path emission has been truncated, drop the subpath - its
+    * vertex list is unreliable for both fill and stroke. */
+   if(pe->subpath_count<MAX_SUBPATHS_PER_PATH && !pe->truncated)
+   {  pe->subpath_ends[pe->subpath_count]=pe->count;
+      pe->subpath_closed[pe->subpath_count]=(UBYTE)(closepath?1:0);
+      pe->subpath_count++;
+      if(closepath) pe->any_closed=TRUE;
+   }
+   else
+   {  pe->count=subpath_start;
+   }
+
+   pe->subpathopen=FALSE;
+   pe->bbox_init=FALSE;
+}
+
+/* Path finaliser.  Performs the deferred drawing of every subpath
+ * collected by Pathflush:
+ *
+ *   1) compound even-odd fill across all subpaths at once.  Per SVG,
+ *      fill always closes each subpath implicitly; `Z` is only needed
+ *      to close the stroke contour.  Many Illustrator/Inkscape icons
+ *      return close to the start point without issuing `Z`, and those
+ *      must still fill.
+ *
+ *   2) per-subpath stroke, using each subpath's own Z flag for
+ *      whether to close the polyline.
+ *
+ * Drawing order is fill-then-stroke per SVG paint order so a stroke
+ * on a filled shape sits on top of the fill rather than being
+ * overpainted by it.  Safe to call on an empty / already-finalised
+ * emitter. */
+static void Pathend(struct Pathemit *pe)
+{  struct Paintctx pctx;
+   struct Bbox bb;
+   WORD s;
+   WORD start,end;
+
+   if(pe->subpath_count==0)
+   {  pe->count=0;
+      pe->subpathopen=FALSE;
+      pe->truncated=FALSE;
+      pe->bbox_init=FALSE;
+      pe->ubbox_init=FALSE;
+      pe->any_closed=FALSE;
+      return;
+   }
+
+   if(pe->rs->fillvalid && !pe->truncated)
+   {  bb.valid=pe->ubbox_init;
+      bb.xmin=pe->ubbox_xmin;
+      bb.ymin=pe->ubbox_ymin;
+      bb.xmax=pe->ubbox_xmax;
+      bb.ymax=pe->ubbox_ymax;
+      Buildfillctx(&pctx,pe->dec,pe->rs,Effectivefillalpha(pe->rs),&bb);
+      /* Palette destinations need the active pen set before
+       * Fillspan because Fillspan's palette branch issues RectFill
+       * against the current RastPort pen.  Buildfillctx already
+       * populated pctx->rgb with the (averaged) solid colour. */
+      Setpen(pe->dec,pe->rs->fillpen);
+      Drawpolygon_fill_compound(pe->dec,pe->pts,
+         pe->subpath_ends,pe->subpath_count,&pctx);
+   }
+
+   if(pe->rs->strokevalid)
+   {  for(s=0;s<pe->subpath_count;s++)
+      {  start=(s==0) ? 0 : pe->subpath_ends[s-1];
+         end=pe->subpath_ends[s];
+         if(end-start<2) continue;
+         Strokepolyline(pe->dec,&pe->pts[start],(WORD)(end-start),
+            (BOOL)(pe->subpath_closed[s]?TRUE:FALSE),pe->rs);
+      }
+   }
+
    pe->count=0;
+   pe->subpath_count=0;
+   pe->any_closed=FALSE;
    pe->subpathopen=FALSE;
    pe->truncated=FALSE;
    pe->bbox_init=FALSE;
+   pe->ubbox_init=FALSE;
 }
 
 /* Adaptive de Casteljau subdivision for cubic and quadratic Beziers.
@@ -2045,17 +2529,166 @@ static void Bezier2(struct Pathemit *pe, LONG x0, LONG y0,
    Bezier2_rec(pe,rx0,ry0,rx1,ry1,rx2,ry2,0);
 }
 
-/* Approximate an elliptical arc by a polyline.  We do not implement
- * the full SVG arc parameterisation here (it is fiddly).  Instead we
- * approximate by drawing the chord directly, which means arcs render
- * as straight lines.  This is acceptable for most icon artwork; a
- * future enhancement could implement endpoint-to-centre conversion.
+/* Decompose an SVG elliptical arc segment into a polyline using the
+ * W3C SVG 1.1 endpoint-to-centre parameterisation (Appendix F.6.5
+ * and F.6.6).  Handles radius correction for arcs whose endpoints
+ * lie outside the requested ellipse, samples the resulting elliptic
+ * arc at an angle resolution proportional to the raster-space arc
+ * length, and finishes with an exact snap to the requested endpoint
+ * so a subsequent Z closes back to the right vertex.
  *
- * Only the endpoint is needed because Pathemitpt() already has the
- * current point, so rx/ry/rotation/large-arc/sweep are intentionally
- * discarded by the caller. */
-static void Arcapprox(struct Pathemit *pe, LONG x1, LONG y1)
-{  Pathemitpt(pe,x1,y1);
+ * (x0,y0) is the current point, (x1,y1) the target endpoint, both
+ * in SVG user-space 16.16.  rx/ry are the requested radii (same
+ * units), x_axis_rot_deg the rotation in degrees (16.16), and the
+ * large_arc / sweep flags pick which of the four possible arcs to
+ * draw.  The centre-form derivation here avoids the algebraic
+ * factor sqrt((rx^2 ry^2 - rx^2 y'^2 - ry^2 x'^2) / (rx^2 y'^2 +
+ * ry^2 x'^2)) - the rx^2 ry^2 product overflows 32-bit 16.16
+ * arithmetic even for modest icon arcs - and uses the equivalent
+ * lambda-normalised form sqrt((1-lam)/lam) instead. */
+static void Arcsegment(struct Pathemit *pe,
+   LONG x0, LONG y0,
+   LONG rx, LONG ry, LONG x_axis_rot_deg,
+   BOOL large_arc, BOOL sweep,
+   LONG x1, LONG y1)
+{  LONG cosphi,sinphi;
+   LONG dx_2,dy_2;
+   LONG x1p,y1p;
+   LONG rxsq,rysq;
+   LONG x1psq,y1psq;
+   LONG lam;
+   LONG s;
+   LONG factor;
+   LONG cxp,cyp;
+   LONG center_x,center_y;
+   LONG theta1,theta2,dtheta;
+   LONG step_size;
+   LONG raster_x0,raster_y0;
+   LONG raster_x1,raster_y1;
+   LONG raster_cx,raster_cy;
+   LONG raster_rx,raster_ry;
+   LONG abs_dtheta;
+   LONG arc_len_est;
+   LONG max_rad;
+   LONG ux,uy,vx,vy;
+   int steps;
+   int i;
+
+   if(x0==x1 && y0==y1) return;
+   if(rx==0 || ry==0)
+   {  Pathemitpt(pe,x1,y1);
+      return;
+   }
+   if(rx<0) rx=-rx;
+   if(ry<0) ry=-ry;
+
+   cosphi=fcos_deg(x_axis_rot_deg);
+   sinphi=fsin_deg(x_axis_rot_deg);
+
+   /* F.6.5.1: half-diff in original frame rotated into the
+    * x-axis-aligned ellipse frame. */
+   dx_2=(x0-x1)>>1;
+   dy_2=(y0-y1)>>1;
+   x1p =  fmul(cosphi,dx_2) + fmul(sinphi,dy_2);
+   y1p = -fmul(sinphi,dx_2) + fmul(cosphi,dy_2);
+
+   rxsq=fmul(rx,rx);
+   rysq=fmul(ry,ry);
+   x1psq=fmul(x1p,x1p);
+   y1psq=fmul(y1p,y1p);
+   if(rxsq<=0 || rysq<=0)
+   {  Pathemitpt(pe,x1,y1);
+      return;
+   }
+
+   /* F.6.6.2: scale radii up if the endpoints lie outside the
+    * requested ellipse. */
+   lam=fdiv(x1psq,rxsq) + fdiv(y1psq,rysq);
+   if(lam>(1L<<16))
+   {  s=fsqrt(lam);
+      rx=fmul(rx,s);
+      ry=fmul(ry,s);
+   }
+
+   /* F.6.5.2: centre coordinates in the rotated frame.  The direct
+    * SVG formula multiplies rx^2 by ry^2 which overflows 32-bit
+    * 16.16 arithmetic even for modest icon arcs.  The equivalent
+    * sqrt((1-lam)/lam) form below stays in range as long as lam
+    * itself fits, which it always does (lam was just computed
+    * above by 16.16 fdivs). */
+   if(lam<=0)
+   {  Pathemitpt(pe,x1,y1);
+      return;
+   }
+   if(lam>(1L<<16)) lam=(1L<<16);
+   factor=fdiv((1L<<16)-lam,lam);
+   if(factor<0) factor=0;
+   factor=fsqrt(factor);
+   if(large_arc==sweep) factor=-factor;
+
+   cxp =  fmul(factor, fdiv(fmul(rx,y1p),ry));
+   cyp = -fmul(factor, fdiv(fmul(ry,x1p),rx));
+
+   /* F.6.5.3: centre in the original (un-rotated) frame. */
+   center_x = fmul(cosphi,cxp) - fmul(sinphi,cyp) + ((x0+x1)>>1);
+   center_y = fmul(sinphi,cxp) + fmul(cosphi,cyp) + ((y0+y1)>>1);
+
+   /* F.6.5.4-6: start and sweep angles. */
+   ux=fdiv(x1p-cxp,rx);
+   uy=fdiv(y1p-cyp,ry);
+   vx=fdiv(-x1p-cxp,rx);
+   vy=fdiv(-y1p-cyp,ry);
+   theta1=fatan2_deg(uy,ux);
+   theta2=fatan2_deg(vy,vx);
+   dtheta=theta2-theta1;
+   if(!sweep && dtheta>0) dtheta-=(360L<<16);
+   if( sweep && dtheta<0) dtheta+=(360L<<16);
+
+   /* Pick a sample count proportional to the raster-space arc
+    * length using the larger transformed radius and the absolute
+    * angular extent. */
+   Mxform(pe->M,center_x,center_y,&raster_cx,&raster_cy);
+   Mxform(pe->M,center_x+rx,center_y,&raster_x0,&raster_y0);
+   raster_rx=raster_x0-raster_cx;
+   if(raster_rx<0) raster_rx=-raster_rx;
+   Mxform(pe->M,center_x,center_y+ry,&raster_x1,&raster_y1);
+   raster_ry=raster_y1-raster_cy;
+   if(raster_ry<0) raster_ry=-raster_ry;
+   max_rad=(raster_rx>raster_ry)?raster_rx:raster_ry;
+   if(max_rad<1) max_rad=1;
+
+   abs_dtheta=(dtheta>0)?dtheta:-dtheta;
+   /* arc_len ~ max_rad * angle_in_radians = max_rad * dtheta_deg *
+    * pi/180.  Approximate pi/180 as 1145/65536 in 16.16; this
+    * stays in 32-bit range as long as max_rad < ~30000 (raster
+    * pixels) and abs_dtheta < 23.6M (full 360 degrees). */
+   arc_len_est=(max_rad * (abs_dtheta>>16) * 1145L)>>16;
+   if(arc_len_est<8) arc_len_est=8;
+   steps=(int)(arc_len_est/3);
+   if(steps<4) steps=4;
+   if(steps>128) steps=128;
+
+   step_size=dtheta/steps;
+   for(i=1;i<=steps;i++)
+   {  LONG t_param=theta1 + step_size*i;
+      LONG ct=fcos_deg(t_param);
+      LONG st=fsin_deg(t_param);
+      LONG x_local=fmul(rx,ct);
+      LONG y_local=fmul(ry,st);
+      LONG x_arc=fmul(cosphi,x_local) - fmul(sinphi,y_local) + center_x;
+      LONG y_arc=fmul(sinphi,x_local) + fmul(cosphi,y_local) + center_y;
+      Pathemitpt(pe,x_arc,y_arc);
+   }
+   /* Snap the last sample exactly to the requested endpoint - the
+    * angular interpolation accumulates a few LSBs of error and a
+    * subsequent Z should still close back to the right vertex.
+    * Compare against the raster-transformed endpoint because pe->pts
+    * is in raster space, not user space. */
+   Mxform(pe->M,x1,y1,&raster_x0,&raster_y0);
+   if(pe->count>0 && (pe->pts[pe->count-1].x!=raster_x0
+                   || pe->pts[pe->count-1].y!=raster_y0))
+   {  Pathemitpt(pe,x1,y1);
+   }
 }
 
 /* Parse and emit an SVG path 'd' attribute. */
@@ -2088,6 +2721,7 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             pe->curx=a; pe->cury=b;
             pe->startx=a; pe->starty=b;
             Pathemitpt(pe,a,b);
+            Pebbox_update(pe,a,b);
             pe->subpathopen=TRUE;
             pe->hasctrl=FALSE;
             cmd=relative?'l':'L';
@@ -2097,6 +2731,7 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             b=Parsefixed(&p,end,&ok); if(!ok) goto done;
             if(relative) { a+=pe->curx; b+=pe->cury; }
             Pathemitpt(pe,a,b);
+            Pebbox_update(pe,a,b);
             pe->curx=a; pe->cury=b;
             pe->hasctrl=FALSE;
             break;
@@ -2104,6 +2739,7 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             a=Parsefixed(&p,end,&ok); if(!ok) goto done;
             if(relative) a+=pe->curx;
             Pathemitpt(pe,a,pe->cury);
+            Pebbox_update(pe,a,pe->cury);
             pe->curx=a;
             pe->hasctrl=FALSE;
             break;
@@ -2111,6 +2747,7 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             a=Parsefixed(&p,end,&ok); if(!ok) goto done;
             if(relative) a+=pe->cury;
             Pathemitpt(pe,pe->curx,a);
+            Pebbox_update(pe,pe->curx,a);
             pe->cury=a;
             pe->hasctrl=FALSE;
             break;
@@ -2134,6 +2771,9 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
                e+=pe->curx; f+=pe->cury;
             }
             Bezier3(pe,pe->curx,pe->cury,a,b,c,d0,e,f);
+            Pebbox_update(pe,a,b);
+            Pebbox_update(pe,c,d0);
+            Pebbox_update(pe,e,f);
             pe->ctrlx=c; pe->ctrly=d0;
             pe->hasctrl=TRUE;
             pe->curx=e; pe->cury=f;
@@ -2155,6 +2795,8 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             {  a=pe->curx; b=pe->cury;
             }
             Bezier3(pe,pe->curx,pe->cury,a,b,c,d0,e,f);
+            Pebbox_update(pe,c,d0);
+            Pebbox_update(pe,e,f);
             pe->ctrlx=c; pe->ctrly=d0;
             pe->hasctrl=TRUE;
             pe->curx=e; pe->cury=f;
@@ -2169,6 +2811,8 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
                c+=pe->curx; d0+=pe->cury;
             }
             Bezier2(pe,pe->curx,pe->cury,a,b,c,d0);
+            Pebbox_update(pe,a,b);
+            Pebbox_update(pe,c,d0);
             pe->ctrlx=a; pe->ctrly=b;
             pe->hasctrl=TRUE;
             pe->curx=c; pe->cury=d0;
@@ -2185,25 +2829,37 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
             {  a=pe->curx; b=pe->cury;
             }
             Bezier2(pe,pe->curx,pe->cury,a,b,c,d0);
+            Pebbox_update(pe,c,d0);
             pe->ctrlx=a; pe->ctrly=b;
             pe->hasctrl=TRUE;
             pe->curx=c; pe->cury=d0;
             break;
          case 'a':
             /* A rx ry x-axis-rotation large-arc-flag sweep-flag x y
-             * Only the endpoint (f,g) is consumed by the simplified
-             * Arcapprox; rx/ry/rot/large/sweep are parsed and dropped
-             * to keep the path stream in sync but no temporaries are
-             * declared for them (would trigger dead-store warnings). */
-            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
-            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
-            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
-            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
-            (void)Parsefixed(&p,end,&ok); if(!ok) goto done;
-            f=Parsefixed(&p,end,&ok); if(!ok) goto done;
-            g=Parsefixed(&p,end,&ok); if(!ok) goto done;
+             * Parse all seven path-data values then hand them to the
+             * W3C endpoint-to-centre arc decomposer.  Arcsegment
+             * itself transforms the sampled vertices through the
+             * current CTM via Pathemitpt(). */
+            a=Parsefixed(&p,end,&ok); if(!ok) goto done;   /* rx */
+            b=Parsefixed(&p,end,&ok); if(!ok) goto done;   /* ry */
+            c=Parsefixed(&p,end,&ok); if(!ok) goto done;   /* x-axis rotation */
+            d0=Parsefixed(&p,end,&ok); if(!ok) goto done;  /* large-arc-flag */
+            e=Parsefixed(&p,end,&ok); if(!ok) goto done;   /* sweep-flag */
+            f=Parsefixed(&p,end,&ok); if(!ok) goto done;   /* x */
+            g=Parsefixed(&p,end,&ok); if(!ok) goto done;   /* y */
             if(relative) { f+=pe->curx; g+=pe->cury; }
-            Arcapprox(pe,f,g);
+            Arcsegment(pe, pe->curx, pe->cury,
+               a, b, c,
+               (BOOL)(d0!=0), (BOOL)(e!=0),
+               f, g);
+            /* Conservative bbox: the arc can bulge outwards by at
+             * most (rx,ry) from each endpoint.  Adding the four
+             * corner offsets gives a safe overestimate without
+             * having to recompute the arc centre. */
+            Pebbox_update(pe,pe->curx-a,pe->cury-b);
+            Pebbox_update(pe,pe->curx+a,pe->cury+b);
+            Pebbox_update(pe,f-a,g-b);
+            Pebbox_update(pe,f+a,g+b);
             pe->curx=f; pe->cury=g;
             pe->hasctrl=FALSE;
             break;
@@ -2216,6 +2872,7 @@ static void Parsepath(struct Pathemit *pe, UBYTE *d)
    }
 done:
    if(pe->subpathopen) Pathflush(pe,FALSE);
+   Pathend(pe);
 }
 
 /*--------------------------------------------------------------------*/
@@ -2455,6 +3112,12 @@ static void Gradparse_walk(struct Decoder *dec, struct XmlNode *node,
    {  if(strieq(v,"objectBoundingBox")) g->units=GRAD_UNITS_OBJBB;
       else g->units=GRAD_UNITS_USER;
    }
+   v=XmlAttrValue(node,"spreadMethod");
+   if(v)
+   {  if(strieq(v,"reflect"))    g->spread=GRAD_SPREAD_REFLECT;
+      else if(strieq(v,"repeat")) g->spread=GRAD_SPREAD_REPEAT;
+      else                        g->spread=GRAD_SPREAD_PAD;
+   }
    v=XmlAttrValue(node,"gradientTransform");
    if(v && !g->has_gt)
    {  Midentity(&g->gt);
@@ -2518,13 +3181,22 @@ static struct Gradient *Gradparse(struct Decoder *dec, struct XmlNode *node)
    if(!g) return NULL;
    memset(g,0,sizeof(*g));
    g->type   = XmlNameIs(node,"radialGradient") ? GRAD_TYPE_RADIAL : GRAD_TYPE_LINEAR;
-   g->units  = GRAD_UNITS_USER;
+   /* SVG 1.1 13.2.1: default gradientUnits is "objectBoundingBox", NOT
+    * userSpaceOnUse.  The 0x10000 / 0x8000 defaults below describe the
+    * gradient in bbox-relative 0..1 coords, exactly how the spec
+    * defines them.  Defaulting to userSpaceOnUse here used to make
+    * Inkscape exports (which omit gradientUnits, expecting the spec
+    * default) paint with the entire gradient compressed into the
+    * top-left corner of every shape - because the shape would be at
+    * eg. cx=200 cy=300 r=120 while the gradient stayed pinned at the
+    * user-space unit square.  Compound paths and radial fills are
+    * particularly sensitive to this. */
+   g->units  = GRAD_UNITS_OBJBB;
+   g->spread = GRAD_SPREAD_PAD;
    g->nstops = 0;
    g->has_gt = 0;
-   /* SVG spec defaults: linear x1=y1=0, x2=1, y2=0; radial cx=cy=0.5,
-    * r=0.5 in objectBoundingBox terms.  In user space they default to
-    * the bounding box of the painted shape (which we cannot fully
-    * model here); reasonable user-space defaults are 0..1 the same. */
+   /* Spec defaults (in objectBoundingBox 0..1 coords): linear
+    * x1=y1=0, x2=1, y2=0; radial cx=cy=0.5, r=0.5. */
    g->x1=0;          g->y1=0;
    g->x2=0x10000L;   g->y2=0;
    g->cx=0x8000L;    g->cy=0x8000L;
@@ -2539,6 +3211,29 @@ static struct Gradient *Gradparse(struct Decoder *dec, struct XmlNode *node)
    /* Radial focus defaults to the centre when not supplied. */
    if(!seen_fx) g->fx=g->cx;
    if(!seen_fy) g->fy=g->cy;
+
+   /* SVG 1.1 13.2.3: if the focal point lies outside the boundary
+    * circle the user agent must move it to the intersection of the
+    * line from (cx,cy) to (fx,fy) and that circle.  Clamp slightly
+    * inside (97% of r) so the per-pixel ray-quadratic discriminant
+    * stays well above zero - we've seen radial gradients with fx/fy
+    * literally on the circle round-off to a negative discriminant
+    * and turn the whole shape into the first colour stop. */
+   if(g->type==GRAD_TYPE_RADIAL && g->r>0)
+   {  LONG dfx=g->fx - g->cx;
+      LONG dfy=g->fy - g->cy;
+      LONG dnx=fdiv(dfx,g->r);
+      LONG dny=fdiv(dfy,g->r);
+      LONG nsq=fmul(dnx,dnx) + fmul(dny,dny);
+      LONG safe_lim=0xF852L;
+      LONG safe_sq=fmul(safe_lim,safe_lim);
+      if(nsq>safe_sq)
+      {  LONG mag=fsqrt(nsq);
+         LONG scale=fdiv(safe_lim,mag);
+         g->fx=g->cx + fmul(dfx,scale);
+         g->fy=g->cy + fmul(dfy,scale);
+      }
+   }
 
    if(g->nstops==0) return NULL;
    if(g->nstops==1)
@@ -2563,7 +3258,7 @@ static struct Gradient *Gradparse(struct Decoder *dec, struct XmlNode *node)
  * radial gradients evaluate distance from centre per pixel using the
  * `inv` matrix directly. */
 static BOOL Buildpaintctx(struct Paintctx *pctx, struct Renderstate *rs,
-   struct Gradient *g)
+   struct Gradient *g, const struct Bbox *bb)
 {  struct Matrix tot, inv;
    /* Note: pctx->alpha and pctx->rgb are owned by the caller
     * (Buildfillctx).  We only set the gradient-specific evaluator
@@ -2573,6 +3268,23 @@ static BOOL Buildpaintctx(struct Paintctx *pctx, struct Renderstate *rs,
    if(!g) return FALSE;
 
    tot=rs->M;
+   /* objectBoundingBox: insert a bbox-to-userspace mapping between
+    * the gradient's own coords and the CTM, so the gradient sits
+    * at the same place on the shape regardless of where the shape
+    * lives in user space. */
+   if(g->units==GRAD_UNITS_OBJBB && bb && bb->valid)
+   {  LONG bw=bb->xmax - bb->xmin;
+      LONG bh=bb->ymax - bb->ymin;
+      if(bw>0 && bh>0)
+      {  struct Matrix bm;
+         Midentity(&bm);
+         bm.a=bw;
+         bm.d=bh;
+         bm.e=bb->xmin;
+         bm.f=bb->ymin;
+         Mcompose(&tot,&tot,&bm);
+      }
+   }
    if(g->has_gt) Mcompose(&tot,&tot,&g->gt);
    if(!Minverse(&tot,&inv)) return FALSE;
    pctx->inv=inv;
@@ -2608,27 +3320,80 @@ static BOOL Buildpaintctx(struct Paintctx *pctx, struct Renderstate *rs,
       pctx->dt_dy= Gradproj(g01x - g00x , g01y - g00y , vx, vy, inv_lensq);
    }
    else
-   {  pctx->r_sq=fmul(g->r,g->r);
-      if(pctx->r_sq<=0)
+   {  if(g->r<=0)
       {  pctx->has_grad=0;
          pctx->grad=NULL;
          return FALSE;
+      }
+      pctx->inv_r=fdiv(0x10000L,g->r);
+      if(g->fx==g->cx && g->fy==g->cy)
+      {  /* Centered focal point: short-circuit the per-pixel
+          * quadratic and use t = |P-C|/r directly. */
+         pctx->Dx_n=0;
+         pctx->Dy_n=0;
+         pctx->DD_minus_1=-0x10000L;     /* 0 - 1 in 16.16 */
+      }
+      else
+      {  /* Displaced focal: precompute (F-C)/r and |D|^2 - 1 so
+          * the inner loop's quadratic stays in 16.16 range even
+          * for documents whose user-space coords run into the
+          * thousands. */
+         pctx->Dx_n=fmul(g->fx - g->cx, pctx->inv_r);
+         pctx->Dy_n=fmul(g->fy - g->cy, pctx->inv_r);
+         pctx->DD_minus_1=
+            fmul(pctx->Dx_n,pctx->Dx_n)
+            + fmul(pctx->Dy_n,pctx->Dy_n)
+            - 0x10000L;
       }
    }
    return TRUE;
 }
 
-/* Pick a colour out of a Gradient at a normalised parameter t in
- * [0,1].  Linear interpolation between adjacent stops; constant
- * extension outside the [0,1] range (the SVG default `pad` spread
- * method - we do not implement `reflect` or `repeat` yet).  Returns
- * the colour as 0xRRGGBB and writes the stop alpha into *out_a. */
+/* Apply spreadMethod to a gradient parameter in 16.16, returning a
+ * value clamped/wrapped into [0,1] (i.e. 0..0x10000).
+ *
+ * - pad      : clamp at the boundary (default)
+ * - reflect  : triangle wave - bounce off each integer boundary
+ * - repeat   : sawtooth - take the fractional part
+ *
+ * Internally we work in 16.16 with bit twiddling: shifting right 16
+ * gives the integer count of full traversals, mask 0xFFFF gives the
+ * 0..1 fractional part. */
+static LONG Gradspread(const struct Gradient *g, LONG t)
+{  LONG period;
+   LONG frac;
+   if(g->spread==GRAD_SPREAD_PAD)
+   {  if(t<0)         return 0;
+      if(t>0x10000L)  return 0x10000L;
+      return t;
+   }
+   period=(g->spread==GRAD_SPREAD_REFLECT) ? 0x20000L : 0x10000L;
+   frac=t;
+   if(frac<0)
+   {  LONG q=(-frac)/period + 1;
+      frac+=q*period;
+   }
+   if(frac>=period) frac %= period;
+   if(g->spread==GRAD_SPREAD_REFLECT)
+   {  if(frac>0x10000L) frac=0x20000L - frac;
+   }
+   if(frac<0)         frac=0;
+   if(frac>0x10000L)  frac=0x10000L;
+   return frac;
+}
+
+/* Sample a Gradient at parameter t (16.16).  Out-of-range t values
+ * are routed through Gradspread() which clamps, reflects or repeats
+ * according to spreadMethod.  Linear interpolation between adjacent
+ * stops in 8-bit precision (256 sub-steps), with the standard SVG
+ * stop ordering. */
 static ULONG Gradsample(const struct Gradient *g, LONG t, UBYTE *out_a)
 {  int i;
    LONG t0,t1,span,frac;
    LONG r0,g0,b0,a0;
    LONG r1,g1,b1,a1;
    LONG R,G,B,A;
+   t=Gradspread(g,t);
    if(t<=g->stops[0].offset)
    {  *out_a=g->stops[0].a;
       return ((ULONG)g->stops[0].r<<16)|((ULONG)g->stops[0].g<<8)|(ULONG)g->stops[0].b;
@@ -2650,7 +3415,6 @@ static ULONG Gradsample(const struct Gradient *g, LONG t, UBYTE *out_a)
                   |((ULONG)g->stops[i].g<<8)
                   |(ULONG)g->stops[i].b;
          }
-         /* frac in 0..256 for an 8-bit lerp. */
          frac=((t-t0)<<8)/span;
          if(frac<0) frac=0;
          if(frac>256) frac=256;
@@ -2676,53 +3440,65 @@ static ULONG Gradsample(const struct Gradient *g, LONG t, UBYTE *out_a)
          |(ULONG)g->stops[g->nstops-1].b;
 }
 
-/* Sample the gradient at raster pixel (rx,ry) using the per-shape
- * state in *pctx.  Caller is responsible for clamping (rx,ry) to the
- * destination bitmap; we only need the gradient-coord transform. */
+/* Sample the gradient at raster pixel (rx,ry) using per-shape state.
+ *
+ * Linear gradients:
+ *   t is the orthogonal projection onto (g->x1,y1)->(g->x2,y2), with
+ *   t=0 at x1,y1 and t=1 at x2,y2.
+ *
+ * Radial gradients with focal point at the centre:
+ *   t = |P - C| / r, the centered-radial fast path.
+ *
+ * Radial gradients with displaced focal point:
+ *   t is computed from SVG 1.1's geometric construction.  Solve the
+ *   quadratic for the ray F + s*v that crosses the boundary circle,
+ *   then t = 1/s gives the fractional distance along the ray.  This
+ *   is what makes the gradient highlight actually shift toward
+ *   (fx,fy) rather than sitting at the centre.
+ *
+ * Out-of-range t values are routed through Gradspread() inside
+ * Gradsample so spreadMethod is honoured uniformly. */
 static ULONG Gradeval_pixel(const struct Paintctx *pctx, LONG rx, LONG ry,
    UBYTE *out_a)
 {  const struct Gradient *g=pctx->grad;
    LONG t;
    if(g->type==GRAD_TYPE_LINEAR)
-   {  /* Caller normally uses the precomputed step state directly; this
-       * function is here for sites that need a one-off sample. */
-      t=pctx->t_x0 + pctx->dt_dx*rx + pctx->dt_dy*ry;
+   {  t=pctx->t_x0 + pctx->dt_dx*rx + pctx->dt_dy*ry;
    }
    else
-   {  LONG gx,gy,dx,dy,distsq;
+   {  LONG gx,gy;
       LONG rx16=rx<<16, ry16=ry<<16;
+      LONG vx,vy;
+      LONG vv;
+      LONG Dv,disc,s;
       gx=fmul(pctx->inv.a,rx16) + fmul(pctx->inv.c,ry16) + pctx->inv.e;
       gy=fmul(pctx->inv.b,rx16) + fmul(pctx->inv.d,ry16) + pctx->inv.f;
-      dx=gx - g->cx;
-      dy=gy - g->cy;
-      distsq=fmul(dx,dx) + fmul(dy,dy);
-      /* t = sqrt(distsq) / r => t^2 = distsq / r^2 in normalised form.
-       * We avoid the sqrt by sampling against squared offsets, which
-       * means stops near the rim are visited slightly later than a
-       * true distance metric would - acceptable for icon rendering. */
-      t=fdiv(distsq, pctx->r_sq);
-      /* Square the offset in the stop comparison would be exact but
-       * costs us a square per stop walk.  Instead approximate by
-       * mapping squared distance into the same [0,1] range as the
-       * stops via sqrt-by-Newton would be expensive; use the
-       * cheap-enough  estimate sqrt(t) ~= t for small t and adjust. */
-      /* Cheap sqrt approximation: t in 16.16, sqrt(t) ~= (t+1)/2 + ... */
-      if(t<=0) t=0;
+      /* Move into normalised r=1 coords so squaring can't overflow
+       * 16.16.  vx/vy is (P - F) / r. */
+      vx=fmul(gx - g->fx, pctx->inv_r);
+      vy=fmul(gy - g->fy, pctx->inv_r);
+      vv=fmul(vx,vx) + fmul(vy,vy);
+      if(vv<=0)
+      {  t=0;
+      }
+      else if(pctx->Dx_n==0 && pctx->Dy_n==0)
+      {  /* Centered focal: t = |v_n|. */
+         t=fsqrt(vv);
+      }
       else
-      {  /* Newton-Raphson: y_{n+1} = (y + t/y)/2.  Start at the larger
-          * of (t>>1, 1.0) so we converge from above. */
-         LONG y;
-         int k;
-         y = (t>0x20000L) ? (t>>1) : 0x10000L;
-         for(k=0;k<6;k++)
-         {  if(y<=0) { y=0; break; }
-            y=(y + fdiv(t,y))>>1;
-         }
-         t=y;
+      {  /* Displaced focal: solve normalised quadratic
+          *   s^2 (v.v) + 2s (D.v) + (D.D - 1) = 0
+          * for the ray F + s*v through the boundary circle,
+          * then return t = 1/s. */
+         Dv=fmul(pctx->Dx_n,vx) + fmul(pctx->Dy_n,vy);
+         disc=fmul(Dv,Dv) - fmul(vv, pctx->DD_minus_1);
+         if(disc<0) disc=0;
+         disc=fsqrt(disc);
+         s=fdiv(disc - Dv, vv);
+         if(s<=0) t=0x10000L;
+         else     t=fdiv(0x10000L, s);
       }
    }
-   if(t<0) t=0;
-   if(t>0x10000L) t=0x10000L;
    return Gradsample(g,t,out_a);
 }
 
@@ -2986,15 +3762,55 @@ static UBYTE Effectivefillalpha(struct Renderstate *rs)
    return a;
 }
 
+/* Combined effective stroke alpha: stroke-colour alpha * stroke-opacity
+ * * element-opacity, with values in 0..255 and rounded multiplication. */
+static UBYTE Effectivestrokealpha(struct Renderstate *rs)
+{  UBYTE a;
+   a=Combinealpha(rs->stroke_color_alpha, rs->stroke_opacity);
+   a=Combinealpha(a, rs->element_opacity);
+   return a;
+}
+
+/* Stroke width in 16.16 raster pixels.  Combines the SVG-space stroke
+ * width with an approximate scale from the active CTM so a 1.5-unit
+ * stroke under a 4x zoom comes out as 6 raster pixels.  Pure rotation
+ * matrices have determinant 1 and pass through unchanged; the
+ * sqrt(|det|) factor is exact for uniform scale and a good geometric
+ * mean for non-uniform scale.  Pure axis-aligned scales avoid the
+ * sqrt cost entirely; the result matches |a| or |d| within rounding. */
+static LONG Strokewidth_px(struct Renderstate *rs)
+{  LONG sw=rs->strokewidth;
+   LONG ascale,dscale;
+   LONG det;
+   if(sw<=0) return 0;
+   if(rs->M.b==0 && rs->M.c==0)
+   {  ascale=rs->M.a; if(ascale<0) ascale=-ascale;
+      dscale=rs->M.d; if(dscale<0) dscale=-dscale;
+      if(ascale==0) return fmul(sw,dscale);
+      if(dscale==0) return fmul(sw,ascale);
+      return fmul(sw, fsqrt(fmul(ascale,dscale)));
+   }
+   det=fmul(rs->M.a,rs->M.d) - fmul(rs->M.c,rs->M.b);
+   if(det<0) det=-det;
+   return fmul(sw, fsqrt(det));
+}
+
 /* Compose a Paintctx for the current shape given the active Renderstate
  * and the combined effective fill alpha (the renderer has already
  * folded element_opacity, fill_opacity and the colour-embedded alpha
  * into one value).  When the fill is a gradient and we are rendering
  * to a P96 deep destination, this attempts to build per-pixel
  * evaluator state; if that fails (singular CTM, no resolved gradient,
- * etc) we transparently fall back to the averaged solid colour. */
+ * etc) we transparently fall back to the averaged solid colour.
+ *
+ * `bb` is the user-space bounding box of the shape being painted.
+ * Required for objectBoundingBox gradients (the SVG default) which
+ * map [0,1]^2 in gradient coords onto the shape's bbox.  Pass a
+ * !bb->valid Bbox when the caller doesn't know one (palette path,
+ * stroke etc.) and the gradient evaluator will fall back to user
+ * space - matching the pre-bbox-aware behaviour. */
 static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
-   struct Renderstate *rs, UBYTE eff_alpha)
+   struct Renderstate *rs, UBYTE eff_alpha, const struct Bbox *bb)
 {  pctx->has_grad=0;
    pctx->grad=NULL;
    pctx->alpha=eff_alpha;
@@ -3006,7 +3822,7 @@ static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
    if(rs->fillgrad && (dec->decflags&DECOF_P96DEEP))
    {  struct Gradient *g=rs->fillgrad;
       USHORT need = (g->type==GRAD_TYPE_RADIAL) ? QF_GRAD_RADIAL : QF_GRAD_LINEAR;
-      if((dec->quality & need) && Buildpaintctx(pctx,rs,g))
+      if((dec->quality & need) && Buildpaintctx(pctx,rs,g,bb))
       {  /* Buildpaintctx left pctx->has_grad and pctx->grad set. */
       }
       else
@@ -3017,6 +3833,23 @@ static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
    /* When alpha blending is disabled, snap fully-opaque or fully
     * transparent so Fillspan can take the hard-write/skip fast path
     * without ever entering the per-pixel blend loop. */
+   if(!(dec->quality & QF_ALPHA_BLEND))
+   {  if(pctx->alpha < ALPHA_SKIP) pctx->alpha=0;
+      else pctx->alpha=255;
+   }
+}
+
+/* Paint context for stroke painting.  Strokes are always solid (no
+ * per-pixel gradient evaluation), so this just packs the solid colour
+ * and effective alpha into the Paintctx that Drawpolygon_fill /
+ * Drawellipse_fill consume to render the thick-segment quads and
+ * round caps/joins. */
+static void Buildstrokectx(struct Paintctx *pctx, struct Decoder *dec,
+   struct Renderstate *rs, UBYTE eff_alpha)
+{  pctx->has_grad=0;
+   pctx->grad=NULL;
+   pctx->alpha=eff_alpha;
+   pctx->rgb=rs->strokergb;
    if(!(dec->quality & QF_ALPHA_BLEND))
    {  if(pctx->alpha < ALPHA_SKIP) pctx->alpha=0;
       else pctx->alpha=255;
@@ -3054,28 +3887,110 @@ static void Renderrect(struct Decoder *dec, struct XmlNode *node, struct Renders
    LONG y=Numattr(node,"y",0);
    LONG w=Numattr(node,"width",0);
    LONG h=Numattr(node,"height",0);
+   LONG rx=Numattr(node,"rx",-1);
+   LONG ry=Numattr(node,"ry",-1);
+   LONG hw,hh;
    LONG x0,y0,x1,y1;
    struct Point32 pts[4];
    struct Paintctx pctx;
+   struct Bbox bb;
+
    if(w<=0 || h<=0) return;
-   /* Build the 4 corners in SVG space then transform.  This handles
-    * rotation/skew correctly. */
-   Mxform(&rs->M,x,y,&x0,&y0);
-   Mxform(&rs->M,x+w,y,&x1,&y1);
-   pts[0].x=x0; pts[0].y=y0;
-   pts[1].x=x1; pts[1].y=y1;
-   Mxform(&rs->M,x+w,y+h,&x0,&y0);
-   Mxform(&rs->M,x,y+h,&x1,&y1);
-   pts[2].x=x0; pts[2].y=y0;
-   pts[3].x=x1; pts[3].y=y1;
-   if(rs->fillvalid)
-   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
-      Setpen(dec,rs->fillpen);
-      Drawpolygon(dec,pts,4,TRUE,TRUE,&pctx,rs->strokergb);
+
+   /* SVG 1.1 9.2: a missing rx mirrors ry and vice versa; both then
+    * clamp to half the width / height. */
+   if(rx<0 && ry<0) { rx=0; ry=0; }
+   else
+   {  if(rx<0) rx=ry;
+      if(ry<0) ry=rx;
+      if(rx<0) rx=0;
+      if(ry<0) ry=0;
+      hw=w>>1; hh=h>>1;
+      if(rx>hw) rx=hw;
+      if(ry>hh) ry=hh;
    }
-   if(rs->strokevalid)
-   {  Setpen(dec,rs->strokepen);
-      Drawpolygon(dec,pts,4,FALSE,TRUE,NULL,rs->strokergb);
+
+   if(rx==0 && ry==0)
+   {  /* Sharp-cornered rectangle: 4 transformed corners. */
+      Mxform(&rs->M,x,y,&x0,&y0);
+      Mxform(&rs->M,x+w,y,&x1,&y1);
+      pts[0].x=x0; pts[0].y=y0;
+      pts[1].x=x1; pts[1].y=y1;
+      Mxform(&rs->M,x+w,y+h,&x0,&y0);
+      Mxform(&rs->M,x,y+h,&x1,&y1);
+      pts[2].x=x0; pts[2].y=y0;
+      pts[3].x=x1; pts[3].y=y1;
+      bb.valid=TRUE;
+      bb.xmin=x;     bb.ymin=y;
+      bb.xmax=x+w;   bb.ymax=y+h;
+      if(rs->fillvalid)
+      {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs),&bb);
+         Setpen(dec,rs->fillpen);
+         Drawpolygon_fill(dec,pts,4,&pctx);
+      }
+      if(rs->strokevalid)
+         Strokepolyline(dec,pts,4,TRUE,rs);
+      return;
+   }
+
+   /* Rounded rectangle: build as a path so each corner curve goes
+    * through the adaptive Bezier subdivider and renders at the same
+    * fidelity as any hand-authored path. */
+   {  struct Pathemit pe;
+      LONG k_rx, k_ry;
+      WORD cap;
+      cap=64;
+      pe.dec=dec;
+      pe.rs=rs;
+      pe.M=&rs->M;
+      pe.capacity=cap;
+      pe.pts=(struct Point32 *)AllocPooled(dec->pool,
+         sizeof(struct Point32)*cap);
+      if(!pe.pts) return;
+      Pathreset(&pe);
+      pe.subpathopen=TRUE;
+      pe.curx=x+rx; pe.cury=y;
+      pe.startx=x+rx; pe.starty=y;
+      /* Seed the user-space bbox with the rect corners so the
+       * gradient evaluator gets a proper objectBoundingBox.
+       * Pebbox_update during Parsepath wouldn't fire here because
+       * we drive Bezier3 directly. */
+      pe.ubbox_xmin=x;
+      pe.ubbox_ymin=y;
+      pe.ubbox_xmax=x+w;
+      pe.ubbox_ymax=y+h;
+      pe.ubbox_init=TRUE;
+      Pathemitpt(&pe,x+rx,y);
+      /* Cubic-bezier handle distance for a quarter-circle:
+       * k = 4*(sqrt(2)-1)/3 ~ 0.5522847 (0x8D0D in 16.16). */
+      k_rx=fmul(rx,0x8D0DL);
+      k_ry=fmul(ry,0x8D0DL);
+      Pathemitpt(&pe,x+w-rx,y);
+      Bezier3(&pe,
+         x+w-rx,         y,
+         x+w-rx+k_rx,    y,
+         x+w,            y+ry-k_ry,
+         x+w,            y+ry);
+      Pathemitpt(&pe,x+w,y+h-ry);
+      Bezier3(&pe,
+         x+w,            y+h-ry,
+         x+w,            y+h-ry+k_ry,
+         x+w-rx+k_rx,    y+h,
+         x+w-rx,         y+h);
+      Pathemitpt(&pe,x+rx,y+h);
+      Bezier3(&pe,
+         x+rx,           y+h,
+         x+rx-k_rx,      y+h,
+         x,              y+h-ry+k_ry,
+         x,              y+h-ry);
+      Pathemitpt(&pe,x,y+ry);
+      Bezier3(&pe,
+         x,              y+ry,
+         x,              y+ry-k_ry,
+         x+rx-k_rx,      y,
+         x+rx,           y);
+      Pathflush(&pe,TRUE);
+      Pathend(&pe);
    }
 }
 
@@ -3086,21 +4001,23 @@ static void Rendercircle(struct Decoder *dec, struct XmlNode *node, struct Rende
    LONG rcx,rcy,redge,dummy;
    LONG rr;
    struct Paintctx pctx;
+   struct Bbox bb;
    if(r<=0) return;
    Mxform(&rs->M,cx,cy,&rcx,&rcy);
    Mxform(&rs->M,cx+r,cy,&redge,&dummy);
    rr=redge-rcx;
    if(rr<0) rr=-rr;
    if(rr<=0) return;
+   bb.valid=TRUE;
+   bb.xmin=cx-r; bb.ymin=cy-r;
+   bb.xmax=cx+r; bb.ymax=cy+r;
    if(rs->fillvalid)
-   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs),&bb);
       Setpen(dec,rs->fillpen);
-      Drawellipse(dec,rcx,rcy,rr,rr,TRUE,&pctx,rs->strokergb);
+      Drawellipse_fill(dec,rcx,rcy,rr,rr,&pctx);
    }
    if(rs->strokevalid)
-   {  Setpen(dec,rs->strokepen);
-      Drawellipse(dec,rcx,rcy,rr,rr,FALSE,NULL,rs->strokergb);
-   }
+      Strokeellipse(dec,rcx,rcy,rr,rr,rs);
 }
 
 static void Renderellipse(struct Decoder *dec, struct XmlNode *node, struct Renderstate *rs)
@@ -3111,6 +4028,7 @@ static void Renderellipse(struct Decoder *dec, struct XmlNode *node, struct Rend
    LONG rcx,rcy,redgex,redgey,dummyx,dummyy;
    LONG rrx,rry;
    struct Paintctx pctx;
+   struct Bbox bb;
    if(rx<=0 || ry<=0) return;
    Mxform(&rs->M,cx,cy,&rcx,&rcy);
    Mxform(&rs->M,cx+rx,cy,&redgex,&dummyy);
@@ -3118,15 +4036,16 @@ static void Renderellipse(struct Decoder *dec, struct XmlNode *node, struct Rend
    rrx=redgex-rcx; if(rrx<0) rrx=-rrx;
    rry=redgey-rcy; if(rry<0) rry=-rry;
    if(rrx<=0 || rry<=0) return;
+   bb.valid=TRUE;
+   bb.xmin=cx-rx; bb.ymin=cy-ry;
+   bb.xmax=cx+rx; bb.ymax=cy+ry;
    if(rs->fillvalid)
-   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs),&bb);
       Setpen(dec,rs->fillpen);
-      Drawellipse(dec,rcx,rcy,rrx,rry,TRUE,&pctx,rs->strokergb);
+      Drawellipse_fill(dec,rcx,rcy,rrx,rry,&pctx);
    }
    if(rs->strokevalid)
-   {  Setpen(dec,rs->strokepen);
-      Drawellipse(dec,rcx,rcy,rrx,rry,FALSE,NULL,rs->strokergb);
-   }
+      Strokeellipse(dec,rcx,rcy,rrx,rry,rs);
 }
 
 static void Renderline(struct Decoder *dec, struct XmlNode *node, struct Renderstate *rs)
@@ -3135,11 +4054,13 @@ static void Renderline(struct Decoder *dec, struct XmlNode *node, struct Renders
    LONG x2=Numattr(node,"x2",0);
    LONG y2=Numattr(node,"y2",0);
    LONG rx1,ry1,rx2,ry2;
+   struct Point32 pts[2];
    if(!rs->strokevalid) return;
    Mxform(&rs->M,x1,y1,&rx1,&ry1);
    Mxform(&rs->M,x2,y2,&rx2,&ry2);
-   Setpen(dec,rs->strokepen);
-   Drawline(dec,rx1,ry1,rx2,ry2,rs->strokergb);
+   pts[0].x=rx1; pts[0].y=ry1;
+   pts[1].x=rx2; pts[1].y=ry2;
+   Strokepolyline(dec,pts,2,FALSE,rs);
 }
 
 static void Renderpoly(struct Decoder *dec, struct XmlNode *node,
@@ -3148,18 +4069,21 @@ static void Renderpoly(struct Decoder *dec, struct XmlNode *node,
    struct Point32 *pts;
    WORD n;
    struct Paintctx pctx;
+   struct Bbox bb;
    if(!pts_str) return;
-   n=Parsepoints(dec,&rs->M,pts_str,&pts);
+   /* Parsepoints now accumulates the user-space bbox while it
+    * tokenises the points= string, so we get a correct
+    * objectBoundingBox even when the polygon is rendered through a
+    * rotated / sheared CTM. */
+   n=Parsepoints(dec,&rs->M,pts_str,&pts,&bb);
    if(n<2) return;
    if(rs->fillvalid && closeit && n>=3)
-   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs));
+   {  Buildfillctx(&pctx,dec,rs,Effectivefillalpha(rs),&bb);
       Setpen(dec,rs->fillpen);
-      Drawpolygon(dec,pts,n,TRUE,TRUE,&pctx,rs->strokergb);
+      Drawpolygon_fill(dec,pts,n,&pctx);
    }
    if(rs->strokevalid)
-   {  Setpen(dec,rs->strokepen);
-      Drawpolygon(dec,pts,n,FALSE,closeit,NULL,rs->strokergb);
-   }
+      Strokepolyline(dec,pts,n,closeit,rs);
 }
 
 /* Rough upper bound on how many raster vertices a path may emit.
@@ -3183,8 +4107,14 @@ static WORD Pathestimate(const UBYTE *d)
          case 'L': case 'l':
          case 'H': case 'h':
          case 'V': case 'v':
-         case 'A': case 'a':
             n++;
+            break;
+         case 'A': case 'a':
+            /* Each elliptical arc is decomposed into up to 128 line
+             * samples by Arcsegment.  Budget ~32 vertices so paths
+             * dominated by arcs (a typical icon outline) don't
+             * realloc their point pool on every single arc. */
+            n+=32;
             break;
          case 'C': case 'c':
          case 'S': case 's':
@@ -3488,6 +4418,81 @@ static void Setupviewport(struct Decoder *dec, struct XmlNode *root,
       h=MAX_BITMAP_DIM;
       w=nw;
    }
+
+   /* Memory-adaptive secondary cap.  Up to this point sizing has
+    * been driven entirely by what the SVG declares and the
+    * MAX_BITMAP_DIM ceiling.  Now consult the actual system: if the
+    * chunky intermediate we are about to allocate would consume
+    * more than CHUNKY_BUDGET_DIVISOR-th of the largest free public
+    * memory block, or breach the hard ceiling, scale BOTH
+    * dimensions down proportionally until it fits.
+    *
+    * This is what lets an A1200 with 4MB free fast still preview a
+    * 4000x3000 Wikipedia SVG at a reduced resolution rather than
+    * silently failing the AllocVec further down. */
+   {  ULONG needed;
+      ULONG largest;
+      ULONG budget;
+      needed  = (ULONG)w * (ULONG)h * 3UL;
+      largest = AvailMem(MEMF_PUBLIC|MEMF_LARGEST);
+      budget  = largest / CHUNKY_BUDGET_DIVISOR;
+      if(budget > CHUNKY_HARD_CEILING) budget = CHUNKY_HARD_CEILING;
+      while(needed > budget && w > MIN_BITMAP_DIM && h > MIN_BITMAP_DIM)
+      {  LONG nw = (w * 9L) / 10L;
+         LONG nh = (h * 9L) / 10L;
+         if(nw < MIN_BITMAP_DIM) nw = MIN_BITMAP_DIM;
+         if(nh < MIN_BITMAP_DIM) nh = MIN_BITMAP_DIM;
+         if(nw == w && nh == h) break;
+         w = nw;
+         h = nh;
+         needed = (ULONG)w * (ULONG)h * 3UL;
+      }
+   }
+
+   /* Secondary cap for CHIP RAM.  The downstream AllocBitMap for
+    * the palette destination pulls from chip on AGA / ECS targets;
+    * a chip exhaustion there silently produces an empty bitmap.
+    * Worst-case estimate is one byte per pixel (8 bitplanes,
+    * MEMF_CHIP).  On systems whose fast/chip ratio looks like an
+    * RTG box we relax the cap because the destination probably
+    * lives in graphics card memory. */
+   {  ULONG chip_largest;
+      ULONG fast_largest;
+      ULONG chip_needed;
+      ULONG chip_budget;
+      BOOL  rtg_likely;
+      chip_largest = AvailMem(MEMF_CHIP|MEMF_LARGEST);
+      fast_largest = AvailMem(MEMF_FAST|MEMF_LARGEST);
+      rtg_likely = (BOOL)(fast_largest >= CHIP_RTG_FAST_FLOOR
+                  && chip_largest > 0
+                  && fast_largest / chip_largest >= CHIP_RTG_FAST_RATIO);
+      if(rtg_likely)
+      {  chip_budget = chip_largest;
+      }
+      else
+      {  if(chip_largest > CHIP_HEADROOM_BYTES)
+            chip_budget = (chip_largest - CHIP_HEADROOM_BYTES)
+                          / CHIP_BUDGET_DIVISOR;
+         else
+            chip_budget = 0;
+         if(chip_budget < CHIP_MIN_BUDGET_BYTES)
+            chip_budget = CHIP_MIN_BUDGET_BYTES;
+      }
+      chip_needed = (ULONG)w * (ULONG)h;
+      while(chip_needed > chip_budget
+         && w > MIN_BITMAP_DIM
+         && h > MIN_BITMAP_DIM)
+      {  LONG nw = (w * 9L) / 10L;
+         LONG nh = (h * 9L) / 10L;
+         if(nw < MIN_BITMAP_DIM) nw = MIN_BITMAP_DIM;
+         if(nh < MIN_BITMAP_DIM) nh = MIN_BITMAP_DIM;
+         if(nw == w && nh == h) break;
+         w = nw;
+         h = nh;
+         chip_needed = (ULONG)w * (ULONG)h;
+      }
+   }
+
    *bmw=w;
    *bmh=h;
 
@@ -3525,6 +4530,15 @@ static void Parsertask(void *userdata)
    struct Matrix initial;
    long bmw=0, bmh=0;
    long offset;
+   /* Reported bitmap byte usage.  Sent to AWeb via AOSVG_Memory once
+    * the bitmap is allocated so the layout-cache flusher (source.c,
+    * case AOSRC_Memory) can pick this source for eviction under chip
+    * RAM pressure.  Without this report AWeb thinks the SVG source
+    * costs zero bytes and silently keeps every previously-rendered
+    * image alive long after the user has navigated away - which on
+    * AGA / ECS machines exhausts chip RAM after a handful of pages. */
+   long bitmap_bytes=0;
+   UBYTE bgpen=0;
 
    memset(&dec,0,sizeof(dec));
    dec.currentpen=-1;
@@ -3622,6 +4636,7 @@ static void Parsertask(void *userdata)
     * when the browser is running on one (same policy as PNG/GIF/JFIF);
     * otherwise fall back to an 8-bit palette bitmap. */
    {  ULONG depth=8;
+      ULONG bytes_per_pixel=1;
       if(P96Base && ss->friendbitmap
       && p96GetBitMapAttr(ss->friendbitmap,P96BMA_ISP96))
       {  depth=p96GetBitMapAttr(ss->friendbitmap,P96BMA_DEPTH);
@@ -3642,10 +4657,30 @@ static void Parsertask(void *userdata)
          if(depth>8) depth=8;
          dec.bitmap=AllocBitMap(bmw,bmh,depth,BMF_CLEAR,dec.screen->RastPort.BitMap);
       }
+      /* Compute a nominal byte count for AWeb's source memory tally.
+       * For palette bitmaps we under-report slightly (planar layout
+       * pads each row to a 16-bit boundary) and for P96 deep
+       * destinations we under-report by the per-row stride padding,
+       * but both are close enough for cache pressure decisions and
+       * avoid relying on optional p96 attribute queries that might
+       * not exist on every Picasso96 build. */
+      bytes_per_pixel=(depth+7UL)>>3;
+      if(bytes_per_pixel<1UL) bytes_per_pixel=1UL;
+      bitmap_bytes=(long)((ULONG)bmw*(ULONG)bmh*bytes_per_pixel);
    }
    if(!dec.bitmap) goto cleanup;
    InitRastPort(&dec.rp);
    dec.rp.BitMap=dec.bitmap;
+   /* NOTE: bitmap_bytes is reported to AWeb later, AFTER the render
+    * walk has completed and dec.bitmap has been transferred to
+    * ss->bitmap.  Reporting it here (i.e. before the render) caused a
+    * visible regression on multi-path SVGs such as the Wikipedia
+    * logo: AOSRC_Memory in source.c sets flushsources=TRUE via
+    * Deferflushmem, and the main task processes the resulting
+    * Flushexcess pass while the parser subtask is still drawing into
+    * a bitmap that is not yet owned by the source object.  PNG and
+    * JFIF announce their memory only after their source bitmap is
+    * wired up, and the SVG plugin must follow the same ordering. */
    if(dec.decflags&DECOF_P96DEEP)
    {  /* Allocate one R8G8B8 framebuffer for the entire SVG and write
        * into it directly from every drawing primitive.  At the end
@@ -3670,7 +4705,11 @@ static void Parsertask(void *userdata)
    }
    else
    {  dec.currentpen=-1;
-      Setpen(&dec,0);
+      /* Keep palette destinations visually consistent with the RTG chunky
+       * path above.  Pen 0 is often the Workbench/AWeb grey, which makes
+       * light grey icons such as mac.svg appear blank against themselves. */
+      bgpen=Getpen(&dec,0xffffffUL);
+      Setpen(&dec,bgpen);
       RectFill(&dec.rp,0,0,bmw-1,bmh-1);
    }
 
@@ -3746,12 +4785,30 @@ static void Parsertask(void *userdata)
    ReleaseSemaphore(&ss->sema);
    dec.bitmap=NULL; /* now owned by ss */
 
-   Updatetaskattrs(
-      AOSVG_Width,bmw,
-      AOSVG_Height,bmh,
-      AOSVG_Imgready,TRUE,
-      AOSVG_Parseready,TRUE,
-      TAG_END);
+   /* Announce final state in one round trip: width, height, ready
+    * flags and the AOSVG_Memory tally that feeds AWeb's chip-RAM
+    * cache flusher.  The memory line MUST be in this message rather
+    * than emitted earlier: ss->bitmap is now wired up, so if a
+    * subsequent Flushexcess pass disposes us we will tear down
+    * cleanly via Disposesource -> Releaseimage instead of orphaning
+    * the still-subtask-owned bitmap. */
+   if(bitmap_bytes>0)
+   {  Updatetaskattrs(
+         AOSVG_Width,bmw,
+         AOSVG_Height,bmh,
+         AOSVG_Imgready,TRUE,
+         AOSVG_Parseready,TRUE,
+         AOSVG_Memory,bitmap_bytes,
+         TAG_END);
+   }
+   else
+   {  Updatetaskattrs(
+         AOSVG_Width,bmw,
+         AOSVG_Height,bmh,
+         AOSVG_Imgready,TRUE,
+         AOSVG_Parseready,TRUE,
+         TAG_END);
+   }
 
 cleanup:
    SVGLOG(("SVG: Parsertask cleanup\n"));
@@ -3809,6 +4866,15 @@ static ULONG Getsource(struct Svgsource *ss, struct Amset *amset)
    return 0;
 }
 
+/* Forward declaration: defined further down alongside the other
+ * source teardown helpers.  Needed here so the AOAPP_Screenvalid
+ * FALSE branch in Setsource can share the same teardown sequence as
+ * Disposesource - including the Anotifyset(AOSVG_Bitmap, NULL, ...)
+ * that tells our Svgcopy children to drop their references before
+ * we FreeBitMap, and the AOSRC_Memory=0 update that releases our
+ * contribution to the cache flusher's tally. */
+static void Releaseimage(struct Svgsource *ss);
+
 static ULONG Setsource(struct Svgsource *ss, struct Amset *amset)
 {  struct TagItem *tag,*tstate;
    Amethodas(AOTP_SOURCEDRIVER,(struct Aobject *)ss,AOM_SET,amset->tags);
@@ -3841,30 +4907,15 @@ static ULONG Setsource(struct Svgsource *ss, struct Amset *amset)
                   Startparser(ss);
             }
             else
-            {  short i;
+            {  /* Screen is going away: stop the parser so it cannot
+                * be mid-write into the bitmap, then tear down the
+                * image with Releaseimage so chip RAM is returned to
+                * the system and AWeb's cache tally is zeroed.  The
+                * source itself stays alive - if the screen comes
+                * back later AOSDV_Displayed=TRUE in Setsource will
+                * restart the parser and produce a fresh bitmap. */
                if(ss->task) { Adisposeobject(ss->task); ss->task=NULL; }
-               if(ss->bitmap)
-               {  if(P96Base && p96GetBitMapAttr(ss->bitmap,P96BMA_ISP96))
-                     p96FreeBitMap(ss->bitmap);
-                  else
-                     FreeBitMap(ss->bitmap);
-                  ss->bitmap=NULL;
-               }
-               if(ss->mask) { FreeVec(ss->mask); ss->mask=NULL; }
-               if(ss->colormap)
-               {  for(i=0;i<256;i++)
-                  {  while(ss->allocated[i])
-                     {  ReleasePen(ss->colormap,i);
-                        ss->allocated[i]--;
-                     }
-                  }
-                  ss->colormap=NULL;
-               }
-               ss->width=0;
-               ss->height=0;
-               ss->memory=0;
-               ss->flags&=~SVGSF_IMAGEREADY;
-               Asetattrs(ss->source,AOSRC_Memory,0,TAG_END);
+               Releaseimage(ss);
             }
             break;
       }
@@ -3949,23 +5000,42 @@ static void Releasedata(struct Svgsource *ss)
    }
 }
 
-static void Disposesource(struct Svgsource *ss)
+/* Notify any attached copy drivers that our bitmap is going away,
+ * release the bitmap / mask / pens, and reset the per-image state.
+ *
+ * Must be called AFTER the parser subtask has been disposed.  The
+ * subtask owns dec.bitmap during render and only transfers
+ * ownership to ss->bitmap right before exiting; freeing ss->bitmap
+ * while the subtask is still drawing would risk a use-after-free
+ * in graphics.library or Picasso96.
+ *
+ * The Anotifyset(ss->source, AOSVG_Bitmap, NULL, ...) call mirrors
+ * the convention used by the PNG and JFIF plugins: it forwards a
+ * NULL bitmap down to every Svgcopy that referenced this source so
+ * the copy driver clears its own bitmap pointer before we
+ * deallocate the actual storage.  Without it, Disposecopy could
+ * later dereference a dangling pointer if anything had set
+ * SVGCF_OURBITMAP in the future.
+ *
+ * Finally, Asetattrs(ss->source, AOSRC_Memory, 0, ...) zeroes our
+ * contribution to the global cache-pressure tally maintained in
+ * source.c.  Because Parsertask reports bitmap_bytes via
+ * AOSVG_Memory after allocation, this is what actually lets AWeb's
+ * cache flusher reclaim our chip RAM when memory runs low. */
+static void Releaseimage(struct Svgsource *ss)
 {  short i;
-   if(ss->task) { Adisposeobject(ss->task); ss->task=NULL; }
+   Anotifyset(ss->source,AOSVG_Bitmap,NULL,TAG_END);
    if(ss->bitmap)
    {  if(P96Base && p96GetBitMapAttr(ss->bitmap,P96BMA_ISP96))
          p96FreeBitMap(ss->bitmap);
       else
          FreeBitMap(ss->bitmap);
+      ss->bitmap=NULL;
    }
-   if(ss->mask) FreeVec(ss->mask);
-   ss->bitmap=NULL;
-   ss->mask=NULL;
-   ss->width=0;
-   ss->height=0;
-   ss->flags&=~SVGSF_IMAGEREADY;
-   ss->memory=0;
-   Asetattrs(ss->source,AOSRC_Memory,0,TAG_END);
+   if(ss->mask)
+   {  FreeVec(ss->mask);
+      ss->mask=NULL;
+   }
    if(ss->colormap)
    {  for(i=0;i<256;i++)
       {  while(ss->allocated[i])
@@ -3975,6 +5045,17 @@ static void Disposesource(struct Svgsource *ss)
       }
       ss->colormap=NULL;
    }
+   ss->friendbitmap=NULL;
+   ss->width=0;
+   ss->height=0;
+   ss->flags&=~SVGSF_IMAGEREADY;
+   ss->memory=0;
+   Asetattrs(ss->source,AOSRC_Memory,0,TAG_END);
+}
+
+static void Disposesource(struct Svgsource *ss)
+{  if(ss->task) { Adisposeobject(ss->task); ss->task=NULL; }
+   Releaseimage(ss);
    Releasedata(ss);
    Aremchild(Aweb(),(struct Aobject *)ss,AOREL_APP_USE_SCREEN);
    Amethodas(AOTP_SOURCEDRIVER,(struct Aobject *)ss,AOM_DISPOSE);
