@@ -86,6 +86,7 @@ struct Gifimage
    UBYTE *mask;                     /* Transparent mask for this image */
    short delay;                     /* Delay in 0.01 seconds */
    BOOL ready;                      /* This image is ready */
+   long bytes;                      /* Cached BitMap+mask footprint */
 };
 
 /* The object instance data for the source driver */
@@ -119,6 +120,59 @@ struct Gifsource
 #define GIFSF_NOANIMATE    0x0040   /* Animation prohibited */
 #define GIFSF_TIMERWAIT    0x0080   /* Timer is running */
 #define GIFSF_LOWPRI       0x0100   /* Run decoder at low pri */
+
+/*--------------------------------------------------------------------*/
+/* Memory accounting helpers                                          */
+/*                                                                    */
+/* Animated GIFs may hold an arbitrary number of decoded frames, each */
+/* with its own BitMap and optional 1-bit transparency mask, plus the */
+/* original encoded byte stream in gs->data which has to be retained  */
+/* for saving and for re-decoding when the screen mode changes.       */
+/* GifSourceMemoryBytes() walks both lists under the source semaphore */
+/* and produces one absolute byte count so source.c can apply         */
+/* Flushexcess pressure against the full footprint, not just the      */
+/* current frame.                                                     */
+/*--------------------------------------------------------------------*/
+
+static ULONG Addmemorybytes(ULONG total,ULONG add)
+{  if(total>=0x7fffffffUL) return 0x7fffffffUL;
+   if(add>0x7fffffffUL-total) return 0x7fffffffUL;
+   return total+add;
+}
+
+static ULONG GifSourceMemoryBytes(struct Gifsource *gs)
+{  ULONG total;
+   struct Datablock *db;
+   struct Gifimage *gi;
+   if(!gs) return 0;
+   total=0;
+   ObtainSemaphore(&gs->sema);
+   /* ezlists tail sentinel has next==NULL; iterate up to but not
+    * including it for both lists. */
+   for(db=gs->data.first;db && db->next;db=db->next)
+   {  if(db->length>0)
+      {  total=Addmemorybytes(total,
+            (ULONG)sizeof(struct Datablock)+(ULONG)db->length);
+      }
+   }
+   for(gi=gs->images.first;gi && gi->next;gi=gi->next)
+   {  if(gi->bytes>0)
+      {  total=Addmemorybytes(total,(ULONG)gi->bytes);
+      }
+   }
+   ReleaseSemaphore(&gs->sema);
+   return total;
+}
+
+static void ReportSourceMemory(struct Gifsource *gs)
+{  ULONG bytes;
+   if(!gs) return;
+   bytes=GifSourceMemoryBytes(gs);
+   gs->memory=(long)bytes;
+   if(gs->source)
+   {  Asetattrs(gs->source,AOSRC_Memory,gs->memory,TAG_END);
+   }
+}
 
 /*--------------------------------------------------------------------*/
 /* The decoder subtask                                                */
@@ -1058,22 +1112,50 @@ static BOOL Parsegifimage(struct Decoder *decoder)
       {  Aprintf("GIF: Parsegifimage: Gifimage allocation failed\n");
       }
       #endif
+      /* Plug a real leak: decoder->bitmap (and decoder->mask) have
+       * already been allocated for this frame but they have not yet
+       * been published to any Gifimage node, so without this
+       * cleanup they would dangle in chip RAM for the lifetime of
+       * the page. */
+      if(decoder->mask)
+      {  FreeVec(decoder->mask);
+         decoder->mask=NULL;
+      }
+      if(decoder->bitmap)
+      {  FreeBitMap(decoder->bitmap);
+         decoder->bitmap=NULL;
+      }
       return FALSE;
    }
    gi->bitmap=decoder->bitmap;
    gi->mask=decoder->mask;
    gi->delay=delay;
+   /* Cache this frame's BitMap+mask footprint so the main task's
+    * ReportSourceMemory() can sum across every animation frame in
+    * gs->images without having to recompute from p96 attributes
+    * under the semaphore.  Note: maskw is already in bytes (see
+    * the P96BMA_WIDTH/8 and BytesPerRow assignments above), so the
+    * mask byte count is maskw*height with no further division. */
+   gi->bytes=
+      (long)((ULONG)decoder->width*(ULONG)decoder->height
+         *(ULONG)decoder->depth/8UL)
+      +(long)(decoder->mask
+         ?(ULONG)decoder->maskw*(ULONG)decoder->height
+         :0UL);
 
    ObtainSemaphore(&decoder->source->sema);
    ADDTAIL(&decoder->source->images,gi);
    if(!(decoder->source->flags&GIFSF_TIMERWAIT)) decoder->source->current=gi;
    ReleaseSemaphore(&decoder->source->sema);
+   /* AOGIF_Memory carries the subtask's absolute snapshot of
+    * GifSourceMemoryBytes() but Updatesource() recomputes; see the
+    * comment in awebgif.h.  The other tags continue to carry per-
+    * frame state. */
    Updatetaskattrs(
       AOGIF_Readyfrom,0,
       AOGIF_Readyto,-1,
       AOGIF_Imgready,FALSE,
-      AOGIF_Memory,decoder->width*decoder->height*decoder->depth/8+
-         (decoder->mask?(decoder->maskw*decoder->height/8):0),
+      AOGIF_Memory,(long)GifSourceMemoryBytes(decoder->source),
       TAG_END);
 
    InitRastPort(&decoder->rp);
@@ -1282,12 +1364,14 @@ static void Releaseimage(struct Gifsource *gs)
 {  int i;
    struct Gifimage *gi;
    Anotifyset(gs->source,AOGIF_Bitmap,NULL,TAG_END);
+   ObtainSemaphore(&gs->sema);
    while(gi=REMHEAD(&gs->images))
    {  if(gi->bitmap) FreeBitMap(gi->bitmap);
       if(gi->mask) FreeVec(gi->mask);
       FreeVec(gi);
    }
    gs->current=NULL;
+   ReleaseSemaphore(&gs->sema);
    for(i=0;i<256;i++)
    {  while(gs->allocated[i])
       {  ReleasePen(gs->colormap,i);
@@ -1296,17 +1380,23 @@ static void Releaseimage(struct Gifsource *gs)
    }
    gs->colormap=NULL;
    gs->flags&=~(GIFSF_IMAGEREADY|GIFSF_ANIMREADY);
-   gs->memory=0;
-   Asetattrs(gs->source,AOSRC_Memory,0,TAG_END);
+   /* Republish the remaining footprint via the helper rather than
+    * hard-coding AOSRC_Memory=0: gs->data still holds the encoded
+    * GIF bytes (it is only freed by Releasedata from Disposesource),
+    * and Flushexcess needs to keep seeing that cost. */
+   ReportSourceMemory(gs);
 }
 
 /* Delete all source data.  The node and its payload share a single
  * AllocVec (see Newdatablock), so one FreeVec releases everything. */
 static void Releasedata(struct Gifsource *gs)
 {  struct Datablock *db;
+   ObtainSemaphore(&gs->sema);
    while(db=REMHEAD(&gs->data))
    {  FreeVec(db);
    }
+   ReleaseSemaphore(&gs->sema);
+   ReportSourceMemory(gs);
 }
 
 /* Check if an AWeb window is active */
@@ -1607,6 +1697,12 @@ static ULONG Srcupdatesource(struct Gifsource *gs,struct Amsrcupdate *amsrcupdat
          ObtainSemaphore(&gs->sema);
          ADDTAIL(&gs->data,db);
          ReleaseSemaphore(&gs->sema);
+         /* The encoded GIF bytes persist in gs->data until
+          * Disposesource -> Releasedata.  Push the new absolute
+          * total onto AOSRC_Memory now so AWeb's Flushexcess can
+          * see the in-flight bitstream as well as any frames
+          * already decoded into gs->images. */
+         ReportSourceMemory(gs);
       }
       if(!gs->task)
       {  Startdecoder(gs);
@@ -1683,10 +1779,14 @@ static ULONG Updatesource(struct Gifsource *gs,struct Amset *amset)
          case AOGIF_Error:
             break;
          case AOGIF_Memory:
-            gs->memory+=tag->ti_Data;
-            Asetattrs(gs->source,
-               AOSRC_Memory,gs->memory,
-               TAG_END);
+            /* Kick from the parser subtask: a new animation frame
+             * has just been published and gi->bytes set, OR an
+             * existing frame was reclaimed.  Recompute on the main
+             * task rather than trusting the carried snapshot:
+             * additional Datablocks may have arrived via
+             * Srcupdatesource between the subtask posting this
+             * message and us processing it. */
+            ReportSourceMemory(gs);
             break;
          case AOTIM_Ready:
             if(tag->ti_Data)

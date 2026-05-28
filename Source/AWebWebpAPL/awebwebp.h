@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2026 amigazen project
@@ -80,4 +80,10 @@ extern __saveds __asm ULONG Dispatchcopy(
    /* (UBYTE *) Transparent mask for the image */
 
 #define AOWEBP_Memory    (AOWEBP_Dummy+10)
-   /* (long) Add this amount of memory to current usage */
+   /* (long) Absolute source-owned memory accounting in bytes.
+    * The subtask computes the total via WebpSourceMemoryBytes() which
+    * sums the cached data-block bytes plus the cached bitmap/mask
+    * footprint; the main task's Updatesource handler propagates this
+    * straight onto AOSRC_Memory so AWeb's chip-RAM cache pressure can
+    * see the full cost of holding the encoded WebP plus the decoded
+    * BitMap.  Senders MUST set, not add, this attribute. */

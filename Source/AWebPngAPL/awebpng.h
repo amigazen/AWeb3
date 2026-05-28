@@ -79,6 +79,6 @@ extern void Pngsource_freepool(void);
    /* (UBYTE *) Transparent mask for the image */
 
 #define AOPNG_Memory    (AOPNG_Dummy+10)
-   /* (long) Add this amount of memory to current usage */
+   /* (long) Source memory changed; recompute absolute bytes on main task */
 
 

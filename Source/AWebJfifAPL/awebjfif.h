@@ -59,5 +59,10 @@ extern __saveds __asm ULONG Dispatchcopy(
    /* (BOOL) The image is ready */
 
 #define AOJFIF_Memory    (AOJFIF_Dummy+9)
-   /* (long) Add this amount of memory to current usage */
+   /* (long) Absolute source-owned memory accounting in bytes.
+    * The decoder subtask uses this as a "kick" so the main task
+    * recomputes JfifSourceMemoryBytes() and pushes the result onto
+    * AOSRC_Memory; the carried value is the subtask's snapshot and
+    * is intentionally discarded by Updatesource() to avoid stale
+    * data rolling AOSRC_Memory back below the true footprint. */
 

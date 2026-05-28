@@ -90,7 +90,12 @@ extern BOOL animate;
    /* (BOOL) The last animation frame is complete */
 
 #define AOGIF_Memory    (AOGIF_Dummy+14)
-   /* (long) Add this amount of memory to current usage */
+   /* (long) Absolute source-owned memory accounting in bytes.
+    * The carried value is the subtask's snapshot of
+    * GifSourceMemoryBytes() (encoded Datablocks + every animation
+    * frame's BitMap/mask), but Updatesource() discards it and
+    * recomputes from the current Gifsource state.  Senders MUST
+    * set (not add) this attribute. */
 
 #define AOGIF_Maxloops  (AOGIF_Dummy+15)
    /* (long) Maximum number of loops to show, or -1 for infinite. */

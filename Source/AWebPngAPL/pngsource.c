@@ -123,7 +123,8 @@ struct Pngsource
    UBYTE *mask;                     /* Transparent mask for the image */
    long width,height;               /* Bitmap dimensions */
    long ready;                      /* Last complete row in bitmap */
-   long memory;                     /* Memory in use */
+   long memory;                     /* Memory in use (absolute, in bytes) */
+   long bitmap_bytes;               /* Cached BitMap+mask footprint */
    LIST(Datablock) data;            /* A linked list of data blocks */
    struct SignalSemaphore sema;     /* Protect the common data */
    USHORT flags;                    /* See below */
@@ -143,6 +144,52 @@ struct Pngsource
 #define PNGSF_READY        0x0010   /* Decoding is ready */
 #define PNGSF_LOWPRI       0x0020   /* Run decoder at low priority */
 #define PNGSF_DISPOSING    0x0040   /* Source is being disposed - decoder should exit */
+
+/*--------------------------------------------------------------------*/
+/* Memory accounting helpers                                          */
+/*                                                                    */
+/* PNG sources keep the original encoded byte stream in ps->data so   */
+/* they can be saved or decoded again after a screen mode change. The */
+/* decoded BitMap and optional transparency mask add a second, often  */
+/* chip-RAM-heavy, footprint once parsing has progressed far enough.  */
+/* These helpers report both parts to AOSRC_Memory so source.c can    */
+/* make honest cache-flush decisions under memory pressure.           */
+/*--------------------------------------------------------------------*/
+
+static ULONG Addmemorybytes(ULONG total,ULONG add)
+{  if(total>=0x7fffffffUL) return 0x7fffffffUL;
+   if(add>0x7fffffffUL-total) return 0x7fffffffUL;
+   return total+add;
+}
+
+static ULONG PngSourceMemoryBytes(struct Pngsource *ps)
+{  ULONG total;
+   struct Datablock *db;
+   if(!ps) return 0;
+   total=0;
+   ObtainSemaphore(&ps->sema);
+   for(db=ps->data.first;db && db->next;db=db->next)
+   {  if(db->length>0)
+      {  total=Addmemorybytes(total,
+            (ULONG)sizeof(struct Datablock)+(ULONG)db->length);
+      }
+   }
+   if(ps->bitmap_bytes>0)
+   {  total=Addmemorybytes(total,(ULONG)ps->bitmap_bytes);
+   }
+   ReleaseSemaphore(&ps->sema);
+   return total;
+}
+
+static void ReportSourceMemory(struct Pngsource *ps)
+{  ULONG bytes;
+   if(!ps) return;
+   bytes=PngSourceMemoryBytes(ps);
+   ps->memory=(long)bytes;
+   if(ps->source)
+   {  Asetattrs(ps->source,AOSRC_Memory,ps->memory,TAG_END);
+   }
+}
 
 /*--------------------------------------------------------------------*/
 /* The decoder subtask                                                */
@@ -456,6 +503,10 @@ static BOOL Parsepngimage(struct Decoder *decoder)
    BOOL error=FALSE;
    BOOL usewritechunky;
    int pi;
+   ULONG bitmapbytes;
+   BOOL probable_deep=FALSE;
+   long yy;
+   long rowwidth;
    /* 256-entry hash cache for RGB->screen-pen lookups on 8-bit colour
     * paths.  ObtainBestPen() is by far the most expensive operation in
     * the 8-bit pixel loop (it walks the system colormap on every call).
@@ -536,35 +587,34 @@ static BOOL Parsepngimage(struct Decoder *decoder)
           * never produces incorrect output - only a possible speed
           * regression in an edge case that almost never occurs in
           * practice. */
-         {  BOOL probable_deep=FALSE;
-            if(P96Base && decoder->source && decoder->source->friendbitmap
-               && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96)
-               && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH)>8)
-            {  probable_deep=TRUE;
+         probable_deep=FALSE;
+         if(P96Base && decoder->source && decoder->source->friendbitmap
+            && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96)
+            && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH)>8)
+         {  probable_deep=TRUE;
+         }
+         if(probable_deep)
+         {  /* Both functions are no-ops on incompatible colortypes. */
+            png_set_palette_to_rgb(png);
+            png_set_gray_to_rgb(png);
+            if(png_get_valid(png,pnginfo,PNG_INFO_tRNS))
+            {  png_set_tRNS_to_alpha(png);
+               decoder->flags|=DECOF_TRANSPARENT;
             }
-            if(probable_deep)
-            {  /* Both functions are no-ops on incompatible colortypes. */
-               png_set_palette_to_rgb(png);
-               png_set_gray_to_rgb(png);
-               if(png_get_valid(png,pnginfo,PNG_INFO_tRNS))
-               {  png_set_tRNS_to_alpha(png);
-                  decoder->flags|=DECOF_TRANSPARENT;
+         }
+         else
+         {  /* 8-bit colormap target: keep palette as palette (so the
+             * fast LUT path can be used) and expand only what the
+             * downstream code needs. */
+            if(png_get_valid(png,pnginfo,PNG_INFO_tRNS))
+            {  if(colortype==PNG_COLOR_TYPE_PALETTE)
+               {  png_get_tRNS(png,pnginfo,&trans,&ntrans,NULL);
                }
-            }
-            else
-            {  /* 8-bit colormap target: keep palette as palette (so the
-                * fast LUT path can be used) and expand only what the
-                * downstream code needs. */
-               if(png_get_valid(png,pnginfo,PNG_INFO_tRNS))
-               {  if(colortype==PNG_COLOR_TYPE_PALETTE)
-                  {  png_get_tRNS(png,pnginfo,&trans,&ntrans,NULL);
-                  }
-                  else
-                  {  /* Expand grayscale or color tRNS to alpha channel */
-                     png_set_expand(png);
-                  }
-                  decoder->flags|=DECOF_TRANSPARENT;
+               else
+               {  /* Expand grayscale or color tRNS to alpha channel */
+                  png_set_expand(png);
                }
+               decoder->flags|=DECOF_TRANSPARENT;
             }
          }
 
@@ -642,7 +692,10 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
                BMF_CLEAR|BMF_MINPLANES,NULL);
          }
-         if(!decoder->bitmap) return FALSE;
+         if(!decoder->bitmap)
+         {  error=TRUE;
+            goto cleanup;
+         }
          if(decoder->flags&DECOF_TRANSPARENT)
          {  if(decoder->flags&DECOF_P96MAP)
             {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
@@ -652,6 +705,12 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             }
             decoder->mask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
                MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_P96MAP?0:MEMF_CHIP));
+            if(!decoder->mask)
+            {  FreeBitMap(decoder->bitmap);
+               decoder->bitmap=NULL;
+               error=TRUE;
+               goto cleanup;
+            }
          }
 #ifdef DEBUG_PLUGINS
          PngLog("parse","bitmap %lux%lu depth=%ld p96map=%d mask=%p",
@@ -662,19 +721,42 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          /* Save our bitmap and dimensions. */
          /* Check source is still valid and not being disposed before accessing */
          if(!decoder->source)
-         {  error=TRUE;
+         {  if(decoder->mask)
+            {  FreeVec(decoder->mask);
+               decoder->mask=NULL;
+            }
+            if(decoder->bitmap)
+            {  FreeBitMap(decoder->bitmap);
+               decoder->bitmap=NULL;
+            }
+            error=TRUE;
             goto cleanup;
          }
          ObtainSemaphore(&decoder->source->sema);
          if(decoder->source->flags&PNGSF_DISPOSING)
          {  ReleaseSemaphore(&decoder->source->sema);
+            if(decoder->mask)
+            {  FreeVec(decoder->mask);
+               decoder->mask=NULL;
+            }
+            if(decoder->bitmap)
+            {  FreeBitMap(decoder->bitmap);
+               decoder->bitmap=NULL;
+            }
             error=TRUE;
             goto cleanup;
+         }
+         bitmapbytes=Addmemorybytes(0,(ULONG)decoder->width
+            *(ULONG)decoder->height*(ULONG)depth/8UL);
+         if(decoder->mask)
+         {  bitmapbytes=Addmemorybytes(bitmapbytes,
+               (ULONG)decoder->maskw*(ULONG)decoder->height);
          }
          decoder->source->bitmap=decoder->bitmap;
          decoder->source->mask=decoder->mask;
          decoder->source->width=decoder->width;
          decoder->source->height=decoder->height;
+         decoder->source->bitmap_bytes=(long)bitmapbytes;
          /* Check disposing flag while holding semaphore to avoid race condition */
          if(decoder->source->flags&PNGSF_DISPOSING)
          {  ReleaseSemaphore(&decoder->source->sema);
@@ -684,8 +766,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          ReleaseSemaphore(&decoder->source->sema);
 
          Updatetaskattrs(
-            AOPNG_Memory,decoder->width*decoder->height*depth/8+
-               (decoder->mask?(decoder->maskw*decoder->height/8):0),
+            AOPNG_Memory,(long)PngSourceMemoryBytes(decoder->source),
             TAG_END);
 #ifdef DEBUG_PLUGINS
          PngLog("parse","source wired to bitmap");
@@ -826,11 +907,9 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                {  png_read_rows(png,NULL,&buffer,1);
                }
 #ifdef DEBUG_PLUGINS
-               {  long yy;
-                  yy=(long)y;
-                  if(yy==0L || (yy&31L)==0L || yy==(long)(decoder->height-1))
-                  {  PngLog("parse","row y=%ld/%ld pass=%ld",(long)y,(long)decoder->height,(long)pass);
-                  }
+               yy=(long)y;
+               if(yy==0L || (yy&31L)==0L || yy==(long)(decoder->height-1))
+               {  PngLog("parse","row y=%ld/%ld pass=%ld",(long)y,(long)decoder->height,(long)pass);
                }
 #endif
 
@@ -1006,17 +1085,16 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                         }
                         if(trow)
                         {  if(trans && ntrans>0)
-                           {  png_byte *s=buffer;
-                              long w=(long)width;
-                              for(x=0;x<w;x++)
-                              {  pen=s[x];
+                           {  rowwidth=(long)width;
+                              for(x=0;x<rowwidth;x++)
+                              {  pen=buffer[x];
                                  if(!(pen<ntrans && trans[pen]<THRESHOLD))
                                     trow[x>>3]|=0x80>>(x&0x7);
                               }
                            }
                            else
-                           {  long w=(long)width;
-                              for(x=0;x<w;x++) trow[x>>3]|=0x80>>(x&0x7);
+                           {  rowwidth=(long)width;
+                              for(x=0;x<rowwidth;x++) trow[x>>3]|=0x80>>(x&0x7);
                            }
                         }
                         break;
@@ -1056,8 +1134,8 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                            }
                         }
                         if(trow)
-                        {  long w=(long)width;
-                           for(x=0;x<w;x++) trow[x>>3]|=0x80>>(x&0x7);
+                        {  rowwidth=(long)width;
+                           for(x=0;x<rowwidth;x++) trow[x>>3]|=0x80>>(x&0x7);
                         }
                         break;
                      case PNG_COLOR_TYPE_RGB_ALPHA:
@@ -1260,7 +1338,10 @@ static void Startdecoder(struct Pngsource *ps)
  * Delete the bitmap, and release all obtained pens. */
 static void Releaseimage(struct Pngsource *ps)
 {  short i;
-   Anotifyset(ps->source,AOPNG_Bitmap,NULL,TAG_END);
+   Anotifyset(ps->source,
+      AOPNG_Bitmap,NULL,
+      AOPNG_Mask,NULL,
+      TAG_END);
    if(ps->bitmap)
    {  FreeBitMap(ps->bitmap);
       ps->bitmap=NULL;
@@ -1277,17 +1358,20 @@ static void Releaseimage(struct Pngsource *ps)
    }
    ps->colormap=NULL;
    ps->flags&=~PNGSF_READY;
-   ps->memory=0;
-   Asetattrs(ps->source,AOSRC_Memory,0,TAG_END);
+   ps->bitmap_bytes=0;
+   ReportSourceMemory(ps);
 }
 
 /* Delete all source data.  The node and its payload share a single
  * AllocVec (see Newdatablock), so one FreeVec releases everything. */
 static void Releasedata(struct Pngsource *ps)
 {  struct Datablock *db;
+   ObtainSemaphore(&ps->sema);
    while(db=REMHEAD(&ps->data))
    {  FreeVec(db);
    }
+   ReleaseSemaphore(&ps->sema);
+   ReportSourceMemory(ps);
 }
 
 /*--------------------------------------------------------------------*/
@@ -1398,6 +1482,7 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
    UBYTE *data=NULL;
    long datalength=0;
    BOOL eof=FALSE;
+   struct Datablock *db=NULL;
 #ifdef DEBUG_PLUGINS
    PngLog("src","Srcupdatesource called, ps=0x%08lx, amsrcupdate=0x%08lx",(ULONG)ps,(ULONG)amsrcupdate);
 #endif
@@ -1429,7 +1514,7 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
       }
    }
    if(data && datalength)
-   {  struct Datablock *db;
+   {
 #ifdef DEBUG_PLUGINS
       PngLog("src","Srcupdatesource: Allocating datablock, datalength=%ld",datalength);
 #endif
@@ -1445,6 +1530,7 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
 #ifdef DEBUG_PLUGINS
          PngLog("src","Srcupdatesource: Datablock added");
 #endif
+         ReportSourceMemory(ps);
       }
       else
       {  #ifdef DEBUG_PLUGINS
@@ -1500,10 +1586,14 @@ static ULONG Updatesource(struct Pngsource *ps,struct Amset *amset)
          case AOPNG_Error:
             break;
          case AOPNG_Memory:
-            ps->memory+=tag->ti_Data;
-            Asetattrs(ps->source,
-               AOSRC_Memory,ps->width*ps->height,
-               TAG_END);
+            /* The decoder subtask sends AOPNG_Memory after it has
+             * published a new bitmap_bytes value.  Recompute on the
+             * main task instead of trusting the carried snapshot:
+             * additional Datablocks may have arrived before this
+             * update is delivered, and using the stale subtask value
+             * would roll AOSRC_Memory back below the true footprint. */
+            ReportSourceMemory(ps);
+            break;
       }
    }
    if(notify && ps->bitmap)

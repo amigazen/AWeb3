@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2026 amigazen project
@@ -121,7 +121,8 @@ struct Webpsource
    UBYTE *mask;                     /* Transparent mask for the image */
    long width,height;               /* Bitmap dimensions */
    long ready;                      /* Last complete row in bitmap */
-   long memory;                     /* Memory in use */
+   long memory;                     /* Memory in use (absolute, in bytes) */
+   long bitmap_bytes;               /* Cached BitMap+mask footprint */
    LIST(Datablock) data;            /* A linked list of data blocks */
    struct SignalSemaphore sema;     /* Protect the common data */
    USHORT flags;                    /* See below */
@@ -143,6 +144,61 @@ struct Webpsource
 #define WEBPSF_GRAYSCALE   0x0010   /* Grayscale requested (reserved) */
 #define WEBPSF_LOWPRI      0x0020   /* Run decoder at low priority */
 #define WEBPSF_DISPOSING   0x0040   /* Source is being disposed */
+
+/*--------------------------------------------------------------------*/
+/* Memory accounting helpers                                          */
+/*                                                                    */
+/* The encoded WebP byte stream sits in ws->data (as a linked list of */
+/* Datablocks) for the entire lifetime of the source object, and the */
+/* decoded BitMap (plus optional 1-bit transparency mask) hangs off */
+/* ws->bitmap / ws->mask once the parser subtask has wired it up.    */
+/* WebpSourceMemoryBytes() collapses those two pots into a single   */
+/* number that the subtask can publish via AOWEBP_Memory so that    */
+/* AWeb's Flushexcess() in source.c can see the real cost of */
+/* holding the source - both the compressed bitstream and the */
+/* decoded planes - rather than only the bitmap.  The bitmap+mask */
+/* byte count is cached in ws->bitmap_bytes by Allocbitmap() under  */
+/* the same semaphore that publishes ws->bitmap, so we don't need */
+/* to call back into p96 from inside the semaphore here. */
+/*--------------------------------------------------------------------*/
+
+static ULONG Addmemorybytes(ULONG total, ULONG add)
+{  if(total>=0x7fffffffUL) return 0x7fffffffUL;
+   if(add>0x7fffffffUL-total) return 0x7fffffffUL;
+   return total+add;
+}
+
+static ULONG WebpSourceMemoryBytes(struct Webpsource *ws)
+{  ULONG total;
+   struct Datablock *db;
+   if(!ws) return 0;
+   total=0;
+   ObtainSemaphore(&ws->sema);
+   /* ezlists nodes always have a sentinel tail whose next is NULL */
+   for(db=ws->data.first;db && db->next;db=db->next)
+   {  if(db->length>0)
+         total=Addmemorybytes(total,
+            (ULONG)sizeof(struct Datablock)+(ULONG)db->length);
+   }
+   if(ws->bitmap_bytes>0)
+      total=Addmemorybytes(total,(ULONG)ws->bitmap_bytes);
+   ReleaseSemaphore(&ws->sema);
+   return total;
+}
+
+/* Push the current total memory footprint of ws onto AOSRC_Memory.
+ * Safe to call from the main task whenever the data-block list or
+ * the bitmap_bytes cache changes.  The decoder subtask uses
+ * Updatetaskattrs(AOWEBP_Memory,...) instead so the announcement is
+ * serialised onto the main task's message loop. */
+static void ReportSourceMemory(struct Webpsource *ws)
+{  ULONG bytes;
+   if(!ws) return;
+   bytes=WebpSourceMemoryBytes(ws);
+   ws->memory=(long)bytes;
+   if(ws->source)
+      Asetattrs(ws->source,AOSRC_Memory,ws->memory,TAG_END);
+}
 
 /*--------------------------------------------------------------------*/
 /* The decoder subtask                                                */
@@ -636,21 +692,46 @@ static BOOL Allocbitmap(struct Decoder *decoder)
       decoder->mask=(UBYTE *)AllocVec(
          (ULONG)(decoder->maskw*decoder->height),
          MEMF_PUBLIC|MEMF_CLEAR|memfchip);
-      if(!decoder->mask) return FALSE;
+      if(!decoder->mask)
+      {  /* Plug a real leak: we have already allocated the destination
+          * BitMap but haven't yet handed it to ws->bitmap, and
+          * Decoderelease() doesn't touch decoder->bitmap (because in
+          * the success path that BitMap is owned by ws->bitmap).  If
+          * we just bailed here the BitMap would dangle in chip RAM
+          * for the lifetime of the page. */
+         FreeBitMap(decoder->bitmap);
+         decoder->bitmap=NULL;
+         return FALSE;
+      }
    }
 
    /* Publish bitmap and dimensions on the source object so the
-    * copydriver can pick them up. */
+    * copydriver can pick them up.  Also cache the bitmap+mask
+    * footprint inside ws so that subsequent ReportSourceMemory()
+    * calls (e.g. when new Datablocks arrive) can include it in the
+    * AOSRC_Memory total without having to recompute it from p96
+    * attributes under the semaphore. */
    ObtainSemaphore(&decoder->source->sema);
    decoder->source->bitmap=decoder->bitmap;
    decoder->source->mask=decoder->mask;
    decoder->source->width=decoder->width;
    decoder->source->height=decoder->height;
+   decoder->source->bitmap_bytes=
+      (long)((ULONG)decoder->width*(ULONG)decoder->height
+         *(ULONG)decoder->depth/8UL)
+      +(long)(decoder->mask
+         ?(ULONG)decoder->maskw*(ULONG)decoder->height
+         :0UL);
    ReleaseSemaphore(&decoder->source->sema);
 
+   /* Announce the new absolute total (data blocks still in flight
+    * plus the just-published bitmap+mask) so AWeb's Flushexcess can
+    * see the full footprint.  The subtask publishes via
+    * Updatetaskattrs() so the message is serialised onto the main
+    * task; the main task's Updatesource(AOWEBP_Memory) handler
+    * propagates the absolute value straight onto AOSRC_Memory. */
    Updatetaskattrs(
-      AOWEBP_Memory,decoder->width*decoder->height*decoder->depth/8
-         +(decoder->mask?(decoder->maskw*decoder->height):0),
+      AOWEBP_Memory,(long)WebpSourceMemoryBytes(decoder->source),
       TAG_END);
 
    InitRastPort(&decoder->rp);
@@ -950,17 +1031,31 @@ static void Releaseimage(struct Webpsource *ws)
    }
    ws->colormap=NULL;
    ws->flags&=~WEBPSF_READY;
-   ws->memory=0;
-   Asetattrs(ws->source,AOSRC_Memory,0,TAG_END);
+   /* Drop the cached bitmap+mask footprint, then republish the new
+    * (data-blocks-only) total to AOSRC_Memory.  Doing it via
+    * ReportSourceMemory() rather than a hard-coded zero ensures we
+    * keep accounting for the encoded WebP bytes still sitting in
+    * ws->data: those only go away when Releasedata() is called from
+    * Disposesource. */
+   ws->bitmap_bytes=0;
+   ReportSourceMemory(ws);
 }
 
 /* Delete all source data.  The node and its payload share a single
  * AllocVec (see Newdatablock), so one FreeVec releases everything. */
 static void Releasedata(struct Webpsource *ws)
 {  struct Datablock *db;
+   ObtainSemaphore(&ws->sema);
    while(db=REMHEAD(&ws->data))
    {  FreeVec(db);
    }
+   ReleaseSemaphore(&ws->sema);
+   /* Push the new (now zero) total onto AOSRC_Memory.  When called
+    * from Disposesource() this update is largely cosmetic because
+    * the source is about to be torn down, but Releasedata() may
+    * also be reused in future cleanup paths and we want the
+    * invariant ws->memory == WebpSourceMemoryBytes(ws) to hold. */
+   ReportSourceMemory(ws);
 }
 
 /*--------------------------------------------------------------------*/
@@ -1095,6 +1190,13 @@ static ULONG Srcupdatesource(struct Webpsource *ws,
          ObtainSemaphore(&ws->sema);
          ADDTAIL(&ws->data,db);
          ReleaseSemaphore(&ws->sema);
+         /* The encoded WebP bytes are part of the source's
+          * persistent footprint - they stay in ws->data until
+          * Disposesource -> Releasedata is called.  Push the new
+          * total onto AOSRC_Memory now so AWeb's chip-RAM cache
+          * pressure accounts for the in-flight bitstream as well
+          * as the eventual decoded bitmap. */
+         ReportSourceMemory(ws);
       }
       if(!ws->task)
       {  Startdecoder(ws);
@@ -1131,10 +1233,18 @@ static ULONG Updatesource(struct Webpsource *ws,struct Amset *amset)
          case AOWEBP_Error:
             break;
          case AOWEBP_Memory:
-            ws->memory+=tag->ti_Data;
-            Asetattrs(ws->source,
-               AOSRC_Memory,ws->memory,
-               TAG_END);
+            /* AOWEBP_Memory is now a "kick" from the parser subtask
+             * telling the main task that the cached bitmap_bytes
+             * footprint has changed (typically after Allocbitmap()
+             * publishes the destination BitMap).  The carried value
+             * is the subtask's snapshot of WebpSourceMemoryBytes(),
+             * but we deliberately discard it here and recompute
+             * from the current Webpsource state: more Datablocks
+             * may have arrived on this main task between the
+             * subtask's Updatetaskattrs() call and us processing
+             * it, and trusting the stale snapshot would silently
+             * roll AOSRC_Memory back below the true footprint. */
+            ReportSourceMemory(ws);
             break;
       }
    }

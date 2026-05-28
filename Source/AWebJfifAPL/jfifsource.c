@@ -81,7 +81,8 @@ struct Jfifsource
    struct BitMap *bitmap;           /* The bitmap for the image */
    long width,height;               /* Bitmap dimensions */
    long ready;                      /* Last complete row in bitmap */
-   long memory;                     /* Memory in use */
+   long memory;                     /* Memory in use (absolute, in bytes) */
+   long bitmap_bytes;               /* Cached BitMap footprint */
    LIST(Datablock) data;            /* A linked list of data blocks */
    struct SignalSemaphore sema;     /* Protect the common data */
    USHORT flags;                    /* See below */
@@ -103,6 +104,55 @@ struct Jfifsource
 #define JFIFSF_GRAYSCALE   0x0010   /* Grayscale requested */
 #define JFIFSF_LOWPRI      0x0020   /* Run decoder at low priority */
 #define JFIFSF_MULTI       0x0040   /* Do progressive JPEGs progressively */
+
+/*--------------------------------------------------------------------*/
+/* Memory accounting helpers                                          */
+/*                                                                    */
+/* JPEG sources hold the original encoded bitstream in js->data so    */
+/* they remain saveable (and re-decodable on screen changes) after    */
+/* parsing finishes.  JFIF files routinely run to hundreds of KB, so  */
+/* leaving them out of AOSRC_Memory hides a large slice of the source */
+/* footprint from source.c's Flushexcess pressure logic.  These       */
+/* helpers fold the data-block list and the cached BitMap footprint   */
+/* into one absolute byte count and republish it whenever either pot  */
+/* changes.                                                           */
+/*--------------------------------------------------------------------*/
+
+static ULONG Addmemorybytes(ULONG total,ULONG add)
+{  if(total>=0x7fffffffUL) return 0x7fffffffUL;
+   if(add>0x7fffffffUL-total) return 0x7fffffffUL;
+   return total+add;
+}
+
+static ULONG JfifSourceMemoryBytes(struct Jfifsource *js)
+{  ULONG total;
+   struct Datablock *db;
+   if(!js) return 0;
+   total=0;
+   ObtainSemaphore(&js->sema);
+   /* ezlists tail sentinel has next==NULL; iterate up to but not including it. */
+   for(db=js->data.first;db && db->next;db=db->next)
+   {  if(db->length>0)
+      {  total=Addmemorybytes(total,
+            (ULONG)sizeof(struct Datablock)+(ULONG)db->length);
+      }
+   }
+   if(js->bitmap_bytes>0)
+   {  total=Addmemorybytes(total,(ULONG)js->bitmap_bytes);
+   }
+   ReleaseSemaphore(&js->sema);
+   return total;
+}
+
+static void ReportSourceMemory(struct Jfifsource *js)
+{  ULONG bytes;
+   if(!js) return;
+   bytes=JfifSourceMemoryBytes(js);
+   js->memory=(long)bytes;
+   if(js->source)
+   {  Asetattrs(js->source,AOSRC_Memory,js->memory,TAG_END);
+   }
+}
 
 /*--------------------------------------------------------------------*/
 /* The decoder subtask                                                */
@@ -339,15 +389,28 @@ static BOOL Decompress(struct Decoder *decoder)
 		{	error=TRUE;
 		}
       else
-      {  /* Save our bitmap and dimensions. */
+      {  /* Save our bitmap and dimensions.  Cache the BitMap footprint
+          * on the source object under the same semaphore so that the
+          * main task's ReportSourceMemory() (and our absolute
+          * AOJFIF_Memory kick below) see a consistent snapshot - the
+          * encoded data list may still be growing concurrently while
+          * the parser subtask is here. */
 	      ObtainSemaphore(&decoder->source->sema);
 	      decoder->source->bitmap=decoder->bitmap;
 	      decoder->source->width=decoder->width;
 	      decoder->source->height=decoder->height;
+	      decoder->source->bitmap_bytes=
+	         (long)((ULONG)decoder->width*(ULONG)decoder->height
+	            *(ULONG)depth/8UL);
 	      ReleaseSemaphore(&decoder->source->sema);
 
+	      /* AOJFIF_Memory is treated as a kick (see awebjfif.h);
+	       * the carried value is the subtask's snapshot but
+	       * Updatesource() discards it and recomputes from the
+	       * current Jfifsource state to avoid stale snapshots
+	       * rolling AOSRC_Memory backwards. */
 	      Updatetaskattrs(
-	         AOJFIF_Memory,decoder->width*decoder->height*depth/8,
+	         AOJFIF_Memory,(long)JfifSourceMemoryBytes(decoder->source),
 	         TAG_END);
 
 	      InitRastPort(&decoder->rp);
@@ -556,17 +619,25 @@ static void Releaseimage(struct Jfifsource *js)
    }
    js->colormap=NULL;
    js->flags&=~JFIFSF_READY;
-   js->memory=0;
-   Asetattrs(js->source,AOSRC_Memory,0,TAG_END);
+   /* Drop the cached BitMap footprint and republish the new
+    * (data-blocks-only) total.  We deliberately do NOT zero
+    * AOSRC_Memory unconditionally here: js->data may still hold a
+    * multi-MB encoded JPEG that source.c needs to see, and that data
+    * only goes away when Releasedata() runs from Disposesource. */
+   js->bitmap_bytes=0;
+   ReportSourceMemory(js);
 }
 
 /* Delete all source data.  The node and its payload share a single
  * AllocVec (see Newdatablock), so one FreeVec releases everything. */
 static void Releasedata(struct Jfifsource *js)
 {  struct Datablock *db;
+   ObtainSemaphore(&js->sema);
    while(db=REMHEAD(&js->data))
    {  FreeVec(db);
    }
+   ReleaseSemaphore(&js->sema);
+   ReportSourceMemory(js);
 }
 
 /*--------------------------------------------------------------------*/
@@ -733,6 +804,12 @@ static ULONG Srcupdatesource(struct Jfifsource *js,struct Amsrcupdate *amsrcupda
          ObtainSemaphore(&js->sema);
          ADDTAIL(&js->data,db);
          ReleaseSemaphore(&js->sema);
+         /* The encoded JFIF bytes persist in js->data until
+          * Disposesource -> Releasedata.  Push the new absolute
+          * total onto AOSRC_Memory now so AWeb's Flushexcess can
+          * account for the in-flight bitstream as well as any
+          * decoded BitMap that may already be wired up. */
+         ReportSourceMemory(js);
       }
       if(!js->task)
       {  Startdecoder(js);
@@ -769,10 +846,13 @@ static ULONG Updatesource(struct Jfifsource *js,struct Amset *amset)
          case AOJFIF_Error:
             break;
          case AOJFIF_Memory:
-            js->memory+=tag->ti_Data;
-            Asetattrs(js->source,
-               AOSRC_Memory,js->memory,
-               TAG_END);
+            /* Kick from the parser subtask: the bitmap_bytes cache
+             * may have changed.  Recompute on the main task so we
+             * don't trust a stale snapshot - additional Datablocks
+             * may have been queued via Srcupdatesource between the
+             * subtask posting this message and us processing it. */
+            ReportSourceMemory(js);
+            break;
       }
    }
    if(notify && js->bitmap)
