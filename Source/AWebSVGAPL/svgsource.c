@@ -427,6 +427,13 @@ static ULONG g_cpu_mops_x256 = 0;
  * whole loop into a noop. */
 static volatile ULONG g_bench_sink = 0;
 
+static LONG fmul(LONG a, LONG b);
+static LONG fdiv(LONG num, LONG denom);
+static LONG fsqrt(LONG x);
+#ifdef DEBUG_PLUGINS
+static void Benchmarksvgmathlibs(void);
+#endif
+
 /* Run a fixed-cost integer mix that resembles the inner loops in
  * Fillspan's gradient and alpha paths (fmul, fdiv, branches, byte
  * compositing).  Times it with ElapsedTime and stores the result in
@@ -503,6 +510,9 @@ static void Benchmarkcpu(void)
    }
    SVGLOG(("SVG: benchmark = %lu/256 MOPS (et=0x%08lx)\n",
       g_cpu_mops_x256,(unsigned long)et));
+#ifdef DEBUG_PLUGINS
+   Benchmarksvgmathlibs();
+#endif
 }
 
 /* Conservative quality flags chosen from exec.library/AttnFlags when
@@ -1192,6 +1202,142 @@ static LONG fsqrt(LONG x)
    }
    return y;
 }
+
+#ifdef DEBUG_PLUGINS
+static UBYTE g_svg_mathbench_done = FALSE;
+
+/* Candidate 16.16 division path using utility.library/UDivMod64().
+ * It intentionally lives only in the DEBUG benchmark for now.  The
+ * utility call gives us the quotient in D0 but the remainder is not
+ * directly visible through the C prototype, so this path measures the
+ * cost of the OS 64/32 division primitive before we decide whether a
+ * production replacement is worth an assembly wrapper that preserves
+ * fdiv()'s rounded result exactly. */
+static LONG fdiv_utility64_floor(LONG num, LONG denom)
+{  LONG sign;
+   ULONG n_hi;
+   ULONG n_lo;
+   ULONG q;
+   ULONG d;
+
+   sign=1;
+   if(denom==0) return (num<0) ? -0x7fffffffL : 0x7fffffffL;
+   if(num<0)   { num=-num;     sign=-sign; }
+   if(denom<0) { denom=-denom; sign=-sign; }
+
+   n_hi=(ULONG)num >> 16;
+   n_lo=(ULONG)num << 16;
+   d=(ULONG)denom;
+   q=UDivMod64(n_hi,n_lo,d);
+   if(q>0x7fffffffUL) q=0x7fffffffUL;
+   return (sign<0) ? -(LONG)q : (LONG)q;
+}
+
+static LONG fsqrt_utility64_floor(LONG x)
+{  LONG y;
+   LONG t;
+   LONG ny;
+   int i;
+
+   if(x<=0) return 0;
+   y=0x10000L;
+   t=x;
+   while(t>=(LONG)0x00040000L && y<(LONG)0x40000000L) { y<<=1; t>>=2; }
+   while(t<0x00010000L) { y>>=1; t<<=2; if(y==0) { y=1; break; } }
+   for(i=0;i<8;i++)
+   {  if(y<=0) { y=0x10000L; break; }
+      ny=(y + fdiv_utility64_floor(x,y))>>1;
+      if(ny==y) break;
+      y=ny;
+   }
+   return y;
+}
+
+static ULONG Benchmathrate(ULONG iters, ULONG et, ULONG ops_per_iter)
+{  ULONG seconds_x65536;
+   ULONG numer;
+
+   seconds_x65536=et;
+   if(seconds_x65536<1) seconds_x65536=1;
+   numer=iters * ops_per_iter * 256UL;
+   numer=numer / 15UL;
+   return (numer * 1024UL) / seconds_x65536;
+}
+
+static void Benchmarksvgmathlibs(void)
+{  struct EClockVal ctx;
+   ULONG iters;
+   ULONG i;
+   ULONG et_current;
+   ULONG et_utility;
+   ULONG rate_current;
+   ULONG rate_utility;
+   ULONG seed;
+   ULONG acc_current;
+   ULONG acc_utility;
+   LONG a;
+   LONG b;
+   LONG c;
+   LONG d;
+   LONG e;
+
+   if(g_svg_mathbench_done) return;
+   g_svg_mathbench_done=TRUE;
+   if(!LowLevelBase || !UtilityBase) return;
+   if(UtilityBase->lib_Version<47)
+   {  SVGLOG(("SVG: utility math bench skipped (utility.library v%lu < 47)\n",
+         (unsigned long)UtilityBase->lib_Version));
+      return;
+   }
+
+   iters=4000;
+   ctx.ev_hi=0;
+   ctx.ev_lo=0;
+   (void)ElapsedTime(&ctx);
+   seed=0x13579bdfUL;
+   acc_current=0;
+   for(i=0;i<iters;i++)
+   {  seed=seed*1103515245UL + 12345UL;
+      a=(LONG)((seed & 0x0001ffffUL) - 0x10000UL);
+      seed=seed*1103515245UL + 12345UL;
+      b=(LONG)(((seed & 0x0000ffffUL) + 0x10000UL));
+      c=fmul(a,b);
+      d=fdiv(c + (2L<<16), b);
+      e=fsqrt((c & 0x000fffffL) + 0x10000L);
+      acc_current^=(ULONG)(c+d+e);
+   }
+   et_current=ElapsedTime(&ctx);
+
+   ctx.ev_hi=0;
+   ctx.ev_lo=0;
+   (void)ElapsedTime(&ctx);
+   seed=0x13579bdfUL;
+   acc_utility=0;
+   for(i=0;i<iters;i++)
+   {  seed=seed*1103515245UL + 12345UL;
+      a=(LONG)((seed & 0x0001ffffUL) - 0x10000UL);
+      seed=seed*1103515245UL + 12345UL;
+      b=(LONG)(((seed & 0x0000ffffUL) + 0x10000UL));
+      c=fmul(a,b);
+      d=fdiv_utility64_floor(c + (2L<<16), b);
+      e=fsqrt_utility64_floor((c & 0x000fffffL) + 0x10000L);
+      acc_utility^=(ULONG)(c+d+e);
+   }
+   et_utility=ElapsedTime(&ctx);
+
+   rate_current=Benchmathrate(iters,et_current,10UL);
+   rate_utility=Benchmathrate(iters,et_utility,10UL);
+   g_bench_sink^=acc_current ^ acc_utility;
+   SVGLOG(("SVG: math bench current fmul/fdiv/fsqrt = %lu/256 ops "
+           "(et=0x%08lx sink=0x%08lx)\n",
+      (unsigned long)rate_current,(unsigned long)et_current,
+      (unsigned long)acc_current));
+   SVGLOG(("SVG: math bench utility UDivMod64 quotient = %lu/256 ops "
+           "(et=0x%08lx sink=0x%08lx)\n",
+      (unsigned long)rate_utility,(unsigned long)et_utility,
+      (unsigned long)acc_utility));
+}
+#endif
 
 /* atan2(y,x) in degrees as 16.16 fixed point.  Result in (-180, 180].
  * Uses Rajan's first-quadrant approximation; max error ~0.3 degrees
