@@ -659,9 +659,14 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    }
    
    /* Get version strings - use Awebversion() function from plugin interface */
+#ifdef AWEB4
+   about_str = (UBYTE *)"AWeb 4";
+   version_str = (UBYTE *)"";
+#else
    version_str = Awebversion();
    if(!version_str) version_str = (UBYTE *)"Unknown";
    about_str = (UBYTE *)"AWeb";
+#endif
    
    /* Check for about:blank - must match exactly "blank" or be empty after "blank" */
    if(STRNIEQUAL(page,"blank",5) && (page[5]=='\0' || page[5]==' ' || page[5]=='\t'))

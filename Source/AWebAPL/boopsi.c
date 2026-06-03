@@ -54,6 +54,7 @@
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
 #include <intuition/icclass.h>
+#include <intuition/classes.h>
 #include <proto/alib.h>
 #include <proto/exec.h>
 #include <proto/intuition.h>
@@ -68,6 +69,8 @@
 
 
 static Class *gadimgcls,*stagadcls,*ledgadcls;
+
+struct ClassLibrary *BoingBallBase = NULL;
 
 #define GA(o)  ((struct Gadget *)(o))
 
@@ -432,6 +435,20 @@ struct Ledgaddata
    long frames;
    long restx,resty;
    void *capens;
+   /* Optional boingball.image (V47+) substitute for the classic LED 
+    * spinner. The object is owned by the Application, so this class never
+    * disposes it. When non-NULL it takes priority over the bitmap/LED
+    * fallbacks below. */
+   Object *boingball;
+   /* TRUE while a "next frame" tick from Setanimgads() is pending render.
+    * Set by OM_SET(LEDGGA_Active,TRUE) when the gadget is already active,
+    * consumed by RenderLedgadcls() which then sends IM_MOVE to the ball
+    * (which both advances and redraws the next frame). */
+   BOOL needmove;
+   /* boingball.image should get one normal IM_DRAW before the first IM_MOVE.
+    * V47.3 appears to do part of its internal penmap setup on the first draw;
+    * jumping straight into IM_MOVE can leave it rendering as a silhouette. */
+   BOOL ballready;
 };
 
 static ULONG NewLedgadcls(Class *cl,Object *o,struct TagItem *tags)
@@ -493,6 +510,9 @@ static ULONG NewLedgadcls(Class *cl,Object *o,struct TagItem *tags)
                   case LEDGGA_SpecialPens:
                      data->capens=(void *)tag->ti_Data;
                      break;
+                  case LEDGGA_BoingBall:
+                     data->boingball=(Object *)tag->ti_Data;
+                     break;
                }
             }
             if(!data->w || !data->h || !data->frames) data->bitmap=NULL;
@@ -515,8 +535,11 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
    ULONG retval=0;
    struct Gadget *g=(struct Gadget *)o;
    struct impDraw imp={0};
+   struct impDraw ballimp={0};
    struct DrawInfo *dri=gpr->gpr_GInfo->gi_DrInfo;
    long x,y,x2,y2;
+   long bgpen=0;     /* used only on the boingball.image render path */
+   UBYTE oldapen=0;  /* preserve caller's RastPort foreground pen */
    data=INST_DATA(cl,o);
    imp.MethodID=IM_DRAWFRAME;
    imp.imp_RPort=gpr->gpr_RPort;
@@ -530,6 +553,45 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
    if(g->Flags&GFLG_RELWIDTH) imp.Width+=gpr->gpr_GInfo->gi_Domain.Width;
    imp.Height=g->Height;
    if(g->Flags&GFLG_RELHEIGHT) imp.Height+=gpr->gpr_GInfo->gi_Domain.Height;
+   /* Preferred path: render the boingball.image (V47+) when the host
+    * Application managed to create one.  The class manages its own
+    * palette, transparency and animation state internally, so all we
+    * need to do here is:
+    *
+    *   1. Erase the gadget area to BACKGROUNDPEN so any prior pixels
+    *      are gone before the ball blits over the top.  Preserve the
+    *      RastPort foreground pen while doing this; boingball.image uses
+    *      internal penmap/mask rendering and must not inherit the erase pen.
+    *   2. Give the class one ordinary IM_DRAW before the first IM_MOVE,
+    *      then send IM_MOVE during activity ticks (which both advances
+    *      the frame AND renders it). */
+   if(data->boingball)
+   {  oldapen=gpr->gpr_RPort->FgPen;
+      bgpen=dri?dri->dri_Pens[BACKGROUNDPEN]:0;
+      SetAPen(gpr->gpr_RPort,bgpen);
+      RectFill(gpr->gpr_RPort,
+         imp.X,imp.Y,
+         imp.X+imp.Width-1,imp.Y+imp.Height-1);
+      SetAPen(gpr->gpr_RPort,oldapen);
+      if(data->active && data->needmove && data->ballready)
+      {  
+         ballimp.MethodID=IM_MOVE;
+         ballimp.imp_RPort=gpr->gpr_RPort;
+         ballimp.X=imp.X;
+         ballimp.Y=imp.Y;
+         ballimp.imp_State=IDS_NORMAL;
+         ballimp.imp_DrInfo=dri;
+         DoMethodA(data->boingball,(Msg)&ballimp);
+         data->needmove=FALSE;
+      }
+      else
+      { 
+         DrawImage(gpr->gpr_RPort,(struct Image *)data->boingball,imp.X,imp.Y);
+         data->ballready=TRUE;
+         data->needmove=FALSE;
+      }
+      return retval;
+   }
    if(data->active)
    {  if(data->bitmap)
       {  SetAttrs(data->frameimg,
@@ -608,13 +670,23 @@ static __asm __saveds ULONG DispatchLedgadcls(register __a0 Class *cl,
          {  if(tag->ti_Data)
             {  if(data->active)
                {  if(++data->n>=data->frames) data->n=0;
+                  if(data->boingball) data->needmove=TRUE;
                }
                else data->active=TRUE;
             }
             else
             {  data->active=FALSE;
                data->n=0;
+               /* Going idle: drop any pending step so the next refresh
+                * just paints the resting frame instead of spinning once. */
+               data->needmove=FALSE;
             }
+            retval=1;
+         }
+         if(tag=FindTagItem(LEDGGA_BoingBall,ops->ops_AttrList))
+         {  data->boingball=(Object *)tag->ti_Data;
+            data->needmove=FALSE;
+            data->ballready=FALSE;
             retval=1;
          }
          break;

@@ -36,6 +36,7 @@
 #include "linkprivate.h"
 #include "frprivate.h"
 #include "popup.h"
+#include "hotlist.h"
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
@@ -817,7 +818,16 @@ static void Processmenu(struct Awindow *win,struct Menuentry *me,struct MenuItem
 {  void *url;
    UBYTE *id;
    if(me)
-   {  if(me->cmd[0]=='@')
+   {
+#ifdef AWEB4
+      /* Dynamic Hotlist menu rows store the bookmark URL in me->cmd. Load it
+       * straight into the window the menu belongs to. */
+      if(Ishotlistmenuentry(me))
+      {  if(me->cmd && me->cmd[0]) Followurlname(win,me->cmd,0);
+         return;
+      }
+#endif
+      if(me->cmd[0]=='@')
       {  if(STRIEQUAL(me->cmd,"@DRAGGING"))
          {  SETFLAG(win->flags,WINF_CLIPDRAG,item->Flags&CHECKED);
          }
@@ -880,8 +890,9 @@ void Processwindow(void)
 {  struct IntuiMessage *msg;
    struct Awindow *win,*nextwin;
    long mousex,mousey;
-   UWORD menunum;
+   UWORD menunum,nextmenunum;
    struct MenuItem *item;
+   struct Menu *oldmenu;
    struct Menuentry *me;
    BOOL process;
    USHORT hitflags,key;
@@ -1084,9 +1095,15 @@ void Processwindow(void)
                menunum=msg->Code;
                while(menunum!=MENUNULL)
                {  if(!(item=ItemAddress(win->menu,menunum))) break;
+                  /* Menu commands such as ADDHOTLIST can synchronously rebuild
+                   * the application's menu strip. Capture NextSelect before
+                   * dispatching so we never read from a freed MenuItem. */
+                  nextmenunum=item->NextSelect;
+                  oldmenu=win->menu;
                   me=Menuentryfromnum(menunum);
                   if(me) Processmenu(win,me,item);
-                  menunum=item->NextSelect;
+                  if(win->menu!=oldmenu) break;
+                  menunum=nextmenunum;
                }
                break;
             case IDCMP_REFRESHWINDOW:

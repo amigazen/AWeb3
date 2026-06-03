@@ -35,8 +35,8 @@ E-mail
 MSG_ABOUT_WWW (//)
 WWW
 ;
-MSG_ABOUT_OK (//)
-_Ok
+MSG_ABOUT_OK(//)
+_OK
 ;
 MSG_ABOUT_UNREGISTERED (//)
 Unregistered version\n
@@ -61,8 +61,8 @@ Special version for distribution with Amiga OS\n
 MSG_QUIT_TEXT (200//)
 Are you sure you want to quit AWeb?
 ;
-MSG_QUIT_OK (//)
-_Ok
+MSG_QUIT_OK(//)
+_OK
 ;
 MSG_QUIT_CANCEL (//)
 _Cancel
@@ -75,8 +75,8 @@ WARNING: Transfers will be aborted!\n\n
 MSG_DEMO_TEXT (300//)
 This is the demo version of AWeb\nmultiple document windows are not supported
 ;
-MSG_DEMO_OK (//)
-_Ok
+MSG_DEMO_OK(//)
+_OK
 ;
 ;
 ;-------------- Close windows requester -------------
@@ -84,7 +84,7 @@ _Ok
 MSG_SCRCLOSE_TEXT (400//)
 AWeb can't close its screen.\nPlease close all windows.
 ;
-MSG_SCRCLOSE_OK (//)
+MSG_SCRCLOSE_OK(//)
 Ok
 ;
 ;
@@ -137,8 +137,8 @@ _Userid
 MSG_AUTH_PASSWORD (//)
 _Password
 ;
-MSG_AUTH_OK (//)
-_Ok
+MSG_AUTH_OK(//)
+_OK
 ;
 MSG_AUTH_CANCEL (//)
 _Cancel
@@ -188,10 +188,10 @@ MSG_FILE_TEMPTITLE (//)
 Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS (//)
-_Ok
+_OK
 ;
 MSG_FILE_INCBUTTONS2 (//)
-_Ok|_Retry|_Cancel
+_OK|_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE (//)
 Select settings directory
@@ -460,7 +460,7 @@ This function will delete all foreign files from the\n\
 %s drawer
 ;
 MSG_FIXCACHE_BUTTONS (//)
-_Ok|_Cancel
+_OK|_Cancel
 ;
 MSG_FIXCACHE_PROGRESS (//)
 Fixing the disk cache...
@@ -506,8 +506,8 @@ _Cancel
 MSG_SEARCH_NOTFOUND (//)
 String not found
 ;
-MSG_SEARCH_OK (//)
-_Ok
+MSG_SEARCH_OK(//)
+_OK
 ;
 ;
 ;-------------- Popup menu ---------------------------
@@ -592,8 +592,8 @@ _Cancel
 MSG_PRINT_NOPRINTER (//)
 Unable to access the printer
 ;
-MSG_PRINT_OK (//)
-_Ok
+MSG_PRINT_OK(//)
+_OK
 ;
 MSG_PRINT_PROGRESS (//)
 Printing in progress...
@@ -717,8 +717,8 @@ _Password
 ;
 ;-------------- JavaScript prompt requester ---------
 ;
-MSG_JSPROMPT_OK (2200//)
-_Ok
+MSG_JSPROMPT_OK(2200//)
+_OK
 ;
 MSG_JSPROMPT_CANCEL (//)
 _Cancel
@@ -733,7 +733,7 @@ MSG_FORMWARN_WARNING (//)
 Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS (//)
-_Ok|_Cancel
+_OK|_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
@@ -948,7 +948,7 @@ MSG_CMDWARN_AREXX (//)
 About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS (//)
-_Ok|_Cancel
+_OK|_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
@@ -975,7 +975,7 @@ but the identity of the server cannot be verified (-NO- protection against fraud
 Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS (//)
-_Ok|_Cancel
+_OK|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2 (//)
 Secure connections are only supported when using AmiSSL.
@@ -1009,7 +1009,7 @@ MSG_OPENURL_TEXT (//)
 Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS (//)
-_Ok|_Cancel
+_OK|_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
@@ -1211,7 +1211,7 @@ MSG_HOTLIST_MENU (10400//)
 Hotlist
 ;
 MSG_HOTLIST_ADDHOT (//)
-A/Add Hotlist
+A/Add To Hotlist
 ;
 MSG_HOTLIST_SHOWHOT (//)
 H/Show Hotlist

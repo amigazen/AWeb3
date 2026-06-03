@@ -32,6 +32,7 @@
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
+#include <intuition/classes.h>
 #include <dos/dostags.h>
 #include <dos/rdargs.h>
 #include <dos/dosextens.h>
@@ -1062,6 +1063,12 @@ static void Cleanup(void)
       if(SpeedBarBase) CloseLibrary((struct Library *)SpeedBarBase);
       if(ScrollerBase) CloseLibrary((struct Library *)ScrollerBase);
       if(FuelGaugeBase) CloseLibrary((struct Library *)FuelGaugeBase);
+      /* boingball.image must be closed before penmap.image because the
+       * former depends on the latter. Both are no-ops when never opened. */
+      if(BoingBallBase)
+      {  CloseLibrary((struct Library *)BoingBallBase);
+         BoingBallBase=NULL;
+      }
       if(PenMapBase) CloseLibrary((struct Library *)PenMapBase);
    }
    if(WorkbenchBase) CloseLibrary(WorkbenchBase);
@@ -1114,7 +1121,7 @@ void Lowlevelreq(UBYTE *msg,...)
       es.es_Flags=0;
       es.es_Title="AWeb";
       es.es_TextFormat=msg;
-      es.es_GadgetFormat="Ok";
+      es.es_GadgetFormat="OK" ;
       EasyRequestArgs(window,&es,NULL,args);
       if(opened)
       {  CloseLibrary(IntuitionBase);
@@ -1617,6 +1624,11 @@ int main(int fromcli,struct WBStartup *wbs)
    ScrollerBase=Openclass("gadgets/scroller.gadget",OSNEED(0,44));
    FuelGaugeBase=Openclass("gadgets/fuelgauge.gadget",OSNEED(0,44));
    PenMapBase=Openclass("images/penmap.image",OSNEED(0,44));
+#ifdef AWEB4
+   if(PenMapBase && ((struct Library *)PenMapBase)->lib_Version>=47)
+   {  BoingBallBase=(struct ClassLibrary *)OpenLibrary("images/boingball.image",47L);
+   }
+#endif
    Initsupport();
    localeinfo.li_LocaleBase=LocaleBase;
    localeinfo.li_Catalog=OpenCatalogA(NULL,"aweb.catalog",NULL);

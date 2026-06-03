@@ -137,6 +137,13 @@ extern struct Locale *locale;
 
 extern struct Library *AWebJSBase;
 
+/* boingball.image (V47+) class library base, optionally opened by aweb.c /
+ * awebview.c at startup. When non-NULL, the toolbar activity indicator
+ * (boopsi LED gadget) renders a rotating boing ball instead of the classic
+ * progress LEDs. NULL when running on older systems where penmap.image /
+ * boingball.image are absent or below V47. */
+extern struct ClassLibrary *BoingBallBase;
+
 /* boopsi status gadget tags: */
 #define STATGA_Dummy          (TAG_USER+0x0AEB0000)
 #define STATGA_HPText         (STATGA_Dummy+0x0001)   /* high-priority text */
@@ -157,6 +164,7 @@ extern struct Library *AWebJSBase;
 #define LEDGGA_RestX          (LEDGGA_Dummy+0x000A)
 #define LEDGGA_RestY          (LEDGGA_Dummy+0x000B)
 #define LEDGGA_SpecialPens    (LEDGGA_Dummy+0x000C)   /* ClassAct special pens */
+#define LEDGGA_BoingBall      (LEDGGA_Dummy+0x000D)   
 
 
 #ifndef AWEBPROTOS_H

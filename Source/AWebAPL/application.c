@@ -26,6 +26,7 @@
 #include "url.h"
 #include "startup.h"
 #include "jslib.h"
+#include "hotlist.h"
 #include <workbench/workbench.h>
 #include <workbench/icon.h>
 #include <intuition/pointerclass.h>
@@ -34,6 +35,11 @@
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
 #include <images/bitmap.h>
+/* penmap.h defines the PENMAP_* attributes shared with boingball.image,
+ * which extends penmap.image. We need PENMAP_Screen, PENMAP_Transparent and
+ * PENMAP_MaskBlit to construct a usable boing-ball BOOPSI object. */
+#include <images/penmap.h>
+#include <intuition/classes.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
@@ -94,6 +100,11 @@ struct Application
    struct Jcontext *jcontext;
    struct Jobject *jnavigator;         /* JS navigator object */
    struct Jobject *jscreen;            /* JS screen object */
+   /* boingball.image (V47+) instance shared by all toolbar LED gadgets in
+    * this application. Created in Appopenscreen() when BoingBallBase is
+    * available, disposed in Appclosescreen(). NULL when running on systems
+    * without the boingball class. */
+   Object *boingball;
 };
 
 #define APPF_SCREENVALID      0x0001   /* Screen data is valid */
@@ -544,6 +555,20 @@ static void Getbuttonsinfo(struct Application *app)
    Setloadreqlevel(LQL_GUIIMG,LQL_NUMBER);
 }
 
+static void Getboinginfo(struct Application *app)
+{  app->boingball=NULL;
+   if(!app->screen) return;
+   /* BoingBallBase is only ever non-NULL when the host program (aweb.c /
+    * awebview.c) already verified that both penmap.image and
+    * boingball.image are at V47+, so a single base pointer + version check
+    * here is enough; we don't need to know about PenMapBase in this TU. */
+   if(!BoingBallBase) return;
+   if(((struct Library *)BoingBallBase)->lib_Version<47) return;
+   app->boingball=NewObject(NULL,"boingball.image",
+      PENMAP_Screen,app->screen,
+      TAG_END);
+}
+
 /* Load animation imagery */
 static void Getaniminfo(struct Application *app)
 {  struct DiskObject *dob;
@@ -584,9 +609,36 @@ static void Getaniminfo(struct Application *app)
 
 /*------------------------------------------------------------------------*/
 
+#ifdef AWEB4
+
+static BOOL Hotlist_prefs_skip(struct Menuentry *me)
+{  /* Keep only the two management commands from prefs: Add to hotlist and
+    * Manage hotlist. Everything else in the Hotlist menu (Show, View, Save,
+    * Restore, the import items and all prefs separators) is dropped; a single
+    * separator is re-inserted ahead of the live bookmarks by
+    * Hotlistmenuaddentries(). */
+   if(me && me->cmd)
+   {  if(STRNIEQUAL(me->cmd,"ADDHOTLIST",10)) return FALSE;
+      if(STRIEQUAL(me->cmd,"SUBWINDOW HOTMANAGER OPEN")) return FALSE;
+   }
+   return TRUE;
+}
+
+static BOOL Hotlist_menu_title(struct Menuentry *me)
+{  UBYTE *hot;
+   if(!me || me->type!=AMENU_MENU || !me->title) return FALSE;
+   hot=AWEBSTR(MSG_HOTLIST_MENU);
+   if(!hot) return FALSE;
+   return STRIEQUAL(me->title,hot);
+}
+#endif
+
 /* Free base menus */
 static void Freemenus(struct Application *app)
 {  short i;
+#ifdef AWEB4
+   Freehotlistmenus();
+#endif
    if(app->menus)
    {  for(i=0;app->menus[i].nm_Type;i++)
       {  if(app->menus[i].nm_Label && app->menus[i].nm_Label!=NM_BARLABEL)
@@ -603,12 +655,24 @@ static BOOL Makemenus(struct Application *app)
    struct Menuentry *me;
    struct NewMenu *newmenus;
    short mnum=-1,inum=-1,snum=-1;
+   short hotmnum=-1;
    BOOL hasmenu=FALSE,hasitem=FALSE,valid=TRUE;
+#ifdef AWEB4
+   BOOL in_hotlist=FALSE;
+#endif
    if(app->menus) Freemenus(app);
    app->menus=NULL;
    nrmenudata=1;
    for(me=prefs.gui.menus.first;valid && me->next;me=me->next)
-   {  nrmenudata++;
+   {
+#ifdef AWEB4
+      if(me->type==AMENU_MENU)
+      {  if(in_hotlist) nrmenudata+=Hotlistmenuentrycount();
+         in_hotlist=Hotlist_menu_title(me);
+      }
+      if(in_hotlist && me->type!=AMENU_MENU && Hotlist_prefs_skip(me)) continue;
+#endif
+      nrmenudata++;
       switch(me->type)
       {  case AMENU_MENU:
             hasmenu=TRUE;
@@ -626,16 +690,43 @@ static BOOL Makemenus(struct Application *app)
             break;
       }
    }
+#ifdef AWEB4
+   if(in_hotlist) nrmenudata+=Hotlistmenuentrycount();
+#endif
    if(!valid) return FALSE;
    if(!(newmenus=ALLOCSTRUCT(NewMenu,nrmenudata,MEMF_CLEAR))) return FALSE;
-   for(i=0,me=prefs.gui.menus.first;me->next;i++,me=me->next)
-   {  switch(me->type)
+#ifdef AWEB4
+   in_hotlist=FALSE;
+   hotmnum=-1;
+#endif
+   for(i=0,me=prefs.gui.menus.first;me->next;)
+   {
+#ifdef AWEB4
+      if(me->type==AMENU_MENU)
+      {  if(in_hotlist && hotmnum>=0)
+         {  Hotlistmenuaddentries(newmenus,&i,hotmnum,&inum,&snum);
+         }
+         in_hotlist=FALSE;
+         hotmnum=-1;
+      }
+      if(in_hotlist && me->type!=AMENU_MENU && Hotlist_prefs_skip(me))
+      {  me=me->next;
+         continue;
+      }
+#endif
+      switch(me->type)
       {  case AMENU_MENU:
             mnum++;
             inum=snum=-1;
             newmenus[i].nm_Type=NM_TITLE;
             newmenus[i].nm_Label=Dupstr(me->title,-1);
             me->menunum=SHIFTMENU(mnum)|SHIFTITEM(NOITEM)|SHIFTSUB(NOSUB);
+#ifdef AWEB4
+            if(Hotlist_menu_title(me))
+            {  in_hotlist=TRUE;
+               hotmnum=mnum;
+            }
+#endif
             break;
          case AMENU_ITEM:
             inum++;
@@ -677,10 +768,18 @@ static BOOL Makemenus(struct Application *app)
             newmenus[i].nm_Label=NM_BARLABEL;
             break;
       }
+      i++;
+      me=me->next;
    }
+#ifdef AWEB4
+   if(in_hotlist && hotmnum>=0)
+   {  Hotlistmenuaddentries(newmenus,&i,hotmnum,&inum,&snum);
+   }
+#endif
    newmenus[i].nm_Type=NM_END;
    app->menus=newmenus;
    app->flags|=APPF_MENUSVALID;
+   return TRUE;
 }
 
 /* Menus have changed */
@@ -690,10 +789,11 @@ static void Newappmenus(struct Application *app)
       AOAPP_Menus,NULL,
       TAG_END);
    Freemenus(app);
-   Makemenus(app);
-   Broadcast(app,AOREL_APP_USE_MENUS,
-      AOAPP_Menus,app->menus,
-      TAG_END);
+   if(Makemenus(app))
+   {  Broadcast(app,AOREL_APP_USE_MENUS,
+         AOAPP_Menus,app->menus,
+         TAG_END);
+   }
 }
 
 /*------------------------------------------------------------------------*/
@@ -889,6 +989,13 @@ static void Appclosescreen(struct Application *app)
          app->animation=NULL;
          app->animbitmap=NULL;
       }
+      /* The boingball.image instance is bound to a specific screen via
+       * PENMAP_Screen so it must die with the screen. The LED gadget cleared
+       * its cached pointer when its window was rebuilt for the screen change. */
+      if(app->boingball)
+      {  DisposeObject(app->boingball);
+         app->boingball=NULL;
+      }
       if(app->deficon)
       {  DisposeObject(app->deficon);
          app->deficon=NULL;
@@ -1048,6 +1155,10 @@ static BOOL Appopenscreen(struct Application *app,BOOL loadreq)
    Setloadreqlevel(LQL_ERRICON,LQL_NUMBER);
    Getbuttonsinfo(app);
    Getaniminfo(app);
+   /* Build the optional boingball image AFTER Getaniminfo so the LED gadget
+    * still sees the classic anim bitmap as a fallback when boingball.image
+    * isn't installed or fails to create. */
+   Getboinginfo(app);
    if(app->flags&APPF_OURSCREEN)
    {  PubScreenStatus(app->screen,0);
    }
@@ -1790,7 +1901,11 @@ struct Image *Buttonimage(void *ap,short type,UWORD *data,long width,long height
 
 struct Gadget *Animgadget(void *ap,void *capens)
 {  struct Application *app=ap;
-   struct Gadget *gad=NewObject(Ledgadclass(),NULL,
+   struct Gadget *gad;
+   /* Pass the optional boingball.image instance through LEDGGA_BoingBall.
+    * When NULL (most pre-3.2 setups), the Ledgad class simply ignores the
+    * tag and renders the classic transferanim bitmap / progress LEDs. */
+   gad=NewObject(Ledgadclass(),NULL,
       GA_Width,/*app->animbitmap?(app->animw+2):*/24,
       GA_Height,/*app->animbitmap?(app->animh+2):*/24,
       LEDGGA_AnimBitMap,app->animbitmap,
@@ -1804,6 +1919,7 @@ struct Gadget *Animgadget(void *ap,void *capens)
       LEDGGA_RestX,app->animrx,
       LEDGGA_RestY,app->animry,
       LEDGGA_SpecialPens,capens,
+      LEDGGA_BoingBall,(ULONG)app->boingball,
       TAG_END);
    return gad;
 }
@@ -1915,6 +2031,10 @@ struct Menuentry *Menuentryfromkey(UBYTE key)
 
 struct Menuentry *Menuentryfromnum(USHORT menunum)
 {  struct Menuentry *me;
+#ifdef AWEB4
+   me=Hotlistmenuentryfromnum(menunum);
+   if(me) return me;
+#endif
    for(me=prefs.gui.menus.first;me->next;me=me->next)
    {  if(me->menunum==menunum) return me;
    }

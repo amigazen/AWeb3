@@ -124,6 +124,36 @@ extern BOOL has35;
 #define OSDEP(a,b) (has35?(b):(a))
 #endif
 
+/*--------------------------------------------------------------------*
+ * AWEB4 build-time feature flag
+ *--------------------------------------------------------------------*
+ *
+ * AWEB4 gates the next-generation AWeb features that go beyond classic
+ * AWeb 3 behaviour. Define it (the default below) to compile in:
+ *
+ *   - The streamlined "modern" Chrome-like single-row toolbar layout
+ *     (window.c BuildModernLayout / layoutstyle == 1).
+ *
+ *   - The boingball.image V47+ activity spinner in the toolbar LED
+ *     gadget (in place of the classic progress LEDs / transferanim
+ *     bitmap). On any system that lacks the V47+ class the gadget
+ *     silently falls back to the classic imagery even with AWEB4 on.
+ *
+ *   - A dynamic Hotlist menu: the Hotlist menu strip is populated from
+ *     the live aweb.hotlist data (groups flattened as "Group / Title")
+ *     instead of the static "Show Hotlist" HTML page and import stubs.
+ *     Add/View/Manage/Save/Restore menu items are kept; the menu is
+ *     rebuilt when the hotlist changes.
+ *
+ * Undefine AWEB4 (or comment out the #define) to build pure AWeb 3
+ * behaviour: classic multi-row toolbar plus the original progress
+ * indicator, with no attempt to open boingball.image at startup.
+ *
+ * The flag should be either defined (any value) or absent; the rest of
+ * the source uses #ifdef AWEB4 throughout, never #if AWEB4. */
+
+#define AWEB4 0
+
 
 #ifndef AWEBPREFS_H
 #include "awebprefs.h"

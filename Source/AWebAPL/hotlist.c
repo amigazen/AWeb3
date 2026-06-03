@@ -22,6 +22,7 @@
 #include "url.h"
 #include "file.h"
 #include "application.h"
+#include "awebprefs.h"
 #include "window.h"
 #include "task.h"
 #include <proto/exec.h>
@@ -42,6 +43,13 @@ static LIST(Hotitem) hotlist;
 static struct SignalSemaphore hotsema;
 
 static BOOL hotchanged;
+
+#ifdef AWEB4
+/* Forward declaration: the dispatcher (AOHOT_Changed etc.) requests a
+ * Hotlist menu rebuild, but the helper is defined further down with the
+ * rest of the AWEB4 dynamic-menu code. */
+static void Hotlistmenus_refresh(void);
+#endif
 
 /* m is the maintenance window, v is the view window */
 static struct Hotwindow *hotwindowm=NULL,*hotwindowv=NULL;
@@ -715,6 +723,9 @@ static long Updatehotwindow(struct Hotwindow *how,struct Amset *ams)
             {  Asetattrsasync(hotwindowv->task,AOHOT_Addentry,TRUE,TAG_END);
             }
 #endif
+#ifdef AWEB4
+            Hotlistmenus_refresh();
+#endif
             break;
          case AOHOT_Save:
             Savehotlist();
@@ -727,6 +738,9 @@ static long Updatehotwindow(struct Hotwindow *how,struct Amset *ams)
             break;
          case AOHOT_Vchanged:
             hotchanged|=tag->ti_Data;
+#ifdef AWEB4
+            Hotlistmenus_refresh();
+#endif
             break;
       }
    }
@@ -845,6 +859,205 @@ static long Dispatch(struct Hotwindow *how,struct Amessage *amsg)
    }
    return result;
 }
+
+/*-----------------------------------------------------------------------*/
+
+#ifdef AWEB4
+
+/* Dynamic Hotlist menu strip entries (see application.c Makemenus). */
+static LIST(Menuentry) hotlistmenus;
+
+static void Hotlistmenus_refresh(void)
+{  if(Aweb() && Agetattr(Aweb(),AOAPP_Screenvalid))
+   {  Asetattrs(Aweb(),AOAPP_Menus,NULL,TAG_END);
+   }
+}
+
+void Freehotlistmenus(void)
+{  struct Menuentry *me;
+   while((me=(struct Menuentry *)REMHEAD(&hotlistmenus)))
+   {  Freemenuentry(me);
+   }
+}
+
+struct Menuentry *Hotlistmenuentryfromnum(USHORT menunum)
+{  struct Menuentry *me;
+   for(me=hotlistmenus.first;me->next;me=me->next)
+   {  if(me->menunum==menunum) return me;
+   }
+   return NULL;
+}
+
+/* TRUE if this Menuentry is one of our dynamic Hotlist bookmark rows.
+ * Used by Processmenu() to load me->cmd (a raw URL) into the picked
+ * window rather than treating it as an ARexx command. */
+BOOL Ishotlistmenuentry(struct Menuentry *me)
+{  struct Menuentry *e;
+   if(!me) return FALSE;
+   for(e=hotlistmenus.first;e->next;e=e->next)
+   {  if(e==me) return TRUE;
+   }
+   return FALSE;
+}
+
+/* Maximum visible characters of a bookmark label in the Hotlist menu.
+ * Longer labels are truncated in the MIDDLE with an ellipsis so both the
+ * start (often a group prefix) and the end (often the distinctive part of
+ * a title) stay readable. */
+#define HOTLIST_MENU_MAXLABEL  18
+#define HOTLIST_MENU_ELLIPSIS  "..."
+
+/* Copy src to dest, truncating in the middle with HOTLIST_MENU_ELLIPSIS when
+ * src is longer than maxlen characters. dest must hold maxlen+1 bytes.
+ * "..." is used rather than a single ellipsis glyph because the Amiga
+ * default (topaz / ISO-8859-1) menu font has no reliable ellipsis code. */
+static void Truncatemiddle(UBYTE *dest,UBYTE *src,long maxlen)
+{  long len=strlen((char *)src);
+   long elen=strlen(HOTLIST_MENU_ELLIPSIS);
+   long head,tail;
+   if(len<=maxlen || maxlen<=elen+1)
+   {  strncpy((char *)dest,(char *)src,maxlen);
+      dest[(len<maxlen)?len:maxlen]='\0';
+      return;
+   }
+   head=(maxlen-elen+1)/2;
+   tail=(maxlen-elen)/2;
+   strncpy((char *)dest,(char *)src,head);
+   dest[head]='\0';
+   strcat((char *)dest,HOTLIST_MENU_ELLIPSIS);
+   strcat((char *)dest,(char *)(src+len-tail));
+}
+
+/* TRUE if this hotlist entry is a selectable bookmark (has a title and url). */
+static BOOL Is_hotlist_bookmark(struct Hotitem *hi)
+{  return (BOOL)(hi->type==HITEM_ENTRY && hi->base
+      && hi->base->title && hi->base->title[0]
+      && hi->base->url && hi->base->url[0]);
+}
+
+/* Count the direct (one level deep) bookmarks inside a group. Bookmarks in
+ * nested sub-groups are not counted: the Hotlist menu shows at most two
+ * levels (a group title item and its sub-items). */
+static long Count_direct_entries(LIST(Hotitem) *list)
+{  struct Hotitem *hi;
+   long n=0;
+   for(hi=list->first;hi->next;hi=hi->next)
+   {  if(Is_hotlist_bookmark(hi)) n++;
+   }
+   return n;
+}
+
+/* Count the NewMenu rows we will place for the root hotlist: one row per
+ * top level bookmark, and for each non-empty top level group one parent row
+ * plus one row per direct child bookmark. Must match Hotlistmenuaddentries. */
+static long Count_hotlist_list(LIST(Hotitem) *list)
+{  struct Hotitem *hi;
+   long n=0,sub;
+   for(hi=list->first;hi->next;hi=hi->next)
+   {  if(Is_hotlist_bookmark(hi))
+      {  n++;
+      }
+      else if(hi->type>=HITEM_GROUP && hi->name && hi->name[0])
+      {  sub=Count_direct_entries(&hi->subitems);
+         if(sub>0) n+=1+sub;
+      }
+   }
+   return n;
+}
+
+long Hotlistmenuentrycount(void)
+{  struct Hotbase *hb;
+   long n=0;
+   ObtainSemaphore(&hotsema);
+   n=Count_hotlist_list(&hotlist);
+   for(hb=hotbase.first;hb->next;hb=hb->next)
+   {  if(!hb->used && hb->title && hb->title[0] && hb->url && hb->url[0]) n++;
+   }
+   ReleaseSemaphore(&hotsema);
+   /* +1 for the separator placed between the management items and the live
+    * bookmarks (see Hotlistmenuaddentries). */
+   return n+1;
+}
+
+/* Place a single bookmark NewMenu row of the given type (NM_ITEM or NM_SUB)
+ * plus a matching Menuentry whose cmd holds the raw URL for IDCMP dispatch.
+ * menunum is already encoded by the caller following the GadTools convention
+ * used by the prefs menus (the item/sub index is incremented BEFORE use, so
+ * our numbers line up with the values Intuition reports on a menu pick). The
+ * visible label is truncated in the middle so long titles stay narrow. */
+static void Add_hotlist_row(struct NewMenu *newmenus,long *index,UBYTE type,
+   USHORT menunum,UBYTE *label,UBYTE *url)
+{  struct Menuentry *me;
+   UBYTE shortlabel[HOTLIST_MENU_MAXLABEL+1];
+   if(!(me=Addmenuentry(&hotlistmenus,AMENU_ITEM,label,0,url))) return;
+   Truncatemiddle(shortlabel,label,HOTLIST_MENU_MAXLABEL);
+   newmenus[*index].nm_Type=type;
+   newmenus[*index].nm_Label=Dupstr(shortlabel,-1);
+   me->menunum=menunum;
+   (*index)++;
+}
+
+/* Place a non-selectable group title row (an NM_ITEM that owns sub-items, so
+ * it gets no Menuentry of its own). */
+static void Add_hotlist_grouptitle(struct NewMenu *newmenus,long *index,
+   UBYTE *name)
+{  UBYTE shortlabel[HOTLIST_MENU_MAXLABEL+1];
+   Truncatemiddle(shortlabel,name,HOTLIST_MENU_MAXLABEL);
+   newmenus[*index].nm_Type=NM_ITEM;
+   newmenus[*index].nm_Label=Dupstr(shortlabel,-1);
+   (*index)++;
+}
+
+void Hotlistmenuaddentries(struct NewMenu *newmenus,long *index,
+   short mnum,short *inum,short *snum)
+{  struct Hotitem *hi,*chi;
+   struct Hotbase *hb;
+   ObtainSemaphore(&hotsema);
+   /* Separator dividing the management items from the live bookmarks. It is a
+    * plain bar-label item (not selectable) so it gets no Menuentry, but it
+    * does consume an item index. */
+   (*inum)++;
+   *snum=-1;
+   newmenus[*index].nm_Type=NM_ITEM;
+   newmenus[*index].nm_Label=NM_BARLABEL;
+   (*index)++;
+   for(hi=hotlist.first;hi->next;hi=hi->next)
+   {  if(Is_hotlist_bookmark(hi))
+      {  (*inum)++;
+         *snum=-1;
+         Add_hotlist_row(newmenus,index,NM_ITEM,
+            (USHORT)(SHIFTMENU(mnum)|SHIFTITEM(*inum)|SHIFTSUB(NOSUB)),
+            hi->base->title,hi->base->url);
+      }
+      else if(hi->type>=HITEM_GROUP && hi->name && hi->name[0]
+         && Count_direct_entries(&hi->subitems)>0)
+      {  (*inum)++;
+         *snum=-1;
+         Add_hotlist_grouptitle(newmenus,index,hi->name);
+         for(chi=hi->subitems.first;chi->next;chi=chi->next)
+         {  if(Is_hotlist_bookmark(chi))
+            {  (*snum)++;
+               Add_hotlist_row(newmenus,index,NM_SUB,
+                  (USHORT)(SHIFTMENU(mnum)|SHIFTITEM(*inum)|SHIFTSUB(*snum)),
+                  chi->base->title,chi->base->url);
+            }
+            /* Bookmarks in deeper sub-groups are intentionally ignored. */
+         }
+      }
+   }
+   for(hb=hotbase.first;hb->next;hb=hb->next)
+   {  if(!hb->used && hb->title && hb->title[0] && hb->url && hb->url[0])
+      {  (*inum)++;
+         *snum=-1;
+         Add_hotlist_row(newmenus,index,NM_ITEM,
+            (USHORT)(SHIFTMENU(mnum)|SHIFTITEM(*inum)|SHIFTSUB(NOSUB)),
+            hb->title,hb->url);
+      }
+   }
+   ReleaseSemaphore(&hotsema);
+}
+
+#endif /* AWEB4 */
 
 /*-----------------------------------------------------------------------*/
 
@@ -1037,6 +1250,9 @@ void Addtohotlist(void *url,UBYTE *title,UBYTE *group)
          FREE(path);
       }
       ReleaseSemaphore(&hotsema);
+#ifdef AWEB4
+      Hotlistmenus_refresh();
+#endif
       if(hotwindowv && hotwindowv->task)
       {  Asetattrsasync(hotwindowv->task,tag,TRUE,TAG_END);
       }
@@ -1074,6 +1290,9 @@ void Restorehotlist(void)
    Readawebhotlist();
    hotchanged=FALSE;
    ReleaseSemaphore(&hotsema);
+#ifdef AWEB4
+   Hotlistmenus_refresh();
+#endif
    if(hotwindowv && hotwindowv->task)
    {  Asetattrsasync(hotwindowv->task,AOHOT_Newlist,TRUE,TAG_END);
    }

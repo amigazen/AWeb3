@@ -337,12 +337,16 @@ static UBYTE *Makescreentitle(struct Awindow *win)
 
    if(!win) return NULL;
    screentitlebuf[0]='\0';
+#ifdef AWEB4
+   strcpy((char *)screentitlebuf,"AWeb 4");
+#else
    if(awebversion && awebversion[0])
    {  sprintf((char *)screentitlebuf,"AWeb %s",awebversion);
    }
    else
    {  strcpy((char *)screentitlebuf,"AWeb");
    }
+#endif
 
    freechip=0;
    freefast=AvailMem(MEMF_FAST);
@@ -1818,7 +1822,16 @@ static struct Awindow *Newwindow(struct Amset *ams)
       win->capens.sp_DarkPen=-1;
       win->capens.sp_LightPen=-1;
       win->flags|=WINF_NAVS|WINF_BUTTONS;
-      win->layoutstyle=0;  /* 0 = Original layout, 1 = Modern layout */
+      /* Layout style: 0 = classic AWeb 3 toolbar, 1 = AWeb 4 modern
+       * single-row toolbar.  Selected at compile time by the
+       * AWEB4 feature flag in awebdef.h; the AOWIN_LayoutStyle tag can
+       * still override at object-create time when callers want to force
+       * one style or the other irrespective of the build flavour. */
+#ifdef AWEB4
+      win->layoutstyle=1;
+#else
+      win->layoutstyle=0;
+#endif
       win->statustime=0;    /* No status shown initially */
       win->screentitletime=0;
       SETFLAG(win->flags,WINF_CLIPDRAG,prefs.program.clipdrag);

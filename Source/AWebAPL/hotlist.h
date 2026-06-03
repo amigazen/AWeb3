@@ -116,3 +116,13 @@ struct Hotwindow
 
 #define AOHOT_    (AOHOT_Dummy+)
 #define AOHOT_    (AOHOT_Dummy+)
+
+#ifdef AWEB4
+/* Runtime Hotlist menu entries (built from aweb.hotlist, not from prefs). */
+extern void Freehotlistmenus(void);
+extern long Hotlistmenuentrycount(void);
+extern void Hotlistmenuaddentries(struct NewMenu *newmenus,long *index,
+   short mnum,short *inum,short *snum);
+extern struct Menuentry *Hotlistmenuentryfromnum(USHORT menunum);
+extern BOOL Ishotlistmenuentry(struct Menuentry *me);
+#endif
