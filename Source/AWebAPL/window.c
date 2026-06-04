@@ -823,7 +823,8 @@ static void *BuildClassicLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *
    EndMember;
 }
 
-/* Build modern Chrome-like layout: back, forward, reload, securegad, urlgad, addhot */
+/* Build modern Chrome-like layout: back, forward, reload, urlgad, activity
+ * indicator (boingball/LED), securegad, addhot */
 static void *BuildModernLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *urlname)
 {  void *layout;
    /* Validate required images exist before building layout */
@@ -881,6 +882,11 @@ static void *BuildModernLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *u
          REACTION_SpecialPens,&win->capens,
       EndMember,
       CHILD_WeightedWidth,1,
+      /* Activity indicator (boingball.image when available, otherwise the
+       * classic progress LEDs) sits immediately to the right of the URL
+       * string gadget. Fixed width so it doesn't steal space from the URL. */
+      StartMember,win->ledgad=Animgadget(Aweb(),&win->capens),
+      CHILD_WeightedWidth,0,
 /* #ifndef DEMOVERSION */
       StartMember,win->securegad=ButtonObject,
          GA_Image,win->unsecureimg,

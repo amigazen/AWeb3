@@ -424,6 +424,15 @@ static Class *InitStagadcls(void)
 
 /* Ledgadcls - progress LEDs, framed with relwidth support */
 
+/* boingball.image is a 24x24 canvas whose visible imagery is only the central
+ * 16x16 area (the surrounding 4-pixel border is transparent). We report the
+ * 16x16 visible size to the layout so the toolbar row matches the other small
+ * controls, and centre the full 24x24 image when drawing (its transparent
+ * border then falls outside the gadget rect and, thanks to PENMAP_MaskBlit,
+ * paints nothing). */
+#define BOINGBALL_NATIVE   24
+#define BOINGBALL_VISIBLE  16
+
 struct Ledgaddata
 {  struct Image *frameimg;
    short bevelw,bevelh;
@@ -539,6 +548,7 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
    struct DrawInfo *dri=gpr->gpr_GInfo->gi_DrInfo;
    long x,y,x2,y2;
    long bgpen=0;     /* used only on the boingball.image render path */
+   long ballx=0,bally=0; /* centred top-left for the 24x24 boingball image */
    UBYTE oldapen=0;  /* preserve caller's RastPort foreground pen */
    data=INST_DATA(cl,o);
    imp.MethodID=IM_DRAWFRAME;
@@ -573,12 +583,16 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
          imp.X,imp.Y,
          imp.X+imp.Width-1,imp.Y+imp.Height-1);
       SetAPen(gpr->gpr_RPort,oldapen);
+      /* Centre the 24x24 ball within the gadget rect; its transparent border
+       * spills outside but paints nothing (PENMAP_MaskBlit). */
+      ballx=imp.X+(imp.Width-BOINGBALL_NATIVE)/2;
+      bally=imp.Y+(imp.Height-BOINGBALL_NATIVE)/2;
       if(data->active && data->needmove && data->ballready)
       {  
          ballimp.MethodID=IM_MOVE;
          ballimp.imp_RPort=gpr->gpr_RPort;
-         ballimp.X=imp.X;
-         ballimp.Y=imp.Y;
+         ballimp.X=ballx;
+         ballimp.Y=bally;
          ballimp.imp_State=IDS_NORMAL;
          ballimp.imp_DrInfo=dri;
          DoMethodA(data->boingball,(Msg)&ballimp);
@@ -586,7 +600,7 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
       }
       else
       { 
-         DrawImage(gpr->gpr_RPort,(struct Image *)data->boingball,imp.X,imp.Y);
+         DrawImage(gpr->gpr_RPort,(struct Image *)data->boingball,ballx,bally);
          data->ballready=TRUE;
          data->needmove=FALSE;
       }
@@ -698,8 +712,18 @@ static __asm __saveds ULONG DispatchLedgadcls(register __a0 Class *cl,
          data=INST_DATA(cl,o);
          gpd->gpd_Domain.Left=0;
          gpd->gpd_Domain.Top=0;
-         gpd->gpd_Domain.Width=data->w+2*data->bevelw;
-         gpd->gpd_Domain.Height=data->h+2*data->bevelh;
+         if(data->boingball)
+         {  /* Only the central 16x16 of the boingball is visible, so report
+             * that rather than the (larger) classic anim dimensions; this
+             * keeps the modern toolbar row the same height as the adjacent
+             * 16x14 button/URL controls instead of stretching to fit. */
+            gpd->gpd_Domain.Width=BOINGBALL_VISIBLE;
+            gpd->gpd_Domain.Height=BOINGBALL_VISIBLE;
+         }
+         else
+         {  gpd->gpd_Domain.Width=data->w+2*data->bevelw;
+            gpd->gpd_Domain.Height=data->h+2*data->bevelh;
+         }
          break;
       case OM_DISPOSE:
          data=INST_DATA(cl,o);

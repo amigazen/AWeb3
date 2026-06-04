@@ -555,6 +555,44 @@ static void Getbuttonsinfo(struct Application *app)
    Setloadreqlevel(LQL_GUIIMG,LQL_NUMBER);
 }
 
+/* Palette for the boingball.image instance.
+ *
+ * boingball.image's autodoc misleadingly states "this class has no attributes
+ * of its own", but the penmap.image V47.3 release notes are explicit:
+ *
+ *   "In case a palette is not given and IA_Pens is not given, then the code
+ *    cannot render much, but at least, it should not create a hit."
+ *   "Also clarified the autodocs that either IA_Pens or PENMAP_Palette
+ *    must be specified."
+ *
+ * In practice this requirement is also inherited by boingball.image - left
+ * to its own devices the class renders a solid silhouette ("black circle").
+ *
+ * We want the classic two-tone Amiga boing ball - red and white only.  The
+ * V47.3 imagery uses ranges of chunky pens per material rather than a strict
+ * odd/even alternation, so we map pens 1..7 to red and pens 8..15 to white.
+ * Any chunky values above 15 fall through to raw screen pens and would
+ * manifest as stray greens/blues; 15 entries comfortably covers what the
+ * class actually uses. */
+static ULONG boingballpalette[]=
+{  15,
+   0xffffffff,0x00000000,0x00000000,   /* 1  - red                      */
+   0xffffffff,0x00000000,0x00000000,   /* 2  - red                      */
+   0xffffffff,0x00000000,0x00000000,   /* 3  - red                      */
+   0xffffffff,0x00000000,0x00000000,   /* 4  - red                      */
+   0xffffffff,0x00000000,0x00000000,   /* 5  - red                      */
+   0xffffffff,0x00000000,0x00000000,   /* 6  - red                      */
+   0xffffffff,0x00000000,0x00000000,   /* 7  - red                      */
+   0xffffffff,0xffffffff,0xffffffff,   /* 8  - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 9  - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 10 - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 11 - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 12 - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 13 - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 14 - white                    */
+   0xffffffff,0xffffffff,0xffffffff,   /* 15 - white                    */
+};
+
 static void Getboinginfo(struct Application *app)
 {  app->boingball=NULL;
    if(!app->screen) return;
@@ -564,8 +602,25 @@ static void Getboinginfo(struct Application *app)
     * here is enough; we don't need to know about PenMapBase in this TU. */
    if(!BoingBallBase) return;
    if(((struct Library *)BoingBallBase)->lib_Version<47) return;
+   /*
+    *   - PENMAP_Palette     : mandatory in practice (see boingballpalette
+    *                          above) - without it the class falls back to
+    *                          "cannot render much" and we get a black blob.
+    *   - PENMAP_Screen      : mandatory; gives the class a ColorMap to
+    *                          ObtainBestPen() against (boingball_ic.doc).
+    *   - PENMAP_Transparent : maps chunky pen 0 to IA_BGPen (defaults to
+    *                          BACKGROUNDPEN of PENMAP_Screen) so the outer
+    *                          4-pixel border of the 24x24 image blends with
+    *                          our gadget background.
+    *   - PENMAP_MaskBlit    : builds a real bitmask plane from the image's
+    *                          non-zero pens so the backfill shows through the
+    *                          transparent border. Removing this regresses to
+    *                          the black circle even with PENMAP_Palette set. */
    app->boingball=NewObject(NULL,"boingball.image",
-      PENMAP_Screen,app->screen,
+      PENMAP_Palette,(ULONG)boingballpalette,
+      PENMAP_Screen,(ULONG)app->screen,
+      PENMAP_Transparent,TRUE,
+      PENMAP_MaskBlit,TRUE,
       TAG_END);
 }
 
