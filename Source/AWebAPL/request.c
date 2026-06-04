@@ -104,9 +104,9 @@ static BOOL inited;
 
 static struct MsgPort *reqport;
 
-static UBYTE *aboutbuttons[]={ "_Ok",NULL };
-static UBYTE *quitbuttons[]={ "_Ok","_Cancel",NULL };
-static UBYTE *unregbuttons[]={ "_Ok",NULL };
+static UBYTE *aboutbuttons[]={ "_OK",NULL };
+static UBYTE *quitbuttons[]={ "_OK","_Cancel",NULL };
+static UBYTE *unregbuttons[]={ "_OK",NULL };
 
 struct Hook requestbackfillhook;
 
@@ -566,7 +566,7 @@ void Aboutreq(UBYTE *portname)
                es.es_StructSize=sizeof(es);
                es.es_Title=AWEBSTR(MSG_ABOUT_TITLE);
                es.es_TextFormat=buf;
-               es.es_GadgetFormat="Ok";
+               es.es_GadgetFormat="OK" ;
                EasyRequest((struct Window *)Agetattr(Firstwindow(),AOWIN_Window),&es,NULL);
                FREE(buf);
             }
@@ -994,7 +994,7 @@ void Demorequest(void)
 #ifndef OSVERSION
    Syncrequest("AWeb DEMO version",
       "There is no longer a demo version build"
-      "_Ok",
+      "_OK",
 #ifdef DEVELOPER
       0
 #else
