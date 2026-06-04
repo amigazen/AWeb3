@@ -90,7 +90,7 @@ static void AmiSSLupdatehelp(UBYTE *text)
   }
 
   /* Syncrequest returns GA_ID (1..n). */
-  result = Syncrequest("AWeb", text, "_Get AmiSSL|_Ok", 0);
+  result = Syncrequest("AWeb", text, "_Get AmiSSL|_OK ", 0);
   if (result == 1)
   {
     Inputwindocsmart(win, AMISSL_UPDATE_URL, NULL);
@@ -129,11 +129,16 @@ struct Library *AmiSSLExtBase;
  * manually for ALL tasks (main and subprocesses), matching the old v3/v4 behavior.
  * This provides clearer control and is beneficial for multithreaded use. */
 
-/* Each process calls SSL_CTX_up_ref() when using it, SSL_CTX_free() when done */
-/* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
-/* We track our own refcount to know when to clear shared_sslctx pointer */
+/* Keep-alive model: a single shared SSL_CTX is created on first use and
+ * kept for the whole program run. It is NOT up-ref'd/freed per connection;
+ * SSL_new()/SSL_free() manage the per-connection reference automatically.
+ * The one permanent reference (from SSL_CTX_new) is released exactly once
+ * in Freeamissl() at global shutdown. This prevents an arbitrary task from
+ * freeing the context - and tearing down its internal lock semaphore -
+ * under a foreign per-task AmiSSL context, which caused a "semaphore in
+ * illegal state at RemSemaphore" panic on exit. */
 static SSL_CTX *shared_sslctx = NULL;
-static ULONG shared_sslctx_refcount = 0; /* Our reference count tracking for shared SSL_CTX */
+static ULONG shared_sslctx_refcount = 0; /* 1 = shared_sslctx created/alive, 0 = none */
 
 /* Semaphore to protect OpenSSL object creation/destruction */
 /* SSL_CTX_new(), SSL_new(), SSL_free(), SSL_CTX_free() may access shared
@@ -1063,10 +1068,18 @@ static SSL_CTX *GetSharedSSLCTX(void) {
         shared_sslctx_refcount = 0;
         /* Fall through to create new SSL_CTX */
       } else {
-        debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX exists at %p, incrementing refcount (was %lu)\n", 
-                     shared_sslctx, shared_sslctx_refcount);
-        SSL_CTX_up_ref(shared_sslctx);
-        shared_sslctx_refcount++;
+        /* Keep-alive model: the shared SSL_CTX holds ONE permanent
+         * reference (from SSL_CTX_new below) for the whole program run and
+         * is freed exactly once in Freeamissl(). Per-connection references
+         * are taken and released automatically by SSL_new()/SSL_free(), so
+         * we must NOT add a manual reference here, and a per-connection
+         * close must never free the context. Previously each task up-ref'd
+         * and freed the shared context; whichever task happened to drop the
+         * last reference tore down the context's internal lock semaphore
+         * under a foreign per-task AmiSSL context, which is what raised the
+         * "semaphore in illegal state at RemSemaphore" panic on exit. */
+        debug_printf("DEBUG: GetSharedSSLCTX: Reusing shared SSL_CTX at %p (keep-alive, no manual ref)\n",
+                     shared_sslctx);
         ctx = shared_sslctx;
         ReleaseSemaphore(&ssl_init_sema);
         return ctx;
@@ -1734,30 +1747,16 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
           assl->ssl = NULL;
         }
         if (has_valid_sslctx && assl->sslctx) {
+          /* Keep-alive model: assl->sslctx only BORROWS the shared context;
+           * ownership stays with the single permanent reference released in
+           * Freeamissl(). Do NOT free it here - just drop our borrowed
+           * pointer. The SSL object freed just above (SSL_free) already
+           * released the per-connection reference that SSL_new() took on
+           * the context. Freeing the shared context per-connection is what
+           * caused the RemSemaphore panic. */
           debug_printf(
-              "DEBUG: Assl_openssl: Freeing existing SSL context at %p\n",
+              "DEBUG: Assl_openssl: Releasing borrowed SSL context pointer %p (keep-alive, not freeing shared context)\n",
               assl->sslctx);
-          /* call SSL_CTX_free() to decrement reference count */
-          /* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
-          /* This allows multiple processes to share the same SSL_CTX safely */
-          /* CRITICAL: Track our refcount and clear shared_sslctx if it reaches 0 */
-          /* Clear certificate verification callback before freeing context */
-          /* This prevents callbacks from being called after context is freed */
-          SSL_CTX_set_verify(assl->sslctx, SSL_VERIFY_NONE, NULL);
-          debug_printf("DEBUG: Assl_openssl: Calling SSL_CTX_free() on existing context %p (decrementing refcount, current=%lu)\n",
-                       assl->sslctx, shared_sslctx_refcount);
-          SSL_CTX_free(assl->sslctx);
-          check_ssl_error("SSL_CTX_free (existing)", local_amisslbase);
-          /* Decrement our refcount tracking */
-          if (shared_sslctx_refcount > 0) {
-            shared_sslctx_refcount--;
-            debug_printf("DEBUG: Assl_openssl: Our refcount decremented to %lu\n", shared_sslctx_refcount);
-            /* If refcount reaches 0, OpenSSL has freed the SSL_CTX - clear our pointer */
-            if (shared_sslctx_refcount == 0) {
-              debug_printf("DEBUG: Assl_openssl: Refcount reached 0, OpenSSL freed SSL_CTX, clearing shared_sslctx pointer\n");
-              shared_sslctx = NULL;
-            }
-          }
           assl->sslctx = NULL;
         }
         /* Reset flags after freeing */
@@ -1779,8 +1778,9 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
       }
     }
 
-    /* Get shared SSL_CTX  */
-    /* GetSharedSSLCTX() increments reference count, we call SSL_CTX_free() when done */
+    /* Get shared SSL_CTX (keep-alive: we only borrow it; SSL_new()/SSL_free()
+     * manage the per-connection reference, and the single permanent
+     * reference is freed once in Freeamissl()). */
     debug_printf("DEBUG: Assl_openssl: Getting shared SSL_CTX\n");
     assl->sslctx = GetSharedSSLCTX();
     if (!assl->sslctx) {
@@ -2065,33 +2065,16 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
       /* Context can only be safely freed after all SSL objects using it are
        * freed */
       if (assl->sslctx) {
-        if ((ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0) {
-          if (AmiSSLBase && (ULONG)AmiSSLBase >= 0x1000 &&
-              (ULONG)AmiSSLBase < 0xFFFFFFF0) {
-            debug_printf("DEBUG: Assl_closessl: Freeing SSL context at %p\n",
-                         assl->sslctx);
-            /* call SSL_CTX_free() to decrement reference count */
-            /* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
-            /* CRITICAL: Track our refcount and clear shared_sslctx if it reaches 0 */
-            debug_printf(
-                "DEBUG: Assl_closessl: Calling SSL_CTX_free() on shared context %p (decrementing refcount, current=%lu)\n",
-                assl->sslctx, shared_sslctx_refcount);
-            SSL_CTX_free(assl->sslctx);
-            /* No error checking in cleanup path - errors don't matter during cleanup */
-            /* Decrement our refcount tracking */
-            if (shared_sslctx_refcount > 0) {
-              shared_sslctx_refcount--;
-              debug_printf("DEBUG: Assl_closessl: Our refcount decremented to %lu\n", shared_sslctx_refcount);
-              /* If refcount reaches 0, OpenSSL has freed the SSL_CTX - clear our pointer */
-              if (shared_sslctx_refcount == 0) {
-                debug_printf("DEBUG: Assl_closessl: Refcount reached 0, OpenSSL freed SSL_CTX, clearing shared_sslctx pointer\n");
-                shared_sslctx = NULL;
-              }
-            }
-            debug_printf("DEBUG: Assl_closessl: SSL_CTX_free() completed "
-                         "successfully (reference count decremented)\n");
-          }
-        }
+        /* Keep-alive model: the connection only BORROWS the shared SSL_CTX,
+         * which is owned by a single permanent reference freed once in
+         * Freeamissl(). Never free it on a per-connection close - doing so
+         * let an arbitrary task tear down the context's internal lock
+         * semaphore under a foreign per-task AmiSSL context, producing the
+         * "semaphore in illegal state at RemSemaphore" panic on exit. The
+         * SSL object freed just above already released the reference that
+         * SSL_new() held on the context. */
+        debug_printf("DEBUG: Assl_closessl: Releasing borrowed SSL context pointer %p (keep-alive, not freeing shared context)\n",
+                     assl->sslctx);
         assl->sslctx = NULL;
       }
 
@@ -3177,7 +3160,21 @@ void Freeamissl(void)
    if (AmiSSLMasterBase && AmiSSLBase)
    {
       debug_printf("DEBUG: Freeamissl: Cleaning up AmiSSL\n");
-      
+
+      /* Keep-alive model: the shared SSL_CTX held one permanent reference
+       * for the whole run (per-connection closes never free it - see
+       * GetSharedSSLCTX/Assl_openssl/Assl_closessl). Free it exactly once
+       * here, at global shutdown, while OpenSSL/AmiSSL is still open and on
+       * the main task, so the context and its internal lock semaphore are
+       * torn down in a single controlled place rather than by an arbitrary
+       * task under a foreign per-task AmiSSL context. */
+      if (shared_sslctx)
+      {  debug_printf("DEBUG: Freeamissl: Freeing shared SSL_CTX at %p\n", shared_sslctx);
+         SSL_CTX_free(shared_sslctx);
+         shared_sslctx = NULL;
+         shared_sslctx_refcount = 0;
+      }
+
       /* CloseAmiSSL() must be called before closing amisslmaster.library */
       /* This cleans up AmiSSL internal resources and certificate cache */
       CloseAmiSSL();
