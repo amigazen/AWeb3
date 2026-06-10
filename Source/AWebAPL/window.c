@@ -96,11 +96,12 @@ static void Appendscreentitle(UBYTE *text)
    if(add) strncat(screentitlebuf,text,add);
 }
 
+/* Rendering locks the window layer while refreshing, so do not request
+ * IDCMP_SIZEVERIFY; Intuition would otherwise block sizing until we reply. */
 static ULONG idcmpflags=IDCMP_CHANGEWINDOW|IDCMP_INTUITICKS|IDCMP_REFRESHWINDOW|
    IDCMP_CLOSEWINDOW|IDCMP_MOUSEBUTTONS|
    IDCMP_MOUSEMOVE|IDCMP_GADGETUP|IDCMP_MENUPICK|IDCMP_IDCMPUPDATE|
-   IDCMP_RAWKEY|IDCMP_SIZEVERIFY|
-   IDCMP_GADGETDOWN|IDCMP_INACTIVEWINDOW|IDCMP_ACTIVEWINDOW;
+   IDCMP_RAWKEY|IDCMP_GADGETDOWN|IDCMP_INACTIVEWINDOW|IDCMP_ACTIVEWINDOW;
 
 #ifdef LOCALONLY
 UBYTE *urlpops[]=
