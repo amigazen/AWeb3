@@ -1,0 +1,30 @@
+FROM     lib:c.o aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
+         request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
+         prefs.o defprefs.o
+         object.o task.o scroller.o application.o file.o filereq.o editor.o timer.o
+         window.o event.o winrexx.o winhis.o frame.o framejs.o
+         popup.o search.o print.o printwin.o info.o saveiff.o
+         netstat.o hotlist.o whiswin.o cabrowse.o
+         url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
+         local.o httpcch.o http_amihttp.o xaweb.o ciddataurls.o cidregistry.o
+         tcp.o tcperr.o nameserv.o author.o
+         awebtcp.o awebamitcp.o amissl.o
+         sourcedriver.o docsource.o imgsource.o extprog.o saveas.o soundsource.o
+         docext.o css.o ttengine.o
+         copydriver.o document.o docjs.o xhrjs.o jsonparse.o imgcopy.o soundcopy.o
+         parse.o markdown.o html.o body.o frameset.o link.o map.o area.o form.o
+         element.o break.o text.o ruler.o bullet.o table.o name.o
+         field.o input.o checkbox.o radio.o select.o textarea.o button.o
+         hidden.o filefield.o
+
+TO       AWeb4
+
+DEFINE   __CXM33=__UCXM33
+DEFINE   __CXD33=__UCXD33
+DEFINE   __CXM22=__UCXM22
+DEFINE   __CXD22=__UCXD22
+DEFINE   @__chkabort=@__dummy
+
+LIB      lib:scmnb.lib lib:scnb.lib lib:debug.lib lib:small.lib lib:reaction.lib
+
+MAP      AWeb.map

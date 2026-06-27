@@ -73,6 +73,36 @@ aweb:       aweb.lnk
 
 #-----------------------------------------------------------------------------
 
+# AWeb 4: amihttp.library HTTP stack + AWEB4 UI features (define=AWEB4=1).
+# Non-HTTP TLS (gemini, mail, …) still uses amissl.c via awebtcp.c.
+# Run "smake aweb4_opts" first (or "smake aweb4", which depends on it) to
+# activate scoptions.aweb4.  After amihttp "smake headers", Include_H may
+# also be on include: via SDK:Include_h.
+
+aweb4:       aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
+aweb4:       request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
+aweb4:       prefs.o defprefs.o
+aweb4:       object.o task.o scroller.o application.o file.o filereq.o editor.o
+aweb4:       timer.o
+aweb4:       window.o event.o winrexx.o winhis.o frame.o framejs.o
+aweb4:       popup.o search.o print.o printwin.o info.o saveiff.o
+aweb4:       netstat.o hotlist.o whiswin.o cabrowse.o
+aweb4:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
+aweb4:       local.o httpcch.o http_amihttp.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
+aweb4:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
+aweb4:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
+aweb4:       soundsource.o docext.o
+aweb4:       copydriver.o document.o imgcopy.o soundcopy.o docjs.o
+aweb4:       parse.o markdown.o html.o frameset.o body.o link.o map.o area.o form.o
+aweb4:       element.o break.o text.o ruler.o bullet.o table.o name.o css.o
+aweb4:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
+aweb4:       hidden.o filefield.o
+aweb4:       ttengine.o
+aweb4:       aweb4.lnk
+    slink with aweb4.lnk
+
+#-----------------------------------------------------------------------------
+
 author.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
     @echo "        Compiling $*.c..."
     @sc idir=netinclude: $*.c to $*.o
@@ -118,6 +148,10 @@ httpcch.o:  httpcch.c aweb.h httpcch.h
 http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h httpcch.h /zlib/zlib.h
     @echo "        Compiling $*.c..."
     @sc idir=netinclude: idir=sslinclude: $*.c to $*.o
+
+http_amihttp.o: http_amihttp.c aweb.h awebssl.h fetchdriver.h form.h httpcch.h task.h tcperr.h url.h
+    @echo "        Compiling $*.c..."
+    @sc DEFINE=AWEB4=1 idir=httpinclude: $*.c to $*.o
 
 locale.o: aweb.cd
    catcomp aweb.cd cfile locale.h objfile locale.o

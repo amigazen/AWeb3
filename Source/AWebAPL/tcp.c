@@ -54,7 +54,7 @@ BOOL task_ssl_sema_init = FALSE;
 /*-----------------------------------------------------------------------*/
 
 #ifndef DEMOVERSION
-static long Spawnsync(UBYTE *cmd,UBYTE *args)
+long Spawnsync(UBYTE *cmd,UBYTE *args)
 {  UBYTE *scrname,*cmdbuf;
    long result=100;
    long out;

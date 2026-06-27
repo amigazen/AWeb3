@@ -145,6 +145,10 @@ extern BOOL has35;
  *     Add/View/Manage/Save/Restore menu items are kept; the menu is
  *     rebuilt when the hotlist changes.
  *
+ *   - HTTP/HTTPS fetch via amihttp.library (http_amihttp.c) instead of
+ *     the built-in http.c client. Build with "smake aweb4" (activates
+ *     scoptions.aweb4: DEFINE=AWEB4=1 and amihttp Include_H).
+ *
  * Undefine AWEB4 (or comment out the #define) to build pure AWeb 3
  * behaviour: classic multi-row toolbar plus the original progress
  * indicator, with no attempt to open boingball.image at startup.
@@ -152,7 +156,9 @@ extern BOOL has35;
  * The flag should be either defined (any value) or absent; the rest of
  * the source uses #ifdef AWEB4 throughout, never #if AWEB4. */
 
+#ifndef AWEB4
 #define AWEB4 0
+#endif
 
 
 #ifndef AWEBPREFS_H

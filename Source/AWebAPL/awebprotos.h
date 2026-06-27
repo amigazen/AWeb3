@@ -852,6 +852,10 @@ extern void Freesupport(void);
 
 extern BOOL Inittcp(void);
 extern void Freetcp(void);
+extern struct SignalSemaphore tcpsema;
+#ifndef DEMOVERSION
+extern long Spawnsync(UBYTE *cmd, UBYTE *args);
+#endif
 extern void Freeamissl(void);
 
    /* Open TCP library. Returns AwebTcpBase if successful. */
