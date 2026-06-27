@@ -1,4 +1,21 @@
 /**********************************************************************
+ * 
+ * This file is part of the AWeb APL distribution
+ *
+ * Copyright (C) 2025-2026 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+
+/**********************************************************************
  *
  * http_amihttp.c - AWeb4 HTTP/HTTPS fetch via amihttp.library
  *
@@ -14,8 +31,7 @@
  * Cookie jar: NewHttpCookieJarTags() with HTCJ_REQUEST_HOOK /
  * HTCJ_RESPONSE_HOOK delegates to Findcookies() / Storecookie() in cookie.c.
  * Response headers: HttpTransactionRespHeaderByIndex() for net monitor,
- * cache metadata, and Cache-Control merge.  Further gaps (proxy CONNECT,
- * range resume, brotli) are in github/amihttp/TODO.md §AWeb requirements.
+ * cache metadata, and Cache-Control merge.  
  *
  **********************************************************************/
 
@@ -44,6 +60,10 @@
 #include "task.h"
 #include "tcperr.h"
 #include "url.h"
+
+/* Match HTBT_DEFAULT_TIMEOUT (15) and legacy http.c SO_RCVTIMEO per operation. */
+#define HTTP4_CONNECT_TIMEOUT  15UL
+#define HTTP4_READ_TIMEOUT     15UL
 
 /*
  * Library bases and socket swap state for #pragma libcall (proto/amihttp.h,
@@ -193,7 +213,12 @@ Http4_useragent(void)
    ReleaseSemaphore(&prefssema);
 #endif
    if (!Http4DefaultUaInit) {
-      sprintf((char *)Http4DefaultUa, "Mozilla/4.0 (compatible; Amiga-AWeb/%s; %s)",
+      /*
+       * Modern Chrome-like UA for AWeb4; many sites (e.g. Google) serve a stub
+       * page to legacy Mozilla/4.0.  Prefs spoof ID still overrides this.
+       */
+      sprintf((char *)Http4DefaultUa,
+         "Mozilla/5.0 (compatible; AWeb/%s; %s) AppleWebKit/537.36 Chrome/120.0.0.0",
          awebversion, Awebosversion());
       Http4DefaultUaInit = TRUE;
    }
@@ -499,9 +524,13 @@ Http4_process_header(struct Fetchdriver *fd, struct Http4TxnCtx *ctx,
    UBYTE line[HTTP4_HDRLINE_MAX];
    UBYTE *p;
    UBYTE *q;
+   UBYTE *type_start;
+   UBYTE *cs;
+   UBYTE *cs_end;
    UBYTE mimetype[32];
    UBYTE charsetval[24];
    long l;
+   long cs_len;
    BOOL have_charset;
    struct Http_cc_accum linecc;
 
@@ -543,47 +572,70 @@ Http4_process_header(struct Fetchdriver *fd, struct Http4TxnCtx *ctx,
       sscanf(value, " %ld", &clen);
       Updatetaskattrs(AOURL_Contentlength, clen, TAG_END);
    } else if (STRNIEQUAL(name, "Content-Type", 12) && name[12] == '\0') {
+      /*
+       * Parse type/subtype and optional charset without writing into value
+       * (library-owned until DisposeHttpTransaction).  Older code reused p
+       * for charset scanning and copied the charset into mimetype by mistake.
+       */
       mimetype[0] = '\0';
       charsetval[0] = '\0';
       have_charset = FALSE;
       for (p = value; *p && isspace((int)(unsigned char)*p); p++) {
          ;
       }
+      type_start = p;
       for (q = p; *q && !isspace((int)(unsigned char)*q) && *q != ';'; q++) {
          ;
       }
-      l = (long)(q - p);
-      if (*q && STRNIEQUAL(p, "text/", 5)) {
-         for (q++; *q && !STRNIEQUAL(q, "charset=", 8); q++) {
-            ;
-         }
-         if (*q) {
-            q += 8;
-            while (*q && isspace((int)(unsigned char)*q)) {
-               q++;
-            }
-            if (*q == '"') {
-               q++;
-               for (p = q; *p && *p != '"'; p++) {
-                  ;
-               }
-               *p = '\0';
-            } else {
-               for (p = q; *p && !isspace((int)(unsigned char)*p); p++) {
-                  ;
-               }
-               *p = '\0';
-            }
-            strncpy((char *)charsetval, (char *)q, sizeof(charsetval) - 1);
-            charsetval[sizeof(charsetval) - 1] = '\0';
-            have_charset = TRUE;
-         }
-      }
+      l = (long)(q - type_start);
       if (l > 31) {
          l = 31;
       }
-      strncpy((char *)mimetype, (char *)p, l);
-      mimetype[l] = '\0';
+      if (l > 0) {
+         strncpy((char *)mimetype, (char *)type_start, (size_t)l);
+         mimetype[l] = '\0';
+      }
+      if (*q == ';' && STRNIEQUAL(type_start, "text/", 5)) {
+         for (cs = q + 1; *cs != '\0'; cs++) {
+            while (*cs != '\0' &&
+               (*cs == ';' || isspace((int)(unsigned char)*cs))) {
+               cs++;
+            }
+            if (*cs == '\0') {
+               break;
+            }
+            if (!STRNIEQUAL(cs, "charset=", 8)) {
+               continue;
+            }
+            cs += 8;
+            while (*cs != '\0' && isspace((int)(unsigned char)*cs)) {
+               cs++;
+            }
+            if (*cs == '"') {
+               cs++;
+               for (cs_end = cs; *cs_end != '\0' && *cs_end != '"'; cs_end++) {
+                  ;
+               }
+               cs_len = (long)(cs_end - cs);
+            } else {
+               for (cs_end = cs; *cs_end != '\0' &&
+                  !isspace((int)(unsigned char)*cs_end) && *cs_end != ';';
+                  cs_end++) {
+                  ;
+               }
+               cs_len = (long)(cs_end - cs);
+            }
+            if (cs_len > (long)sizeof(charsetval) - 1) {
+               cs_len = (long)sizeof(charsetval) - 1;
+            }
+            if (cs_len > 0) {
+               strncpy((char *)charsetval, (char *)cs, (size_t)cs_len);
+               charsetval[cs_len] = '\0';
+               have_charset = TRUE;
+            }
+            break;
+         }
+      }
       if (have_charset && charsetval[0]) {
          l = (long)strlen((char *)mimetype);
          if (l > 0 && l + 10 + (long)strlen((char *)charsetval) < (long)sizeof(mimetype)) {
@@ -737,10 +789,10 @@ Http4_configure_session(struct HttpSession *session, struct Fetchdriver *fd,
    tags[n].ti_Data = (ULONG)FALSE;
    n++;
    tags[n].ti_Tag = HTSA_CONNECT_TIMEOUT;
-   tags[n].ti_Data = (ULONG)60;
+   tags[n].ti_Data = (ULONG)HTTP4_CONNECT_TIMEOUT;
    n++;
    tags[n].ti_Tag = HTSA_READ_TIMEOUT;
-   tags[n].ti_Data = (ULONG)120;
+   tags[n].ti_Data = (ULONG)HTTP4_READ_TIMEOUT;
    n++;
    /* Accept-Encoding: only when z.library is open (NewHttpSession default). */
    if (Http4CookieJar != NULL) {
@@ -1154,8 +1206,8 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
    err = HttpTransactionGetLastError(txn);
    *status_out = status;
 
-   Http4_debug("Perform rv=%ld status=%ld err=%ld (%s)",
-      (long)rv, status, err,
+   Http4_debug("Perform rv=%ld status=%ld err=%ld liberr=%ld (%s)",
+      (long)rv, status, err, HttpError(),
       HttpGetErrorString(err) ? (char *)HttpGetErrorString(err) : "");
 
    if (!rv && status == 0) {
@@ -1321,6 +1373,9 @@ Httptask(struct Fetchdriver *fd)
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    } else {
       for (;;) {
+         if (Checktaskbreak()) {
+            break;
+         }
          if (use_proxy && auth && prefs.network.limitproxy && !limitproxy_reset) {
             use_proxy = FALSE;
             limitproxy_reset = TRUE;
@@ -1391,7 +1446,8 @@ Inithttp(void)
    if (!Http4_init_library()) {
       return FALSE;
    }
-   Http4_debug("Inithttp: %s ready base=%p", AMIHTTPNAME, HttpBase);
+   Http4_debug("Inithttp: %s ready base=%p id=%s", AMIHTTPNAME, HttpBase,
+      HttpBase && HttpBase->lib_IdString ? (char *)HttpBase->lib_IdString : "?");
    return TRUE;
 }
 
