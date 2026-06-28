@@ -123,6 +123,11 @@ static struct Http4MpostState Http4MpostState;
  * Each Httptask opens its own Opentcp() handle and closes it on exit.  Do not
  * enable cross-Httptask keep-alive (HTSA_TASK_SERIAL / shared SocketBase):
  * pooled socket fds are tied to the bsdsocket handle that created them.
+ *
+ * Redirect chains (301/302/…) are followed inside one Httptask via
+ * HTSA_FOLLOW_REDIRECTS so fetch.c does not spawn a second retrieve task.
+ * HTSA_KEEPALIVE stays within this task; CloseIdleKeepAliveConnections()
+ * runs before a_cleanup() so pooled fds are not left on a closing handle.
  */
 static UBYTE Http4_tcp_block[256];
 static struct Fetchdriver Http4_tcp_probe;
@@ -784,14 +789,18 @@ Http4_configure_session(struct HttpSession *session, struct Fetchdriver *fd,
    tags[n].ti_Data = (ULONG)ua;
    n++;
    tags[n].ti_Tag = HTSA_FOLLOW_REDIRECTS;
-   tags[n].ti_Data = (ULONG)FALSE;
+   /*
+    * Follow inside one Httptask/Opentcp() session (avoids a second retrieve
+    * subprocess and duplicate TLS setup for www→bare-host redirects).
+    * fetch.c still handles AOURL_Movedto when a redirect cannot be followed.
+    */
+   tags[n].ti_Data = (ULONG)TRUE;
    n++;
    tags[n].ti_Tag = HTSA_MAX_REDIRECTS;
    tags[n].ti_Data = (ULONG)HTTP4_MAX_REDIRECTS;
    n++;
    tags[n].ti_Tag = HTSA_KEEPALIVE;
-   /* One fetch per Httptask; socket handle closes on exit — no cross-task pool. */
-   tags[n].ti_Data = (ULONG)FALSE;
+   tags[n].ti_Data = (ULONG)(use_proxy ? FALSE : TRUE);
    n++;
    tags[n].ti_Tag = HTSA_CONNECT_TIMEOUT;
    tags[n].ti_Data = (ULONG)HTTP4_CONNECT_TIMEOUT;
@@ -1238,6 +1247,10 @@ Http4_fetch_once(struct Fetchdriver *fd, struct HttpSession *session,
       }
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    } else if (status >= 300 && status < 400) {
+      /*
+       * HTSA_FOLLOW_REDIRECTS normally absorbs 3xx inside Perform().  If we
+       * still see a redirect, hand off to fetch.c (Moveurl / second driver).
+       */
       loc = HttpTransactionGetRedirectLocation(txn);
       if (loc == NULL) {
          loc = HttpTransactionRespHeader(txn, (STRPTR)"Location");
@@ -1415,6 +1428,11 @@ Httptask(struct Fetchdriver *fd)
    sock_tags[1].ti_Data = 0;
    sock_tags[2].ti_Tag = TAG_DONE;
    HttpBaseTagList(sock_tags);
+   /*
+    * Drop idle pool entries on this task's SocketBase before a_cleanup().
+    * Keep-alive is scoped to one Httptask; do not leave fds on a closing handle.
+    */
+   CloseIdleKeepAliveConnections();
    if (task_sock != NULL) {
       a_cleanup(task_sock);
       CloseLibrary(task_sock);
