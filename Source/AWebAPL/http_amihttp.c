@@ -119,6 +119,10 @@ static struct Http4MpostState Http4MpostState;
  * Retrieve subprocesses share the browser address space (CreateNewProc).
  * amihttp.library is opened once in Inithttp(); concurrent fetches rely on
  * amihttp internal socket/pool locking (ahb_SocketSema, ahb_PoolSema).
+ *
+ * Each Httptask opens its own Opentcp() handle and closes it on exit.  Do not
+ * enable cross-Httptask keep-alive (HTSA_TASK_SERIAL / shared SocketBase):
+ * pooled socket fds are tied to the bsdsocket handle that created them.
  */
 static UBYTE Http4_tcp_block[256];
 static struct Fetchdriver Http4_tcp_probe;
@@ -179,9 +183,9 @@ static BOOL Http4_configure_txn(struct HttpTransaction *txn, struct Fetchdriver 
 static BOOL Http4_read_body(struct Fetchdriver *fd, struct HttpTransaction *txn,
    struct Http4TxnCtx *ctx);
 static void Http4_fill_content_type(struct Fetchdriver *fd, struct Http4TxnCtx *ctx);
-static BOOL Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
-   struct Authorize **auth_inout, struct Authorize **prxauth_inout, BOOL *use_proxy,
-   long *status_out);
+static BOOL Http4_fetch_once(struct Fetchdriver *fd, struct HttpSession *session,
+   UBYTE **url_inout, struct Authorize **auth_inout, struct Authorize **prxauth_inout,
+   BOOL *use_proxy, long *status_out);
 static ULONG Http4_cert_hook(struct Hook *hook, APTR obj, APTR msg);
 static ULONG Http4_cookie_request_hook(struct Hook *hook, APTR obj, APTR msg);
 static ULONG Http4_cookie_response_hook(struct Hook *hook, APTR obj, APTR msg);
@@ -786,6 +790,7 @@ Http4_configure_session(struct HttpSession *session, struct Fetchdriver *fd,
    tags[n].ti_Data = (ULONG)HTTP4_MAX_REDIRECTS;
    n++;
    tags[n].ti_Tag = HTSA_KEEPALIVE;
+   /* One fetch per Httptask; socket handle closes on exit — no cross-task pool. */
    tags[n].ti_Data = (ULONG)FALSE;
    n++;
    tags[n].ti_Tag = HTSA_CONNECT_TIMEOUT;
@@ -1119,11 +1124,10 @@ Http4_mpost_hook(struct Hook *hook, APTR obj, APTR msg)
 }
 
 static BOOL
-Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
-   struct Authorize **auth_inout, struct Authorize **prxauth_inout, BOOL *use_proxy,
-   long *status_out)
+Http4_fetch_once(struct Fetchdriver *fd, struct HttpSession *session,
+   UBYTE **url_inout, struct Authorize **auth_inout, struct Authorize **prxauth_inout,
+   BOOL *use_proxy, long *status_out)
 {
-   struct HttpSession *session;
    struct HttpTransaction *txn;
    struct Http4TxnCtx ctx;
    STRPTR loc;
@@ -1134,7 +1138,9 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
    BOOL rv;
    BOOL ssl;
 
-   session = NULL;
+   if (session == NULL) {
+      return FALSE;
+   }
    txn = NULL;
    host = NULL;
    authority = NULL;
@@ -1168,31 +1174,15 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
       (fd->proxy && fd->proxy[0]) ? (char *)fd->proxy : "(none)",
       ssl ? 1 : 0);
 
-   session = NewHttpSession();
-   if (session == NULL) {
-      Http4_debug("NewHttpSession failed, HttpError=%ld", (long)HttpError());
-      Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
-      return FALSE;
-   }
-   if (!Http4_configure_session(session, fd, *url_inout, *auth_inout, *prxauth_inout,
-         *use_proxy)) {
-      Http4_debug("Http4_configure_session failed");
-      Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
-      DisposeHttpSession(session);
-      return FALSE;
-   }
-
    txn = NewHttpTransaction(session);
    if (txn == NULL) {
       Http4_debug("NewHttpTransaction failed, HttpError=%ld", (long)HttpError());
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
-      DisposeHttpSession(session);
       return FALSE;
    }
    if (!Http4_configure_txn(txn, fd, *url_inout, *auth_inout, *prxauth_inout)) {
       Http4_debug("Http4_configure_txn failed (form warn or header)");
       DisposeHttpTransaction(txn);
-      DisposeHttpSession(session);
       return FALSE;
    }
 
@@ -1223,7 +1213,6 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
          Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
       }
       DisposeHttpTransaction(txn);
-      DisposeHttpSession(session);
       return FALSE;
    }
 
@@ -1236,7 +1225,6 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
       }
       if ((*auth_inout)->cookie) {
          DisposeHttpTransaction(txn);
-         DisposeHttpSession(session);
          return TRUE;
       }
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
@@ -1246,7 +1234,6 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
       }
       if ((*prxauth_inout)->cookie) {
          DisposeHttpTransaction(txn);
-         DisposeHttpSession(session);
          return TRUE;
       }
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
@@ -1265,12 +1252,10 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
             Updatetaskattrs(AOURL_Tempmovedto, loc, TAG_END);
          }
          DisposeHttpTransaction(txn);
-         DisposeHttpSession(session);
          return TRUE;
       }
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
       DisposeHttpTransaction(txn);
-      DisposeHttpSession(session);
       return FALSE;
    } else if (status == 304) {
       Http4_status_hint(304, NULL);
@@ -1278,7 +1263,6 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
    } else if (status >= 200 && status < 300) {
       if (!Http4_read_body(fd, txn, &ctx)) {
          DisposeHttpTransaction(txn);
-         DisposeHttpSession(session);
          return FALSE;
       }
    } else if (status == 401 || status == 407) {
@@ -1295,7 +1279,6 @@ Http4_fetch_once(struct Fetchdriver *fd, UBYTE **url_inout,
    }
 
    DisposeHttpTransaction(txn);
-   DisposeHttpSession(session);
    return TRUE;
 }
 
@@ -1303,6 +1286,7 @@ void
 Httptask(struct Fetchdriver *fd)
 {
    UBYTE *url;
+   struct HttpSession *session;
    struct Authorize *auth;
    struct Authorize *prxauth;
    struct Library *task_sock;
@@ -1313,6 +1297,7 @@ Httptask(struct Fetchdriver *fd)
    BOOL limitproxy_reset;
 
    task_sock = NULL;
+   session = NULL;
 
    if (fd == NULL || fd->name == NULL) {
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
@@ -1372,30 +1357,47 @@ Httptask(struct Fetchdriver *fd)
    if (url == NULL) {
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    } else {
-      for (;;) {
-         if (Checktaskbreak()) {
-            break;
+      session = NewHttpSession();
+      if (session == NULL) {
+         Http4_debug("Httptask: NewHttpSession failed err=%ld", (long)HttpError());
+         Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+      } else if (!Http4_configure_session(session, fd, url, auth, prxauth, use_proxy)) {
+         Http4_debug("Httptask: Http4_configure_session failed");
+         Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         DisposeHttpSession(session);
+         session = NULL;
+      } else {
+         for (;;) {
+            if (Checktaskbreak()) {
+               break;
+            }
+            if (use_proxy && auth && prefs.network.limitproxy && !limitproxy_reset) {
+               use_proxy = FALSE;
+               limitproxy_reset = TRUE;
+               if (!Http4_configure_session(session, fd, url, auth, prxauth, use_proxy)) {
+                  Http4_debug("Httptask: reconfigure session (no proxy) failed");
+                  break;
+               }
+            }
+            again = FALSE;
+            status = 0;
+            if (!Http4_fetch_once(fd, session, &url, &auth, &prxauth, &use_proxy, &status)) {
+               Http4_debug("Httptask: fetch_once failed status=%ld", status);
+               break;
+            }
+            if (status == 401 && auth && auth->cookie) {
+               again = TRUE;
+            } else if (status == 407 && prxauth && prxauth->cookie) {
+               again = TRUE;
+            } else {
+               break;
+            }
+            if (!again) {
+               break;
+            }
          }
-         if (use_proxy && auth && prefs.network.limitproxy && !limitproxy_reset) {
-            use_proxy = FALSE;
-            limitproxy_reset = TRUE;
-         }
-         again = FALSE;
-         status = 0;
-         if (!Http4_fetch_once(fd, &url, &auth, &prxauth, &use_proxy, &status)) {
-            Http4_debug("Httptask: fetch_once failed status=%ld", status);
-            break;
-         }
-         if (status == 401 && auth && auth->cookie) {
-            again = TRUE;
-         } else if (status == 407 && prxauth && prxauth->cookie) {
-            again = TRUE;
-         } else {
-            break;
-         }
-         if (!again) {
-            break;
-         }
+         DisposeHttpSession(session);
+         session = NULL;
       }
    }
 
