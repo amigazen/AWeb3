@@ -28,7 +28,7 @@
  * (HttpUriHostPart, HttpUriAuthorityPart, …).  Never walk
  * HttpTransactionRespHeaders() or read ParsedUrl / HttpHeader fields.
  *
- * Cookie jar: NewHttpCookieJarTags() with HTCJ_REQUEST_HOOK /
+ * Cookie jar: NewHttpCookieJar() with HTCJ_REQUEST_HOOK /
  * HTCJ_RESPONSE_HOOK delegates to Findcookies() / Storecookie() in cookie.c.
  * Response headers: HttpTransactionRespHeaderByIndex() for net monitor,
  * cache metadata, and Cache-Control merge.  
@@ -164,7 +164,7 @@ Http4_free_pool_mem(APTR p)
    tags[0].ti_Data = (ULONG)p;
    tags[1].ti_Tag = TAG_DONE;
    tags[1].ti_Data = 0;
-   HttpBaseTagList(tags);
+   HttpBaseTagsA(tags);
 }
 
 static UBYTE *Http4_useragent(void);
@@ -319,7 +319,7 @@ Http4_bootstrap_tcp_once(void)
 
 /*
  * One-time amihttp setup in the browser main process.  Shared by all retrieve
- * subprocesses; HttpBaseTagList and the cookie jar must not be torn down per fetch.
+ * subprocesses; HttpBaseTagsA and the cookie jar must not be torn down per fetch.
  */
 static BOOL
 Http4_init_library(void)
@@ -362,8 +362,8 @@ Http4_init_library(void)
    tags[n].ti_Tag = TAG_DONE;
    tags[n].ti_Data = 0;
    n++;
-   if (!HttpBaseTagList(tags)) {
-      Http4_debug("HttpBaseTagList failed err=%ld", (long)HttpError());
+   if (!HttpBaseTagsA(tags)) {
+      Http4_debug("HttpBaseTagsA failed err=%ld", (long)HttpError());
       CloseLibrary(HttpBase);
       HttpBase = NULL;
       return FALSE;
@@ -372,12 +372,12 @@ Http4_init_library(void)
    Http4MpostHook.h_Data = (APTR)&Http4MpostState;
    Http4CookieReqHook.h_Entry = (HOOKFUNC)Http4_cookie_request_hook;
    Http4CookieRespHook.h_Entry = (HOOKFUNC)Http4_cookie_response_hook;
-   Http4CookieJar = HttpCookieJarTags(
+   Http4CookieJar = NewHttpCookieJar(
       HTCJ_REQUEST_HOOK, (ULONG)&Http4CookieReqHook,
       HTCJ_RESPONSE_HOOK, (ULONG)&Http4CookieRespHook,
       TAG_DONE);
    if (Http4CookieJar == NULL) {
-      Http4_debug("HttpCookieJarTags failed err=%ld", (long)HttpError());
+      Http4_debug("NewHttpCookieJar failed err=%ld", (long)HttpError());
       CloseLibrary(HttpBase);
       HttpBase = NULL;
       return FALSE;
@@ -1348,7 +1348,7 @@ Httptask(struct Fetchdriver *fd)
    sock_tags[0].ti_Tag = HTBT_TASK_SOCKETBASE;
    sock_tags[0].ti_Data = (ULONG)task_sock;
    sock_tags[1].ti_Tag = TAG_DONE;
-   if (!HttpBaseTagList(sock_tags)) {
+   if (!HttpBaseTagsA(sock_tags)) {
       Http4_debug("Httptask: HTBT_TASK_SOCKETBASE failed err=%ld", (long)HttpError());
       a_cleanup(task_sock);
       CloseLibrary(task_sock);
@@ -1427,7 +1427,7 @@ Httptask(struct Fetchdriver *fd)
    sock_tags[1].ti_Tag = HTBT_TASK_SOCKET_RELEASE;
    sock_tags[1].ti_Data = 0;
    sock_tags[2].ti_Tag = TAG_DONE;
-   HttpBaseTagList(sock_tags);
+   HttpBaseTagsA(sock_tags);
    /*
     * Drop idle pool entries on this task's SocketBase before a_cleanup().
     * Keep-alive is scoped to one Httptask; do not leave fds on a closing handle.
@@ -1501,7 +1501,7 @@ CloseIdleKeepAliveConnections(void)
    tags[0].ti_Tag = HTBT_POOL_FLUSH;
    tags[0].ti_Data = 0;
    tags[1].ti_Tag = TAG_DONE;
-   HttpBaseTagList(tags);
+   HttpBaseTagsA(tags);
 }
 
 #else /* LOCALONLY */
