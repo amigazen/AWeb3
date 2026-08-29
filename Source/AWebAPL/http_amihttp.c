@@ -1246,6 +1246,10 @@ Http4_fetch_once(struct Fetchdriver *fd, struct HttpSession *session,
          return TRUE;
       }
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+   } else if (status == 304) {
+      /* Must be before the generic 3xx branch: 304 has no Location and is success. */
+      Http4_status_hint(304, NULL);
+      Updatetaskattrs(AOURL_Notmodified, TRUE, TAG_END);
    } else if (status >= 300 && status < 400) {
       /*
        * HTSA_FOLLOW_REDIRECTS normally absorbs 3xx inside Perform().  If we
@@ -1270,9 +1274,6 @@ Http4_fetch_once(struct Fetchdriver *fd, struct HttpSession *session,
       Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
       DisposeHttpTransaction(txn);
       return FALSE;
-   } else if (status == 304) {
-      Http4_status_hint(304, NULL);
-      Updatetaskattrs(AOURL_Notmodified, TRUE, TAG_END);
    } else if (status >= 200 && status < 300) {
       if (!Http4_read_body(fd, txn, &ctx)) {
          DisposeHttpTransaction(txn);

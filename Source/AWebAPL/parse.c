@@ -376,7 +376,7 @@ static struct Chardes chars[]=
    "prime", 146,  /* Approximated as right single quote in Latin-1 */
    "quot",  34,
    "rang",  9002,  /* No Latin-1 equivalent, kept as Unicode for translation */
-   "rarr",  8594,  /* Right arrow (→) - Unicode U+2192 */
+   "rarr",  8594,  /* Right arrow (>>) - Unicode U+2192 */
    "raquo", 187,
    "reg",   174,  /* Latin-1 Registered trademark symbol */
    "rdquo", 148,  /* Latin-1 right double quotation mark (Windows-1252 extension) */
@@ -676,7 +676,6 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
       UBYTE replacement = 0;
       UBYTE *replacement_str = NULL;
       BOOL skip_char = FALSE;
-      BOOL latin1_utf2;
       UBYTE b0;
       
       b0=*p;
@@ -699,19 +698,15 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          p++;
          continue;
       }
-      /* UTF-8 with ttengine: keep non-Latin-1 UTF-8; fold C2/C3 pairs to bytes 0x80-0xFF
-       * so <font>/diskfont runs (68k.news nbsp C2 A0) never show as Â + NBSP.
-       * Entity references (&...;) are still processed below. */
-      latin1_utf2=FALSE;
+      /* UTF-8 document + ttengine: leave the buffer as valid UTF-8 (including
+       * Latin-1 Supplement C2/C3 pairs such as u-umlaut = C3 BC). text.c sets
+       * TT_Encoding_UTF8 for these docs; folding C2/C3 to single 0x80-0xFF
+       * bytes produced invalid UTF-8 and broke umlauts on pages like
+       * mviess.de. Named entities already emit UTF-8 via Replaceentityspan.
+       * Without ttengine, the fold below still maps C2/C3 to Latin-1 for
+       * diskfont. Entity references (&...;) are still processed below. */
       if(utf8doc && TTEngineAvailable() && b0!='&')
       {
-         if((b0 & 0xE0)==0xC0 && b0>=0xC2 && p+1<end && (p[1] & 0xC0)==0x80
-         && (b0==0xC2 || b0==0xC3))
-         {
-            latin1_utf2=TRUE;
-         }
-         if(!latin1_utf2)
-         {
          if(b0<0x80)
          {
             p++;
@@ -735,7 +730,6 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          }
          p++;
          continue;
-         }
       }
       
       /* Check for 4-byte UTF-8 sequence (0xF0-0xF7) */
@@ -1098,7 +1092,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 134:n=(UBYTE)'+';break;
             case 135:n=(UBYTE)'+';break;
             case 136:n=(UBYTE)'^';break;
-            case 137:r="�/..";break;
+            case 137:r="\xB0/..";break;  /* permille approx (Latin-1 degree + /..) */
             case 138:n=(UBYTE)'S';break;   /* S hacek */
             case 139:n=(UBYTE)'{';break;
             case 140:r="OE";break;
@@ -1152,8 +1146,8 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 8254:n=(UBYTE)0xAF;break;
             case 8260:n=(UBYTE)'/';break;
             case 8482:r="TM";break;
-            case 8592:n=(UBYTE)171;break;  /* Left arrow (larr) - approximate as « (laquo) */
-            case 8594:n=(UBYTE)187;break;  /* Right arrow (rarr) - approximate as » (raquo) */
+            case 8592:n=(UBYTE)171;break;  /* Left arrow (larr) - approximate as � (laquo) */
+            case 8594:n=(UBYTE)187;break;  /* Right arrow (rarr) - approximate as � (raquo) */
             case 8709:n=(UBYTE)0xD8;break;
             case 8722:n=(UBYTE)'-';break;
             case 8727:n=(UBYTE)'*';break;
