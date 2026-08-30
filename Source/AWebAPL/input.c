@@ -25,6 +25,7 @@
 #include "window.h"
 #include "application.h"
 #include "jslib.h"
+#include "bulletfont.h"
 #include <proto/exec.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -71,7 +72,9 @@ enum KEY_EQVS
 
 /*------------------------------------------------------------------------*/
 
-/* Get font from element, with fallback to system font */
+/* Get font from element, with fallback to system font.
+ * AWEB4 HTML fonts are Bullet stubs (empty CharData); form fields need
+ * diskfont so graphics Text()/TextLength show glyphs. */
 static struct TextFont *Getinputfont(struct Ainput *inp)
 {  struct TextFont *font;
    
@@ -82,6 +85,9 @@ static struct TextFont *Getinputfont(struct Ainput *inp)
    if(!font)
    {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
    }
+#ifdef AWEB4
+   font=AwebFormDiskFont(font);
+#endif
    
    return font;
 }

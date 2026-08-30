@@ -108,9 +108,13 @@ BOOL CssSelectorMatchesLayoutObject(struct Document *doc, void *obj, struct CSSS
    UBYTE *nameHint, UBYTE *classHint, UBYTE *idHint);
 void SkipWhitespace(UBYTE **p);
 long ParseCSSLengthValue(UBYTE *value,struct Number *num);
+/* Map CSS font-size keyword/length to HTML size band 1-7; 0 if unset. */
+short CSSFontSizeBand(UBYTE *value);
 struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *tagname);
 void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,void *cellBody,UBYTE *class,UBYTE *id,UBYTE *tagname);
 void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id);
+void ApplyCSSToCol(struct Document *doc,void *table,UBYTE *style);
+void ApplyCSSToColFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id);
 void ReapplyCSSToAllElements(struct Document *doc);
 void MarkDocCssDirty(struct Document *doc);
 void ApplyDocCssIfReady(struct Document *doc);

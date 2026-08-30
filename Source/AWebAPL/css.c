@@ -74,6 +74,14 @@ static UBYTE* ParseValue(UBYTE **p);
 static BOOL MatchSelector(struct CSSSelector *sel,void *element);
 static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty *prop);
 static void FreeCSSRule(struct CSSRule *rule);
+static struct Colorinfo *ParseCSSBorderValue(UBYTE *value,struct Document *doc,long *borderWidth);
+static void ApplyCSSCellGridBorder(struct Document *doc,void *table,void *cellBody,
+   UBYTE *propName,UBYTE *propValue);
+static void ApplyCSSPaddingToCellBody(void *cellBody,UBYTE *value);
+static BOOL ApplyCommonTableCellCSS(struct Document *doc,void *table,void *cellBody,
+   UBYTE *propName,UBYTE *propValue,long *widthValue,ULONG *wtag,long *heightValue,
+   ULONG *htag,short *valign,short *halign,struct Colorinfo **cssBgcolor,
+   struct Colorinfo **cssColor,short *fontSize);
 /* Static document pointer for hover state checking during CSS matching */
 static struct Document *currentCSSDoc = NULL;
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
@@ -2212,24 +2220,24 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       {  /* Try to parse as numeric value (px, pt, em, etc.) */
          sizeValue = ParseCSSLengthValue(value, &num);
          if(num.type == NUMBER_NUMBER && sizeValue > 0)
-         {  /* Map pixel values to AWeb sizes (1-7, indices 0-6)
-              * Approximate mapping: <10px=1, 10-12px=2, 13-14px=3, 15-16px=4, 17-18px=5, 19-22px=6, >22px=7 */
-            if(sizeValue < 10)
+         {  /* Map px/pt numeric part to HTML size indices 0-6.
+              * 10pt/12px body (amiga-news.de etc.) -> size 3 (index 2). */
+            if(sizeValue < 9)
             {  sizeIndex = 0; /* xx-small */
             }
-            else if(sizeValue <= 12)
+            else if(sizeValue <= 11)
             {  sizeIndex = 1; /* x-small */
             }
             else if(sizeValue <= 14)
             {  sizeIndex = 2; /* small/medium */
             }
-            else if(sizeValue <= 16)
+            else if(sizeValue <= 17)
             {  sizeIndex = 3; /* medium-large */
             }
-            else if(sizeValue <= 18)
+            else if(sizeValue <= 20)
             {  sizeIndex = 4; /* large */
             }
-            else if(sizeValue <= 22)
+            else if(sizeValue <= 26)
             {  sizeIndex = 5; /* x-large */
             }
             else
@@ -2572,16 +2580,27 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    tagname = (UBYTE *)Agetattr(body, AOBDY_TagName);
    class = (UBYTE *)Agetattr(body, AOBDY_Class);
    id = (UBYTE *)Agetattr(body, AOBDY_Id);
-   if(httpdebug)
-   {  if(tagname && (Stricmp((char *)tagname,"DIV") == 0 || Stricmp((char *)tagname,"PRE") == 0))
-      {  AwebLog("css", "ReapplyCSSToBodyRecursive: Applying CSS to %s element, body=%p, class=%s, id=%s, depth=%ld",
-                tagname ? (char *)tagname : "unknown", body,
-                class ? (char *)class : "NULL",
-                id ? (char *)id : "NULL",
-                depth);
+   /* Table cell bodies (layout parent is AOTP_TABLE): skip full ApplyCSSToBody on
+    * reapply. Site stylesheets often have td/th rules for font-size and font-family;
+    * matching those on every cell body corrupts fonts on table-layout pages. Cells are
+    * updated via ReapplyCSSToTable / ApplyCSSToTableCellFromRules instead. */
+   {  void *layoutParent;
+      struct Aobject *lpAo;
+      layoutParent = (void *)Agetattr(body, AOBJ_Layoutparent);
+      lpAo = layoutParent ? (struct Aobject *)layoutParent : NULL;
+      if(!lpAo || lpAo->objecttype != AOTP_TABLE)
+      {  if(httpdebug)
+         {  if(tagname && (Stricmp((char *)tagname,"DIV") == 0 || Stricmp((char *)tagname,"PRE") == 0))
+            {  AwebLog("css", "ReapplyCSSToBodyRecursive: Applying CSS to %s element, body=%p, class=%s, id=%s, depth=%ld",
+                      tagname ? (char *)tagname : "unknown", body,
+                      class ? (char *)class : "NULL",
+                      id ? (char *)id : "NULL",
+                      depth);
+            }
+         }
+         ApplyCSSToBody(doc, body, class, id, tagname);
       }
    }
-   ApplyCSSToBody(doc, body, class, id, tagname);
    
    /* Get the Body structure to access contents */
    /* We use BodyMinimal to access the contents field - this is safe because we know it's a Body */
@@ -2824,6 +2843,487 @@ static void Stripcssfontfamilyquotes(UBYTE *s)
       }
    }
    *q = '\0';
+}
+
+/* True when a border value token is none or hidden (no visible border). */
+static BOOL CSSBorderStyleIsNone(UBYTE *token,long len)
+{
+   if(len==4 && Strnicmp((char *)token,"none",4)==0) return TRUE;
+   if(len==6 && Strnicmp((char *)token,"hidden",6)==0) return TRUE;
+   return FALSE;
+}
+
+/* Scan border shorthand for none/hidden style or a lone "none" value. */
+static BOOL CSSBorderValueIsNone(UBYTE *value)
+{
+   UBYTE *pval;
+   UBYTE *token;
+   long len;
+   if(!value || !*value) return FALSE;
+   if(Stricmp((char *)value,"none")==0) return TRUE;
+   if(Stricmp((char *)value,"hidden")==0) return TRUE;
+   pval=value;
+   while(*pval)
+   {  SkipWhitespace(&pval);
+      if(!*pval) break;
+      token=pval;
+      while(*pval && !isspace((unsigned char)*pval)) pval++;
+      len=pval-token;
+      if(len > 0 && CSSBorderStyleIsNone(token,len)) return TRUE;
+   }
+   return FALSE;
+}
+
+/* Parse border shorthand on TD/TH; return colour if found. */
+static struct Colorinfo *ParseCSSBorderValue(UBYTE *value,struct Document *doc,long *borderWidth)
+{  UBYTE *pval;
+   UBYTE *token;
+   long len;
+   struct Number num;
+   ULONG rgb;
+   struct Colorinfo *borderCi;
+   long bw;
+   borderCi=NULL;
+   bw=-1;
+   num.type=NUMBER_NONE;
+   num.n=0;
+   if(borderWidth) *borderWidth=-1;
+   if(!value || !doc) return NULL;
+   if(CSSBorderValueIsNone(value)) return NULL;
+   pval=value;
+   while(*pval)
+   {  SkipWhitespace(&pval);
+      if(!*pval) break;
+      token=pval;
+      while(*pval && !isspace((unsigned char)*pval)) pval++;
+      len=pval-token;
+      if(len <= 0) continue;
+      if(CSSBorderStyleIsNone(token,len)) return NULL;
+      if(isdigit((unsigned char)*token) || *token=='+' || *token=='-')
+      {  if(bw < 0)
+         {  bw=ParseCSSLengthValue(token,&num);
+         }
+      }
+      else if(*token=='#')
+      {  rgb=ParseHexColor(token);
+         if(rgb != ~0) borderCi=Finddoccolor(doc,rgb);
+      }
+   }
+   if(borderWidth && bw >= 0 && num.type==NUMBER_NUMBER) *borderWidth=bw;
+   return borderCi;
+}
+
+/* Map CSS border-* property name to TABCF_BOR* side(s); 0 if not a cell border prop. */
+static USHORT CSSCellBorderSidesFromName(UBYTE *propName,BOOL *styleProp)
+{  USHORT allsides;
+   *styleProp=FALSE;
+   allsides=(USHORT)(TABCF_BORLEFT|TABCF_BORTOP|TABCF_BORRIGHT|TABCF_BORBOTTOM);
+   if(Stricmp((char *)propName,"border-style")==0)
+   {  *styleProp=TRUE;
+      return allsides;
+   }
+   if(Stricmp((char *)propName,"border-top-style")==0)
+   {  *styleProp=TRUE;
+      return TABCF_BORTOP;
+   }
+   if(Stricmp((char *)propName,"border-right-style")==0)
+   {  *styleProp=TRUE;
+      return TABCF_BORRIGHT;
+   }
+   if(Stricmp((char *)propName,"border-bottom-style")==0)
+   {  *styleProp=TRUE;
+      return TABCF_BORBOTTOM;
+   }
+   if(Stricmp((char *)propName,"border-left-style")==0)
+   {  *styleProp=TRUE;
+      return TABCF_BORLEFT;
+   }
+   if(Stricmp((char *)propName,"border-top")==0
+   || Stricmp((char *)propName,"border-top-width")==0
+   || Stricmp((char *)propName,"border-top-color")==0)
+   {  return TABCF_BORTOP;
+   }
+   if(Stricmp((char *)propName,"border-right")==0
+   || Stricmp((char *)propName,"border-right-width")==0
+   || Stricmp((char *)propName,"border-right-color")==0)
+   {  return TABCF_BORRIGHT;
+   }
+   if(Stricmp((char *)propName,"border-bottom")==0
+   || Stricmp((char *)propName,"border-bottom-width")==0
+   || Stricmp((char *)propName,"border-bottom-color")==0)
+   {  return TABCF_BORBOTTOM;
+   }
+   if(Stricmp((char *)propName,"border-left")==0
+   || Stricmp((char *)propName,"border-left-width")==0
+   || Stricmp((char *)propName,"border-left-color")==0)
+   {  return TABCF_BORLEFT;
+   }
+   if(Stricmp((char *)propName,"border")==0
+   || Stricmp((char *)propName,"border-width")==0
+   || Stricmp((char *)propName,"border-color")==0)
+   {  return allsides;
+   }
+   return 0;
+}
+
+static BOOL CSSPropertyAppliesToCellGrid(UBYTE *propName)
+{  BOOL styleProp;
+   if(CSSCellBorderSidesFromName(propName,&styleProp) != 0) return TRUE;
+   return FALSE;
+}
+
+/* Route TD/TH border properties to the table grid renderer. */
+static void ApplyCSSCellGridBorder(struct Document *doc,void *table,void *cellBody,
+   UBYTE *propName,UBYTE *propValue)
+{  struct Colorinfo *cellGridCi;
+   struct Number num;
+   ULONG rgb;
+   USHORT sides;
+   BOOL styleProp;
+   BOOL useGrid;
+   long bw;
+   if(!doc || !table || !cellBody || !propName || !propValue) return;
+   sides=CSSCellBorderSidesFromName(propName,&styleProp);
+   if(!sides) return;
+   if(styleProp)
+   {  if(Stricmp((char *)propValue,"none")==0
+      || Stricmp((char *)propValue,"hidden")==0)
+      {  TableClearCellBorderSides(table,cellBody,sides);
+         Asetattrs(cellBody,AOBDY_BorderWidth,0,TAG_END);
+      }
+      return;
+   }
+   if(CSSBorderValueIsNone(propValue)
+   && (Stricmp((char *)propName,"border")==0
+   || Stricmp((char *)propName,"border-top")==0
+   || Stricmp((char *)propName,"border-right")==0
+   || Stricmp((char *)propName,"border-bottom")==0
+   || Stricmp((char *)propName,"border-left")==0))
+   {  TableClearCellBorderSides(table,cellBody,sides);
+      Asetattrs(cellBody,AOBDY_BorderWidth,0,TAG_END);
+      return;
+   }
+   cellGridCi=NULL;
+   bw=-1;
+   useGrid=FALSE;
+   if(Stricmp((char *)propName,"border")==0
+   || Stricmp((char *)propName,"border-top")==0
+   || Stricmp((char *)propName,"border-right")==0
+   || Stricmp((char *)propName,"border-bottom")==0
+   || Stricmp((char *)propName,"border-left")==0)
+   {  cellGridCi=ParseCSSBorderValue(propValue,doc,&bw);
+      useGrid=TRUE;
+   }
+   else if(Stricmp((char *)propName,"border-color")==0
+   || Stricmp((char *)propName,"border-top-color")==0
+   || Stricmp((char *)propName,"border-right-color")==0
+   || Stricmp((char *)propName,"border-bottom-color")==0
+   || Stricmp((char *)propName,"border-left-color")==0)
+   {  rgb=ParseHexColor(propValue);
+      if(rgb != ~0)
+      {  cellGridCi=Finddoccolor(doc,rgb);
+         useGrid=TRUE;
+      }
+   }
+   else if(Stricmp((char *)propName,"border-width")==0
+   || Stricmp((char *)propName,"border-top-width")==0
+   || Stricmp((char *)propName,"border-right-width")==0
+   || Stricmp((char *)propName,"border-bottom-width")==0
+   || Stricmp((char *)propName,"border-left-width")==0)
+   {  bw=ParseCSSLengthValue(propValue,&num);
+      if(bw == 0 && num.type==NUMBER_NUMBER)
+      {  TableClearCellBorderSides(table,cellBody,sides);
+         Asetattrs(cellBody,AOBDY_BorderWidth,0,TAG_END);
+         return;
+      }
+      if(bw > 0 && num.type==NUMBER_NUMBER) useGrid=TRUE;
+   }
+   if(useGrid)
+   {  TableApplyCellBorderSides(table,cellBody,cellGridCi,sides,TRUE,bw);
+      Asetattrs(cellBody,AOBDY_BorderWidth,0,TAG_END);
+   }
+}
+
+/*
+ * Pragmatic CSS2 for TD/TH (common on 1990s-2000s layout-table sites).
+ * Implemented: width/height, padding, align, color, font-size/weight/family/style,
+ * background-color, borders (incl. collapse/spacing via table), white-space:nowrap.
+ * Not targeted: display:table*, full collapsed-border spec, dashed grid lines,
+ * :nth-child, margin:auto on tables, per-side border-style variety.
+ */
+
+/* Dup font-family value without quote characters. */
+static UBYTE *DupstrStripFontFamily(UBYTE *value)
+{  UBYTE *p;
+   UBYTE *q;
+   UBYTE *out;
+   long len;
+   BOOL inQuotes;
+   UBYTE quote;
+   if(!value) return NULL;
+   len=0;
+   p=value;
+   inQuotes=FALSE;
+   quote=0;
+   while(*p)
+   {  if((*p=='"' || *p=='\'') && !inQuotes)
+      {  quote=*p;
+         inQuotes=TRUE;
+         p++;
+      }
+      else if(inQuotes && *p==quote)
+      {  inQuotes=FALSE;
+         quote=0;
+         p++;
+      }
+      else
+      {  len++;
+         p++;
+      }
+   }
+   out=ALLOCTYPE(UBYTE,len+1,MEMF_FAST);
+   if(!out) return NULL;
+   p=value;
+   q=out;
+   inQuotes=FALSE;
+   quote=0;
+   while(*p)
+   {  if((*p=='"' || *p=='\'') && !inQuotes)
+      {  quote=*p;
+         inQuotes=TRUE;
+         p++;
+      }
+      else if(inQuotes && *p==quote)
+      {  inQuotes=FALSE;
+         quote=0;
+         p++;
+      }
+      else
+      {  *q++=*p++;
+      }
+   }
+   *q='\0';
+   return out;
+}
+
+/* Map font-size length/keyword to AWeb size band 1-7; returns 0 if unset.
+ * Lengths are treated as CSS px (pt is currently parsed as the numeric part).
+ * Bands align with HTML <font size>: medium ~= size 3. 10pt/12px body text
+ * (common on legacy sites) maps to size 3, not x-small. */
+short CSSFontSizeBand(UBYTE *value)
+{  struct Number num;
+   long sizeValue;
+   short band;
+   if(!value) return 0;
+   band=0;
+   if(Stricmp((char *)value,"xx-small")==0) band=1;
+   else if(Stricmp((char *)value,"x-small")==0) band=2;
+   else if(Stricmp((char *)value,"small")==0) band=3;
+   else if(Stricmp((char *)value,"medium")==0) band=3;
+   else if(Stricmp((char *)value,"large")==0) band=5;
+   else if(Stricmp((char *)value,"x-large")==0) band=6;
+   else if(Stricmp((char *)value,"xx-large")==0) band=7;
+   else
+   {  sizeValue=ParseCSSLengthValue(value,&num);
+      if(num.type==NUMBER_NUMBER && sizeValue>0)
+      {  if(sizeValue<9) band=1;
+         else if(sizeValue<=11) band=2;
+         else if(sizeValue<=14) band=3;
+         else if(sizeValue<=17) band=4;
+         else if(sizeValue<=20) band=5;
+         else if(sizeValue<=26) band=6;
+         else band=7;
+      }
+   }
+   return band;
+}
+
+/* Apply CSS padding on a table cell body (replaces cellpadding margins). */
+static void ApplyCSSPaddingToCellBody(void *cellBody,UBYTE *value)
+{  UBYTE *paddingP;
+   UBYTE *tokenStart;
+   UBYTE *tokenEnd;
+   long tokenLen;
+   UBYTE *paddingTokens[4];
+   long paddingCount;
+   long paddingTop;
+   long paddingRight;
+   long paddingBottom;
+   long paddingLeft;
+   long j;
+   struct Number paddingNum;
+   if(!cellBody || !value) return;
+   paddingP=value;
+   paddingCount=0;
+   paddingTop=paddingRight=paddingBottom=paddingLeft=0;
+   for(j=0;j<4;j++) paddingTokens[j]=NULL;
+   for(j=0;j<4 && paddingP && *paddingP;j++)
+   {  SkipWhitespace(&paddingP);
+      if(!*paddingP) break;
+      tokenStart=paddingP;
+      while(*paddingP && !isspace((unsigned char)*paddingP)) paddingP++;
+      tokenEnd=paddingP;
+      tokenLen=tokenEnd-tokenStart;
+      if(tokenLen > 0)
+      {  paddingTokens[paddingCount]=ALLOCTYPE(UBYTE,tokenLen+1,MEMF_FAST);
+         if(paddingTokens[paddingCount])
+         {  memmove(paddingTokens[paddingCount],tokenStart,tokenLen);
+            paddingTokens[paddingCount][tokenLen]='\0';
+            paddingCount++;
+         }
+      }
+   }
+   if(paddingCount >= 1)
+   {  paddingTop=ParseCSSLengthValue(paddingTokens[0],&paddingNum);
+      paddingRight=paddingTop;
+      paddingBottom=paddingTop;
+      paddingLeft=paddingTop;
+      if(paddingCount == 2)
+      {  paddingBottom=paddingTop;
+         paddingRight=ParseCSSLengthValue(paddingTokens[1],&paddingNum);
+         paddingLeft=paddingRight;
+      }
+      else if(paddingCount == 3)
+      {  paddingRight=ParseCSSLengthValue(paddingTokens[1],&paddingNum);
+         paddingLeft=paddingRight;
+         paddingBottom=ParseCSSLengthValue(paddingTokens[2],&paddingNum);
+      }
+      else if(paddingCount == 4)
+      {  paddingRight=ParseCSSLengthValue(paddingTokens[1],&paddingNum);
+         paddingBottom=ParseCSSLengthValue(paddingTokens[2],&paddingNum);
+         paddingLeft=ParseCSSLengthValue(paddingTokens[3],&paddingNum);
+      }
+      Asetattrs(cellBody,AOBDY_Leftmargin,0,AOBDY_Topmargin,0,TAG_END);
+      if(paddingTop >= 0 && paddingNum.type==NUMBER_NUMBER)
+      {  Asetattrs(cellBody,AOBDY_PaddingTop,paddingTop,TAG_END);
+      }
+      if(paddingRight >= 0)
+      {  Asetattrs(cellBody,AOBDY_PaddingRight,paddingRight,TAG_END);
+      }
+      if(paddingBottom >= 0)
+      {  Asetattrs(cellBody,AOBDY_PaddingBottom,paddingBottom,TAG_END);
+      }
+      if(paddingLeft >= 0)
+      {  Asetattrs(cellBody,AOBDY_PaddingLeft,paddingLeft,TAG_END);
+      }
+   }
+   for(j=0;j<paddingCount;j++)
+   {  if(paddingTokens[j]) FREE(paddingTokens[j]);
+   }
+}
+
+/* One commonly used TD/TH property; updates accumulators or applies to cellBody. */
+static BOOL ApplyCommonTableCellCSS(struct Document *doc,void *table,void *cellBody,
+   UBYTE *propName,UBYTE *propValue,long *widthValue,ULONG *wtag,long *heightValue,
+   ULONG *htag,short *valign,short *halign,struct Colorinfo **cssBgcolor,
+   struct Colorinfo **cssColor,short *fontSize)
+{  struct Number num;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   UBYTE *fontFace;
+   short band;
+   if(!propName || !propValue) return FALSE;
+   if(Stricmp((char *)propName,"width")==0)
+   {  *widthValue=ParseCSSLengthValue(propValue,&num);
+      if(*widthValue>=0 && num.type!=NUMBER_NONE)
+      {  if(num.type==NUMBER_PERCENT) *wtag=AOTAB_Percentwidth;
+         else *wtag=AOTAB_Pixelwidth;
+      }
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"height")==0)
+   {  *heightValue=ParseCSSLengthValue(propValue,&num);
+      if(*heightValue>=0 && num.type!=NUMBER_NONE)
+      {  if(num.type==NUMBER_PERCENT) *htag=AOTAB_Percentheight;
+         else *htag=AOTAB_Pixelheight;
+      }
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"padding")==0)
+   {  if(cellBody) ApplyCSSPaddingToCellBody(cellBody,propValue);
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"text-align")==0)
+   {  if(Stricmp((char *)propValue,"center")==0) *halign=HALIGN_CENTER;
+      else if(Stricmp((char *)propValue,"left")==0) *halign=HALIGN_LEFT;
+      else if(Stricmp((char *)propValue,"right")==0) *halign=HALIGN_RIGHT;
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"vertical-align")==0)
+   {  if(Stricmp((char *)propValue,"top")==0) *valign=VALIGN_TOP;
+      else if(Stricmp((char *)propValue,"middle")==0) *valign=VALIGN_MIDDLE;
+      else if(Stricmp((char *)propValue,"bottom")==0) *valign=VALIGN_BOTTOM;
+      else if(Stricmp((char *)propValue,"baseline")==0) *valign=VALIGN_BASELINE;
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"background-color")==0
+   || Stricmp((char *)propName,"background")==0)
+   {  if(Stricmp((char *)propValue,"transparent")==0) return TRUE;
+      if(propName[0]=='b' && Strnicmp((char *)propValue,"url(",4)==0) return TRUE;
+      Gethexcolor(doc,propValue,&colorrgb);
+      if(colorrgb!=(ULONG)~0)
+      {  ci=Finddoccolor(doc,colorrgb);
+         if(ci) *cssBgcolor=ci;
+      }
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"color")==0)
+   {  if(Stricmp((char *)propValue,"inherit")==0) return TRUE;
+      Gethexcolor(doc,propValue,&colorrgb);
+      if(colorrgb!=(ULONG)~0)
+      {  ci=Finddoccolor(doc,colorrgb);
+         if(ci) *cssColor=ci;
+      }
+      return TRUE;
+   }
+   if(Stricmp((char *)propName,"font-size")==0)
+   {  band=CSSFontSizeBand(propValue);
+      if(band>0) *fontSize=band;
+      return TRUE;
+   }
+   if(cellBody && Stricmp((char *)propName,"font-weight")==0)
+   {  if(Stricmp((char *)propValue,"bold")==0 || Stricmp((char *)propValue,"700")==0
+      || Stricmp((char *)propValue,"bolder")==0)
+      {  Asetattrs(cellBody,AOBDY_Sethardstyle,FSF_BOLD,TAG_END);
+      }
+      else if(Stricmp((char *)propValue,"normal")==0 || Stricmp((char *)propValue,"400")==0)
+      {  Asetattrs(cellBody,AOBDY_Unsethardstyle,FSF_BOLD,TAG_END);
+      }
+      return TRUE;
+   }
+   if(cellBody && Stricmp((char *)propName,"font-style")==0)
+   {  if(Stricmp((char *)propValue,"italic")==0 || Stricmp((char *)propValue,"oblique")==0)
+      {  Asetattrs(cellBody,AOBDY_Sethardstyle,FSF_ITALIC,TAG_END);
+      }
+      else if(Stricmp((char *)propValue,"normal")==0)
+      {  Asetattrs(cellBody,AOBDY_Unsethardstyle,FSF_ITALIC,TAG_END);
+      }
+      return TRUE;
+   }
+   if(cellBody && Stricmp((char *)propName,"font-family")==0)
+   {  fontFace=DupstrStripFontFamily(propValue);
+      if(fontFace)
+      {  Asetattrs(cellBody,AOBDY_Fontface,fontFace,TAG_END);
+         FREE(fontFace);
+      }
+      return TRUE;
+   }
+   if(cellBody && Stricmp((char *)propName,"white-space")==0)
+   {  if(Stricmp((char *)propValue,"nowrap")==0)
+      {  Asetattrs(cellBody,AOBDY_Nobr,TRUE,TAG_END);
+      }
+      else if(Stricmp((char *)propValue,"normal")==0)
+      {  Asetattrs(cellBody,AOBDY_Nobr,FALSE,TAG_END);
+      }
+      return TRUE;
+   }
+   if(CSSPropertyAppliesToCellGrid(propName))
+   {  if(cellBody && table)
+      {  ApplyCSSCellGridBorder(doc,table,cellBody,propName,propValue);
+      }
+      return TRUE;
+   }
+   return FALSE;
 }
 
 /* Parse and apply inline CSS to a Body object */
@@ -3381,10 +3881,12 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             long borderWidth;
             struct Number num;
             ULONG borderColor;
+            BOOL borderNoStyle;
             
             pval = prop->value;
             borderWidth = -1;
             borderColor = ~0;
+            borderNoStyle = CSSBorderValueIsNone(prop->value);
             
             /* Parse tokens separated by spaces */
             while(*pval)
@@ -3414,6 +3916,9 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   UBYTE *end;
                   long len;
                   len = pval - token;
+                  if(!borderNoStyle && CSSBorderStyleIsNone(token,len))
+                  {  borderNoStyle=TRUE;
+                  }
                   end = token + len;
                   styleStr = ALLOCTYPE(UBYTE, len + 1, MEMF_FAST);
                   if(styleStr)
@@ -3426,13 +3931,29 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
             
             /* Store border width and color */
-            if(borderWidth >= 0 && num.type == NUMBER_NUMBER)
+            if(!borderNoStyle && borderWidth >= 0 && num.type == NUMBER_NUMBER)
             {  Asetattrs(body, AOBDY_BorderWidth, borderWidth, TAG_END);
             }
-            if(borderColor != ~0)
+            if(!borderNoStyle && borderColor != ~0)
             {  ci = Finddoccolor(doc, borderColor);
                if(ci)
                {  Asetattrs(body, AOBDY_BorderColor, ci, TAG_END);
+               }
+            }
+            if(tagname && (Stricmp((char *)tagname,"TD") == 0 ||
+               Stricmp((char *)tagname,"TH") == 0))
+            {  void *table;
+               table=(void *)Agetattr(body,AOBJ_Layoutparent);
+               if(table)
+               {  if(borderNoStyle)
+                  {  TableClearCellBorderSides(table,body,0);
+                     Asetattrs(body,AOBDY_BorderWidth,0,TAG_END);
+                  }
+                  else
+                  {  if(ci) TableApplyCellBorderSides(table,body,ci,0,TRUE,borderWidth);
+                     else if(borderWidth >= 0) TableApplyCellBorderSides(table,body,NULL,0,TRUE,borderWidth);
+                     Asetattrs(body,AOBDY_BorderWidth,0,TAG_END);
+                  }
                }
             }
          }
@@ -3442,18 +3963,42 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             styleStr = Dupstr(prop->value, -1);
             if(styleStr)
             {  Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
+               if(tagname && (Stricmp((char *)tagname,"TD") == 0 ||
+                  Stricmp((char *)tagname,"TH") == 0))
+               {  void *table;
+                  table=(void *)Agetattr(body,AOBJ_Layoutparent);
+                  if(table)
+                  {  ApplyCSSCellGridBorder(doc,table,body,(UBYTE *)"border-style",prop->value);
+                  }
+               }
             }
          }
          /* Apply border-color */
          else if(Stricmp((char *)prop->name,"border-color") == 0)
-         {  ULONG colorrgb;
-            struct Colorinfo *ci;
-            colorrgb = ParseHexColor(prop->value);
+         {  colorrgb = ParseHexColor(prop->value);
             if(colorrgb != ~0)
             {  ci = Finddoccolor(doc,colorrgb);
                if(ci)
                {  Asetattrs(body, AOBDY_BorderColor, ci, TAG_END);
+                  if(tagname && (Stricmp((char *)tagname,"TD") == 0 ||
+                     Stricmp((char *)tagname,"TH") == 0))
+                  {  void *table;
+                     table=(void *)Agetattr(body,AOBJ_Layoutparent);
+                     if(table)
+                     {  TableApplyCellBorderSides(table,body,ci,0,TRUE,0);
+                        Asetattrs(body,AOBDY_BorderWidth,0,TAG_END);
+                     }
+                  }
                }
+            }
+         }
+         else if(tagname && (Stricmp((char *)tagname,"TD") == 0 ||
+            Stricmp((char *)tagname,"TH") == 0)
+            && CSSPropertyAppliesToCellGrid(prop->name))
+         {  void *table;
+            table=(void *)Agetattr(body,AOBJ_Layoutparent);
+            if(table)
+            {  ApplyCSSCellGridBorder(doc,table,body,prop->name,prop->value);
             }
          }
          /* Apply border-radius (CSS3 - not implemented, but parse to avoid errors) */
@@ -3634,34 +4179,17 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          else if(Stricmp((char *)prop->name,"font-size") == 0)
          {  fontSize = 0;
             isRelative = FALSE;
-            if(Stricmp((char *)prop->value,"xx-small") == 0)
-            {  fontSize = 1;
-            }
-            else if(Stricmp((char *)prop->value,"x-small") == 0)
-            {  fontSize = 2;
-            }
-            else if(Stricmp((char *)prop->value,"small") == 0)
-            {  fontSize = 3;
-            }
-            else if(Stricmp((char *)prop->value,"medium") == 0)
-            {  fontSize = 4;
-            }
-            else if(Stricmp((char *)prop->value,"large") == 0)
-            {  fontSize = 5;
-            }
-            else if(Stricmp((char *)prop->value,"x-large") == 0)
-            {  fontSize = 6;
-            }
-            else if(Stricmp((char *)prop->value,"xx-large") == 0)
-            {  fontSize = 7;
-            }
-            else if(Stricmp((char *)prop->value,"smaller") == 0)
+            if(Stricmp((char *)prop->value,"smaller") == 0)
             {  fontSize = -1;
                isRelative = TRUE;
             }
             else if(Stricmp((char *)prop->value,"larger") == 0)
             {  fontSize = 1;
                isRelative = TRUE;
+            }
+            else
+            {  /* Keywords and px/pt lengths share CSSFontSizeBand (10pt -> size 3). */
+               fontSize = CSSFontSizeBand(prop->value);
             }
             if(fontSize != 0)
             {  if(isRelative)
@@ -4967,9 +5495,8 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,void *cellBod
    short halign;
    ULONG wtag;
    ULONG htag;
-   struct Number num;
-   ULONG colorrgb;
    struct Colorinfo *cssBgcolor;
+   struct Colorinfo *cssColor;
    short fontSize;
    
    if(!doc || !table || !doc->cssstylesheet) return;
@@ -4982,9 +5509,10 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,void *cellBod
    valign = -1;
    halign = -1;
    cssBgcolor = NULL;
+   cssColor = NULL;
    fontSize = 0;
    
-   /* Find matching CSS rules and extract table-cell-specific properties */
+   /* Find matching rules; apply commonly used TD/TH properties only. */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
@@ -5025,79 +5553,9 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,void *cellBod
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value)
-               {  /* Extract width */
-                  if(Stricmp((char *)prop->name,"width") == 0)
-                  {  widthValue = ParseCSSLengthValue(prop->value,&num);
-                     if(widthValue >= 0 && num.type != NUMBER_NONE)
-                     {  if(num.type == NUMBER_PERCENT)
-                        {  wtag = AOTAB_Percentwidth;
-                        }
-                        else
-                        {  wtag = AOTAB_Pixelwidth;
-                        }
-                     }
-                  }
-                  /* Extract height */
-                  else if(Stricmp((char *)prop->name,"height") == 0)
-                  {  heightValue = ParseCSSLengthValue(prop->value,&num);
-                     if(heightValue >= 0 && num.type != NUMBER_NONE)
-                     {  if(num.type == NUMBER_PERCENT)
-                        {  htag = AOTAB_Percentheight;
-                        }
-                        else
-                        {  htag = AOTAB_Pixelheight;
-                        }
-                     }
-                  }
-                  /* Extract vertical-align */
-                  else if(Stricmp((char *)prop->name,"vertical-align") == 0)
-                  {  if(Stricmp((char *)prop->value,"top") == 0)
-                     {  valign = VALIGN_TOP;
-                     }
-                     else if(Stricmp((char *)prop->value,"middle") == 0)
-                     {  valign = VALIGN_MIDDLE;
-                     }
-                     else if(Stricmp((char *)prop->value,"bottom") == 0)
-                     {  valign = VALIGN_BOTTOM;
-                     }
-                     else if(Stricmp((char *)prop->value,"baseline") == 0)
-                     {  valign = VALIGN_BASELINE;
-                     }
-                  }
-                  /* Extract text-align for horizontal alignment */
-                  else if(Stricmp((char *)prop->name,"text-align") == 0)
-                  {  if(Stricmp((char *)prop->value,"center") == 0)
-                     {  halign = HALIGN_CENTER;
-                     }
-                     else if(Stricmp((char *)prop->value,"left") == 0)
-                     {  halign = HALIGN_LEFT;
-                     }
-                     else if(Stricmp((char *)prop->value,"right") == 0)
-                     {  halign = HALIGN_RIGHT;
-                     }
-                  }
-                  /* Extract background-color for table cells */
-                  else if(Stricmp((char *)prop->name,"background-color") == 0)
-                  {  colorrgb = ParseHexColor(prop->value);
-                     if(colorrgb != ~0)
-                     {  cssBgcolor = Finddoccolor(doc,colorrgb);
-                     }
-                  }
-                  /* Extract font-size (e.g. td,th { font-size: 20px; }) */
-                  else if(Stricmp((char *)prop->name,"font-size") == 0)
-                  {  long sizeValue;
-                     sizeValue = ParseCSSLengthValue(prop->value,&num);
-                     if(num.type == NUMBER_NUMBER && sizeValue > 0)
-                     {  if(sizeValue < 10) fontSize = 1;
-                        else if(sizeValue <= 12) fontSize = 2;
-                        else if(sizeValue <= 14) fontSize = 3;
-                        else if(sizeValue <= 16) fontSize = 4;
-                        else if(sizeValue <= 18) fontSize = 5;
-                        else if(sizeValue <= 22) fontSize = 6;
-                        else fontSize = 7;
-                     }
-                  }
-                  /* padding on TD/TH: ApplyCSSToBody (html.c) */
+               {  ApplyCommonTableCellCSS(doc,table,cellBody,prop->name,prop->value,
+                  &widthValue,&wtag,&heightValue,&htag,&valign,&halign,
+                  &cssBgcolor,&cssColor,&fontSize);
                }
             }
          }
@@ -5137,6 +5595,9 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,void *cellBod
    }
    if(cellBody && fontSize > 0)
    {  Asetattrs(cellBody,AOBDY_Fontsize,fontSize,TAG_END);
+   }
+   if(cellBody && cssColor)
+   {  Asetattrs(cellBody,AOBDY_Fontcolor,cssColor,TAG_END);
    }
 }
 
@@ -5182,10 +5643,9 @@ void ParseStyleTableCellDims(struct Document *doc,UBYTE *style,short *width,ULON
    }
 }
 
-/* Apply CSS properties specific to table cells (width, height, vertical-align) */
+/* Apply inline STYLE on TD/TH (commonly used properties only). */
 void ApplyCSSToTableCell(struct Document *doc,void *table,void *cellBody,UBYTE *style)
 {  struct CSSProperty *prop;
-   struct Number num;
    UBYTE *p;
    long widthValue;
    long heightValue;
@@ -5193,6 +5653,9 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,void *cellBody,UBYTE *
    short halign;
    ULONG wtag;
    ULONG htag;
+   struct Colorinfo *cssBgcolor;
+   struct Colorinfo *cssColor;
+   short fontSize;
    
    if(!doc || !table || !style) return;
    
@@ -5203,66 +5666,19 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,void *cellBody,UBYTE *
    heightValue = -1;
    valign = -1;
    halign = -1;
+   cssBgcolor = NULL;
+   cssColor = NULL;
+   fontSize = 0;
    
    while(*p)
    {  SkipWhitespace(&p);
       if(!*p) break;
       
-      /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
-      {  /* Extract width */
-         if(Stricmp((char *)prop->name,"width") == 0)
-         {  widthValue = ParseCSSLengthValue(prop->value,&num);
-            if(widthValue >= 0 && num.type != NUMBER_NONE)
-            {  if(num.type == NUMBER_PERCENT)
-               {  wtag = AOTAB_Percentwidth;
-               }
-               else
-               {  wtag = AOTAB_Pixelwidth;
-               }
-            }
-         }
-         /* Extract height */
-         else if(Stricmp((char *)prop->name,"height") == 0)
-         {  heightValue = ParseCSSLengthValue(prop->value,&num);
-            if(heightValue >= 0 && num.type != NUMBER_NONE)
-            {  if(num.type == NUMBER_PERCENT)
-               {  htag = AOTAB_Percentheight;
-               }
-               else
-               {  htag = AOTAB_Pixelheight;
-               }
-            }
-         }
-         /* Extract vertical-align */
-         else if(Stricmp((char *)prop->name,"vertical-align") == 0)
-         {  if(Stricmp((char *)prop->value,"top") == 0)
-            {  valign = VALIGN_TOP;
-            }
-            else if(Stricmp((char *)prop->value,"middle") == 0)
-            {  valign = VALIGN_MIDDLE;
-            }
-            else if(Stricmp((char *)prop->value,"bottom") == 0)
-            {  valign = VALIGN_BOTTOM;
-            }
-            else if(Stricmp((char *)prop->value,"baseline") == 0)
-            {  valign = VALIGN_BASELINE;
-            }
-         }
-         /* Extract text-align for horizontal alignment */
-         else if(Stricmp((char *)prop->name,"text-align") == 0)
-         {  halign = -1;
-            if(Stricmp((char *)prop->value,"center") == 0)
-            {  halign = HALIGN_CENTER;
-            }
-            else if(Stricmp((char *)prop->value,"left") == 0)
-            {  halign = HALIGN_LEFT;
-            }
-            else if(Stricmp((char *)prop->value,"right") == 0)
-            {  halign = HALIGN_RIGHT;
-            }
-         }
+      {  ApplyCommonTableCellCSS(doc,table,cellBody,prop->name,prop->value,
+            &widthValue,&wtag,&heightValue,&htag,&valign,&halign,
+            &cssBgcolor,&cssColor,&fontSize);
          
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
@@ -5303,6 +5719,15 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,void *cellBody,UBYTE *
          TableApplyCellAttrs(table,cellBody,AOTAB_Halign,halign);
       else
          Asetattrs(table,AOTAB_Halign,halign,TAG_END);
+   }
+   if(cssBgcolor && cellBody)
+   {  TableApplyCellAttrs(table,cellBody,AOTAB_Bgcolor,(long)cssBgcolor);
+   }
+   if(cellBody && fontSize > 0)
+   {  Asetattrs(cellBody,AOBDY_Fontsize,fontSize,TAG_END);
+   }
+   if(cellBody && cssColor)
+   {  Asetattrs(cellBody,AOBDY_Fontcolor,cssColor,TAG_END);
    }
 }
 
@@ -5418,15 +5843,192 @@ void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
    }
 }
 
+/* Parse one or two length values (CSS border-spacing). */
+static void ParseCSSSpacingPair(UBYTE *value,long *spH,long *spV,struct Number *num)
+{  UBYTE *p;
+   UBYTE *tstart;
+   long tlen;
+   UBYTE tokbuf[64];
+   *spH=-1;
+   *spV=-1;
+   if(!value || !spH || !spV || !num) return;
+   p=value;
+   SkipWhitespace(&p);
+   tstart=p;
+   while(*p && !isspace((unsigned char)*p)) p++;
+   tlen=p-tstart;
+   if(tlen <= 0 || tlen >= (long)sizeof(tokbuf)) return;
+   memmove(tokbuf,tstart,tlen);
+   tokbuf[tlen]='\0';
+   *spH=ParseCSSLengthValue(tokbuf,num);
+   SkipWhitespace(&p);
+   if(*p)
+   {  tstart=p;
+      while(*p && !isspace((unsigned char)*p)) p++;
+      tlen=p-tstart;
+      if(tlen > 0 && tlen < (long)sizeof(tokbuf))
+      {  memmove(tokbuf,tstart,tlen);
+         tokbuf[tlen]='\0';
+         *spV=ParseCSSLengthValue(tokbuf,num);
+      }
+   }
+   if(*spV < 0) *spV=*spH;
+}
+
+/* Apply one CSS2 table property to the table object (parser + renderer hook). */
+static void ApplyTableCSSProperty(void *table,UBYTE *name,UBYTE *value,
+   struct Document *doc,long *borderValue,long *widthValue,ULONG *wtag,
+   long *cellpaddingValue,long *borderSpacingH,long *borderSpacingV,
+   long *borderCollapse,long *tableLayout,long *captionSide,long *emptyCells,
+   struct Colorinfo **cssBgcolor,long *cssMinw,long *cssMaxw,long *cssHeight,
+   long *cssHpercent)
+{  struct Number num;
+   ULONG colorrgb;
+   struct Colorinfo *tabCi;
+   long spH;
+   long spV;
+   if(!table || !name || !value) return;
+   if(Stricmp((char *)name,"border") == 0)
+   {  *borderValue=ParseCSSLengthValue(value,&num);
+      if(*borderValue < 0) *borderValue=0;
+   }
+   else if(Stricmp((char *)name,"width") == 0)
+   {  *widthValue=ParseCSSLengthValue(value,&num);
+      if(*widthValue > 0)
+      {  if(num.type==NUMBER_PERCENT) *wtag=AOTAB_Percentwidth;
+         else *wtag=AOTAB_Pixelwidth;
+      }
+   }
+   else if(Stricmp((char *)name,"padding") == 0)
+   {  *cellpaddingValue=ParseCSSLengthValue(value,&num);
+      if(*cellpaddingValue < 0) *cellpaddingValue=0;
+   }
+   else if(Stricmp((char *)name,"border-spacing") == 0)
+   {  spH=-1;
+      spV=-1;
+      ParseCSSSpacingPair(value,&spH,&spV,&num);
+      if(spH >= 0 && num.type==NUMBER_NUMBER)
+      {  *borderSpacingH=spH;
+         *borderSpacingV=spV;
+      }
+   }
+   else if(Stricmp((char *)name,"border-collapse") == 0)
+   {  if(Stricmp((char *)value,"collapse") == 0) *borderCollapse=1;
+      else if(Stricmp((char *)value,"separate") == 0) *borderCollapse=0;
+   }
+   else if(Stricmp((char *)name,"table-layout") == 0)
+   {  if(Stricmp((char *)value,"fixed") == 0) *tableLayout=1;
+      else if(Stricmp((char *)value,"auto") == 0) *tableLayout=0;
+   }
+   else if(Stricmp((char *)name,"caption-side") == 0)
+   {  if(Stricmp((char *)value,"bottom") == 0) *captionSide=1;
+      else if(Stricmp((char *)value,"top") == 0) *captionSide=0;
+   }
+   else if(Stricmp((char *)name,"empty-cells") == 0)
+   {  if(Stricmp((char *)value,"hide") == 0) *emptyCells=1;
+      else if(Stricmp((char *)value,"show") == 0) *emptyCells=0;
+   }
+   else if(Stricmp((char *)name,"background-color") == 0)
+   {  colorrgb=ParseHexColor(value);
+      if(colorrgb != ~0) *cssBgcolor=Finddoccolor(doc,colorrgb);
+   }
+   else if(Stricmp((char *)name,"border-color") == 0)
+   {  colorrgb=ParseHexColor(value);
+      if(colorrgb != ~0)
+      {  tabCi=Finddoccolor(doc,colorrgb);
+         if(tabCi) Asetattrs(table,AOTAB_Bordercolor,tabCi,TAG_END);
+      }
+   }
+   else if(Stricmp((char *)name,"min-width") == 0)
+   {  *cssMinw=ParseCSSLengthValue(value,&num);
+      if(*cssMinw < 0) *cssMinw=0;
+   }
+   else if(Stricmp((char *)name,"max-width") == 0)
+   {  *cssMaxw=ParseCSSLengthValue(value,&num);
+      if(*cssMaxw < 0) *cssMaxw=0;
+   }
+   else if(Stricmp((char *)name,"height") == 0)
+   {  *cssHeight=ParseCSSLengthValue(value,&num);
+      if(*cssHeight > 0)
+      {  if(num.type==NUMBER_PERCENT) *cssHpercent=1;
+         else *cssHpercent=0;
+      }
+      else *cssHeight=-1;
+   }
+}
+
+/* Push accumulated CSS2 table properties to the table object. */
+static void CommitTableCSS(void *table,long borderValue,long widthValue,ULONG wtag,
+   long cellpaddingValue,long borderSpacingH,long borderSpacingV,
+   long borderCollapse,long tableLayout,long captionSide,long emptyCells,
+   struct Colorinfo *cssBgcolor,long cssMinw,long cssMaxw,long cssHeight,
+   long cssHpercent)
+{  if(borderValue >= 0)
+   {  Asetattrs(table,AOTAB_Border,borderValue,TAG_END);
+      if(borderValue > 0)
+      {  Asetattrs(table,AOTAB_Tabframe,TABFRM_ALL,AOTAB_Rules,TABRUL_ALL,TAG_END);
+      }
+   }
+   if(wtag != TAG_IGNORE && widthValue > 0)
+   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   }
+   if(cellpaddingValue >= 0)
+   {  Asetattrs(table,AOTAB_Cellpadding,cellpaddingValue,TAG_END);
+   }
+   if(borderSpacingH >= 0)
+   {  Asetattrs(table,AOTAB_Borderspacing,borderSpacingH,TAG_END);
+      if(borderSpacingV >= 0)
+      {  Asetattrs(table,AOTAB_BorderspacingV,borderSpacingV,TAG_END);
+      }
+   }
+   if(borderCollapse >= 0)
+   {  Asetattrs(table,AOTAB_Bordercollapse,(Tag)(borderCollapse ? TRUE : FALSE),TAG_END);
+   }
+   if(tableLayout >= 0)
+   {  Asetattrs(table,AOTAB_Tablelayout,tableLayout,TAG_END);
+   }
+   if(captionSide >= 0)
+   {  Asetattrs(table,AOTAB_Captionside,captionSide,TAG_END);
+   }
+   if(emptyCells >= 0)
+   {  Asetattrs(table,AOTAB_Emptycells,emptyCells,TAG_END);
+   }
+   if(cssBgcolor)
+   {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
+   }
+   if(cssMinw > 0)
+   {  Asetattrs(table,AOTAB_Minwidth,cssMinw,TAG_END);
+   }
+   if(cssMaxw > 0)
+   {  Asetattrs(table,AOTAB_Maxwidth,cssMaxw,TAG_END);
+   }
+   if(cssHeight > 0)
+   {  if(cssHpercent)
+      {  Asetattrs(table,AOTAB_Tabpercentheight,cssHeight,TAG_END);
+      }
+      else
+      {  Asetattrs(table,AOTAB_Tabheight,cssHeight,TAG_END);
+      }
+   }
+}
+
 /* Apply CSS properties to a table (TABLE tag) */
 void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
 {  struct CSSProperty *prop;
-   struct Number num;
    UBYTE *p;
    long borderValue;
    long widthValue;
    long cellpaddingValue;
-   long cellspacingValue;
+   long borderSpacingH;
+   long borderSpacingV;
+   long borderCollapse;
+   long tableLayout;
+   long captionSide;
+   long emptyCells;
+   long cssMinw;
+   long cssMaxw;
+   long cssHeight;
+   long cssHpercent;
    ULONG wtag;
    struct Colorinfo *cssBgcolor;
    
@@ -5437,92 +6039,42 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
    borderValue = -1;
    widthValue = -1;
    cellpaddingValue = -1;
-   cellspacingValue = -1;
+   borderSpacingH = -1;
+   borderSpacingV = -1;
+   borderCollapse = -1;
+   tableLayout = -1;
+   captionSide = -1;
+   emptyCells = -1;
+   cssMinw = -1;
+   cssMaxw = -1;
+   cssHeight = -1;
+   cssHpercent = 0;
    cssBgcolor = NULL;
    
    while(*p)
    {  SkipWhitespace(&p);
       if(!*p) break;
       
-      /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
-      {  /* Extract border */
-         if(Stricmp((char *)prop->name,"border") == 0)
-         {  borderValue = ParseCSSLengthValue(prop->value,&num);
-            if(borderValue < 0) borderValue = 0;
-         }
-         /* Extract width */
-         else if(Stricmp((char *)prop->name,"width") == 0)
-         {  widthValue = ParseCSSLengthValue(prop->value,&num);
-            if(widthValue > 0)
-            {  if(num.type == NUMBER_PERCENT)
-               {  wtag = AOTAB_Percentwidth;
-               }
-               else
-               {  wtag = AOTAB_Pixelwidth;
-               }
-            }
-         }
-         /* Extract cellpadding via padding */
-         else if(Stricmp((char *)prop->name,"padding") == 0)
-         {  cellpaddingValue = ParseCSSLengthValue(prop->value,&num);
-            if(cellpaddingValue < 0) cellpaddingValue = 0;
-         }
-         /* Extract cellspacing - no direct CSS equivalent, but we can parse it if needed */
-         /* Note: CSS border-spacing is CSS2 and not yet supported */
-         /* Extract background-color */
-         else if(Stricmp((char *)prop->name,"background-color") == 0)
-         {  ULONG colorrgb;
-            colorrgb = ParseHexColor(prop->value);
-            if(colorrgb != ~0)
-            {  cssBgcolor = Finddoccolor(doc,colorrgb);
-            }
-         }
-         /* Extract border-color */
-         else if(Stricmp((char *)prop->name,"border-color") == 0)
-         {  ULONG colorrgb;
-            struct Colorinfo *ci;
-            colorrgb = ParseHexColor(prop->value);
-            if(colorrgb != ~0)
-            {  ci = Finddoccolor(doc,colorrgb);
-               if(ci)
-               {  Asetattrs(table,AOTAB_Bordercolor,ci,TAG_END);
-               }
-            }
-         }
-         
+      {  ApplyTableCSSProperty(table,prop->name,prop->value,doc,
+            &borderValue,&widthValue,&wtag,&cellpaddingValue,
+            &borderSpacingH,&borderSpacingV,&borderCollapse,&tableLayout,
+            &captionSide,&emptyCells,&cssBgcolor,&cssMinw,&cssMaxw,
+            &cssHeight,&cssHpercent);
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
          FREE(prop);
       }
       else
-      {  /* Skip to next semicolon on parse error */
-         while(*p && *p != ';')
-         {  p++;
-         }
+      {  while(*p && *p != ';') p++;
       }
-      
-      /* Skip semicolon */
       if(*p == ';') p++;
    }
    
-   /* Apply extracted values to table */
-   if(borderValue >= 0)
-   {  Asetattrs(table,AOTAB_Border,borderValue,TAG_END);
-   }
-   if(wtag != TAG_IGNORE && widthValue > 0)
-   {  Asetattrs(table,wtag,widthValue,TAG_END);
-   }
-   if(cellpaddingValue >= 0)
-   {  Asetattrs(table,AOTAB_Cellpadding,cellpaddingValue,TAG_END);
-   }
-   if(cellspacingValue >= 0)
-   {  Asetattrs(table,AOTAB_Cellspacing,cellspacingValue,TAG_END);
-   }
-   if(cssBgcolor)
-   {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
-   }
+   CommitTableCSS(table,borderValue,widthValue,wtag,cellpaddingValue,
+      borderSpacingH,borderSpacingV,borderCollapse,tableLayout,
+      captionSide,emptyCells,cssBgcolor,cssMinw,cssMaxw,cssHeight,cssHpercent);
 }
 
 /* Apply CSS properties to a table from external stylesheet rules */
@@ -5532,14 +6084,21 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
    struct CSSProperty *prop;
    struct CSSStylesheet *sheet;
    BOOL matches;
-   struct Number num;
    long borderValue;
    long widthValue;
    long cellpaddingValue;
+   long borderSpacingH;
+   long borderSpacingV;
+   long borderCollapse;
+   long tableLayout;
+   long captionSide;
+   long emptyCells;
+   long cssMinw;
+   long cssMaxw;
+   long cssHeight;
+   long cssHpercent;
    ULONG wtag;
    struct Colorinfo *cssBgcolor;
-   ULONG colorrgb;
-   struct Colorinfo *ci;
    
    if(!doc || !table || !doc->cssstylesheet) return;
    
@@ -5548,9 +6107,18 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
    borderValue = -1;
    widthValue = -1;
    cellpaddingValue = -1;
+   borderSpacingH = -1;
+   borderSpacingV = -1;
+   borderCollapse = -1;
+   tableLayout = -1;
+   captionSide = -1;
+   emptyCells = -1;
+   cssMinw = -1;
+   cssMaxw = -1;
+   cssHeight = -1;
+   cssHpercent = 0;
    cssBgcolor = NULL;
    
-   /* Find matching CSS rules and apply properties */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
@@ -5558,96 +6126,117 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
          (struct MinNode *)sel->node.mln_Succ;
          sel = (struct CSSSelector *)sel->node.mln_Succ)
       {  matches = TRUE;
-         
-         /* Match element name (should be "table") */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(Stricmp((char *)sel->name,"table") != 0)
-            {  matches = FALSE;
-            }
+         {  if(Stricmp((char *)sel->name,"table") != 0) matches = FALSE;
          }
-         
-         /* Match class */
          if(matches && sel->type & CSS_SEL_CLASS && sel->class)
-         {  if(!MatchClassAttribute(class, sel->class))
-            {  matches = FALSE;
-            }
+         {  if(!MatchClassAttribute(class, sel->class)) matches = FALSE;
          }
-         
-         /* Match ID */
          if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0)
-            {  matches = FALSE;
-            }
+         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0) matches = FALSE;
          }
-         
-         /* Skip rules with pseudo-classes */
-         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
-         {  matches = FALSE;
-         }
-         
-         /* If selector matches, apply properties */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo) matches = FALSE;
          if(matches)
          {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(!prop->name || !prop->value) continue;
-               
-               /* Extract border */
-               if(Stricmp((char *)prop->name,"border") == 0)
-               {  borderValue = ParseCSSLengthValue(prop->value,&num);
-                  if(borderValue < 0) borderValue = 0;
-               }
-               /* Extract width */
-               else if(Stricmp((char *)prop->name,"width") == 0)
-               {  widthValue = ParseCSSLengthValue(prop->value,&num);
-                  if(widthValue > 0)
-                  {  if(num.type == NUMBER_PERCENT)
-                     {  wtag = AOTAB_Percentwidth;
-                     }
-                     else
-                     {  wtag = AOTAB_Pixelwidth;
-                     }
-                  }
-               }
-               /* Extract cellpadding via padding */
-               else if(Stricmp((char *)prop->name,"padding") == 0)
-               {  cellpaddingValue = ParseCSSLengthValue(prop->value,&num);
-                  if(cellpaddingValue < 0) cellpaddingValue = 0;
-               }
-               /* Extract background-color */
-               else if(Stricmp((char *)prop->name,"background-color") == 0)
-               {  colorrgb = ParseHexColor(prop->value);
-                  if(colorrgb != ~0)
-                  {  cssBgcolor = Finddoccolor(doc,colorrgb);
-                  }
-               }
-               /* Extract border-color */
-               else if(Stricmp((char *)prop->name,"border-color") == 0)
-               {  colorrgb = ParseHexColor(prop->value);
-                  if(colorrgb != ~0)
-                  {  ci = Finddoccolor(doc,colorrgb);
-                     if(ci)
-                     {  Asetattrs(table,AOTAB_Bordercolor,ci,TAG_END);
-                     }
-                  }
-               }
+               ApplyTableCSSProperty(table,prop->name,prop->value,doc,
+                  &borderValue,&widthValue,&wtag,&cellpaddingValue,
+                  &borderSpacingH,&borderSpacingV,&borderCollapse,&tableLayout,
+                  &captionSide,&emptyCells,&cssBgcolor,&cssMinw,&cssMaxw,
+                  &cssHeight,&cssHpercent);
             }
          }
       }
    }
    
-   /* Apply extracted values to table */
-   if(borderValue >= 0)
-   {  Asetattrs(table,AOTAB_Border,borderValue,TAG_END);
+   CommitTableCSS(table,borderValue,widthValue,wtag,cellpaddingValue,
+      borderSpacingH,borderSpacingV,borderCollapse,tableLayout,
+      captionSide,emptyCells,cssBgcolor,cssMinw,cssMaxw,cssHeight,cssHpercent);
+}
+
+/* Apply width from CSS to the most recent COL/COLGROUP column definition. */
+static void CommitColWidth(void *table,long widthValue,struct Number *num)
+{  ULONG wtag;
+   if(!table || widthValue <= 0) return;
+   if(num->type==NUMBER_PERCENT) wtag=AOTAB_Percentwidth;
+   else if(num->type==NUMBER_RELATIVE) wtag=AOTAB_Relwidth;
+   else wtag=AOTAB_Pixelwidth;
+   TableSetLastColWidth(table,wtag,(short)widthValue);
+}
+
+/* Apply inline CSS on COL/COLGROUP (width). */
+void ApplyCSSToCol(struct Document *doc,void *table,UBYTE *style)
+{  struct CSSProperty *prop;
+   struct Number num;
+   UBYTE *p;
+   long widthValue;
+   if(!doc || !table || !style) return;
+   widthValue = -1;
+   p = style;
+   while(*p)
+   {  SkipWhitespace(&p);
+      if(!*p) break;
+      prop = ParseProperty(doc,&p);
+      if(prop && prop->name && prop->value)
+      {  if(Stricmp((char *)prop->name,"width") == 0)
+         {  widthValue = ParseCSSLengthValue(prop->value,&num);
+         }
+         if(prop->name) FREE(prop->name);
+         if(prop->value) FREE(prop->value);
+         FREE(prop);
+      }
+      else
+      {  while(*p && *p != ';') p++;
+      }
+      if(*p == ';') p++;
    }
-   if(wtag != TAG_IGNORE && widthValue > 0)
-   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   if(widthValue > 0) CommitColWidth(table,widthValue,&num);
+}
+
+/* Apply col/colgroup rules from an external stylesheet. */
+void ApplyCSSToColFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   BOOL matches;
+   struct Number num;
+   long widthValue;
+   if(!doc || !table || !doc->cssstylesheet) return;
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   widthValue = -1;
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(Stricmp((char *)sel->name,"col") != 0
+         && Stricmp((char *)sel->name,"colgroup") != 0) matches = FALSE;
+         }
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!MatchClassAttribute(class, sel->class)) matches = FALSE;
+         }
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0) matches = FALSE;
+         }
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo) matches = FALSE;
+         if(matches)
+         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(prop->name && prop->value
+               && Stricmp((char *)prop->name,"width") == 0)
+               {  widthValue = ParseCSSLengthValue(prop->value,&num);
+               }
+            }
+         }
+      }
    }
-   if(cellpaddingValue >= 0)
-   {  Asetattrs(table,AOTAB_Cellpadding,cellpaddingValue,TAG_END);
-   }
-   if(cssBgcolor)
-   {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
-   }
+   if(widthValue > 0) CommitColWidth(table,widthValue,&num);
 }
 

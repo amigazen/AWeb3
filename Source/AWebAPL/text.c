@@ -26,6 +26,7 @@
 #include "docprivate.h"
 #include "object.h"
 #include "ttengine.h"
+#include "bulletfont.h"
 #include <string.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
@@ -34,6 +35,7 @@
 #include <graphics/gfxmacros.h>
 
 static UBYTE *GetFontfaceFromBody(struct Text *tx);
+static void SetTextLayoutFont(struct Text *tx,USHORT style);
 
 /*------------------------------------------------------------------------*/
 
@@ -122,7 +124,9 @@ static BOOL Hassjisbytes(UBYTE *s,long len)
 }
 
 /* Cache JKFF fonts by y-size. We deliberately keep these open for the duration
- * of the process to avoid per-element open/close churn. */
+ * of the process to avoid per-element open/close churn.
+ * AWEB4 HTML text otherwise uses bullet/ttengine only; JKFF remains a special
+ * Shift_JIS bitmap face loaded through diskfont when that path is active. */
 static struct TextFont *Getjkfffont(short ysize)
 {  static struct TextFont *cache[65];
    struct TextAttr ta;
@@ -199,6 +203,7 @@ static void Utf8TtengineSelectForText(struct Text *tx,struct RastPort *rp)
    ULONG bl;
    ULONG rem;
    if(!tx || !rp || !Docisutf8(tx)) return;
+   BulletFontSetSourceUtf8(TRUE);
    ff=GetFontfaceFromBody(tx);
    if(ff && *ff)
    {
@@ -225,18 +230,35 @@ static void Utf8TtengineSelectForText(struct Text *tx,struct RastPort *rp)
    }
 }
 
-/* Word-wrap width probe: use ttengine TextFit when a TT font is active. */
+/* Word-wrap width probe: TTEngine or live Bullet TextFit when active. */
 static long Textfitcommon(struct Text *tx,struct RastPort *rp,UBYTE *s,long cnt,
    struct TextExtent *te,long maxw,long maxh)
 {
    long got;
+   UWORD ucnt;
+   UWORD uw;
+   UWORD uh;
    (void)tx;
-   if(IsTTEngineFontActive(rp))
+   if(cnt<=0) return 0;
+   if(cnt>65535L) cnt=65535L;
+   ucnt=(UWORD)cnt;
+   if(maxw<1L) maxw=1L;
+   if(maxh<1L) maxh=1L;
+   if(maxw>65535L) maxw=65535L;
+   if(maxh>65535L) maxh=65535L;
+   uw=(UWORD)maxw;
+   uh=(UWORD)maxh;
+   if(IsTTEngineFontActive(rp) || BulletFontIsLiveActive(rp))
    {
-      got=(long)TTEngineTextFit(rp,s,(UWORD)cnt,te,NULL,1,(UWORD)maxw,(UWORD)maxh);
+      got=(long)TTEngineTextFit(rp,s,ucnt,te,NULL,1,uw,uh);
+      if(got<0) got=0;
+      if(got>cnt) got=cnt;
       return got;
    }
-   return (long)TextFit(rp,s,(WORD)cnt,te,NULL,1,(UWORD)maxw,(UWORD)maxh);
+   got=(long)TextFit(rp,s,(WORD)((cnt>32767L)?32767L:cnt),te,NULL,1,uw,uh);
+   if(got<0) got=0;
+   if(got>cnt) got=cnt;
+   return got;
 }
 
 /* Clear all sections, or only non-aligned sections */
@@ -293,12 +315,7 @@ static void Highlighttext(struct Text *tx,struct Coords *coo,long start,long end
 {  struct Tsection *ts;
    long histart,hiend;  /* Pixels */
    if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,coo->rp);
-   else
-   {  TTEngineSetFont(coo->rp,tx->font,NULL,tx->style);
-      if(!IsTTEngineFontActive(coo->rp))
-      {  SetSoftStyle(coo->rp,0,0x0f);
-      }
-   }
+   else SetTextLayoutFont(tx,tx->style);
    SetDrMd(coo->rp,COMPLEMENT);
    for(ts=tx->sections;ts;ts=ts->next)
    {  if(ts->flags&TSF_ALIGNED)
@@ -398,37 +415,44 @@ static UBYTE *GetFontfaceFromBody(struct Text *tx)
    return NULL;
 }
 
+/* Bind mrp for width probes. Face must match Rendertext — NULL face maps the
+ * diskfont name (e.g. CGTriumvirate) while measure/render use CSS/HTML face
+ * (e.g. Verdana); mismatched advances break wrap in narrow table cells. */
+static void SetTextLayoutFont(struct Text *tx,USHORT style)
+{  if(!tx || !tx->font) return;
+   if(Docisutf8(tx))
+   {  BulletFontSetSourceUtf8(TRUE);
+      Utf8TtengineSelectForText(tx,mrp);
+      TTEngineApplySoftStyle(mrp,style);
+      return;
+   }
+   BulletFontSetSourceUtf8(FALSE);
+   TTEngineSetFont(mrp,tx->font,GetFontfaceFromBody(tx),style);
+   if(!IsTTEngineFontActive(mrp))
+   {  SetFont(mrp,tx->font);
+      TTEngineApplySoftStyle(mrp,style);
+   }
+}
+
 /*------------------------------------------------------------------------*/
 
 static long Measuretext(struct Text *tx,struct Ammeasure *amm)
 {  long w,width,realw;
    UBYTE *p,*q,*end;
    p=amm->text->buffer+tx->textpos;
-   if(Docisutf8(tx))
-   {  Utf8TtengineSelectForText(tx,mrp);
-   }
-   else if(tx && tx->text && tx->text->buffer && tx->length>0)
-   {  if(Docisshiftjis(tx) && Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
-      {  struct TextFont *jkff;
-         jkff=Getjkfffont((short)tx->font->tf_YSize);
-         if(jkff)
-         {  tx->font=jkff;
-         }
-         TTEngineSetFont(mrp,tx->font,NULL,tx->style);
+   if(tx && tx->text && tx->text->buffer && tx->length>0
+      && !Docisutf8(tx) && Docisshiftjis(tx)
+      && Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
+   {  struct TextFont *jkff;
+      jkff=Getjkfffont((short)tx->font->tf_YSize);
+      if(jkff)
+      {  tx->font=jkff;
       }
-      else
-      {
-         TTEngineSetFont(mrp,tx->font,GetFontfaceFromBody(tx),tx->style);
-      }
+      TTEngineSetFont(mrp,tx->font,NULL,tx->style);
+      TTEngineApplySoftStyle(mrp,tx->style);
    }
    else
-   {
-      TTEngineSetFont(mrp,tx->font,GetFontfaceFromBody(tx),tx->style);
-   }
-   if(!IsTTEngineFontActive(mrp))
-   {
-      SetFont(mrp,tx->font);
-      SetSoftStyle(mrp,tx->style,0x0f);
+   {  SetTextLayoutFont(tx,tx->style);
    }
    width=Textlengthext(mrp,p,tx->length,&realw);
    if(realw!=width) width=Realwidth(tx,width,realw);
@@ -489,12 +513,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
          {  /* Space found. Shorten this section, but include the space. */
             ts->flags|=TSF_SPACE;  /* Don't include space in length */
             ts->length=q-p;
-            if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-            else TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            SetTextLayoutFont(tx,tx->style);
             ts->w=Textlength(mrp,p,ts->length);
             /* See if this section (plus the trailing space) fits */
             if(ts->textpos+ts->length+1<tx->textpos+tx->length) result=AMLR_MORE;
@@ -504,12 +523,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
          else if(*q==SHY && !(tx->eltflags&(ELTF_NOBR|ELTF_PREFORMAT)))
          {  /* Soft hyphen found. Shorten this section and include the SHY. */
             ts->length=q-p+1;
-            if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-            else TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            SetTextLayoutFont(tx,tx->style);
             ts->w=Textlength(mrp,p,ts->length);
             /* See if this section fits */
             if(ts->textpos+ts->length<tx->textpos+tx->length) result=AMLR_MORE;
@@ -546,15 +560,8 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
       if(length>0)
       {  /* Latin-1 layout on mrp must match Rendertext ttengine+FACE; else widths come from
           * bitmap TextLength and bold Georgia runs past the following sibling (e.g. <B>Note:</B>). */
-         if(Docisutf8(tx))
-         {  Utf8TtengineSelectForText(tx,mrp);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
-         }
-         else if(tx->text && tx->text->buffer
-            && Docisshiftjis(tx) && Hassjisbytes(p,length))
+         if(tx->text && tx->text->buffer
+            && !Docisutf8(tx) && Docisshiftjis(tx) && Hassjisbytes(p,length))
          {  struct TextFont *jkff;
             jkff=Getjkfffont((short)tx->font->tf_YSize);
             if(jkff)
@@ -562,19 +569,11 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
                tx->font=jkff;
             }
             TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            TTEngineApplySoftStyle(mrp,tx->style);
          }
          else
          {
-            TTEngineSetFont(mrp,tx->font,GetFontfaceFromBody(tx),tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetFont(mrp,tx->font);
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            SetTextLayoutFont(tx,tx->style);
          }
          width=Textlengthext(mrp,p,length,&realw);
          if(realw!=width) width=Realwidth(tx,width,realw);
@@ -622,12 +621,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
             }
             length=q-p;
             /* Make sure font is set before measuring */
-            if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-            else TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            SetTextLayoutFont(tx,tx->style);
             width=Textlength(mrp,p,length);
             space=TRUE;
          }
@@ -635,12 +629,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
          {  /* Soft hyphen found (not the last character). Break the text after the SHY. */
             result=AMLR_MORE;
             length=q-p+1;
-            if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-            else TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            SetTextLayoutFont(tx,tx->style);
             width=Textlength(mrp,p,length);
             space=FALSE;
          }
@@ -654,12 +643,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
             if(*q==' ') space=TRUE;
             else q++;   /* include SHY or last character */
             length=q-p;
-            if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-            else TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-            if(!IsTTEngineFontActive(mrp))
-            {
-               SetSoftStyle(mrp,tx->style,0x0f);
-            }
+            SetTextLayoutFont(tx,tx->style);
             width=Textlength(mrp,p,length);
             /* If FORCE, use this text. Else set the resulting endx to show our needs. */
             if(aml->flags&AMLF_FORCE)
@@ -782,7 +766,8 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
       if(clip) clipkey=Clipto(rp,coo->minx,coo->miny,coo->maxx,coo->maxy);
       /* Non-UTF-8: one font for the whole element. UTF-8 uses ttengine once before drawing sections. */
       if(!Docisutf8(tx))
-      {  if(tx && tx->text && tx->text->buffer && tx->length>0)
+      {  BulletFontSetSourceUtf8(FALSE);
+         if(tx && tx->text && tx->text->buffer && tx->length>0)
          {  if(Docisshiftjis(tx) && Hassjisbytes((UBYTE *)tx->text->buffer+tx->textpos,tx->length))
             {  struct TextFont *jkff;
                jkff=Getjkfffont((short)tx->font->tf_YSize);
@@ -795,18 +780,11 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
          else
          {  TTEngineSetFont(rp,tx->font,GetFontfaceFromBody(tx),tx->style);
          }
-         /* Only use SetSoftStyle if ttengine is not active (ttengine handles styles via font selection) */
-         if(!IsTTEngineFontActive(rp))
-         {
-            SetSoftStyle(rp,tx->style,0x0f);
-         }
+         TTEngineApplySoftStyle(rp,tx->style);
       }
       else
       {  Utf8TtengineSelectForText(tx,rp);
-         if(!IsTTEngineFontActive(rp))
-         {
-            SetSoftStyle(rp,tx->style,0x0f);
-         }
+         TTEngineApplySoftStyle(rp,tx->style);
       }
       if(tx->link)
       {  BOOL nodecoration;
@@ -1039,12 +1017,7 @@ static long Searchsettext(struct Text *tx,struct Amsearch *ams)
                {  ams->left=ts->x;
                }
                else
-               {  if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-                  else TTEngineSetFont(mrp,tx->font,NULL,tx->style);
-                  if(!IsTTEngineFontActive(mrp))
-                  {
-                     SetSoftStyle(mrp,tx->style,0x0f);
-                  }
+               {                    SetTextLayoutFont(tx,tx->style);
                   ams->left=ts->x+
                      Textlength(mrp,ams->text->buffer+ts->textpos,ams->pos-ts->textpos);
                }
@@ -1087,12 +1060,8 @@ static long Dragtesttext(struct Text *tx,struct Amdragtest *amd)
             {  amd->amdr->objpos=ts->textpos;
             }
             else
-            {  if(Docisutf8(tx)) Utf8TtengineSelectForText(tx,mrp);
-               else TTEngineSetFont(mrp,tx->font,NULL,0);  /* No style because italics extension */
-               if(!IsTTEngineFontActive(mrp))
-               {
-                  SetSoftStyle(mrp,0,0x0f);
-               }
+            {  /* Style 0: italics extension must not inflate hit advances. */
+               SetTextLayoutFont(tx,0);
                amd->amdr->objpos=ts->textpos+Textfitcommon(tx,mrp,
                   tx->text->buffer+ts->textpos,ts->length,&te,x-ts->x,tx->height);
             }

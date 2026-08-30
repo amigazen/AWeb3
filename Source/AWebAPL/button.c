@@ -27,7 +27,7 @@
 #include "url.h"
 #include "window.h"
 #include "jslib.h"
-#include "ttengine.h"
+#include "bulletfont.h"
 #include <proto/exec.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -84,39 +84,26 @@ static long bevelw,bevelh;
 
 /*------------------------------------------------------------------------*/
 
-/* Get font from element, with fallback to screen font */
-/* INPUT value label: same ttengine binding on (rp) as document text so measure width matches
- * draw (about:home submit in a narrow table vs bitmap-only Textlength on mrp). */
+/* INPUT value label: diskfont for AWEB4 (Bullet stubs have no CharData for Text()). */
 static void Buttonbindvaluefont(struct RastPort *rp,struct TextFont *font)
 {
-   TTEngineSetFont(rp,font,NULL,0);
-   if(!IsTTEngineFontActive(rp))
-   {
-      SetFont(rp,font);
-      SetSoftStyle(rp,0,0x0f);
-   }
+#ifdef AWEB4
+   font=AwebFormDiskFont(font);
+#endif
+   if(!font || !rp) return;
+   SetFont(rp,font);
+   SetSoftStyle(rp,0,0x0f);
 }
 
 static long Buttonvaluefit(struct RastPort *rp,UBYTE *s,long len,struct TextExtent *te,
    long maxw,long maxh)
 {
-   if(IsTTEngineFontActive(rp))
-   {
-      return (long)TTEngineTextFit(rp,s,(UWORD)len,te,NULL,1,(UWORD)maxw,(UWORD)maxh);
-   }
    return (long)TextFit(rp,s,(WORD)len,te,NULL,1,(UWORD)maxw,(UWORD)maxh);
 }
 
 static void Buttonvaluedraw(struct RastPort *rp,UBYTE *s,long len)
 {
-   if(IsTTEngineFontActive(rp))
-   {
-      TTEngineText(rp,s,(ULONG)len);
-   }
-   else
-   {
-      Text(rp,s,len);
-   }
+   Text(rp,s,len);
 }
 
 static struct TextFont *Getbuttonfont(struct Button *but)
@@ -129,6 +116,9 @@ static struct TextFont *Getbuttonfont(struct Button *but)
    if(!font)
    {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
    }
+#ifdef AWEB4
+   font=AwebFormDiskFont(font);
+#endif
    
    return font;
 }

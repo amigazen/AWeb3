@@ -24,6 +24,7 @@
 #include "application.h"
 #include "window.h"
 #include "jslib.h"
+#include "bulletfont.h"
 #include <proto/exec.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -119,7 +120,8 @@ static struct TagItem mapscroll[]={ AOSCR_Top,AOSEL_Listtop,TAG_END };
 
 /*------------------------------------------------------------------------*/
 
-/* Get font from element, with fallback to screen font */
+/* Get font from element, with fallback to screen font.
+ * AWEB4: Bullet HTML stubs need a diskfont for Text(). */
 static struct TextFont *Getselectfont(struct Select *sel)
 {  struct TextFont *font;
    
@@ -130,6 +132,9 @@ static struct TextFont *Getselectfont(struct Select *sel)
    if(!font)
    {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
    }
+#ifdef AWEB4
+   font=AwebFormDiskFont(font);
+#endif
    
    return font;
 }

@@ -26,6 +26,7 @@
 #include "editor.h"
 #include "window.h"
 #include "jslib.h"
+#include "bulletfont.h"
 #include <proto/exec.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -94,7 +95,8 @@ static struct DrawList epictdata[]=
 
 /*------------------------------------------------------------------------*/
 
-/* Get font from element, with fallback to system font */
+/* Get font from element, with fallback to system font.
+ * AWEB4: Bullet HTML stubs need a diskfont for Text(). */
 static struct TextFont *Gettextareafont(struct Textarea *txa)
 {  struct TextFont *font;
    
@@ -105,6 +107,9 @@ static struct TextFont *Gettextareafont(struct Textarea *txa)
    if(!font)
    {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
    }
+#ifdef AWEB4
+   font=AwebFormDiskFont(font);
+#endif
    
    return font;
 }

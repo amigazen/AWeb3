@@ -34,6 +34,11 @@
 #include <proto/locale.h>
 #include <proto/colorwheel.h>
 
+#ifdef AWEB4
+/* AWeb4 links the real closer from bulletfont.o. */
+extern void AwebCloseBrowserFont(struct TextFont *tf);
+#endif
+
 #define CATCOMP_NUMBERS
 #include "locale.h"
 
@@ -50,23 +55,23 @@
 
 struct Prefs defprefs=
 {  {  /* browser prefs */
-      {  {  /* font [0] normal */
-            {  "CGTimes.font",     11,NULL },
-            {  "CGTimes.font",     13,NULL },
-            {  "CGTimes.font",     15,NULL },
-            {  "CGTimes.font",     18,NULL },
+      {  {  /* font [0] normal — HTML sizes 1..7 (slightly larger Amiga baseline) */
+            {  "CGTimes.font",     12,NULL },
+            {  "CGTimes.font",     14,NULL },
+            {  "CGTimes.font",     16,NULL },
+            {  "CGTimes.font",     19,NULL },
             {  "CGTimes.font",     24,NULL },
-            {  "CGTimes.font",     30,NULL },
-            {  "CGTimes.font",     36,NULL },
+            {  "CGTimes.font",     32,NULL },
+            {  "CGTimes.font",     40,NULL },
          },
-         {  /* font [1] fixed */
-            {  "LetterGothic.font",   11,NULL },
-            {  "LetterGothic.font",   13,NULL },
-            {  "LetterGothic.font",   15,NULL },
-            {  "LetterGothic.font",   18,NULL },
+         {  /* font [1] fixed — keep in sync with normal sizes */
+            {  "LetterGothic.font",   12,NULL },
+            {  "LetterGothic.font",   14,NULL },
+            {  "LetterGothic.font",   16,NULL },
+            {  "LetterGothic.font",   19,NULL },
             {  "LetterGothic.font",   24,NULL },
-            {  "LetterGothic.font",   30,NULL },
-            {  "LetterGothic.font",   36,NULL },
+            {  "LetterGothic.font",   32,NULL },
+            {  "LetterGothic.font",   40,NULL },
          },
       },
       EMPTYLIST(Fontalias,defprefs.browser.aliaslist), /* font alias */
@@ -115,6 +120,11 @@ struct Prefs defprefs=
       TRUE,                                  /* hand pointer */
       TRUE,                                  /* JS watch */
       EMPTYLIST(Mimeinfo,defprefs.browser.mimelist), /* mime */
+#ifdef AWEB4
+      1,                                     /* dowasm at end — try awebwasm.aweblib; no-op if missing */
+#else
+      0,                                     /* dowasm unused outside AWEB4 */
+#endif
    },
    {  /* program prefs */
       "RAM:",                                /* save path */
@@ -341,6 +351,7 @@ static struct Saveformat browsersave[]=
    "TTIP",SVF_SHORT, 0,OFFSET(Browserprefs,tooltips),
    "HAND",SVF_SHORT, 0,OFFSET(Browserprefs,handpointer),
    "JWTC",SVF_SHORT, 0,OFFSET(Browserprefs,jswatch),
+   "DOWA",SVF_SHORT, 0,OFFSET(Browserprefs,dowasm),
    "MIMD",SVF_MIME,  0,
    NULL,0,0,
 };
@@ -1203,7 +1214,7 @@ static BOOL Subtreeprefscontainlegacy(BOOL saved,UBYTE *name)
 }
 
 /* TRUE if the named config directory (or default ENV: tree when name is NULL)
- * contains legacy AWebPath: text in any prefs fragment — caller should keep
+ * contains legacy AWebPath: text in any prefs fragment - caller should keep
  * built-in defaults and not merge disk prefs. Reads are ENV-only. */
 BOOL Prefsconfiguseslegacyawebpath(UBYTE *name)
 {  return Subtreeprefscontainlegacy(FALSE,name);
@@ -1267,155 +1278,155 @@ BOOL Initdefprefs(void)
    /* Serif font aliases - map to CGTimes.font (scalable) */
    alias="Times New Roman,Times,serif";
    font="CGTimes.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Georgia";
    font="CGTimes.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Palatino";
    font="CGTimes.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Garamond";
    font="CGTimes.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Book Antiqua";
    font="CGTimes.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    /* Sans-serif font aliases - map to CGTriumvirate.font (scalable) */
    alias="Arial,Helvetica,sans-serif";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Verdana";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Trebuchet MS";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Tahoma";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Lucida Sans Unicode";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Comic Sans MS";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Impact";
    font="CGTriumvirate.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    /* Monospace font aliases - map to LetterGothic.font (scalable) */
    alias="Courier New,Courier,monospace";
    font="LetterGothic.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Lucida Console";
    font="LetterGothic.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    alias="Consolas";
    font="LetterGothic.font";
-   Adddeffontalias(alias,0,font,9);
-   Adddeffontalias(alias,1,font,11);
-   Adddeffontalias(alias,2,font,13);
-   Adddeffontalias(alias,3,font,15);
-   Adddeffontalias(alias,4,font,18);
-   Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,36);
+   Adddeffontalias(alias,0,font,12);
+   Adddeffontalias(alias,1,font,14);
+   Adddeffontalias(alias,2,font,16);
+   Adddeffontalias(alias,3,font,19);
+   Adddeffontalias(alias,4,font,24);
+   Adddeffontalias(alias,5,font,32);
+   Adddeffontalias(alias,6,font,40);
    
    if(!Addmimeinfo(&defprefs.browser.mimelist,
       "text","html","html htm shtml phtml php asp",MDRIVER_INTERNAL,"","")) return FALSE;
@@ -1947,7 +1958,11 @@ void Freefontalias(struct Fontalias *fa)
    {  if(fa->alias) FREE(fa->alias);
       for(i=0;i<NRFONTS;i++)
       {  if(fa->fp[i].fontname) FREE(fa->fp[i].fontname);
+#ifdef AWEB4
+         if(fa->fp[i].font) AwebCloseBrowserFont(fa->fp[i].font);
+#else
          if(fa->fp[i].font) CloseFont(fa->fp[i].font);
+#endif
       }
       FREE(fa);
    }
@@ -2065,7 +2080,12 @@ void Disposebrowserprefs(struct Browserprefs *p)
    short i,j;
    for(j=0;j<2;j++)
    {  for(i=0;i<NRFONTS;i++)
-      {  if(p->font[j][i].font) CloseFont(p->font[j][i].font);p->font[j][i].font=NULL;
+      {
+#ifdef AWEB4
+         if(p->font[j][i].font) AwebCloseBrowserFont(p->font[j][i].font);p->font[j][i].font=NULL;
+#else
+         if(p->font[j][i].font) CloseFont(p->font[j][i].font);p->font[j][i].font=NULL;
+#endif
          FREEANDNULL(p->font[j][i].fontname);
       }
    }
@@ -2204,6 +2224,7 @@ BOOL Copybrowserprefs(struct Browserprefs *from,struct Browserprefs *to)
    {  Addmimeinfo(&to->mimelist,mi->type,mi->subtype,mi->extensions,
          mi->driver,mi->cmd,mi->args);
    }
+   to->dowasm=from->dowasm;
    return TRUE;
 }
 

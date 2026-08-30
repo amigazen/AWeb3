@@ -21,6 +21,8 @@
 #include "ttengine.h"
 #include "application.h"
 #include "awebprefs.h"
+#include "bulletfont.h"
+#include "awebutf8.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/graphics.h>
@@ -28,6 +30,7 @@
 #include <graphics/text.h>
 #include <graphics/rastport.h>
 #include <utility/tagitem.h>
+#include <string.h>
 
 /* Include ttengine library headers */
 #include <libraries/ttengine.h>
@@ -1142,7 +1145,7 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
 {
    APTR ttfont;
    struct TagItem tags[6];
-   struct TagItem posttags[6];
+   struct TagItem posttags[7];
    UBYTE *familytable[8];
    UBYTE workbuf[512];
    UBYTE expandedface[512];
@@ -1166,16 +1169,23 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    /* Always use normal SetFont first - let AWeb handle font sizing and selection */
    SetFont(rp, font);
    
-   /* Never call ttengine when library is not open */
+   /* Latin-1 / default bind: drop UTF-8 mode. tte_utf8_byte_strings is process-global
+    * (shared by measure mrp and window rps). A prior UTF-8 measure can leave the flag
+    * set while this rp has no TT font yet; TT_Text would then treat iso-8859 bytes
+    * (e.g. 0xFC ü on amiga-news.de) as UTF-8 and read past the Text span into the
+    * next buffer contents — garbage in narrow table cells. */
+   tte_utf8_byte_strings=FALSE;
+   
+   /* Never call ttengine when library is not open — try live Bullet (AWEB4). */
    if(!TTEngineBase || !ttengine_available)
    {
+      BulletFontSetFont(rp,font,style);
       return;
    }
    
    /* Check if a ttengine font is currently active - we'll need to clear it */
    /* if we can't set a new one for this element */
    was_ttengine_active = IsTTEngineFontActive(rp);
-   /* Rebinding: drop UTF-8 mode from a prior measure so Latin/CSS ttengine uses default encoding. */
    if(was_ttengine_active)
    {
       struct TagItem rst[2];
@@ -1183,7 +1193,6 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
       rst[0].ti_Data=(ULONG)TT_Encoding_Default;
       rst[1].ti_Tag=TAG_END;
       TT_SetAttrsA(rp,rst);
-      tte_utf8_byte_strings=FALSE;
    }
    
    /* Only use ttengine if available (we know it is from the check above, but keep for clarity) */
@@ -1325,9 +1334,16 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
                posttags[idx].ti_Tag=TT_SoftStyle;
                posttags[idx].ti_Data=soft;
                idx++;
+               /* Force 8-bit / library default encoding on every successful bind.
+                * UTF-8 docs re-enable via TTEngineSetRastPortTextEncoding afterwards. */
+               posttags[idx].ti_Tag=TT_Encoding;
+               posttags[idx].ti_Data=(ULONG)TT_Encoding_Default;
+               idx++;
                posttags[idx].ti_Tag=TAG_END;
                TT_SetAttrsA(rp,posttags);
-               /* Success - ttengine font is now active on rastport */
+               /* Success - ttengine font is now active on rastport.
+                * Drop any live Bullet binding on this rp. */
+               BulletFontClearLive(rp);
                /* Use TT_Text() for rendering instead of Text() */
                return;
             }
@@ -1355,7 +1371,8 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
       }
    }
    
-   /* If ttengine not available or font not found, normal SetFont was already called above */
+   /* AWEB4: live Bullet GlyphEngine when TT did not bind this face. */
+   BulletFontSetFont(rp,font,style);
 }
 
 /*------------------------------------------------------------------------*/
@@ -1402,6 +1419,19 @@ void TTEngineClearRastPort(struct RastPort *rp)
    }
 }
 
+void TTEngineApplySoftStyle(struct RastPort *rp,USHORT style)
+{
+   if(!rp) return;
+   if(IsTTEngineFontActive(rp)) return;
+   if(BulletFontIsLiveActive(rp))
+   {
+      /* Bold/italic already via OT_Embolden / OT_Shear on the live engine. */
+      SetSoftStyle(rp,style&FSF_UNDERLINED,0x0f);
+      return;
+   }
+   SetSoftStyle(rp,style,0x0f);
+}
+
 /*------------------------------------------------------------------------*/
 
 void TTEngineSetRastPortTextEncoding(struct RastPort *rp,ULONG encoding)
@@ -1424,6 +1454,28 @@ void TTEngineSetRastPortTextEncoding(struct RastPort *rp,ULONG encoding)
 
 /*------------------------------------------------------------------------*/
 
+/*------------------------------------------------------------------------*/
+
+/* Diskfont / graphics.library need Amiga 8-bit; UTF-8 docs fold via awebutf8. */
+static UBYTE *TteAmigaLatinDup(UBYTE *string,ULONG count,ULONG *outlen)
+{  UBYTE *dst;
+   ULONG n;
+   if(!string || count==0UL || !outlen)
+   {
+      if(outlen) *outlen=0UL;
+      return NULL;
+   }
+   dst=ALLOCTYPE(UBYTE,count+1UL,MEMF_PUBLIC);
+   if(!dst)
+   {
+      *outlen=0UL;
+      return NULL;
+   }
+   n=AwebUtf8ToAmigaLatin(string,count,dst,count+1UL,0UL);
+   *outlen=n;
+   return dst;
+}
+
 /* Text rendering wrapper (uses ttengine if available) */
 /* Uses TT_Text() if ttengine font is active, otherwise uses standard Text() */
 void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
@@ -1437,14 +1489,8 @@ void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
       JkffText(rp,string,count);
       return;
    }
-   /* When library not open, use standard Text only - never call TT_* */
-   if(!TTEngineBase)
-   {
-      Text(rp, string, count);
-      return;
-   }
-   /* Check if ttengine font is active on this rastport */
-   if(IsTTEngineFontActive(rp))
+   /* Prefer TTEngine (native UTF-8), then live Bullet, else graphics Text(). */
+   if(TTEngineBase && IsTTEngineFontActive(rp))
    {
       ULONG ch;
       ch=count;
@@ -1453,12 +1499,26 @@ void TTEngineText(struct RastPort *rp, UBYTE *string, ULONG count)
          ch=TteUtf8CompleteCharCount(string,count);
       }
       TT_Text(rp, string, ch);
+      return;
    }
-   else
+   if(BulletFontIsLiveActive(rp))
    {
-      /* Use standard Text() - no ttengine font active */
-      Text(rp, string, count);
+      BulletFontText(rp,string,count);
+      return;
    }
+   if(tte_utf8_byte_strings)
+   {
+      UBYTE *lat;
+      ULONG n;
+      lat=TteAmigaLatinDup(string,count,&n);
+      if(lat)
+      {
+         if(n) Text(rp,lat,n);
+         FREE(lat);
+         return;
+      }
+   }
+   Text(rp, string, count);
 }
 
 /*------------------------------------------------------------------------*/
@@ -1474,13 +1534,7 @@ ULONG TTEngineTextLength(struct RastPort *rp, UBYTE *string, ULONG count)
    {
       return JkffTextLength(rp,string,count);
    }
-   /* When library not open, use standard TextLength only - never call TT_* */
-   if(!TTEngineBase)
-   {
-      return TextLength(rp, string, count);
-   }
-   /* Check if ttengine font is active on this rastport */
-   if(IsTTEngineFontActive(rp))
+   if(TTEngineBase && IsTTEngineFontActive(rp))
    {
       /* Prefer max(horizontal advance, ink span); italic/overhang can exceed te_Width alone. */
       struct TextExtent te;
@@ -1514,11 +1568,24 @@ ULONG TTEngineTextLength(struct RastPort *rp, UBYTE *string, ULONG count)
       outw+=TTEngineBoldInkPad(rp);
       return outw;
    }
-   else
+   if(BulletFontIsLiveActive(rp))
    {
-      /* Use standard TextLength() - no ttengine font active */
-      return TextLength(rp, string, count);
+      return BulletFontTextLength(rp,string,count);
    }
+   if(tte_utf8_byte_strings)
+   {
+      UBYTE *lat;
+      ULONG n;
+      ULONG w;
+      lat=TteAmigaLatinDup(string,count,&n);
+      if(lat)
+      {
+         w=(n>0UL)?TextLength(rp,lat,n):0UL;
+         FREE(lat);
+         return w;
+      }
+   }
+   return TextLength(rp, string, count);
 }
 
 /*------------------------------------------------------------------------*/
@@ -1530,14 +1597,7 @@ void TTEngineTextExtent(struct RastPort *rp, UBYTE *string, WORD count, struct T
    {
       return;
    }
-   /* When library not open, use standard TextExtent only - never call TT_* */
-   if(!TTEngineBase)
-   {
-      TextExtent(rp, string, count, te);
-      return;
-   }
-   /* Check if ttengine font is active on this rastport */
-   if(IsTTEngineFontActive(rp))
+   if(TTEngineBase && IsTTEngineFontActive(rp))
    {
       ULONG ch;
       WORD wc;
@@ -1552,12 +1612,29 @@ void TTEngineTextExtent(struct RastPort *rp, UBYTE *string, WORD count, struct T
       }
       wc=(WORD)ch;
       TT_TextExtent(rp, string, wc, te);
+      return;
    }
-   else
+   if(BulletFontIsLiveActive(rp))
    {
-      /* Use standard TextExtent() - no ttengine font active */
-      TextExtent(rp, string, count, te);
+      BulletFontTextExtent(rp,string,count,te);
+      return;
    }
+   if(tte_utf8_byte_strings && count>0)
+   {
+      UBYTE *lat;
+      ULONG n;
+      lat=TteAmigaLatinDup(string,(ULONG)count,&n);
+      if(lat)
+      {
+         if(n>0UL && n<=32767UL)
+            TextExtent(rp,lat,(WORD)n,te);
+         else if(te)
+            memset(te,0,sizeof(*te));
+         FREE(lat);
+         return;
+      }
+   }
+   TextExtent(rp, string, count, te);
 }
 
 /*------------------------------------------------------------------------*/
@@ -1578,13 +1655,7 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
       (void)cheight;
       return JkffTextFit(rp,string,count,cwidth);
    }
-   /* When library not open, use standard TextFit only - never call TT_* */
-   if(!TTEngineBase)
-   {
-      return TextFit(rp, string, count, te, tec, dir, cwidth, cheight);
-   }
-   /* Check if ttengine font is active on this rastport */
-   if(IsTTEngineFontActive(rp))
+   if(TTEngineBase && IsTTEngineFontActive(rp))
    {
       ULONG got;
       ULONG umax;
@@ -1622,9 +1693,42 @@ ULONG TTEngineTextFit(struct RastPort *rp, UBYTE *string, UWORD count, struct Te
       }
       return got;
    }
-   else
+   if(BulletFontIsLiveActive(rp))
    {
-      /* Use standard TextFit() - no ttengine font active */
-      return TextFit(rp, string, count, te, tec, dir, cwidth, cheight);
+      ULONG got;
+      got=BulletFontTextFit(rp,string,count,cwidth);
+      if(te)
+      {
+         BulletFontTextExtent(rp,string,(WORD)got,te);
+      }
+      (void)tec;
+      (void)dir;
+      (void)cheight;
+      return got;
    }
+   if(tte_utf8_byte_strings)
+   {
+      UBYTE *lat;
+      ULONG n;
+      ULONG got;
+      ULONG i,glyphs,adv;
+      lat=TteAmigaLatinDup(string,(ULONG)count,&n);
+      if(lat)
+      {
+         got=TextFit(rp,lat,(UWORD)((n>65535UL)?65535UL:n),te,tec,dir,cwidth,cheight);
+         /* Map fitted Amiga glyph count back to UTF-8 source bytes. */
+         i=0UL;
+         glyphs=0UL;
+         while(i<(ULONG)count && glyphs<got)
+         {
+            (void)AwebUtf8NextCodepoint(string+i,(ULONG)count-i,&adv);
+            if(adv==0UL) break;
+            i+=adv;
+            glyphs++;
+         }
+         FREE(lat);
+         return i;
+      }
+   }
+   return TextFit(rp, string, count, te, tec, dir, cwidth, cheight);
 }

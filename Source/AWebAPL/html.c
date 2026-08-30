@@ -676,8 +676,15 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      else if(tagname && Stricmp((char *)tagname,"P") == 0)
                      {  Asetattrs(body,AOBDY_Align,align,TAG_END);
                      }
-                     /* For table cells (TD/TH), text-align is handled by ApplyCSSToTableCellFromRules */
-                     /* which applies it to the table object, not the body */
+                     else if(tagname && (Stricmp((char *)tagname,"TD") == 0 ||
+                        Stricmp((char *)tagname,"TH") == 0))
+                     {  void *table;
+                        table=(void *)Agetattr(body,AOBJ_Layoutparent);
+                        Asetattrs(body,AOBDY_Divalign,align,TAG_END);
+                        if(table)
+                        {  TableApplyCellAttrs(table,body,AOTAB_Halign,align);
+                        }
+                     }
                   }
                   /* Apply font-family - handle comma-separated list */
                   else if(Stricmp((char *)prop->name,"font-family") == 0)
@@ -825,29 +832,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   {  fontSize = 0;
                      isRelative = FALSE;
                      
-                     /* Map CSS font-size keywords to AWeb sizes (1-7) */
-                     if(Stricmp((char *)prop->value,"xx-small") == 0)
-                     {  fontSize = 1; /* Smallest */
-                     }
-                     else if(Stricmp((char *)prop->value,"x-small") == 0)
-                     {  fontSize = 2;
-                     }
-                     else if(Stricmp((char *)prop->value,"small") == 0)
-                     {  fontSize = 3;
-                     }
-                     else if(Stricmp((char *)prop->value,"medium") == 0)
-                     {  fontSize = 4; /* Default */
-                     }
-                     else if(Stricmp((char *)prop->value,"large") == 0)
-                     {  fontSize = 5;
-                     }
-                     else if(Stricmp((char *)prop->value,"x-large") == 0)
-                     {  fontSize = 6;
-                     }
-                     else if(Stricmp((char *)prop->value,"xx-large") == 0)
-                     {  fontSize = 7; /* Largest */
-                     }
-                     else if(Stricmp((char *)prop->value,"smaller") == 0)
+                     if(Stricmp((char *)prop->value,"smaller") == 0)
                      {  fontSize = -1; /* Relative: one size smaller */
                         isRelative = TRUE;
                      }
@@ -856,35 +841,7 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         isRelative = TRUE;
                      }
                      else
-                     {  /* Try to parse as pixel/length value (e.g., "14px", "1.2em") */
-                        long sizeValue;
-                        sizeValue = ParseCSSLengthValue(prop->value,&num);
-                        if(num.type == NUMBER_NUMBER && sizeValue > 0)
-                        {  /* Map pixel values to AWeb sizes (1-7)
-                             * Approximate mapping: <10px=1, 10-12px=2, 13-14px=3, 15-16px=4, 17-18px=5, 19-22px=6, >22px=7 */
-                           if(sizeValue < 10)
-                           {  fontSize = 1;
-                           }
-                           else if(sizeValue <= 12)
-                           {  fontSize = 2;
-                           }
-                           else if(sizeValue <= 14)
-                           {  fontSize = 3;
-                           }
-                           else if(sizeValue <= 16)
-                           {  fontSize = 4;
-                           }
-                           else if(sizeValue <= 18)
-                           {  fontSize = 5;
-                           }
-                           else if(sizeValue <= 22)
-                           {  fontSize = 6;
-                           }
-                           else
-                           {  fontSize = 7;
-                           }
-                        }
-                        /* Note: em, ex, % values would need parent font size context - not implemented yet */
+                     {  fontSize = CSSFontSizeBand(prop->value);
                      }
                      
                      if(fontSize != 0)
@@ -1432,7 +1389,14 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         }
                         FREE(valignValue);
                         if(valign >= 0)
-                        {  Asetattrs(body, AOBDY_VerticalAlign, valign, TAG_END);
+                        {  void *table;
+                           table=(void *)Agetattr(body,AOBJ_Layoutparent);
+                           Asetattrs(body,AOBDY_VerticalAlign,valign,TAG_END);
+                           if(table && tagname &&
+                              (Stricmp((char *)tagname,"TD") == 0 ||
+                               Stricmp((char *)tagname,"TH") == 0))
+                           {  TableApplyCellAttrs(table,body,AOTAB_Valign,valign);
+                           }
                         }
                      }
                   }
@@ -6108,6 +6072,13 @@ static BOOL Dotable(struct Document *doc,struct Tagattr *ta)
          TAG_END))) return FALSE;
       if(!Addelement(doc,elt)) return FALSE;
       if(!Pushtable(doc,elt)) return FALSE;
+      /* Dupstrp: ATTR() points at the parse buffer; element Dispose frees class/id. */
+      if(class)
+      {  Asetattrs(elt,AOELT_Class,Dupstrp(class,-1,doc->pool),TAG_END);
+      }
+      if(id)
+      {  Asetattrs(elt,AOELT_Id,Dupstrp(id,-1,doc->pool),TAG_END);
+      }
       /* Apply CSS from external stylesheet */
       /* Apply CSS even if table has no class/id to support element-only selectors (e.g., "table { background-color: red; }") */
       if(doc->cssstylesheet)
@@ -6203,9 +6174,22 @@ static BOOL Docolgrouporcol(struct Document *doc,struct Tagattr *ta,ULONG tagtyp
    ULONG wtag=TAG_IGNORE;
    short span=1;
    struct Number num;
+   void *table;
+   UBYTE *styleAttr=NULL;
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_SPAN:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
+            break;
+         case TAGATTR_SPAN:
             span=Getposnumber(ATTR(doc,ta));
             break;
          case TAGATTR_WIDTH:
@@ -6231,13 +6215,20 @@ static BOOL Docolgrouporcol(struct Document *doc,struct Tagattr *ta,ULONG tagtyp
       }
    }
    if(!ISEMPTY(&doc->tables))
-   {  Asetattrs(doc->tables.first->table,
+   {  table=doc->tables.first->table;
+      Asetattrs(table,
          tagtype==MARKUP_COLGROUP?AOTAB_Colgroup:AOTAB_Column,TRUE,
          AOTAB_Colspan,span,
          CONDTAG(AOTAB_Halign,halign),
          CONDTAG(AOTAB_Valign,valign),
          wtag,width,
          TAG_END);
+      if(doc->cssstylesheet)
+      {  ApplyCSSToColFromRules(doc,table,class,id);
+      }
+      if(styleAttr)
+      {  ApplyCSSToCol(doc,table,styleAttr);
+      }
    }
    return TRUE;
 }
@@ -6504,9 +6495,22 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
          AOTAB_Bodync,&cellBody,
          TAG_END);
       
+      /* Dupstrp: ATTR() is parse-buffer storage; must not pass raw pointers to CSS. */
+      if(class)
+      {  class=Dupstrp(class,-1,doc->pool);
+      }
+      if(id)
+      {  id=Dupstrp(id,-1,doc->pool);
+      }
+      
       /* Clear mistaken pixel width from legacy CSS (width:50% must not set AOBJ_Width=50) */
       if(cellBody)
       {  Asetattrs(cellBody,AOBJ_Width,0,TAG_END);
+         if(class) Asetattrs(cellBody,AOBDY_Class,class,TAG_END);
+         if(id) Asetattrs(cellBody,AOBDY_Id,id,TAG_END);
+         /* Do not set AOBDY_TagName to TD/TH: ReapplyCSSToBodyRecursive calls
+          * ApplyCSSToBody on every nested body and would match all site td/th rules
+          * (fonts, line-height, etc.). Pass tagname only as a hint below. */
       }
       
       /* Apply CSS to table cell based on class/ID */
