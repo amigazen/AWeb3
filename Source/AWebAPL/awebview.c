@@ -94,6 +94,7 @@ extern BOOL ookdebug;
 #endif
 
 struct Library *AWebJSBase;
+struct Library *AWebWasmBase;
 
 static void *StartupBase;
 
@@ -962,6 +963,44 @@ struct Library *Openjslib(void)
    return AWebJSBase;
 }
 
+/* Sticky: once open failed this session, do not retry or pretend a Wasm engine exists. */
+static BOOL wasmlib_open_failed;
+
+struct Library *Openwasmlib(void)
+{
+#ifdef AWEB4
+   if(!prefs.browser.dowasm)
+   {  return NULL;
+   }
+   if(AWebWasmBase)
+   {  return AWebWasmBase;
+   }
+   if(wasmlib_open_failed)
+   {  return NULL;
+   }
+   if(!(AWebWasmBase=OpenLibrary("aweblib/awebwasm.aweblib",0))
+      && !(AWebWasmBase=OpenLibrary("PROGDIR:aweblib/awebwasm.aweblib",0))
+      && !(AWebWasmBase=OpenLibrary("AWeb:aweblib/awebwasm.aweblib",0)))
+   {  /* Optional engine missing: no Wasm session; all load/run paths must no-op. */
+      wasmlib_open_failed=TRUE;
+      return NULL;
+   }
+   return AWebWasmBase;
+#else
+   (void)wasmlib_open_failed;
+   return NULL;
+#endif
+}
+
+BOOL WasmAvailable(void)
+{
+#ifdef AWEB4
+   return (BOOL)(AWebWasmBase!=NULL);
+#else
+   return FALSE;
+#endif
+}
+
 BOOL Stackoverflow(void)
 {  struct Task *task=FindTask(NULL);
    /* Since (task) is a stack variable, (&task) is a good approximation of
@@ -1014,7 +1053,6 @@ static void Cleanup(void)
    Freemime();
 #ifndef LOCALONLY
    Freeauthor();
-   Freetcp();     /* MUST be called before Freerequest(), Freeprefs() */
 #endif
    Freecookie();
    if(aweb)
@@ -1026,7 +1064,6 @@ static void Cleanup(void)
    /* Freeboopsi after Adisposeobject so custom image/gadget classes outlive disposed objects. */
    Freeboopsi();
    Freerequest();
-   Freeprefs();
    Freeobject();  /* MUST be called before Freesupport(), Freeapplication() */
 
    Freeapplication();   /* after Freeobject bcz it frees the JS context */
@@ -1037,11 +1074,20 @@ static void Cleanup(void)
    {  CloseLibrary(AWebJSBase);
       AWebJSBase=NULL;
    }
+   if(AWebWasmBase)
+   {  CloseLibrary(AWebWasmBase);
+      AWebWasmBase=NULL;
+   }
+   wasmlib_open_failed=FALSE;
 #ifndef LOCALONLY
+   /* Freehttp while TCP is still up; Freetcp may kill bsdsocket.  Freeprefs
+    * after Freetcp — endtcpcmd strings live in prefs. */
    Freehttp();    /* after Freeobject() bcz tasks must be stopped */
    Freenameserv();/* after Freeobject() bcz network tasks use hent structures freed here */
    Freeamissl();  /* after Freehttp() bcz all SSL connections must be closed first */
+   Freetcp();
 #endif
+   Freeprefs();
    Freesupport();
    if(locale) CloseLocale(locale);
    if(localeinfo.li_Catalog) CloseCatalog(localeinfo.li_Catalog);

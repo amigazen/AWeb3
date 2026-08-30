@@ -23,6 +23,7 @@
 #include "window.h"
 #include <dos/dosextens.h>
 #include <dos/dostags.h>
+#include <devices/timer.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
@@ -58,6 +59,7 @@ struct Atask
 #define TSKF_PROCESSING    0x0002   /* Processing message, can't dispose */
 #define TSKF_MUSTDISPOSE   0x0004   /* Must dispose when processing returns */
 #define TSKF_STARTED       0x0008   /* Task did start */
+#define TSKF_ABANDONED     0x0010   /* Stop timed out; Atask+process leaked */
 
 /* Private extension of the Taskmsg structure */
 struct Ataskmsg
@@ -504,42 +506,128 @@ static void Starttask(struct Atask *task)
    else task->state=TSKS_DEAD;
 }
 
-/* Stop the subtask */
-static void Stoptask(struct Atask *task,BOOL async)
+/* Count of subtasks abandoned after a stop timeout.  CloseLibrary(amihttp)
+ * is unsafe while any abandoned Httptask may still be inside Perform. */
+static long abandoned_tasks;
+
+long Taskabandonedcount(void)
+{  return abandoned_tasks;
+}
+
+/* Stop the subtask.
+ * Sync wait is bounded: wedged Httptask I/O (amihttp/bsdsocket) must not
+ * hang Freeobject()/exit forever.  Returns TRUE if Atask is safe to free;
+ * FALSE if the process was abandoned (Atask must be leaked). */
+static BOOL Stoptask(struct Atask *task,BOOL async)
 {  struct SemaphoreMessage smsg={0},*msg;
    ULONG mask;
-//KPrintF("%08lx * Stoptask\n",task);
+   struct MsgPort *tport;
+   struct timerequest *treq;
+   BOOL got_run;
+   BOOL timed_out;
+   BOOL device_open;
+   long ticks_left;
+
    ObtainSemaphore(&task->sema);
-   if(task->state!=TSKS_DEAD && task->state!=TSKS_NEW)
-   {  
-//KPrintF("%08lx * Stoptask Signal Ctrl-C\n",task);
-      Signal(task->proc,SIGBREAKF_CTRL_C);
+   if(task->state!=TSKS_DEAD && task->state!=TSKS_NEW && task->proc)
+   {  Signal(task->proc,SIGBREAKF_CTRL_C);
    }
    ReleaseSemaphore(&task->sema);
-   if(!async)
-   {  /* First process any messages put to our port before main() has got (and unset)
-       * the signals, or else Wait() will deadlock. */
-      Processtaskreply(task);
-      /* Wait until subtask has terminated but process other messages from this task */
-      smsg.mn_ReplyPort=semaport;
-      Procure(&task->runsema,&smsg);
+   if(async)
+   {  return TRUE;
+   }
+   Processtaskreply(task);
+   smsg.mn_ReplyPort=semaport;
+   Procure(&task->runsema,&smsg);
+   got_run=FALSE;
+   timed_out=FALSE;
+   device_open=FALSE;
+   tport=NULL;
+   treq=NULL;
+   /* ~3s at 50Hz; re-signal CTRL_C each second. */
+   ticks_left=150;
+   if((tport=CreateMsgPort())
+   && (treq=(struct timerequest *)CreateExtIO(tport,sizeof(struct timerequest)))
+   && !OpenDevice("timer.device",UNIT_VBLANK,(struct IORequest *)treq,0))
+   {  device_open=TRUE;
       for(;;)
-      {  mask=Wait((1<<taskport->mp_SigBit)|(1<<semaport->mp_SigBit));
-//KPrintF("%08lx * Stoptask mask=%08lx (taskport=%08lx semaport=%08lx)\n",task,mask,
-//1<<taskport->mp_SigBit,1<<semaport->mp_SigBit);
+      {  treq->tr_node.io_Command=TR_ADDREQUEST;
+         treq->tr_time.tv_secs=0;
+         treq->tr_time.tv_micro=20000; /* 1 VBlank tick ≈20ms */
+         SendIO((struct IORequest *)treq);
+         mask=Wait((1<<taskport->mp_SigBit)|(1<<semaport->mp_SigBit)|(1<<tport->mp_SigBit));
          if(mask&(1<<semaport->mp_SigBit))
          {  if((msg=(struct SemaphoreMessage *)GetMsg(semaport))
             && msg->ssm_Semaphore==&task->runsema)
-            {  break;
+            {  got_run=TRUE;
+               if(!CheckIO((struct IORequest *)treq))
+               {  AbortIO((struct IORequest *)treq);
+                  WaitIO((struct IORequest *)treq);
+               }
+               else
+               {  WaitIO((struct IORequest *)treq);
+               }
+               break;
+            }
+         }
+         if(mask&(1<<taskport->mp_SigBit))
+         {  Processtaskreply(task);
+         }
+         if(mask&(1<<tport->mp_SigBit))
+         {  WaitIO((struct IORequest *)treq);
+            ticks_left--;
+            if((ticks_left%50)==0 && task->proc
+               && task->state!=TSKS_DEAD && task->state!=TSKS_NEW)
+            {  Signal(task->proc,SIGBREAKF_CTRL_C);
+            }
+            if(ticks_left<=0)
+            {  timed_out=TRUE;
+               break;
+            }
+         }
+      }
+   }
+   else
+   {  /* No timer — fall back to unbounded wait (legacy). */
+      for(;;)
+      {  mask=Wait((1<<taskport->mp_SigBit)|(1<<semaport->mp_SigBit));
+         if(mask&(1<<semaport->mp_SigBit))
+         {  if((msg=(struct SemaphoreMessage *)GetMsg(semaport))
+            && msg->ssm_Semaphore==&task->runsema)
+            {  got_run=TRUE;
+               break;
             }
          }
          if(mask&(1<<taskport->mp_SigBit))
          {  Processtaskreply(task);
          }
       }
-      ReleaseSemaphore(&task->runsema);
-      Setportsignal();
    }
+   if(device_open)
+   {  CloseDevice((struct IORequest *)treq);
+   }
+   if(treq) DeleteExtIO((struct IORequest *)treq);
+   if(tport) DeleteMsgPort(tport);
+   if(got_run)
+   {  ReleaseSemaphore(&task->runsema);
+      Setportsignal();
+      return TRUE;
+   }
+   if(timed_out)
+   {  /* Cancel outstanding Procure; do not Release a semaphore we never got.
+       * Leave Atask allocated — the process may still touch it. */
+      Vacate(&task->runsema,&smsg);
+      ObtainSemaphore(&task->sema);
+      task->flags|=TSKF_ABANDONED;
+      task->state=TSKS_DEAD;
+      task->subport=NULL;
+      ReleaseSemaphore(&task->sema);
+      abandoned_tasks++;
+      Setportsignal();
+      return FALSE;
+   }
+   Setportsignal();
+   return TRUE;
 }
 
 /* Suspend the subtask */
@@ -640,7 +728,11 @@ static void Processtask(void)
 /* Do dispose this task. */
 static void Dodisposetask(struct Atask *task)
 {  task->flags&=~TSKF_MUSTDISPOSE;
-   Stoptask(task,FALSE);
+   if(!Stoptask(task,FALSE))
+   {  /* Abandoned: unlink so Freeobject does not revisit; leak Atask. */
+      REMOVE(task);
+      return;
+   }
    Processtaskreply(task);
    if(task->name) FREE(task->name);
    REMOVE(task);
@@ -700,8 +792,7 @@ static long Settask(struct Atask *task,struct Amset *ams)
    {  Starttask(task);
    }
    if(stop)
-   {
-      Stoptask(task,async);
+   {  Stoptask(task,async);
    }
    if(suspend)
    {  Suspendtask(task,async);

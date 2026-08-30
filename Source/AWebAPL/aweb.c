@@ -31,6 +31,7 @@
 #include "locale.h"
 #include "cidregistry.h"
 #include "ttengine.h"
+#include "bulletfont.h"
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
@@ -99,6 +100,7 @@ extern BOOL ookdebug;
 #endif
 
 struct Library *AWebJSBase;
+struct Library *AWebWasmBase;
 
 static void *StartupBase;
 
@@ -1096,6 +1098,44 @@ struct Library *Openjslib(void)
    return AWebJSBase;
 }
 
+/* Sticky: once open failed this session, do not retry or pretend a Wasm engine exists. */
+static BOOL wasmlib_open_failed;
+
+struct Library *Openwasmlib(void)
+{
+#ifdef AWEB4
+   if(!prefs.browser.dowasm)
+   {  return NULL;
+   }
+   if(AWebWasmBase)
+   {  return AWebWasmBase;
+   }
+   if(wasmlib_open_failed)
+   {  return NULL;
+   }
+   if(!(AWebWasmBase=OpenLibrary("aweblib/awebwasm.aweblib",0))
+      && !(AWebWasmBase=OpenLibrary("PROGDIR:aweblib/awebwasm.aweblib",0))
+      && !(AWebWasmBase=OpenLibrary("AWeb:aweblib/awebwasm.aweblib",0)))
+   {  /* Optional engine missing: no Wasm session; all load/run paths must no-op. */
+      wasmlib_open_failed=TRUE;
+      return NULL;
+   }
+   return AWebWasmBase;
+#else
+   (void)wasmlib_open_failed;
+   return NULL;
+#endif
+}
+
+BOOL WasmAvailable(void)
+{
+#ifdef AWEB4
+   return (BOOL)(AWebWasmBase!=NULL);
+#else
+   return FALSE;
+#endif
+}
+
 BOOL Stackoverflow(void)
 {  struct Task *task=FindTask(NULL);
    /* Since (task) is a stack variable, (&task) is a good approximation of
@@ -1142,27 +1182,33 @@ void Setloadreqlevel(long ready,long total)
 /*-----------------------------------------------------------------------*/
 
 static void Cleanup(void)
-{  Drainallclips();
+{  AwebLog("exit","Cleanup: ENTER");
+   Drainallclips();
+   AwebLog("exit","Cleanup: after Drainallclips");
    Exitcache();
+   AwebLog("exit","Cleanup: after Exitcache");
    Freetooltip();
    Freemime();
    Freeauthor();
-   Freetcp();     /* MUST be called before Freerequest(), Freeprefs() */
    Freecookie();
+   AwebLog("exit","Cleanup: before Adisposeobject(aweb) aweb=%p",aweb);
    if(aweb)
    {  Adisposeobject(aweb);   /* MUST be called before Freerequest() */
       aweb=NULL;
    }
+   AwebLog("exit","Cleanup: after Adisposeobject(aweb)");
    /* Prototype Reaction Glyph/Bevel from Installfilefield(); idempotent if Freeobject runs later. */
    Amethodas(AOTP_FILEFIELD,NULL,AOM_DEINSTALL);
    /* Freeboopsi after Adisposeobject: Gadimg/Stagad/Ledgad instances must receive OM_DISPOSE
     * while their MakeClass() classes still exist; disposing classes first leaks chip buffers. */
    Freeboopsi();
    Freerequest();
-   Freeprefs();
+   AwebLog("exit","Cleanup: before Freeobject");
    Freeobject();  /* MUST be called before Freesupport(), Freeapplication() */
+   AwebLog("exit","Cleanup: after Freeobject");
 
    Freeapplication();   /* after Freeobject because it frees the JS context */
+   AwebLog("exit","Cleanup: after Freeapplication");
    Freearexx();   /* after Freeobject() because it waits for scripts to complete */
    /* Close JS library as soon as the JS context + scripts are gone.
     * This avoids leaving awebplugin.library held open if later cleanup aborts. */
@@ -1170,11 +1216,32 @@ static void Cleanup(void)
    {  CloseLibrary(AWebJSBase);
       AWebJSBase=NULL;
    }
+   if(AWebWasmBase)
+   {  CloseLibrary(AWebWasmBase);
+      AWebWasmBase=NULL;
+   }
+#ifdef AWEB4
+   wasmlib_open_failed=FALSE;
+#endif
+   /* Freehttp while TCP is still up; Freetcp may run endtcpcmd and kill
+    * bsdsocket.  Freeprefs after Freetcp — endtcpcmd strings live in prefs. */
+   AwebLog("exit","Cleanup: before Freehttp");
    Freehttp();    /* after Freeobject() because tasks must be stopped */
+   AwebLog("exit","Cleanup: after Freehttp");
    Freenameserv();/* after Freeobject() because network tasks use hent structures freed here */
+   AwebLog("exit","Cleanup: after Freenameserv");
    Freeamissl();  /* after Freehttp() because all SSL connections must be closed first */
+   AwebLog("exit","Cleanup: after Freeamissl");
+   Freetcp();
+   AwebLog("exit","Cleanup: after Freetcp");
+   Freeprefs();
+   AwebLog("exit","Cleanup: after Freeprefs");
    FreeTTEngine(); /* Cleanup ttengine.library support */
+#ifdef AWEB4
+   FreeBulletFont();
+#endif
    Freesupport();
+   AwebLog("exit","Cleanup: after Freesupport");
    if(locale) CloseLocale(locale);
    if(localeinfo.li_Catalog) CloseCatalog(localeinfo.li_Catalog);
    if(ButtonBase) CloseLibrary((struct Library *)ButtonBase);
@@ -1243,7 +1310,9 @@ static void Cleanup(void)
       CxBase=NULL;
    }
    /* Keep our pooled memory alive until all libraries/classes are closed. */
+   AwebLog("exit","Cleanup: before Freememory");
    Freememory();
+   AwebLog("exit","Cleanup: EXIT");
    report();
 }
 
@@ -1442,6 +1511,11 @@ static BOOL Initall(void)
    if(!Initprefs()) return FALSE;   /* must be inited before window,layout, cache */
    /* Initialize ttengine.library support (optional, non-fatal) */
    InitTTEngine();
+#ifdef AWEB4
+   /* Open bullet.library (optional) before Openfonts/BulletFontOpen.
+    * Metric stubs still work if bullet is missing but ttengine is present. */
+   if(!InitBulletFont()) return FALSE;
+#endif
    if(!Initboopsi()) return FALSE;  /* must be inited before window */
    if(!Initrequest()) return FALSE; /* must be inited before io */
    if(!Installapplication()) return FALSE;   /* Opens the startup window */
@@ -1908,6 +1982,7 @@ int main(int fromcli,struct WBStartup *wbs)
 #endif
 #endif
    }
+   AwebLog("exit","main: calling Cleanup");
    Closeloadreq();
    Cleanup();
    if(awebpath) AssignLock("AWeb",NULL);

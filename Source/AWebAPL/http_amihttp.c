@@ -172,6 +172,7 @@ static BOOL Http4_ca_bundle_path(UBYTE *buf, ULONG bufsz);
 static BOOL Http4_bootstrap_tcp_once(void);
 static BOOL Http4_init_library(void);
 static void Http4_shutdown_library(void);
+void CloseIdleKeepAliveConnections(void);
 static void Http4_status_hint(long code, UBYTE *extra);
 static void Http4_apply_cc(struct Fetchdriver *fd, struct Http4TxnCtx *ctx);
 static void Http4_emit_cipher(struct HttpTransaction *txn, BOOL ssl);
@@ -388,14 +389,22 @@ Http4_init_library(void)
 static void
 Http4_shutdown_library(void)
 {
+   AwebLog("exit","Http4_shutdown: dispose cookie jar %p abandoned=%ld",
+      Http4CookieJar, Taskabandonedcount());
    if (Http4CookieJar != NULL) {
       DisposeHttpCookieJar(Http4CookieJar);
       Http4CookieJar = NULL;
    }
+   /* Drain idle sockets while the TCP stack is still up (Freetcp may
+    * run endtcpcmd afterward and kill bsdsocket). */
+   AwebLog("exit","Http4_shutdown: pool flush");
+   CloseIdleKeepAliveConnections();
+   AwebLog("exit","Http4_shutdown: CloseLibrary HttpBase=%p",HttpBase);
    if (HttpBase != NULL) {
       CloseLibrary(HttpBase);
       HttpBase = NULL;
    }
+   AwebLog("exit","Http4_shutdown: done");
 }
 
 static void
@@ -1430,10 +1439,13 @@ Httptask(struct Fetchdriver *fd)
    sock_tags[2].ti_Tag = TAG_DONE;
    HttpBaseTagsA(sock_tags);
    /*
-    * Drop idle pool entries on this task's SocketBase before a_cleanup().
-    * Keep-alive is scoped to one Httptask; do not leave fds on a closing handle.
+    * Drop this task's idle pool entries only (ti_Data=0).  A full pool flush
+    * here CloseSocket'd other Httptasks' fds and crashed AmiTCP on exit.
     */
-   CloseIdleKeepAliveConnections();
+   sock_tags[0].ti_Tag = HTBT_POOL_FLUSH;
+   sock_tags[0].ti_Data = 0;
+   sock_tags[1].ti_Tag = TAG_DONE;
+   HttpBaseTagsA(sock_tags);
    if (task_sock != NULL) {
       a_cleanup(task_sock);
       CloseLibrary(task_sock);
@@ -1477,6 +1489,7 @@ Freehttp(void)
 {
    struct Certaccept *ca;
 
+   AwebLog("exit","Freehttp: ENTER");
    if (certaccepts.first) {
       while (ca = REMHEAD(&certaccepts)) {
          if (ca->hostname) {
@@ -1488,7 +1501,9 @@ Freehttp(void)
          FREE(ca);
       }
    }
+   AwebLog("exit","Freehttp: before Http4_shutdown_library HttpBase=%p",HttpBase);
    Http4_shutdown_library();
+   AwebLog("exit","Freehttp: EXIT");
 }
 
 void
@@ -1499,8 +1514,9 @@ CloseIdleKeepAliveConnections(void)
    if (HttpBase == NULL) {
       return;
    }
+   /* Full flush: called from Freehttp on the main task before CloseLibrary. */
    tags[0].ti_Tag = HTBT_POOL_FLUSH;
-   tags[0].ti_Data = 0;
+   tags[0].ti_Data = 1;
    tags[1].ti_Tag = TAG_DONE;
    HttpBaseTagsA(tags);
 }

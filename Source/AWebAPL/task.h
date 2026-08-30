@@ -180,6 +180,9 @@ extern void *Gettaskuserdata(void);
 extern BOOL Isawebtask(struct Task *t);
    /* Returns TRUE if this Task is AWebs main task or one of AWebs subtasks */
 
+/* Number of subtasks abandoned after a sync stop timeout (exit robustness). */
+extern long Taskabandonedcount(void);
+
 #endif /* !NOPROTOTYPES */
 
 /*--- task structures ---*/
