@@ -27,8 +27,8 @@
 #include "imgprivate.h"
 #include "application.h"
 #include "task.h"
-#include "cache.h"
 #include "fetch.h"
+#include <string.h>
 #include <datatypes/datatypesclass.h>
 #include <datatypes/pictureclass.h>
 /* PMODE_V42 and PMODE_V43 constants are defined in pictureclass.h */
@@ -91,12 +91,48 @@ struct Imgprocess
    long memsize;
 };
 
-/* Determine if this is a transparent gif */
+/* GIF89 transparency index from a complete in-memory GIF body */
+static long Transparentgifdata(UBYTE *data,long size)
+{  long xptcolor=-1;
+   long colortabsize,pos;
+   UBYTE *p;
+   UBYTE b;
+
+   if(!data || size<16) return -1;
+   if(!STRNEQUAL(data,"GIF89",5)) return -1;
+   if(data[0x0a]&0x80) colortabsize=3*(1<<((data[0x0a]&0x07)+1));
+   else colortabsize=0;
+   pos=0x0d+colortabsize;
+   for(;;)
+   {  if(pos+7>size) break;
+      p=data+pos;
+      if(p[0]==0x21 && p[1]==0xf9 && (p[3]&0x01))
+      {  xptcolor=p[6];
+         break;
+      }
+      if(p[0]==0x21)
+      {  pos+=2;
+         do
+         {  if(pos>=size)
+            {  b=0;
+               break;
+            }
+            b=data[pos];
+            pos+=1+b;
+         } while(b);
+      }
+      else break;
+   }
+   return xptcolor;
+}
+
+/* Determine if this is a transparent gif (file-backed source) */
 static long Transparentgif(struct Imgprocess *imp)
 {  long fh;
    UBYTE buf[16];
    long xptcolor=-1;
    long colortabsize,pos;
+   if(!imp->ims->filename) return -1;
    if(fh=Open(imp->ims->filename,MODE_OLDFILE))
    {  if(Read(fh,buf,16)==16 && STRNEQUAL(buf,"GIF89",5))
       {  if(buf[0x0a]&0x80) colortabsize=3*(1<<((buf[0x0a]&0x07)+1));
@@ -109,7 +145,7 @@ static long Transparentgif(struct Imgprocess *imp)
                   break;
                }
                if(buf[0]==0x21)
-               {  pos+=2; // 3+buf[2];
+               {  pos+=2; /* 3+buf[2]; */
                   do
                   {  Seek(fh,pos,OFFSET_BEGINNING);
                      if(Read(fh,buf,1)!=1) buf[0]=0;
@@ -118,11 +154,20 @@ static long Transparentgif(struct Imgprocess *imp)
                }
                else break;
             }
+            else break;
          }
       }
       Close(fh);
    }
    return xptcolor;
+}
+
+/* IFF ILBM brand check for an in-memory body */
+static BOOL Isiffilbmdata(UBYTE *data,long size)
+{  if(!data || size<12) return FALSE;
+   if(STRNEQUAL((char *)data,"FORM",4) && STRNEQUAL((char *)(data+8),"ILBM",4))
+      return TRUE;
+   return FALSE;
 }
 
 /* IFF ILBM pictures begin with FORM + chunk length + ILBM brand; for these,
@@ -983,102 +1028,175 @@ static BOOL Makebitmapfromico(struct Imgprocess *imp)
    return result;
 }
 
-/* Create a datatype object and the mask */
-static BOOL Makeobject(struct Imgprocess *imp)
-{  BOOL result=FALSE;
-   struct gpLayout gpl={0};
+/* Spill owned RAM body to a private temp file for DTST_FILE fallback */
+static BOOL Spillramtofile(struct Imgsource *ims)
+{  void *url;
+   UBYTE *urlname,*ext,*ctype;
+   void *file;
+
+   url=NULL;
+   urlname=NULL;
+   ext=NULL;
+   ctype=NULL;
+   file=NULL;
+   if(!ims->ramdata || ims->ramsize<=0) return FALSE;
+   if(ims->file && ims->filename) return TRUE;
+   url=(void *)Agetattr(ims->source,AOSRC_Url);
+   if(url) urlname=(UBYTE *)Agetattr(url,AOURL_Url);
+   if(urlname) ext=Urlfileext(urlname);
+   if(!ext && url)
+   {  if(ctype=(UBYTE *)Agetattr(url,AOURL_Contenttype))
+      {  if(Isxbm(ctype)) ext=Dupstr("xbm",3);
+      }
+   }
+   file=Anewobject(AOTP_FILE,
+      AOFIL_Extension,ext,
+      TAG_END);
+   if(ext) FREE(ext);
+   if(!file) return FALSE;
+   Asetattrs(file,
+      AOFIL_Data,ims->ramdata,
+      AOFIL_Datalength,ims->ramsize,
+      AOFIL_Eof,TRUE,
+      TAG_END);
+   ims->file=file;
+   ims->filename=(UBYTE *)Agetattr(file,AOFIL_Name);
+   return BOOLVAL(ims->filename);
+}
+
+/* Finish layout after NewDTObject; shared by RAM and file sources */
+static BOOL Finishdtobj(struct Imgprocess *imp,long xptcolor,BOOL ilbmfile)
+{  struct gpLayout gpl={0};
    ULONG flags;
-   void *maskplane=NULL;
-   long xptcolor=Transparentgif(imp);
+   void *maskplane;
+   BOOL hasalpha;
+   BOOL result;
+
+   maskplane=NULL;
+   hasalpha=FALSE;
+   result=FALSE;
+   gpl.MethodID=DTM_PROCLAYOUT;
+   gpl.gpl_GInfo=NULL;
+   gpl.gpl_Initial=TRUE;
+   if(DoMethodA(imp->dto,(Msg)&gpl)
+   && GetDTAttrs(imp->dto,
+      DTA_NominalHoriz,&imp->width,
+      DTA_NominalVert,&imp->height,
+      PDTA_DestBitMap,&imp->bitmap,
+      PDTA_MaskPlane,&maskplane,
+      TAG_END)
+   && imp->bitmap)
+   {  imp->depth=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
+      imp->memsize=imp->width*imp->height*imp->depth/8;
+      flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
+      /* ILBM: do not enable transparency from datatype alpha/mask */
+      if(!ilbmfile)
+      {  if(GetDTAttrs(imp->dto,PDTA_AlphaChannel,&hasalpha,TAG_END) && hasalpha)
+         {  Makealphamask(imp,imp->dto);
+         }
+         else if(xptcolor>=0)
+         {  if(maskplane)
+            {  imp->mask=maskplane;
+               imp->memsize*=2;
+            }
+            else if(flags&BMF_STANDARD)
+            {  Makegifmask(imp,xptcolor);
+            }
+         }
+         else if(maskplane)
+         {  imp->mask=maskplane;
+            imp->memsize*=2;
+         }
+      }
+      result=TRUE;
+   }
+   return result;
+}
+
+/* Create a datatype object and the mask.
+ * Prefer DTST_MEMORY from the owned download body so decode never waits on
+ * disk cache. Fall back to a private spill file + DTST_FILE if needed. */
+static BOOL Makeobject(struct Imgprocess *imp)
+{  BOOL result;
+   long xptcolor;
    UBYTE *filename;
    UBYTE *ext;
    LONG len;
    struct DiskObject *dob;
    BOOL ilbmfile;
-   
+   UBYTE *ram;
+   long ramsize;
+
+   result=FALSE;
+   xptcolor=-1;
    filename=imp->ims->filename;
-   if(!filename) return FALSE;
-   
-   /* Check if this is a .info file */
-   len=strlen(filename);
-   if(len>=5)
-   {  ext=filename+len-5;
-      if(STRNIEQUAL(ext,".info",5))
-      {  /* Try to load as Amiga icon */
-         dob=GetDiskObject(filename);
-         if(dob)
-         {  result=Makebitmapfromicon(imp,dob);
-            FreeDiskObject(dob);
-            return result;
-         }
-      }
-      else if(len>=4)
-      {  ext=filename+len-4;
-         if(STRNIEQUAL(ext,".ico",4))
-         {  /* Try to load as ICO file */
-            if(Makebitmapfromico(imp))
-            {  return TRUE;
+   ram=imp->ims->ramdata;
+   ramsize=imp->ims->ramsize;
+   ilbmfile=FALSE;
+   if((!ram || ramsize<=0) && !filename) return FALSE;
+
+   /* .info / builtin .ico need a filesystem path */
+   if(filename)
+   {  len=strlen(filename);
+      if(len>=5)
+      {  ext=filename+len-5;
+         if(STRNIEQUAL(ext,".info",5))
+         {  dob=GetDiskObject(filename);
+            if(dob)
+            {  result=Makebitmapfromicon(imp,dob);
+               FreeDiskObject(dob);
+               return result;
             }
-            /* Fall through to DataTypes if builtin decoder fails */
+         }
+         else if(len>=4)
+         {  ext=filename+len-4;
+            if(STRNIEQUAL(ext,".ico",4))
+            {  if(Makebitmapfromico(imp))
+               {  return TRUE;
+               }
+            }
          }
       }
    }
-   
-   /* Normal datatypes path. PDTA_UseFriendBitMap,FALSE: do not tie dest BitMap
-    * AllocBitMap() to the screen friend (NDK picture.datatype); reduces Chip
-    * use vs friend allocation while PDTA_Screen + PDTA_Remap still drive pens. */
-   ilbmfile=Isiffilbm(filename);
-   if(imp->dto=NewDTObject(imp->ims->filename,
-         DTA_SourceType,DTST_FILE,
-         DTA_GroupID,GID_PICTURE,
-         PDTA_Remap,TRUE,
-         PDTA_Screen,imp->screen,
-         PDTA_FreeSourceBitMap,TRUE,
-         PDTA_DestMode,PMODE_V43, /* Use proper PMODE_V43 constant */
-         PDTA_UseFriendBitMap,FALSE,
-         OBP_Precision,PRECISION_IMAGE,
-         TAG_END))
-   {  gpl.MethodID=DTM_PROCLAYOUT;
-      gpl.gpl_GInfo=NULL;
-      gpl.gpl_Initial=TRUE;
-      if(DoMethodA(imp->dto,(Msg)&gpl)
-      && GetDTAttrs(imp->dto,
-         DTA_NominalHoriz,&imp->width,
-         DTA_NominalVert,&imp->height,
-         PDTA_DestBitMap,&imp->bitmap,
-         PDTA_MaskPlane,&maskplane,
-         TAG_END)
-      && imp->bitmap)
-      {  BOOL hasalpha=FALSE;
-         imp->depth=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
-         imp->memsize=imp->width*imp->height*imp->depth/8;
-         flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
-         
-         /* ILBM: do not enable transparency from datatype alpha/mask */
-         if(!ilbmfile)
-         {  /* Check if alpha channel is available */
-            if(GetDTAttrs(imp->dto,PDTA_AlphaChannel,&hasalpha,TAG_END) && hasalpha)
-            {  /* Alpha channel available - extract it and create mask */
-               Makealphamask(imp,imp->dto);
-            }
-            else if(xptcolor>=0)
-            {  /* Fall back to GIF transparency handling */
-               if(maskplane)
-               {  imp->mask=maskplane;
-                  imp->memsize*=2;
-               }
-               else if(flags&BMF_STANDARD)
-               {  Makegifmask(imp,xptcolor);
-               }
-            }
-            else if(maskplane)
-            {  /* Use mask plane provided by datatype */
-               imp->mask=maskplane;
-               imp->memsize*=2;
-            }
-         }
-         result=TRUE;
+
+   /* PDTA_UseFriendBitMap,FALSE: do not tie dest BitMap AllocBitMap() to the
+    * screen friend (NDK picture.datatype); reduces Chip use vs friend
+    * allocation while PDTA_Screen + PDTA_Remap still drive pens. */
+   if(ram && ramsize>0)
+   {  xptcolor=Transparentgifdata(ram,ramsize);
+      ilbmfile=Isiffilbmdata(ram,ramsize);
+      imp->dto=NewDTObject(NULL,
+            DTA_SourceType,DTST_MEMORY,
+            DTA_SourceAddress,ram,
+            DTA_SourceSize,ramsize,
+            DTA_GroupID,GID_PICTURE,
+            PDTA_Remap,TRUE,
+            PDTA_Screen,imp->screen,
+            PDTA_FreeSourceBitMap,TRUE,
+            PDTA_DestMode,PMODE_V43,
+            PDTA_UseFriendBitMap,FALSE,
+            OBP_Precision,PRECISION_IMAGE,
+            TAG_END);
+      if(!imp->dto && Spillramtofile(imp->ims))
+      {  filename=imp->ims->filename;
       }
+   }
+   if(!imp->dto && filename)
+   {  xptcolor=Transparentgif(imp);
+      ilbmfile=Isiffilbm(filename);
+      imp->dto=NewDTObject(filename,
+            DTA_SourceType,DTST_FILE,
+            DTA_GroupID,GID_PICTURE,
+            PDTA_Remap,TRUE,
+            PDTA_Screen,imp->screen,
+            PDTA_FreeSourceBitMap,TRUE,
+            PDTA_DestMode,PMODE_V43,
+            PDTA_UseFriendBitMap,FALSE,
+            OBP_Precision,PRECISION_IMAGE,
+            TAG_END);
+   }
+   if(imp->dto)
+   {  result=Finishdtobj(imp,xptcolor,ilbmfile);
    }
    return result;
 }
@@ -1110,38 +1228,83 @@ static void Imagetask(struct Imgsource *ims)
 
 /*------------------------------------------------------------------------*/
 
-/* Create a new file object if data isn't stored in cache */
-static void *Newfile(struct Imgsource *ims,struct Amsrcupdate *ams)
-{  void *url,*cache;
-   UBYTE *urlname,*ext=NULL,*ctype;
-   void *file=NULL;
-   url=(void *)Agetattr(ims->source,AOSRC_Url);
-   cache=(void *)Agetattr(url,AOURL_Cache);
-   urlname=(UBYTE *)Agetattr(url,AOURL_Url);
-   if(cache && !usetemp)
-   {  ims->filename=(UBYTE *)Agetattr(cache,AOCAC_Name);
-      ims->flags|=IMSF_CACHEFILE;
-      if(ams) Asetattrs(ams->fetch,AOFCH_Cancellocal,TRUE,TAG_END);
+/* Release the owned download body (reload / dispose only; keep across
+ * Discarddecoded so the image can be decoded again without refetch). */
+static void Freeramdata(struct Imgsource *ims)
+{  if(ims->ramdata)
+   {  Freemem(ims->ramdata);
+      ims->ramdata=NULL;
    }
-   else if(urlname && (ims->filename=Urllocalfilename(urlname)) && !usetemp)
+   ims->ramsize=0;
+   ims->ramalloc=0;
+}
+
+/* Grow imgsource-owned body from a fetch chunk. Decode uses this buffer via
+ * DTST_MEMORY; disk cache is a separate side effect in url/cache. */
+static BOOL Appendramdata(struct Imgsource *ims,UBYTE *data,long length)
+{  UBYTE *nbuf;
+   long need,newalloc;
+
+   if(!data || length<=0) return TRUE;
+   need=ims->ramsize+length;
+   if(need>ims->ramalloc)
+   {  newalloc=ims->ramalloc?ims->ramalloc*2:4096;
+      while(newalloc<need) newalloc*=2;
+      nbuf=Allocmem(newalloc,MEMF_PUBLIC);
+      if(!nbuf) return FALSE;
+      if(ims->ramdata && ims->ramsize>0)
+      {  memcpy(nbuf,ims->ramdata,ims->ramsize);
+      }
+      if(ims->ramdata) Freemem(ims->ramdata);
+      ims->ramdata=nbuf;
+      ims->ramalloc=newalloc;
+   }
+   memcpy(ims->ramdata+ims->ramsize,data,length);
+   ims->ramsize+=length;
+   if(ims->source)
+   {  Asetattrs(ims->source,AOSRC_Memory,ims->ramsize,TAG_END);
+   }
+   return TRUE;
+}
+
+/* If the URL is already a local file, decode from that path (no RAM copy). */
+static void Trybindlocalfile(struct Imgsource *ims,struct Amsrcupdate *ams)
+{  void *url;
+   UBYTE *urlname;
+
+   url=(void *)Agetattr(ims->source,AOSRC_Url);
+   if(!url) return;
+   urlname=(UBYTE *)Agetattr(url,AOURL_Url);
+   if(urlname && (ims->filename=Urllocalfilename(urlname)) && !usetemp)
    {  ims->flags|=IMSF_CACHEFILE;
       if(ams) Asetattrs(ams->fetch,AOFCH_Cancellocal,TRUE,TAG_END);
    }
-   else
-   {  if(urlname)
-      {  ext=Urlfileext(urlname);
+}
+
+/* Developer usetemp: private temp file instead of RAM body */
+static void *Newtempfile(struct Imgsource *ims)
+{  void *url;
+   UBYTE *urlname,*ext,*ctype;
+   void *file;
+
+   url=NULL;
+   urlname=NULL;
+   ext=NULL;
+   ctype=NULL;
+   file=NULL;
+   url=(void *)Agetattr(ims->source,AOSRC_Url);
+   if(url) urlname=(UBYTE *)Agetattr(url,AOURL_Url);
+   if(urlname) ext=Urlfileext(urlname);
+   if(!ext && url)
+   {  if(ctype=(UBYTE *)Agetattr(url,AOURL_Contenttype))
+      {  if(Isxbm(ctype)) ext=Dupstr("xbm",3);
       }
-      if(!ext)
-      {  if(ctype=(UBYTE *)Agetattr(url,AOURL_Contenttype))
-         {  if(Isxbm(ctype)) ext=Dupstr("xbm",3);
-         }
-      }
-      file=Anewobject(AOTP_FILE,
-         AOFIL_Extension,ext,
-         TAG_END);
-      if(ext) FREE(ext);
-      ims->flags&=~IMSF_CACHEFILE;
    }
+   file=Anewobject(AOTP_FILE,
+      AOFIL_Extension,ext,
+      TAG_END);
+   if(ext) FREE(ext);
+   ims->flags&=~IMSF_CACHEFILE;
    return file;
 }
 
@@ -1166,7 +1329,10 @@ static void Disposedto(struct Imgsource *ims)
    ims->height=0;
    ims->depth=0;
    ims->flags&=~IMSF_OURMASK;
-   Asetattrs(ims->source,AOSRC_Memory,0,TAG_END);
+   /* Keep ramdata so Discarddecoded / screen reopen can decode again. */
+   if(ims->source)
+   {  Asetattrs(ims->source,AOSRC_Memory,ims->ramsize,TAG_END);
+   }
 }
 
 /* Start processing of image */
@@ -1214,6 +1380,13 @@ static long Setimgsource(struct Imgsource *ims,struct Amset *ams)
             if(ims->filename)
             {  Asetattrs((void *)tag->ti_Data,
                   AOFIL_Copyfile,ims->filename,
+                  TAG_END);
+            }
+            else if(ims->ramdata && ims->ramsize>0)
+            {  Asetattrs((void *)tag->ti_Data,
+                  AOFIL_Data,ims->ramdata,
+                  AOFIL_Datalength,ims->ramsize,
+                  AOFIL_Eof,TRUE,
                   TAG_END);
             }
             break;
@@ -1311,7 +1484,7 @@ static long Getimgsource(struct Imgsource *ims,struct Amset *ams)
             PUTATTR(tag,ims->source);
             break;
          case AOSDV_Saveable:
-            PUTATTR(tag,BOOLVAL(ims->filename));
+            PUTATTR(tag,BOOLVAL(ims->filename || (ims->ramdata && ims->ramsize>0)));
             break;
       }
    }
@@ -1361,6 +1534,7 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
    long length=0;
    UBYTE *data=NULL;
    BOOL eof=FALSE;
+   BOOL ready;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Data:
@@ -1370,13 +1544,18 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
             length=tag->ti_Data;
             break;
          case AOURL_Reload:
-            ims->flags&=~(IMSF_EOF|IMSF_ERROR|IMSF_DECODEWAIT);
+            ims->flags&=~(IMSF_EOF|IMSF_ERROR|IMSF_DECODEWAIT|IMSF_CACHEFILE);
             if(ims->task)
             {  Adisposeobject(ims->task);
                ims->task=NULL;
-               ims->flags&=~IMSF_CACHEFILE;
             }
             Disposedto(ims);
+            Freeramdata(ims);
+            if(ims->file)
+            {  Adisposeobject(ims->file);
+               ims->file=NULL;
+            }
+            ims->filename=NULL;
             break;
          case AOURL_Eof:
             if(tag->ti_Data) eof=TRUE;
@@ -1386,20 +1565,32 @@ static long Srcupdateimgsource(struct Imgsource *ims,struct Amsrcupdate *ams)
             break;
       }
    }
-   if(data && !(ims->flags&IMSF_CACHEFILE))
-   {  if(!ims->file) ims->file=Newfile(ims,ams);
-      if(ims->file)
-      {  Asetattrs(ims->file,
-            AOFIL_Data,data,
-            AOFIL_Datalength,length,
-            TAG_END);
+   /* Render owns the body. Disk cache is not the datatype input. */
+   if(data && length>0 && !(ims->flags&IMSF_CACHEFILE))
+   {  if(!ims->filename && !ims->ramdata && !ims->file)
+      {  Trybindlocalfile(ims,ams);
+      }
+      if(!(ims->flags&IMSF_CACHEFILE))
+      {  if(usetemp)
+         {  if(!ims->file) ims->file=Newtempfile(ims);
+            if(ims->file)
+            {  Asetattrs(ims->file,
+                  AOFIL_Data,data,
+                  AOFIL_Datalength,length,
+                  TAG_END);
+            }
+         }
+         else if(!Appendramdata(ims,data,length))
+         {  ims->flags|=IMSF_ERROR;
+         }
       }
    }
    if(eof && ims->file)
    {  Asetattrs(ims->file,AOFIL_Eof,TRUE,TAG_END);
       ims->filename=(UBYTE *)Agetattr(ims->file,AOFIL_Name);
    }
-   if(eof && ims->filename && !(ims->flags&IMSF_ERROR))
+   ready=BOOLVAL((ims->ramsize>0) || ims->filename);
+   if(eof && ready && !(ims->flags&IMSF_ERROR))
    {  ims->flags|=IMSF_EOF;
 #if !LAZY_IMAGE_DECODE
       if(!ims->task && Agetattr(Aweb(),AOAPP_Screenvalid))
@@ -1442,8 +1633,10 @@ static long Addchildimgsource(struct Imgsource *ims,struct Amadd *ama)
 static void Disposeimgsource(struct Imgsource *ims)
 {  if(ims->task) Adisposeobject(ims->task);
    Disposedto(ims);
+   Freeramdata(ims);
    Asetattrs(ims->source,AOSRC_Memory,0,TAG_END);
    if(ims->file) Adisposeobject(ims->file);
+   ims->filename=NULL;
    Aremchild(Aweb(),ims,AOREL_APP_USE_SCREEN);
    Amethodas(AOTP_OBJECT,ims,AOM_DISPOSE);
 }

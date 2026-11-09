@@ -507,6 +507,11 @@ static void Abortstaging(struct Cache *cac)
       cac->wbufused=0;
    }
    cac->flags&=~(CACF_WRITING);
+   /* Do not advertise a final path that was never published. */
+   if(!(cac->flags&CACF_PUBLISHED) && cac->name)
+   {  FREE(cac->name);
+      cac->name=NULL;
+   }
    /* Unpublished incomplete bodies must not count toward disk quota. */
    if(!(cac->flags&CACF_PUBLISHED) && cac->disksize)
    {  cadisksize-=cac->disksize;
@@ -516,18 +521,22 @@ static void Abortstaging(struct Cache *cac)
 }
 
 static BOOL Opencacstaging(struct Cache *cac)
-{  UBYTE stagename[32];
-   UBYTE stagedir[NAMESIZE];
+{  UBYTE id[20];
+   UBYTE *rel;
 #ifndef LOCALONLY
    if(Cacheurlislocalfile(cac)) return FALSE;
-   /* Stage under a dedicated drawer so hash/etag can arrive before EOF;
-    * final aa/bb/<id> path is chosen only at successful publish. */
-   strcpy((char *)stagedir,(char *)cachename);
-   AddPart(stagedir,"staging",NAMESIZE);
-   if(!Ensuredir(stagedir)) return FALSE;
-   sprintf((char *)stagename,"staging/%08lx.part",(unsigned long)cac->nr);
+   /* AmigaDOS Rename() cannot move between directories. Stage as
+    * aa/bb/<id>.part beside the final aa/bb/<id> so publish is a
+    * same-drawer rename. Hash now: ETag/Last-Modified tags in this
+    * Srcupdate are applied before Opencacstaging is called. */
+   Hashcacheid(cac,id);
+   if(!(rel=Makerelpath(id))) return FALSE;
+   if(cac->relpath) FREE(cac->relpath);
+   cac->relpath=rel;
+   if(cac->name) FREE(cac->name);
+   if(!(cac->name=Makename(rel,NULL))) return FALSE;
    if(cac->staging) FREE(cac->staging);
-   if(!(cac->staging=Makename(stagename,NULL))) return FALSE;
+   if(!(cac->staging=Makename(rel,"part"))) return FALSE;
    if(!cac->wbuf)
    {  cac->wbuf=ALLOCTYPE(UBYTE,CAC_WRITECHUNK,MEMF_PUBLIC);
       cac->wbufused=0;
@@ -597,10 +606,9 @@ static BOOL Writecachedata(struct Cache *cac,UBYTE *data,long length)
 }
 
 static BOOL Publishstaging(struct Cache *cac)
-{  UBYTE id[20];
-   UBYTE *rel;
+{
 #ifndef LOCALONLY
-   if(!cac->staging) return FALSE;
+   if(!cac->staging || !cac->name) return FALSE;
    if(!Flushwbuf(cac)) { Abortstaging(cac); return FALSE; }
    ObtainSemaphore(&cachewritesema);
    if(cac->fh)
@@ -615,15 +623,8 @@ static BOOL Publishstaging(struct Cache *cac)
    ReleaseSemaphore(&cachewritesema);
    if(cac->wbuf) { FREE(cac->wbuf); cac->wbuf=NULL; cac->wbufused=0; }
 
-   /* Hash after headers+body so etag/last-modified are present. */
-   Hashcacheid(cac,id);
-   if(!(rel=Makerelpath(id))) { Abortstaging(cac); return FALSE; }
-   if(cac->relpath) FREE(cac->relpath);
-   cac->relpath=rel;
-   if(cac->name) FREE(cac->name);
-   if(!(cac->name=Makename(rel,NULL))) { Abortstaging(cac); return FALSE; }
-
-   /* Content-addressed: avoid rename-over of a live name when possible. */
+   /* Same-directory rename only (see Opencacstaging). Replace any prior
+    * generation at the final name before publishing. */
    DeleteFile(cac->name);
    if(!Rename(cac->staging,cac->name))
    {  Abortstaging(cac);

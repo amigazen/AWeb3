@@ -437,7 +437,7 @@ struct Ledgaddata
 {  struct Image *frameimg;
    short bevelw,bevelh;
    BOOL active;
-   long n;                 /* current frame */
+   long n;                 /* current frame (anim bitmap / boingball step) */
    struct BitMap *bitmap;
    long x,y,w,h;
    long dx,dy;
@@ -458,6 +458,10 @@ struct Ledgaddata
     * V47.3 appears to do part of its internal penmap setup on the first draw;
     * jumping straight into IM_MOVE can leave it rendering as a silhouette. */
    BOOL ballready;
+   /* Classic LED fill level: lit net slots out of fillmax (prefs maxconnect).
+    * Unused by boingball / anim-bitmap modes. */
+   long fill;
+   long fillmax;
 };
 
 static ULONG NewLedgadcls(Class *cl,Object *o,struct TagItem *tags)
@@ -526,11 +530,13 @@ static ULONG NewLedgadcls(Class *cl,Object *o,struct TagItem *tags)
             }
             if(!data->w || !data->h || !data->frames) data->bitmap=NULL;
             if(!data->bitmap)
-            {  data->frames=8;
+            {  data->frames=LEDGGA_MAXCELLS;
                data->w=GA(retval)->Width-2*data->bevelw;
                data->h=GA(retval)->Height-2*data->bevelh;
             }
             if(data->restx<0 || data->resty<0) data->restx=data->resty=-1;
+            data->fill=0;
+            data->fillmax=LEDGGA_MAXCELLS;
          }
          else DisposeObject(frameimg);
       }
@@ -617,31 +623,53 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
             gpr->gpr_RPort,imp.X+data->bevelw,imp.Y+data->bevelh,data->w,data->h,0xc0);
       }
       else
-      {  SetAttrs(data->frameimg,
+      {  /* Classic LED: light the first `fill` of `fillmax` slot lamps
+          * (fill level of active net connections). Not used for boingball. */
+         long cells,lit,rows,cols,innerw,innerh,cw,ch,i,row,col;
+
+         cells=data->fillmax;
+         if(cells<1) cells=1;
+         if(cells>LEDGGA_MAXCELLS) cells=LEDGGA_MAXCELLS;
+         lit=data->fill;
+         if(lit<0) lit=0;
+         if(lit>cells) lit=cells;
+         if(cells>4) rows=2;
+         else rows=1;
+         cols=(cells+rows-1)/rows;
+         innerw=imp.Width-2*data->bevelw;
+         innerh=imp.Height-2*data->bevelh;
+         if(cols<1) cols=1;
+         if(rows<1) rows=1;
+         cw=innerw/cols;
+         ch=innerh/rows;
+         if(cw<2) cw=2;
+         if(ch<2) ch=2;
+
+         SetAttrs(data->frameimg,
             IA_EdgesOnly,FALSE,
             REACTION_SpecialPens,data->capens,
             TAG_END);
          DoMethodA((Object *)data->frameimg,&imp);
-         if(data->n<4)
-         {  x=imp.X+data->bevelw+data->n*(imp.Width-2*data->bevelw)/4;
-            y=imp.Y+data->bevelh;
+         for(i=0;i<lit;i++)
+         {  row=i/cols;
+            col=i-row*cols;
+            x=imp.X+data->bevelw+col*cw;
+            y=imp.Y+data->bevelh+row*ch;
+            x2=x+cw-1;
+            y2=y+ch-1;
+            if(dri) SetAPen(gpr->gpr_RPort,dri->dri_Pens[SHADOWPEN]);
+            Move(gpr->gpr_RPort,x+1,y2);
+            Draw(gpr->gpr_RPort,x2,y2);
+            Draw(gpr->gpr_RPort,x2,y);
+            if(dri) SetAPen(gpr->gpr_RPort,dri->dri_Pens[SHINEPEN]);
+            Move(gpr->gpr_RPort,x,y2);
+            Draw(gpr->gpr_RPort,x,y);
+            Draw(gpr->gpr_RPort,x2-1,y);
+            if(dri) SetAPen(gpr->gpr_RPort,dri->dri_Pens[FILLPEN]);
+            if(x+1<=x2-1 && y+1<=y2-1)
+            {  RectFill(gpr->gpr_RPort,x+1,y+1,x2-1,y2-1);
+            }
          }
-         else
-         {  x=imp.X+data->bevelw+(7-data->n)*(imp.Width-2*data->bevelw)/4;
-            y=imp.Y+imp.Height/2;
-         }
-         x2=x+(imp.Width-2*data->bevelw)/4-1;
-         y2=y+(imp.Height-2*data->bevelh)/2-1;
-         if(dri) SetAPen(gpr->gpr_RPort,dri->dri_Pens[SHADOWPEN]);
-         Move(gpr->gpr_RPort,x+1,y2);
-         Draw(gpr->gpr_RPort,x2,y2);
-         Draw(gpr->gpr_RPort,x2,y);
-         if(dri) SetAPen(gpr->gpr_RPort,dri->dri_Pens[SHINEPEN]);
-         Move(gpr->gpr_RPort,x,y2);
-         Draw(gpr->gpr_RPort,x,y);
-         Draw(gpr->gpr_RPort,x2-1,y);
-         if(dri) SetAPen(gpr->gpr_RPort,dri->dri_Pens[FILLPEN]);
-         RectFill(gpr->gpr_RPort,x+1,y+1,x2-1,y2-1);
       }
    }
    else  /* not active */
@@ -680,17 +708,32 @@ static __asm __saveds ULONG DispatchLedgadcls(register __a0 Class *cl,
       case OM_SET:
          retval=DoSuperMethodA(cl,o,msg);
          data=INST_DATA(cl,o);
+         if(tag=FindTagItem(LEDGGA_Fill,ops->ops_AttrList))
+         {  data->fill=(long)tag->ti_Data;
+            if(data->fill<0) data->fill=0;
+            retval=1;
+         }
+         if(tag=FindTagItem(LEDGGA_FillMax,ops->ops_AttrList))
+         {  data->fillmax=(long)tag->ti_Data;
+            if(data->fillmax<1) data->fillmax=1;
+            if(data->fillmax>LEDGGA_MAXCELLS) data->fillmax=LEDGGA_MAXCELLS;
+            retval=1;
+         }
          if(tag=FindTagItem(LEDGGA_Active,ops->ops_AttrList))
          {  if(tag->ti_Data)
             {  if(data->active)
-               {  if(++data->n>=data->frames) data->n=0;
-                  if(data->boingball) data->needmove=TRUE;
+               {  /* Anim strip / boingball still step; classic LED uses fill. */
+                  if(data->bitmap || data->boingball)
+                  {  if(++data->n>=data->frames) data->n=0;
+                     if(data->boingball) data->needmove=TRUE;
+                  }
                }
                else data->active=TRUE;
             }
             else
             {  data->active=FALSE;
                data->n=0;
+               data->fill=0;
                /* Going idle: drop any pending step so the next refresh
                 * just paints the resting frame instead of spinning once. */
                data->needmove=FALSE;

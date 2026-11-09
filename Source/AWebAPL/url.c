@@ -26,6 +26,9 @@
 #include "fetch.h"
 #include "window.h"
 #include "xhrjs.h"
+#ifdef AWEB4
+#include "wasmjs.h"
+#endif
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
@@ -914,15 +917,8 @@ static void Srcupdatevfetch(struct Url *url,struct Amsrcupdate *ams)
 static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
 {  struct TagItem *wtags,*tag,*tstate=ams->tags;
    BOOL terminate=FALSE;
-   /* Check if this is an XHR fetch - if so, let XHR handler process it first */
-   /* We'll call Xhrsrcupdate which will check the mapping and process if it's an XHR */
-   if(ams->fetch)
-   {  /* Xhrsrcupdate will check if this fetch is in our mapping */
-      /* It returns 1 if it processed it (XHR), 0 if not */
-      /* Even if it's an XHR, we continue with normal processing for cache, etc. */
-      Xhrsrcupdate(url,ams);
-      /* Continue with normal processing regardless - XHR just extracts its data */
-   }
+   /* XHR / Wasm standalone fetches are dispatched from Srcupdateurl() for any
+    * ams->fetch (they are not stored in url->fetch). Do not call them here. */
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Movedto:
@@ -1005,14 +1001,16 @@ static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
    {  AmethodA(url->dsource,ams);
    }
    if(!url->ssource)
-   {  if(cache && url->cache && !(url->flags&URLF_FETCHERROR))
-      {  AmethodA(url->cache,ams);
-      }
+   {  /* Source before cache: render/decode must not wait on disk cache I/O
+       * (classic write or AWEB4 Publishstaging). Cache remains best-effort. */
       if(!(url->flags&URLF_DEXFETCH))
       {  if(url->source || !url->movedto)
          {  AmethodA(Urlsource(url),ams);
          }
          Changedlayout();
+      }
+      if(cache && url->cache && !(url->flags&URLF_FETCHERROR))
+      {  AmethodA(url->cache,ams);
       }
    }
    if(terminate)
@@ -1215,6 +1213,15 @@ static struct Url *Newurl(struct Amset *ams)
 static long Srcupdateurl(struct Url *url,struct Amsrcupdate *ams)
 {  long result=0;
    Busypointer(TRUE);
+   /* XMLHttpRequest and WebAssembly.instantiateUrl create their own AOTP_FETCH
+    * objects; those are never assigned to url->fetch / rfetch / vfetch. Deliver
+    * their AOM_SRCUPDATE payloads first so the handlers see Data/Terminate. */
+   if(ams->fetch)
+   {  Xhrsrcupdate(url,ams);
+#ifdef AWEB4
+      Wasmsrcupdate(url,ams);
+#endif
+   }
    if(ams->fetch==url->vfetch)
    {  Srcupdatevfetch(url,ams);
    }
@@ -1645,6 +1652,7 @@ UBYTE *Fixurlname(UBYTE *name)
       else if(STRNIEQUAL(begin,"file",4) && schemelen==4) { knownscheme=TRUE; /* special validation below */ }
       else if(STRNIEQUAL(begin,"mailto",6) && schemelen==6) { knownscheme=TRUE; allows_noslashslash=TRUE; }
       else if(STRNIEQUAL(begin,"news",4) && schemelen==4) { knownscheme=TRUE; allows_noslashslash=TRUE; }
+      else if(STRNIEQUAL(begin,"mail",4) && schemelen==4) { knownscheme=TRUE; allows_noslashslash=TRUE; }
       else if(STRNIEQUAL(begin,"x-aweb",6) && schemelen==6) { knownscheme=TRUE; allows_noslashslash=TRUE; }
       else if(STRNIEQUAL(begin,"about",5) && schemelen==5) { knownscheme=TRUE; allows_noslashslash=TRUE; }
       else if(STRNIEQUAL(begin,"cid",3) && schemelen==3) { knownscheme=TRUE; allows_noslashslash=TRUE; }
@@ -1852,6 +1860,9 @@ BOOL Mailnewsurl(UBYTE *url)
 {  if(STRNIEQUAL(url,"mailto:",7))
    {  return TRUE;
    }
+   if(STRNIEQUAL(url,"mail:",5))
+   {  return TRUE;
+   }
    if(STRNIEQUAL(url,"news:",5) && !strchr(url,'@'))
    {  return TRUE;
    }
@@ -1864,6 +1875,8 @@ BOOL Issamehost(struct Url *url1,struct Url *url2)
    p=url1->url;
    q=url2->url;
    if(!p || !q) return FALSE;
+   /* Embedded cid:/data: parts are always same-document resources. */
+   if(STRNIEQUAL(p,"CID:",4) || STRNIEQUAL(p,"DATA:",5)) return TRUE;
    if(STRNIEQUAL(p,"HTTP://",7)) p+=7;
    else if(STRNIEQUAL(p,"HTTPS://",8)) p+=8;
    else if(STRNIEQUAL(p,"FTP://",6)) p+=6;

@@ -136,6 +136,7 @@ extern UBYTE programname[];
 extern struct Locale *locale;
 
 extern struct Library *AWebJSBase;
+extern struct Library *AWebWasmBase;
 
 /* boingball.image (V47+) class library base, optionally opened by aweb.c /
  * awebview.c at startup. When non-NULL, the toolbar activity indicator
@@ -164,7 +165,10 @@ extern struct ClassLibrary *BoingBallBase;
 #define LEDGGA_RestX          (LEDGGA_Dummy+0x000A)
 #define LEDGGA_RestY          (LEDGGA_Dummy+0x000B)
 #define LEDGGA_SpecialPens    (LEDGGA_Dummy+0x000C)   /* ClassAct special pens */
-#define LEDGGA_BoingBall      (LEDGGA_Dummy+0x000D)   
+#define LEDGGA_BoingBall      (LEDGGA_Dummy+0x000D)
+#define LEDGGA_Fill           (LEDGGA_Dummy+0x000E)   /* (long) lit net slots (classic LED) */
+#define LEDGGA_FillMax        (LEDGGA_Dummy+0x000F)   /* (long) maxconnect for classic LED */
+#define LEDGGA_MAXCELLS       8                       /* classic LED lamp cap (toolbar size) */
 
 
 #ifndef AWEBPROTOS_H

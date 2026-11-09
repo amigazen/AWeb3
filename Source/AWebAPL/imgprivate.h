@@ -25,8 +25,8 @@
 struct Imgsource
 {  struct Aobject object;
    void *source;              /* Our source object */
-   void *file;                /* Temporary file to hold image source */
-   UBYTE *filename;           /* Name of file holding image source */
+   void *file;                /* Private spill file if DTST_MEMORY fails */
+   UBYTE *filename;           /* Local path or spill file; not disk-cache path */
    void *dto;                 /* Datatype object */
    struct BitMap *bitmap;     /* Bitmap of image */
    UBYTE *mask;               /* Transparent mask */
@@ -35,14 +35,18 @@ struct Imgsource
    void *task;                /* The processing task */
    UBYTE *bmpdata;            /* BMP data for ICO decoder (DTST_MEMORY) */
    long bmpdatasize;          /* Size of BMP data */
+   UBYTE *ramdata;            /* Owned download body for datatype decode */
+   long ramsize;              /* Bytes stored in ramdata */
+   long ramalloc;             /* Allocated size of ramdata */
 };
 
 #define IMSF_EOF        0x0001   /* EOF was reached on input */
 #define IMSF_OURMASK    0x0002   /* Transparent mask is our own */
-#define IMSF_CACHEFILE  0x0004   /* Use cache file as input */
+#define IMSF_CACHEFILE  0x0004   /* Decode from local on-disk file (not disk cache) */
 #define IMSF_ERROR      0x0008   /* Error, don't process */
 #define IMSF_DECODEWAIT  0x0010   /* Decode requested, waiting for EOF */
 #define IMSF_EAGERDECODE  0x0020   /* Background copy: decode at EOF (pre-lazy behavior) */
+#define IMSF_FASTBITMAP  0x0040   /* Bitmap planes were allocated in Fast RAM */
 
 /*--- Private tags: ---*/
 
@@ -65,5 +69,5 @@ struct Imgsource
 
 #define AOIMS_Discarddecoded  (AOIMS_Dummy+101)
    /* (BOOL) Discard decoded bitmap/mask and datatype object to free memory.
-    * Keeps source (file/cache) so it can be decoded again later. */
+    * Keeps owned source body (ramdata / local file) for a later decode. */
 

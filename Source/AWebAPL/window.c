@@ -2204,11 +2204,25 @@ void Busypointer(BOOL busy)
 
 void Setanimgad(BOOL onoff)
 {  struct Awindow *win;
+   long netactive;
+   long fillmax;
+
+   netactive=0;
+   fillmax=prefs.network.maxconnect;
+   if(fillmax<1) fillmax=1;
+   if(fillmax>LEDGGA_MAXCELLS) fillmax=LEDGGA_MAXCELLS;
+   if(onoff)
+   {  Fetchslotfills(&netactive,NULL,NULL,NULL);
+      if(netactive>fillmax) netactive=fillmax;
+   }
    for(win=windows.first;win && win->next;win=win->next)
    {  if(win->ledgad && win->window)
       {  SETFLAG(win->flags,WINF_ANIMON,onoff);
          Setgadgetattrs(win->ledgad,win->window,NULL,
-            LEDGGA_Active,onoff,TAG_END);
+            LEDGGA_Fill,netactive,
+            LEDGGA_FillMax,fillmax,
+            LEDGGA_Active,onoff,
+            TAG_END);
       }
    }
 }

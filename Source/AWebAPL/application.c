@@ -24,6 +24,7 @@
 #include "task.h"
 #include "window.h"
 #include "url.h"
+#include "fetch.h"
 #include "startup.h"
 #include "jslib.h"
 #include "hotlist.h"
@@ -973,11 +974,27 @@ static void Newapppens(struct Application *app)
    Redisplayall();   /* Should be a APP_USE_PENS relation (Window) .... */
 }
 
-/* Set anim gadgets */
+/* Set anim gadgets. Classic LED path shows fill level = active net slots
+ * out of maxconnect; boingball / anim-bitmap keep their cycle animation. */
 static void Setanimgadsactive(BOOL active)
 {  struct Animgad *ag;
+   long netactive;
+   long fillmax;
+
+   netactive=0;
+   fillmax=prefs.network.maxconnect;
+   if(fillmax<1) fillmax=1;
+   if(fillmax>LEDGGA_MAXCELLS) fillmax=LEDGGA_MAXCELLS;
+   if(active)
+   {  Fetchslotfills(&netactive,NULL,NULL,NULL);
+      if(netactive>fillmax) netactive=fillmax;
+   }
    for(ag=animgads.first;ag->next;ag=ag->next)
-   {  Setgadgetattrs(ag->gad,ag->win,NULL,LEDGGA_Active,active,TAG_END);
+   {  Setgadgetattrs(ag->gad,ag->win,NULL,
+         LEDGGA_Fill,netactive,
+         LEDGGA_FillMax,fillmax,
+         LEDGGA_Active,active,
+         TAG_END);
    }
 }
 
@@ -1028,11 +1045,14 @@ static void Processappicon(void)
 /* Close the screen */
 static void Appclosescreen(struct Application *app)
 {  if(app->screen)
-   {  app->flags&=~APPF_SCREENVALID;
+   {  AwebLog("exit","Appclosescreen: ENTER screen=%p",app->screen);
+      app->flags&=~APPF_SCREENVALID;
       Tooltip(NULL,0,0);
+      AwebLog("exit","Appclosescreen: before Screenvalid FALSE broadcast");
       Broadcastsafe(app,AOREL_APP_USE_SCREEN,
          AOAPP_Screenvalid,FALSE,
          TAG_END);
+      AwebLog("exit","Appclosescreen: after Screenvalid FALSE broadcast");
       if(app->buttons)
       {  DisposeObject(app->buttons);
          app->buttons=NULL;
@@ -1109,6 +1129,7 @@ static void Appclosescreen(struct Application *app)
       {  FreeSignal(app->pubsignum);
          app->pubsignum=-1;
       }
+      AwebLog("exit","Appclosescreen: EXIT");
    }
 }
 
