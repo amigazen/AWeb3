@@ -112,6 +112,11 @@ struct Aobject
 /* Subtask */
 #define AOTP_TASK          0x07  /* Subtask */
 
+#ifdef AWEB4
+/* Disk-cache idle flush controller (timer target); not a document object. */
+#define AOTP_CACHECTL      0x08
+#endif
+
 /* General */
 #define AOTP_SCROLLER      0x10  /* Scroller */
 #define AOTP_FILE          0x11  /* Temporary or cache file */

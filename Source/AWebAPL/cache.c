@@ -34,6 +34,12 @@
 #include "caprivate.h"
 
 LIST(Cache) cache;
+struct SignalSemaphore cachesema;
+long cadisksize;
+
+#ifdef AWEB4
+#include "cache4impl.c"
+#else
 static long cachenr=0;
 
 #define NAMESIZE  256
@@ -48,9 +54,7 @@ static long sizeadded=0;
 #define NRCHKPT   100      /* Nr of files to add before saving AWCR again */
 #define CHKAFTER  102400   /* Nr of bytes to add before flushing excess */
 
-struct SignalSemaphore cachesema;
 
-long cadisksize;
 
 static void Deletecache(struct Cache *cac);
 
@@ -1054,3 +1058,4 @@ void Getcachecontents(struct Arexxcmd *ac,UBYTE *stem,UBYTE *pattern)
 #endif
 }
 
+#endif

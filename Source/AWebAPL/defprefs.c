@@ -217,6 +217,9 @@ struct Prefs defprefs=
       CAVERIFY_ONCE,                         /* verification mode */
       TRUE,                                  /* fast response */
       EMPTYLIST(Nocache,defprefs.network.nocache),   /* no cache sites */
+#ifdef AWEB4
+      NULL,                                  /* cache FS warn dismiss path */
+#endif
       TRUE,                                  /* referer */
       FALSE,                                 /* form warn */
       TRUE,                                  /* spam block */
@@ -446,6 +449,9 @@ static struct Saveformat networksave[]=
    "NOPR",SVF_NOPROX,0,OFFSET(Networkprefs,noproxy),
 #endif
    "CAPA",SVF_STRING,0,OFFSET(Networkprefs,cachepath),
+#ifdef AWEB4
+   "CAPW",SVF_STRING,0,OFFSET(Networkprefs,cachefswarnpath),
+#endif
    "CAME",SVF_LONG,  0,OFFSET(Networkprefs,camemsize),
    "CADI",SVF_LONG,  0,OFFSET(Networkprefs,cadisksize),
    "FREC",SVF_LONG,  0,OFFSET(Networkprefs,minfreechip),
@@ -2156,6 +2162,9 @@ void Disposenetworkprefs(struct Networkprefs *p)
    FREEANDNULL(p->gopherproxy);
    FREEANDNULL(p->telnetproxy);
    FREEANDNULL(p->cachepath);
+#ifdef AWEB4
+   FREEANDNULL(p->cachefswarnpath);
+#endif
    FREEANDNULL(p->emailaddr);
    FREEANDNULL(p->replyaddr);
    FREEANDNULL(p->fullname);
@@ -2335,6 +2344,12 @@ BOOL Copynetworkprefs(struct Networkprefs *from,struct Networkprefs *to)
    to->limitproxy=from->limitproxy;
    to->passiveftp=from->passiveftp;
    if(!(to->cachepath=Dupstr(from->cachepath,-1))) return FALSE;
+#ifdef AWEB4
+   to->cachefswarnpath=NULL;
+   if(from->cachefswarnpath)
+   {  if(!(to->cachefswarnpath=Dupstr(from->cachefswarnpath,-1))) return FALSE;
+   }
+#endif
    to->camemsize=from->camemsize;
    to->cadisksize=from->cadisksize;
    to->minfreechip=from->minfreechip;

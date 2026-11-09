@@ -174,6 +174,8 @@ struct Browserprefs
    BOOL handpointer;
    BOOL jswatch;
    LIST(Mimeinfo) mimelist;
+   /* Append-only: keep new browser prefs after mimelist for binary prefs compat. */
+   short dowasm;           /* enable awebwasm.aweblib when available (AWEB4) */
 };
 
 struct Programprefs
@@ -262,6 +264,10 @@ struct Networkprefs
    short caverify;
    BOOL fastresponse;
    LIST(Nocache) nocache;
+#ifdef AWEB4
+   /* Path for which the suboptimal-FS cache warning was dismissed (Dupstr). */
+   UBYTE *cachefswarnpath;
+#endif
    /* privacy page */
    BOOL referer;
    BOOL formwarn;

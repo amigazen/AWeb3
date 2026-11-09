@@ -32,9 +32,24 @@ struct Cache
    long disksize;                /* Size written to disk. */
    USHORT flags;
    struct Node *brnode;          /* Cache browser list node. */
+#ifdef AWEB4
+   /* Staging path (.part) while writing; published name is only set after rename. */
+   UBYTE *staging;
+   /* Relative path under the cache root (aa/bb/<id> or legacy AWCDxx/...). */
+   UBYTE *relpath;
+   /* Coalesce buffer so FS sees large sequential writes, not TCP fragment sizes. */
+   UBYTE *wbuf;
+   long wbufused;
+   ULONG checksum;               /* Running payload checksum for index validation */
+#endif
 };
 
 #define CACF_NODELETE      0x0001   /* Don't delete cache file. */
+#ifdef AWEB4
+#define CACF_PUBLISHED     0x0002   /* Final name exists and is indexed as valid */
+#define CACF_WRITING       0x0004   /* Staging file open for write */
+#define CACF_PENDINGDEL    0x0008   /* Queued for batched delete after index update */
+#endif
 
 struct Cabrwindow
 {  struct Aobject object;
