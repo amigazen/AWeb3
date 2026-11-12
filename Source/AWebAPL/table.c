@@ -54,9 +54,14 @@ struct Table
    USHORT tabframe;           /* Outer border frame type */
    short bortop,borbottom,borleft,borright;  /* Borders for each side */
    USHORT rules;              /* Rules type */
-   short spacing;             /* Cell spacing. Cell borders are included in spacing. */
+   short spacing;             /* Horizontal border-spacing (cellspacing). */
+   short spacingv;          /* Vertical border-spacing; 0 = use spacing */
    short padding;             /* Cell padding */
    short width;               /* Suggested table width */
+   long cssminw;              /* CSS min-width (px), 0=unset */
+   long cssmaxw;              /* CSS max-width (px), 0=unset */
+   long cssheight;            /* CSS height hint */
+   USHORT csshtype;           /* SWT_* or 0 */
    struct Aobject *caption;   /* Body object for caption */
    long capminw,capmaxw;      /* Widths of caption after measure */
    struct Aobject *curbody;   /* Current body or NULL */
@@ -81,6 +86,9 @@ struct Table
 #define TABF_COMPLETE      0x00000200  /* Definition is complete */
 #define TABF_LAYEDOUT      0x00000400  /* Table is layed out */
 #define TABF_BBLAYEDOUT    0x00000800  /* Bottom border is added */
+#define TABF_BORDERCOLLAPSE  0x00001000  /* CSS border-collapse: collapse */
+#define TABF_TABLELAYOUTFIXED 0x00002000 /* CSS table-layout: fixed */
+#define TABF_EMPTYCELLSHIDE  0x00004000  /* CSS empty-cells: hide */
 
 struct Coldef                 /* A <COL> definition */
 {  NODE(Coldef);
@@ -144,13 +152,11 @@ struct Tabcell
    void *bgimage;             /* Background image */
    struct Colorinfo *bgcolor,*bordercolor,*borderdark,*borderlight;
                               /* Common colours */
+   short borw_left,borw_top,borw_right,borw_bottom; /* CSS px per side, 0=default */
 };
 
 #define TABCF_NOWRAP       0x0001   /* No word wrapping in this cell */
-#define TABCF_BORLEFT      0x0010   /* Draw left border */
-#define TABCF_BORTOP       0x0020   /* Draw top border */
-#define TABCF_BORRIGHT     0x0040   /* Draw right border */
-#define TABCF_BORBOTTOM    0x0080   /* Draw bottom border */
+/* TABCF_BOR* in table.h */
 #define TABCF_COLSPAN0     0x0100   /* Colspan until end of table */
 #define TABCF_ROWSPAN0     0x0200   /* Rowspan until end of table */
 
@@ -169,7 +175,130 @@ struct Tabcol
 
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
 
+/* Effective spacing between cells (CSS border-spacing / border-collapse). */
+#define TabHspacing(t) \
+   (((t)->flags & TABF_BORDERCOLLAPSE) ? 0 : (t)->spacing)
+#define TabVspacing(t) \
+   (((t)->flags & TABF_BORDERCOLLAPSE) ? 0 : \
+   ((t)->spacingv > 0 ? (t)->spacingv : (t)->spacing))
+
 /*------------------------------------------------------------------------*/
+
+/* Refresh frame/rules after CSS border-collapse or border width changes. */
+static void TabUpdateBorderModel(struct Table *tab)
+{
+   if(tab->flags & TABF_BORDERCOLLAPSE)
+   {
+      if(tab->border > 0)
+      {
+         if(!tab->rules) tab->rules=TABRUL_ALL;
+         if(!tab->tabframe) tab->tabframe=TABFRM_ALL;
+      }
+   }
+}
+
+/* True when a cell has no visible content (empty-cells: hide). */
+static BOOL TabcellIsEmpty(struct Tabcell *tc)
+{
+   long h;
+   if(!tc || !tc->body) return TRUE;
+   h=Agetattr(tc->body,AOBJ_Height);
+   if(h <= 0) return TRUE;
+   if(tc->maxw <= 1 && tc->minw <= 1) return TRUE;
+   return FALSE;
+}
+
+/* CSS table-layout: fixed — assign column widths from width hints only. */
+static void LayouttableFixedColumns(struct Table *tab,long desw,long *twleft)
+{
+   struct Tabcol *hcol;
+   long tw;
+   long pctw;
+   long i;
+   long nru;
+   long share;
+   long extra;
+   long totalprc;
+   tw=desw-(tab->nrcols + 1)*TabHspacing(tab);
+   if(tw < 0) tw=0;
+   for(i=0;i<tab->nrcols;i++)
+   {
+      hcol=&tab->cols[i];
+      hcol->width=0;
+      if(hcol->swtype==SWT_PIXELS)
+      {
+         hcol->width=MAX(0,hcol->swidth);
+         if(tw >= hcol->width) tw-=hcol->width;
+         else tw=0;
+      }
+   }
+   /* Percentage columns share the same width pool (50%+50% => half each, not 50% then 50% of remainder). */
+   totalprc=0;
+   for(i=0;i<tab->nrcols;i++)
+   {
+      hcol=&tab->cols[i];
+      if(!hcol->width && hcol->swtype==SWT_PERCENT)
+      {
+         totalprc+=hcol->swidth;
+      }
+   }
+   pctw=tw;
+   if(totalprc > 0)
+   {
+      for(i=0;i<tab->nrcols;i++)
+      {
+         hcol=&tab->cols[i];
+         if(!hcol->width && hcol->swtype==SWT_PERCENT)
+         {
+            share=pctw*hcol->swidth/totalprc;
+            if(share < 0) share=0;
+            hcol->width=share;
+            if(tw >= share) tw-=share;
+            else tw=0;
+         }
+      }
+      /* Rounding remainder goes to the last percentage column. */
+      if(tw > 0)
+      {
+         for(i=tab->nrcols-1;i>=0;i--)
+         {
+            hcol=&tab->cols[i];
+            if(hcol->swtype==SWT_PERCENT && hcol->width > 0)
+            {
+               hcol->width+=tw;
+               tw=0;
+               break;
+            }
+         }
+      }
+   }
+   nru=0;
+   for(i=0;i<tab->nrcols;i++)
+   {
+      if(!tab->cols[i].width) nru++;
+   }
+   if(nru > 0 && tw > 0)
+   {
+      share=tw/nru;
+      extra=tw-share*nru;
+      for(i=0;i<tab->nrcols;i++)
+      {
+         hcol=&tab->cols[i];
+         if(!hcol->width)
+         {
+            hcol->width=share;
+            if(extra > 0)
+            {
+               hcol->width++;
+               extra--;
+            }
+            if(tw >= share) tw-=share;
+            else tw=0;
+         }
+      }
+   }
+   if(twleft) *twleft=tw;
+}
 
 /*------------------------------------------------------------------------*/
 
@@ -891,7 +1020,7 @@ static void Endtable(struct Table *tab,long vspacing)
 /* Reset the row state to complete for all rows with higher state below this absolute y */
 static void Resetrowstate(struct Table *tab,long y)
 {  struct Tabrow *tr;
-   y=y-tab->aoy-tab->spacing/2;   /* Make it a relative row y */
+   y=y-tab->aoy-TabVspacing(tab)/2;   /* Make it a relative row y */
    for(tr=tab->rows.first;tr->next;tr=tr->next)
    {  if(tr->y+tr->height>y)
       {  /* Point of relayout falls within this row. Find last non-inheriting
@@ -914,7 +1043,7 @@ static void Resetrowstate(struct Table *tab,long y)
    if(tab->rows.last->prev && y>=tab->rows.last->y+tab->rows.last->height
    && (tab->flags&TABF_CAPBOTTOM))
    {  if(tab->capstate>TABRS_COMPLETE) tab->capstate=TABRS_COMPLETE;
-      tab->aoh=tab->rows.last->y+tab->rows.last->height+tab->spacing;
+      tab->aoh=tab->rows.last->y+tab->rows.last->height+TabVspacing(tab);
    }
    if(tab->incrementaly>tab->aoh) tab->incrementaly=tab->aoh;
 }
@@ -978,10 +1107,152 @@ static void Setcolors(struct Table *tab)
    for(tr=tab->rows.first;tr->next;tr=tr->next)
    {  for(tc=tr->cells.first;tc->next;tc=tc->next)
       {  if(tc->body)
-         {  Asetattrs(tc->body,AOBDY_Bgcolor,COLOR(tc->bgcolor),TAG_END);
+         {  if((tab->flags&TABF_EMPTYCELLSHIDE) && TabcellIsEmpty(tc))
+            {  Asetattrs(tc->body,AOBDY_Bgcolor,-1,TAG_END);
+            }
+            else
+            {  Asetattrs(tc->body,AOBDY_Bgcolor,COLOR(tc->bgcolor),TAG_END);
+            }
          }
       }
    }
+}
+
+/* True when this cell occupies the rightmost column of the table. */
+static BOOL TabcellIsLastCol(struct Table *tab,struct Tabcell *tc)
+{
+   if(!tab || !tc) return FALSE;
+   return (tc->cellnr + tc->colspan - 1) >= tab->realcols;
+}
+
+/* True when this cell occupies the bottom row of the table. */
+static BOOL TabcellIsLastRow(struct Table *tab,struct Tabrow *tr,struct Tabcell *tc)
+{
+   struct Tabrow *trl;
+   if(!tab || !tr || !tc) return FALSE;
+   trl=tab->rows.last;
+   if(!trl) return TRUE;
+   return (tr->rownr + tc->rowspan - 1) >= trl->rownr;
+}
+
+/* Cell in the same row immediately to the right (same row, colspan-aware). */
+static struct Tabcell *TabcellRightNeighbor(struct Tabrow *tr,struct Tabcell *tc)
+{
+   struct Tabcell *t2;
+   short want;
+   if(!tr || !tc) return NULL;
+   want=tc->cellnr+tc->colspan;
+   for(t2=tr->cells.first;t2->next;t2=t2->next)
+   {
+      if(t2->body && t2->cellnr==want) return t2;
+   }
+   return NULL;
+}
+
+/* Cell in the row above covering the same starting column. */
+static struct Tabcell *TabcellAboveNeighbor(struct Table *tab,struct Tabrow *tr,
+   struct Tabcell *tc)
+{
+   struct Tabrow *tra;
+   struct Tabcell *t2;
+   short wantrow;
+   short wantcol;
+   if(!tab || !tr || !tc || !tr->prev) return NULL;
+   tra=tr->prev;
+   wantrow=tr->rownr-1;
+   while(tra->prev && tra->rownr > wantrow) tra=tra->prev;
+   if(tra->rownr != wantrow) return NULL;
+   wantcol=tc->cellnr;
+   for(t2=tra->cells.first;t2->next;t2=t2->next)
+   {
+      if(t2->body && t2->cellnr <= wantcol
+         && wantcol < t2->cellnr + t2->colspan) return t2;
+   }
+   return NULL;
+}
+
+/* Cell in the row below covering the same starting column. */
+static struct Tabcell *TabcellBelowNeighbor(struct Table *tab,struct Tabrow *tr,
+   struct Tabcell *tc)
+{
+   struct Tabrow *trb;
+   struct Tabcell *t2;
+   short wantrow;
+   short wantcol;
+   if(!tab || !tr || !tc) return NULL;
+   trb=tr;
+   wantrow=tr->rownr+tc->rowspan;
+   while(trb->next && trb->rownr < wantrow) trb=trb->next;
+   if(trb->rownr != wantrow) return NULL;
+   wantcol=tc->cellnr;
+   for(t2=trb->cells.first;t2->next;t2=t2->next)
+   {
+      if(t2->body && t2->cellnr <= wantcol
+         && wantcol < t2->cellnr + t2->colspan) return t2;
+   }
+   return NULL;
+}
+
+/* Effective CSS border width on one edge (px). */
+static short TabcellGetSideWidth(struct Tabcell *tc,USHORT edge,short tableBorder)
+{
+   short w;
+   w=0;
+   if(edge == TABCF_BORLEFT) w=tc->borw_left;
+   else if(edge == TABCF_BORTOP) w=tc->borw_top;
+   else if(edge == TABCF_BORRIGHT) w=tc->borw_right;
+   else if(edge == TABCF_BORBOTTOM) w=tc->borw_bottom;
+   if(w <= 0)
+   {  if(tc->flags & TABCF_BORCSS) w=1;
+      else if(tableBorder > 0) w=tableBorder;
+      else w=1;
+   }
+   return w;
+}
+
+/* In border-collapse mode, skip drawing a shared edge the winning neighbor paints. */
+static BOOL TabcellSkipCollapsedDraw(struct Table *tab,struct Tabrow *tr,
+   struct Tabcell *tc,USHORT edge)
+{
+   struct Tabcell *nb;
+   short wSelf;
+   short wNb;
+   if(!(tab->flags & TABF_BORDERCOLLAPSE)) return FALSE;
+   if(edge == TABCF_BORRIGHT)
+   {
+      if(TabcellIsLastCol(tab,tc)) return FALSE;
+      nb=TabcellRightNeighbor(tr,tc);
+      if(!nb || !(nb->flags & TABCF_BORLEFT)) return FALSE;
+      wSelf=TabcellGetSideWidth(tc,TABCF_BORRIGHT,tab->border);
+      wNb=TabcellGetSideWidth(nb,TABCF_BORLEFT,tab->border);
+      if(wSelf > wNb) return FALSE;
+      if(wSelf < wNb) return TRUE;
+      /* Equal width: cell to the right paints the shared line (its border-left). */
+      return TRUE;
+   }
+   if(edge == TABCF_BORBOTTOM)
+   {
+      if(TabcellIsLastRow(tab,tr,tc)) return FALSE;
+      nb=TabcellBelowNeighbor(tab,tr,tc);
+      if(!nb || !(nb->flags & TABCF_BORTOP)) return FALSE;
+      wSelf=TabcellGetSideWidth(tc,TABCF_BORBOTTOM,tab->border);
+      wNb=TabcellGetSideWidth(nb,TABCF_BORTOP,tab->border);
+      if(wSelf > wNb) return FALSE;
+      if(wSelf < wNb) return TRUE;
+      return TRUE;
+   }
+   if(edge == TABCF_BORTOP)
+   {
+      if(tr->flags & TABRF_FIRSTROW) return FALSE;
+      nb=TabcellAboveNeighbor(tab,tr,tc);
+      if(!nb || !(nb->flags & TABCF_BORBOTTOM)) return FALSE;
+      wSelf=TabcellGetSideWidth(tc,TABCF_BORTOP,tab->border);
+      wNb=TabcellGetSideWidth(nb,TABCF_BORBOTTOM,tab->border);
+      if(wSelf > wNb) return FALSE;
+      if(wSelf < wNb) return TRUE;
+      return TRUE;
+   }
+   return FALSE;
 }
 
 /* Render inner cell borders, clipped */
@@ -989,61 +1260,69 @@ static void Rendercellborder(struct Table *tab,struct Coords *coo,
    struct Tabrow *tr,struct Tabcell *tc)
 {  long x1,y1,x2,y2;
    short pen;
+   short hsp;
+   short vsp;
    struct Colorinfo *ci1,*ci2;
    struct Tabcol *hcol;
+   hsp=TabHspacing(tab);
+   vsp=TabVspacing(tab);
    ci1=tc->bordercolor?tc->bordercolor:tc->borderdark;
    ci2=tc->bordercolor?tc->bordercolor:tc->borderlight;
+   if(tab->flags&TABF_BORDERCOLLAPSE && tc->bordercolor)
+   {  ci1=tc->bordercolor;
+      ci2=tc->bordercolor;
+   }
    hcol=&tab->cols[tc->cellnr-1];
    if(tc->flags&TABCF_BORLEFT)
    {  if(prefs.browser.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
       else pen=coo->dri->dri_Pens[SHADOWPEN];
-      x1=tab->aox+coo->dx+hcol->x+tab->spacing/2-1;
+      x1=tab->aox+coo->dx+hcol->x+hsp/2-1;
       y1=tab->aoy+coo->dy+tr->y-1;
-      y2=y1+tr->height+tab->spacing+1;
-      if(tc->flags&TABCF_BORTOP) y1+=tab->spacing/2;
-      if(tc->flags&TABCF_BORBOTTOM) y2-=tab->spacing/2;
+      y2=y1+tr->height+vsp+1;
+      if(tc->flags&TABCF_BORTOP) y1+=vsp/2;
+      if(tc->flags&TABCF_BORBOTTOM) y2-=vsp/2;
       if(x1>=coo->minx && x1<=coo->maxx && y2>=coo->miny && y1<=coo->maxy)
       {  SetAPen(coo->rp,pen);
          Move(coo->rp,x1,MAX(y1,coo->miny));
          Draw(coo->rp,x1,MIN(y2,coo->maxy));
       }
    }
-   if(tc->flags&TABCF_BORTOP)
+   if(tc->flags&TABCF_BORTOP && !TabcellSkipCollapsedDraw(tab,tr,tc,TABCF_BORTOP))
    {  if(prefs.browser.docolors && ci1 && ci1->pen>=0) pen=ci1->pen;
       else pen=coo->dri->dri_Pens[SHADOWPEN];
       x1=tab->aox+coo->dx+hcol->x-1;
-      x2=x1+hcol->width+tab->spacing+1;
-      y1=tab->aoy+coo->dy+tr->y+tab->spacing/2-1;
-      if(tc->flags&TABCF_BORLEFT) x1+=tab->spacing/2;
-      if(tc->flags&TABCF_BORRIGHT) x2-=tab->spacing/2;
+      x2=x1+hcol->width+hsp+1;
+      y1=tab->aoy+coo->dy+tr->y+vsp/2-1;
+      if(tc->flags&TABCF_BORLEFT) x1+=hsp/2;
+      if(tc->flags&TABCF_BORRIGHT) x2-=hsp/2;
       if(y1>=coo->miny && y1<=coo->maxy && x2>=coo->minx && x1<=coo->maxx)
       {  SetAPen(coo->rp,pen);
          Move(coo->rp,MAX(x1,coo->minx),y1);
          Draw(coo->rp,MIN(x2,coo->maxx),y1);
       }
    }
-   if(tc->flags&TABCF_BORRIGHT)
+   if(tc->flags&TABCF_BORRIGHT && !TabcellSkipCollapsedDraw(tab,tr,tc,TABCF_BORRIGHT))
    {  if(prefs.browser.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
       else pen=coo->dri->dri_Pens[SHINEPEN];
-      x1=tab->aox+coo->dx+hcol->x+(tab->spacing+1)/2+hcol->width;
+      x1=tab->aox+coo->dx+hcol->x+(hsp+1)/2+hcol->width;
       y1=tab->aoy+coo->dy+tr->y-1;
-      y2=y1+tr->height+tab->spacing+1;
-      if(tc->flags&TABCF_BORTOP) y1+=tab->spacing/2;
-      if(tc->flags&TABCF_BORBOTTOM) y2-=tab->spacing/2;
+      y2=y1+tr->height+vsp+1;
+      if(tc->flags&TABCF_BORTOP) y1+=vsp/2;
+      if(tc->flags&TABCF_BORBOTTOM) y2-=vsp/2;
       if(x1>=coo->minx && x1<=coo->maxx && y2>=coo->miny && y1<=coo->maxy)
       {  SetAPen(coo->rp,pen);
          Move(coo->rp,x1,MAX(y1,coo->miny));
          Draw(coo->rp,x1,MIN(y2,coo->maxy));
       }
    }
-   if(tc->flags&TABCF_BORBOTTOM)
+   if(tc->flags&TABCF_BORBOTTOM && !TabcellSkipCollapsedDraw(tab,tr,tc,TABCF_BORBOTTOM))
    {  if(prefs.browser.docolors && ci2 && ci2->pen>=0) pen=ci2->pen;
       else pen=coo->dri->dri_Pens[SHINEPEN];
       x1=tab->aox+coo->dx+hcol->x-1;
-      x2=x1+hcol->width+tab->spacing+1;
-      y1=tab->aoy+coo->dy+tr->y+(tab->spacing+1)/2+tr->height;
-      if(tc->flags&TABCF_BORLEFT) x1+=tab->spacing/2;
-      if(tc->flags&TABCF_BORRIGHT) x2-=tab->spacing/2;
+      x2=x1+hcol->width+hsp+1;
+      y1=tab->aoy+coo->dy+tr->y+(vsp+1)/2+tr->height;
+      if(tc->flags&TABCF_BORLEFT) x1+=hsp/2;
+      if(tc->flags&TABCF_BORRIGHT) x2-=hsp/2;
       if(y1>=coo->miny && y1<=coo->maxy && x2>=coo->minx && x1<=coo->maxx)
       {  SetAPen(coo->rp,pen);
          Move(coo->rp,MAX(x1,coo->minx),y1);
@@ -1129,11 +1408,13 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
    struct Tabcell *tc;
    struct Tabcol *hcol;
    struct Coldef *cd;
+   struct Tabrow *firstRow;
    long i,n,totalprc,totalrel,minuns,maxuns,minrel,ruprc,maxruw,w;
    long old,dw,minw,maxw,tcdw,tcminw,tcmaxw;
    USHORT mlf;
    struct Ammresult ammr={0};
    BOOL all;
+   BOOL skipColContent;
    
    /* If incomplete and no incremental display, do nothing. */
    if(!prefs.browser.inctable) tab->flags&=~TABF_INCREMENTAL;
@@ -1191,9 +1472,15 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
 
    /* Measure each table cell. Compute column dimensions from nonspanning cells.
     * If incremental measure, only measure new complete rows.
-    * Set column dimensions always, since a cell may have become smaller. */
+    * Set column dimensions always, since a cell may have become smaller.
+    * table-layout:fixed uses the first row only for column width hints. */
+   firstRow=tab->rows.first->next;
    for(tr=tab->rows.first;tr->next;tr=tr->next)
-   {  for(tc=tr->cells.first;tc->next;tc=tc->next)
+   {  skipColContent=FALSE;
+      if((tab->flags&TABF_TABLELAYOUTFIXED) && firstRow && tr!=firstRow)
+      {  skipColContent=TRUE;
+      }
+      for(tc=tr->cells.first;tc->next;tc=tc->next)
       {  if(tc->body)
          {  if(tr->state==TABRS_COMPLETE || (all && tr->state>TABRS_COMPLETE))
             {  if(tc->flags&TABCF_NOWRAP) mlf=AMMF_NOWRAP;
@@ -1204,7 +1491,7 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
                tc->minw=MAX(1,ammr.minwidth);
                tc->maxw=MAX(1,ammr.width);
             }
-            if(tc->colspan==1)
+            if(tc->colspan==1 && !skipColContent)
             {  hcol=&tab->cols[tc->cellnr-1];
                if(tc->maxw>hcol->maxw) hcol->maxw=tc->maxw;
                if(tc->minw>hcol->minw)
@@ -1219,6 +1506,14 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
                      if(hcol->swidth>hcol->minw) hcol->minw=hcol->swidth;
                      if(hcol->swidth>hcol->maxw) hcol->maxw=hcol->swidth;
                   }
+               }
+            }
+            else if(tc->colspan==1 && skipColContent && tc->swtype)
+            {  /* Fixed layout: still honour width hints from rows after the first. */
+               hcol=&tab->cols[tc->cellnr-1];
+               if(!hcol->swtype)
+               {  hcol->swidth=tc->swidth;
+                  hcol->swtype=tc->swtype;
                }
             }
          }
@@ -1375,8 +1670,8 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
       }
    }
    tab->maxw+=maxw;
-   tab->minw+=(tab->nrcols + 1)*tab->spacing;
-   tab->maxw+=(tab->nrcols + 1)*tab->spacing;
+   tab->minw+=(tab->nrcols + 1)*TabHspacing(tab);
+   tab->maxw+=(tab->nrcols + 1)*TabHspacing(tab);
    minw=tab->minw;
    maxw=tab->maxw;
    if(tab->caption)
@@ -1475,7 +1770,7 @@ static long Layouttable(struct Table *tab,struct Amlayout *aml)
       winweb, desw is inclusive spacing and exclusive outer borders
       hcol->minw,maxw,width is exclusive spacing
     */
-   spacing=(tab->nrcols + 1)*tab->spacing;
+   spacing=(tab->nrcols + 1)*TabHspacing(tab);
    winweb=(aml->width-aml->startx)-tab->borleft-tab->borright;
    minw=tab->minw-tab->borleft-tab->borright;
    maxw=tab->maxw-tab->borleft-tab->borright;
@@ -1497,6 +1792,13 @@ static long Layouttable(struct Table *tab,struct Amlayout *aml)
    {  if(minw>winweb) desw=minw;
       else if(maxw<winweb) desw=maxw;
       else desw=winweb;
+   }
+   if(tab->cssminw > 0 && desw < tab->cssminw)
+   {  desw=tab->cssminw;
+      if(desw > winweb) desw=winweb;
+   }
+   if(tab->cssmaxw > 0 && desw > tab->cssmaxw)
+   {  desw=tab->cssmaxw;
    }
 
    /* In case of incremental layout, remember old column widths.
@@ -1567,7 +1869,13 @@ Table layout algorythm used here:
     *
     * first, compute these numbers and reset the column widths. */
    minpix=sizepix=minprc=totalprc=minrel=totalrel=minuns=maxuns=0;
-   tw=desw-(tab->nrcols + 1)*tab->spacing;
+   if(tab->flags&TABF_TABLELAYOUTFIXED)
+   {
+      LayouttableFixedColumns(tab,desw,NULL);
+   }
+   else
+   {
+   tw=desw-(tab->nrcols + 1)*TabHspacing(tab);
    for(i=0;i<tab->nrcols;i++)
    {  hcol=&tab->cols[i];
       switch(hcol->swtype)
@@ -1599,7 +1907,7 @@ Table layout algorythm used here:
    }
    else ruprc=0;
    /* If table is minimum width, use minimum width for all columns */
-   if(tw<=minw-tab->nrcols*tab->spacing)
+   if(tw<=minw-tab->nrcols*TabHspacing(tab))
    {  for(i=0;i<tab->nrcols;i++)
       {  hcol=&tab->cols[i];
          hcol->width=hcol->minw;
@@ -1636,7 +1944,7 @@ Table layout algorythm used here:
             if(hcol->swtype==SWT_PIXELS)
             {  hcol->width=MAX(hcol->minw,hcol->swidth);
                if(!minprc && !minrel && !minuns && sizepix)
-               {  hcol->width=hcol->width*(desw-tab->nrcols*tab->spacing)/sizepix;
+               {  hcol->width=hcol->width*(desw-tab->nrcols*TabHspacing(tab))/sizepix;
                }
                tw-=hcol->width;
             }
@@ -1768,6 +2076,7 @@ Table layout algorythm used here:
          /* we're done */
       }
    }
+   } /* table-layout: auto */
 
    /* If incremental layout: check the new column widths against the old ones. */
    if(oldwidths)
@@ -1801,10 +2110,10 @@ Table layout algorythm used here:
 
    /* compute the resulting position for all columns, and table width (incl left border): */
    if(!(tab->flags&TABF_LAYEDOUT))
-   {  tab->aow=tab->borleft+tab->spacing;
+   {  tab->aow=tab->borleft+TabHspacing(tab);
       for(i=0;i<tab->nrcols;i++)
       {  tab->cols[i].x=tab->aow;
-         tab->aow+=tab->cols[i].width+tab->spacing;
+         tab->aow+=tab->cols[i].width+TabHspacing(tab);
       }
    }
    
@@ -1820,7 +2129,7 @@ Table layout algorythm used here:
          {  if(tc->body)
             {  tc->x=tab->cols[tc->cellnr-1].x;
                hcol=&tab->cols[tc->cellnr-1];
-               tc->width=(tc->colspan-1)*tab->spacing;
+               tc->width=(tc->colspan-1)*TabHspacing(tab);
                for(i=0;i<tc->colspan;i++,hcol++) tc->width+=hcol->width;
                if(tc->flags&TABCF_NOWRAP) mlf=AMLF_NOWRAP;
                else mlf=0;
@@ -1915,7 +2224,7 @@ Table layout algorythm used here:
                Amove(tc->body,tab->aox+tc->x,tc->y);
                if(tc->rowspan==1) tc->height=tr->height;
                else
-               {  tc->height=(tc->rowspan-1)*tab->spacing;
+               {  tc->height=(tc->rowspan-1)*TabVspacing(tab);
                   for(trs=tr,i=0;i<tc->rowspan;trs=trs->next,i++) tc->height+=trs->height;
                }
                switch(tc->valign)
@@ -1935,7 +2244,7 @@ Table layout algorythm used here:
                }
             }
          }
-         tab->aoh+=tr->height+tab->spacing;
+         tab->aoh+=tr->height+TabVspacing(tab);
       }
    }
    if((tab->flags&TABF_COMPLETE)
@@ -1952,6 +2261,22 @@ Table layout algorythm used here:
    if((tab->flags&TABF_COMPLETE) && !(tab->flags&TABF_BBLAYEDOUT))
    {  tab->aoh+=tab->borbottom;
       tab->flags|=TABF_BBLAYEDOUT;
+   }
+   if(tab->csshtype==SWT_PIXELS && tab->cssheight>0)
+   {  long innerh;
+      innerh=tab->aoh-tab->bortop-tab->borbottom;
+      if(innerh < tab->cssheight)
+      {  tab->aoh=tab->bortop+tab->cssheight+tab->borbottom;
+      }
+   }
+   else if(tab->csshtype==SWT_PERCENT && tab->cssheight>0 && aml->height>0)
+   {  long innerh;
+      long want;
+      want=aml->height*tab->cssheight/100;
+      innerh=tab->aoh-tab->bortop-tab->borbottom;
+      if(want > innerh)
+      {  tab->aoh=tab->bortop+want+tab->borbottom;
+      }
    }
    tab->flags|=TABF_LAYEDOUT;
    
@@ -2040,19 +2365,22 @@ static long Rendertable(struct Table *tab,struct Amrender *amr)
          {  if(tr->state==TABRS_ALIGNED || (all && tr->state>TABRS_ALIGNED))
             {  for(tc=tr->cells.first;tc->next;tc=tc->next)
                {  if(tc->body)
-                  {  x=tab->aox+tc->x;
-                     y=tab->aoy+tc->y;
-                     if(x<=amr->maxx && x+tc->width>amr->minx
-                     && y<=amr->maxy && y+tc->height>amr->miny)
-                     {  Arender(tc->body,coo,
-                           MAX(amr->minx,x),
-                           MAX(amr->miny,y),
-                           MIN(amr->maxx,x+tc->width-1),
-                           MIN(amr->maxy,y+tc->height-1),
-                           amr->flags&AMRF_CLEARBG,amr->text);
+                  {  if(!((tab->flags&TABF_EMPTYCELLSHIDE) && TabcellIsEmpty(tc)))
+                     {  x=tab->aox+tc->x;
+                        y=tab->aoy+tc->y;
+                        if(x<=amr->maxx && x+tc->width>amr->minx
+                        && y<=amr->maxy && y+tc->height>amr->miny)
+                        {  Arender(tc->body,coo,
+                              MAX(amr->minx,x),
+                              MAX(amr->miny,y),
+                              MIN(amr->maxx,x+tc->width-1),
+                              MIN(amr->maxy,y+tc->height-1),
+                              amr->flags&AMRF_CLEARBG,amr->text);
+                        }
                      }
                   }
-                  if(tab->rules)
+                  if(tab->rules
+                  && !((tab->flags&TABF_EMPTYCELLSHIDE) && TabcellIsEmpty(tc)))
                   {  Rendercellborder(tab,coo,tr,tc);
                   }
                }
@@ -2168,8 +2496,26 @@ static long Settable(struct Table *tab,struct Amset *ams)
             {  tc->sheight=tag->ti_Data;
                tc->shtype=SWT_PIXELS;
             }
+            else
+            {  tab->cssheight=tag->ti_Data;
+               tab->csshtype=SWT_PIXELS;
+            }
             break;
          }
+         case AOTAB_Tabpercentheight:
+            tab->cssheight=tag->ti_Data;
+            tab->csshtype=SWT_PERCENT;
+            break;
+         case AOTAB_Tabheight:
+            tab->cssheight=tag->ti_Data;
+            tab->csshtype=SWT_PIXELS;
+            break;
+         case AOTAB_Minwidth:
+            tab->cssminw=MAX(0,(long)tag->ti_Data);
+            break;
+         case AOTAB_Maxwidth:
+            tab->cssmaxw=MAX(0,(long)tag->ti_Data);
+            break;
          case AOTAB_Halign:
          {  struct Tabcell *tc;
             tc=Getopencell(tab);
@@ -2187,6 +2533,25 @@ static long Settable(struct Table *tab,struct Amset *ams)
             break;
          case AOTAB_Cellspacing:
             tab->spacing=MAX(0,(short)tag->ti_Data);
+            tab->spacingv=0;
+            break;
+         case AOTAB_Borderspacing:
+            tab->spacing=MAX(0,(short)tag->ti_Data);
+            break;
+         case AOTAB_BorderspacingV:
+            tab->spacingv=MAX(0,(short)tag->ti_Data);
+            break;
+         case AOTAB_Bordercollapse:
+            SETFLAG(tab->flags,TABF_BORDERCOLLAPSE,tag->ti_Data);
+            break;
+         case AOTAB_Tablelayout:
+            SETFLAG(tab->flags,TABF_TABLELAYOUTFIXED,(tag->ti_Data!=0));
+            break;
+         case AOTAB_Captionside:
+            SETFLAG(tab->flags,TABF_CAPBOTTOM,(tag->ti_Data!=0));
+            break;
+         case AOTAB_Emptycells:
+            SETFLAG(tab->flags,TABF_EMPTYCELLSHIDE,(tag->ti_Data!=0));
             break;
          case AOTAB_Cellpadding:
             tab->padding=MAX(0,(short)tag->ti_Data);
@@ -2297,9 +2662,10 @@ static long Settable(struct Table *tab,struct Amset *ams)
             break;
       }
    }
-   /* Only enforce minimum spacing of 2 for rules if spacing wasn't explicitly set to 0.
-    * If cellspacing="0" was specified, honor it even with rules present. */
-   if(tab->rules && tab->spacing>0 && tab->spacing<2)
+   TabUpdateBorderModel(tab);
+   /* Separate borders: keep at least 2px spacing when rules are drawn (not collapsed). */
+   if(tab->rules && !(tab->flags&TABF_BORDERCOLLAPSE)
+   && tab->spacing>0 && tab->spacing<2)
    {  tab->spacing=2;
    }
    tab->borleft=(tab->tabframe&TABFRM_LEFT)?tab->border:0;
@@ -2355,6 +2721,7 @@ static struct Table *Newtable(struct Amset *ams)
       NEWLIST(&tab->tfoot);
       NEWLIST(&tab->coldefs);
       tab->spacing=2;
+      tab->spacingv=0;
       tab->padding=2;
       tab->valign=VALIGN_TOP;
       tab->rghalign=HALIGN_LEFT;
@@ -2603,9 +2970,15 @@ void TableApplyCellAttrs(void *tableObj,void *cellBody,ULONG tag,long data)
          break;
       case AOTAB_Halign:
          tc->halign=(short)data;
+         if(tc->body)
+         {  Asetattrs(tc->body,AOBDY_Divalign,(short)data,TAG_END);
+         }
          break;
       case AOTAB_Valign:
          tc->valign=(short)data;
+         if(tc->body)
+         {  Asetattrs(tc->body,AOBDY_VerticalAlign,(short)data,TAG_END);
+         }
          break;
       case AOTAB_Bgcolor:
          if(data) tc->bgcolor=(struct Colorinfo *)data;
@@ -2628,6 +3001,78 @@ void TableApplyCellAttrs(void *tableObj,void *cellBody,ULONG tag,long data)
    tab->flags&=~TABF_LAYEDOUT;
 }
 
+#define TABCF_BORALL  (TABCF_BORLEFT|TABCF_BORTOP|TABCF_BORRIGHT|TABCF_BORBOTTOM)
+
+/* CSS border on TD/TH: use table grid lines instead of the cell body box. */
+void TableApplyCellBorderSides(void *tableObj,void *cellBody,struct Colorinfo *ci,
+   USHORT sides,BOOL fromCss,long borderWidth)
+{  struct Table *tab;
+   struct Tabcell *tc;
+   short bw;
+
+   tab=(struct Table *)tableObj;
+   tc=Findcellbybody(tab,cellBody);
+   if(!tc) return;
+   if(ci)
+   {  tc->bordercolor=ci;
+      tc->borderdark=ci;
+      tc->borderlight=ci;
+   }
+   if(!sides) sides=TABCF_BORALL;
+   tc->flags|=sides;
+   if(fromCss) tc->flags|=TABCF_BORCSS;
+   if(borderWidth > 0)
+   {  bw=(short)borderWidth;
+      if(sides & TABCF_BORLEFT) tc->borw_left=bw;
+      if(sides & TABCF_BORTOP) tc->borw_top=bw;
+      if(sides & TABCF_BORRIGHT) tc->borw_right=bw;
+      if(sides & TABCF_BORBOTTOM) tc->borw_bottom=bw;
+   }
+   if(!tab->rules) tab->rules=TABRUL_ALL;
+   if(tab->border < 1) tab->border=1;
+   if(!tab->tabframe && (tab->flags&TABF_BORDERCOLLAPSE)) tab->tabframe=TABFRM_ALL;
+   tab->flags&=~TABF_LAYEDOUT;
+}
+
+void TableClearCellBorderSides(void *tableObj,void *cellBody,USHORT sides)
+{  struct Table *tab;
+   struct Tabcell *tc;
+
+   tab=(struct Table *)tableObj;
+   tc=Findcellbybody(tab,cellBody);
+   if(!tc || !sides) return;
+   tc->flags&=~sides;
+   if(sides & TABCF_BORLEFT) tc->borw_left=0;
+   if(sides & TABCF_BORTOP) tc->borw_top=0;
+   if(sides & TABCF_BORRIGHT) tc->borw_right=0;
+   if(sides & TABCF_BORBOTTOM) tc->borw_bottom=0;
+   tab->flags&=~TABF_LAYEDOUT;
+}
+
+void TableApplyCellBorder(void *tableObj,void *cellBody,struct Colorinfo *ci)
+{  TableApplyCellBorderSides(tableObj,cellBody,ci,0,FALSE,0);
+}
+
+/* Apply width from CSS col/colgroup to the last declared column definition. */
+void TableSetLastColWidth(void *tableObj,ULONG wtag,short swidth)
+{  struct Table *tab;
+   struct Coldef *cd;
+   USHORT swtype;
+   if(!tableObj || swidth <= 0) return;
+   tab=(struct Table *)tableObj;
+   if(ISEMPTY(&tab->coldefs)) return;
+   if(wtag==AOTAB_Percentwidth) swtype=SWT_PERCENT;
+   else if(wtag==AOTAB_Relwidth) swtype=SWT_RELATIVE;
+   else swtype=SWT_PIXELS;
+   for(cd=tab->coldefs.last;cd->prev;cd=cd->prev)
+   {
+      cd->swidth=swidth;
+      cd->swtype=swtype;
+      if(cd->flags & CDF_FIRSTCOL) break;
+   }
+   tab->flags&=~TABF_LAYEDOUT;
+}
+
 /* Reapply td/th rules to every cell when the stylesheet loads after parse. */
 void ReapplyCSSToTable(struct Document *doc,void *tableObj)
 {  struct Table *tab;
@@ -2640,6 +3085,9 @@ void ReapplyCSSToTable(struct Document *doc,void *tableObj)
 
    if(!doc || !tableObj || !doc->cssstylesheet) return;
    tab=(struct Table *)tableObj;
+   class=(UBYTE *)Agetattr(tableObj,AOELT_Class);
+   id=(UBYTE *)Agetattr(tableObj,AOELT_Id);
+   ApplyCSSToTableFromRules(doc,tableObj,class,id);
    for(tr=tab->rows.first;tr->next;tr=tr->next)
    {  for(tc=tr->cells.first;tc->next;tc=tc->next)
       {  if(!tc->body) continue;

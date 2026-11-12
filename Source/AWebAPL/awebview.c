@@ -29,6 +29,9 @@
 #include "startup.h"
 #include "task.h"
 #include "locale.h"
+#include "ttengine.h"
+#include "bulletfont.h"
+#include "awebutf8.h"
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
@@ -1088,6 +1091,11 @@ static void Cleanup(void)
    Freetcp();
 #endif
    Freeprefs();
+   FreeTTEngine();
+   FreeAwebUtf8();
+#ifdef AWEB4
+   FreeBulletFont();
+#endif
    Freesupport();
    if(locale) CloseLocale(locale);
    if(localeinfo.li_Catalog) CloseCatalog(localeinfo.li_Catalog);
@@ -1267,6 +1275,11 @@ static BOOL Initall(void)
    if(!Initarexx()) return FALSE;   /* must be inited before window */
    if(!Initmime()) return FALSE;    /* must be inited before prefs */
    if(!Initdefprefs()) return FALSE;/* must be inited before prefs */
+   InitTTEngine();
+   InitAwebUtf8();
+#ifdef AWEB4
+   if(!InitBulletFont()) return FALSE;
+#endif
    if(!Initprefs()) return FALSE;   /* must be inited before window,layout, cache */
    if(!Initboopsi()) return FALSE;  /* must be inited before window */
    if(!Initrequest()) return FALSE; /* must be inited before io */

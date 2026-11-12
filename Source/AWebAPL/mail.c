@@ -574,10 +574,10 @@ static void Sendmail(struct Fetchdriver *fd)
    {  Buildmessage(fd,&mi);
       for(;;)
       {  r=Sendmessage(fd,&mi);
-         if(r==SMR_OK) break;
+         if(r==SMR_Ok) break;
          if(!Mailretry(fd,&mi,r)) break;
       }
-      if(r==SMR_OK)
+      if(r==SMR_Ok)
       {  Buildresult(fd,&mi);
       }
       Freebuffer(&mi.buf);
@@ -871,7 +871,7 @@ static void Mail_append_listdate_cell(struct Buffer *buf,UBYTE *scratch,UBYTE *d
    Mail_bprintf(buf,scratch,"</TD>\n");
 }
 
-/* Message index: date column + subject/sender column (CSS table cell styles). */
+/* Message index: date column + subject/sender column. */
 static void Mail_index_table_start(struct Buffer *buf,UBYTE *scratch)
 {
    Mail_bprintf(buf,scratch,
@@ -879,9 +879,64 @@ static void Mail_index_table_start(struct Buffer *buf,UBYTE *scratch)
       "<BODY BGCOLOR=\"#FFFFFF\" TEXT=\"#000000\""
       " TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0>\n"
       "<TABLE BORDER=1 WIDTH=\"100%%\" CELLPADDING=2 CELLSPACING=0"
-      " BGCOLOR=\"#FFFFFF\" BORDERCOLOR=\"#CCCCCC\""
-      " STYLE=\"table-layout:fixed;width:100%%;border-collapse:collapse;\">\n"
+      " BGCOLOR=\"#FFFFFF\" BORDERCOLOR=\"#CCCCCC\">\n"
       "<COL WIDTH=\"48\"><COL>\n");
+}
+
+/* Progress row while IMAP envelopes are still being fetched. */
+static void Mail_index_loading_row(struct Buffer *buf,UBYTE *scratch,
+   long done,long total)
+{
+   Mail_bprintf(buf,scratch,"<TR><TD COLSPAN=2><FONT SIZE=2 COLOR=\"#666666\">");
+   if(total > 0)
+   {
+      Mail_bprintf(buf,scratch,"Loading messages (%ld of %ld)...",done,total);
+   }
+   else
+   {
+      Mail_bprintf(buf,scratch,"Loading messages...");
+   }
+   Mail_bprintf(buf,scratch,"</FONT></TD></TR>\n");
+}
+
+/* Replace (not append) the index frame document; docsource clears on AOURL_Reload. */
+static void Mail_index_send(struct Buffer *buf,BOOL eof)
+{
+   if(buf && buf->buffer && buf->length > 0)
+   {
+      Updatetaskattrs(AOURL_Reload,TRUE,
+         AOURL_Data,buf->buffer,
+         AOURL_Datalength,buf->length,
+         eof?AOURL_Eof:TAG_IGNORE,eof,
+         TAG_END);
+   }
+}
+
+/* Progress context passed to the IMAP batch fetch's per-chunk callback so it
+ * can repaint the skeleton index with an updated "Loading X of Y" row without
+ * having to re-render every message line every time. */
+struct Mail_index_progress_ctx
+{  UBYTE *scratch;
+};
+
+/* Mail_index_table_end is defined further down (after the row appender). */
+static void Mail_index_table_end(struct Buffer *buf,UBYTE *scratch);
+
+static void Mail_index_progress_cb(void *udata,long done,long total,
+   BOOL *cancel)
+{  struct Mail_index_progress_ctx *ctx;
+   struct Buffer pbuf={0};
+   ctx=(struct Mail_index_progress_ctx *)udata;
+   if(!ctx) return;
+   if(Checktaskbreak())
+   {  if(cancel) *cancel=TRUE;
+      return;
+   }
+   Mail_index_table_start(&pbuf,ctx->scratch);
+   Mail_index_loading_row(&pbuf,ctx->scratch,done,total);
+   Mail_index_table_end(&pbuf,ctx->scratch);
+   Mail_index_send(&pbuf,FALSE);
+   Freebuffer(&pbuf);
 }
 
 static void Mail_index_append_rows(struct Buffer *buf,UBYTE *scratch,
@@ -928,10 +983,10 @@ static void Mail_sort_folders(struct Mailfolder *folders,long count)
 {  struct Mailfolder tmp;
    long i;
    long j;
+   BOOL swap;
    for(i=0;i<count-1;i++)
    {  for(j=i+1;j<count;j++)
-      {  BOOL swap;
-         swap=FALSE;
+      {  swap=FALSE;
          if(STRIEQUAL(folders[i].name,"INBOX")) continue;
          if(STRIEQUAL(folders[j].name,"INBOX"))
          {  swap=TRUE;
@@ -951,6 +1006,7 @@ static void Mail_sort_folders(struct Mailfolder *folders,long count)
 static void Mail_refresh_folder_cache(struct Fetchdriver *fd)
 {  struct Mailconn mc={0};
    long i;
+   long n;
    mc.fd=fd;
    Mail_folder_cache_valid=FALSE;
    Mail_folder_cache_count=0;
@@ -964,8 +1020,7 @@ static void Mail_refresh_folder_cache(struct Fetchdriver *fd)
       Mail_folder_cache_count=1;
    }
    else
-   {  long n;
-      n=0;
+   {  n=0;
       for(i=0;i<Mail_folder_cache_count;i++)
       {  if(Mail_folder_cache[i].name[0]=='/'
             && Mail_folder_cache[i].name[1]=='\0') continue;
@@ -1026,20 +1081,22 @@ static void Mail_showfolders(struct Fetchdriver *fd)
 static void Mail_showindex(struct Fetchdriver *fd,UBYTE *folder)
 {  struct Mailconn mc={0};
    struct Buffer buf={0};
+   struct Mail_index_progress_ctx ctx;
    unsigned long uids[MAIL_MAX_UIDS];
    struct Mailuid *items;
    long count;
-   long i;
    long maxfetch;
    long start;
    long nfetch;
-   long k;
+   long fetched;
    UBYTE enc[128];
+   UBYTE flabel[96];
    BOOL opened;
    BOOL selected;
    BOOL list_built;
    BOOL oom;
    BOOL cancelled;
+   items=NULL;
    mc.fd=fd;
    if(!folder || !*folder) folder=(UBYTE *)"INBOX";
    ObtainSemaphore(fd->prefssema);
@@ -1055,6 +1112,12 @@ static void Mail_showindex(struct Fetchdriver *fd,UBYTE *folder)
    list_built=FALSE;
    oom=FALSE;
    cancelled=FALSE;
+   fetched=0;
+   /* Skeleton page (plain HTML only; Reload replaces the frame, no JavaScript). */
+   Mail_index_table_start(&buf,fd->block);
+   Mail_index_loading_row(&buf,fd->block,0,0);
+   Mail_index_table_end(&buf,fd->block);
+   Mail_index_send(&buf,FALSE);
    /* Wait for any prior IMAP fetch to finish (do not steal the session lock). */
    if(Mailimap_open(&mc,FALSE))
    {  opened=TRUE;
@@ -1068,31 +1131,44 @@ static void Mail_showindex(struct Fetchdriver *fd,UBYTE *folder)
          if(nfetch>0)
          {  items=ALLOCTYPE(struct Mailuid,nfetch,MEMF_CLEAR);
             if(items)
-            {  for(i=count-1;i>=start;i--)
-               {  k=i-start;
-                  if(Checktaskbreak())
-                  {  cancelled=TRUE;
-                     break;
-                  }
-                  items[k].uid=uids[i];
-                  Mailimap_fetch_envelope(&mc,items[k].uid,
-                     items[k].subject,sizeof(items[k].subject),
-                     items[k].from,sizeof(items[k].from),
-                     items[k].date,sizeof(items[k].date),
-                     &items[k].unseen);
-               }
-               if(!cancelled)
+            {  /* Single command per ~25-UID chunk via Mailimap_fetch_envelopes
+                * is dramatically faster than the previous per-UID round trip
+                * (one TCP round trip + one tagged response per message). The
+                * progress callback repaints the loading row between chunks
+                * so the user sees the bar move on slow servers. */
+               ctx.scratch=fd->block;
+               fetched=Mailimap_fetch_envelopes(&mc,uids+start,nfetch,
+                  items,nfetch,
+                  Mail_index_progress_cb,(void *)&ctx);
+               /* Render whatever rows we managed to receive; even a partial
+                * list is more useful than the "cancelled" stub. If the user
+                * broke before any envelope came back, flag cancelled so the
+                * fallback page below shows the right message. */
+               if(fetched>0)
                {  Freebuffer(&buf);
                   Mail_index_table_start(&buf,fd->block);
-                  Mail_index_append_rows(&buf,fd->block,enc,items,nfetch,start,count,uids);
+                  Mail_index_append_rows(&buf,fd->block,enc,items,nfetch,
+                     start,count,uids);
+                  if(fetched<nfetch)
+                  {  Mail_bprintf(&buf,fd->block,
+                        "<TR><TD COLSPAN=2><FONT SIZE=2 COLOR=\"#666666\">"
+                        "(Stopped after %ld of %ld messages.)"
+                        "</FONT></TD></TR>\n",fetched,nfetch);
+                  }
                   Mail_index_table_end(&buf,fd->block);
                   list_built=TRUE;
-                  Mail_debug("Mail_showindex: list built (%ld lines)",nfetch);
+                  Mail_debug("Mail_showindex: list built (%ld of %ld lines)",
+                     fetched,nfetch);
+               }
+               else if(Checktaskbreak())
+               {  cancelled=TRUE;
+                  Mail_debug("Mail_showindex: cancelled before any envelopes");
                }
                else
-               {  Mail_debug("Mail_showindex: cancelled during fetch");
+               {  Mail_debug("Mail_showindex: no envelopes (server returned none)");
                }
                FREE(items);
+               items=NULL;
             }
             else
             {  oom=TRUE;
@@ -1124,8 +1200,7 @@ static void Mail_showindex(struct Fetchdriver *fd,UBYTE *folder)
             "IMAP connect/login failed (see AWeb log if MAIL_DEBUG).");
       }
       else if(!selected)
-      {  UBYTE flabel[96];
-         Mail_folder_label(folder,flabel,sizeof(flabel));
+      {  Mail_folder_label(folder,flabel,sizeof(flabel));
          Mail_bprintf(&buf,fd->block,"IMAP SELECT failed for folder \"%s\".",flabel);
       }
       else if(opened && selected && count==0)
@@ -1134,7 +1209,7 @@ static void Mail_showindex(struct Fetchdriver *fd,UBYTE *folder)
       Mail_bprintf(&buf,fd->block,"</TD></TR>\n");
       Mail_index_table_end(&buf,fd->block);
    }
-   Updatetaskattrs(AOURL_Data,buf.buffer,AOURL_Datalength,buf.length,TAG_END);
+   Mail_index_send(&buf,TRUE);
    Mail_debug("Mail_showindex: document sent (%ld bytes)",buf.length);
    if(opened)
    {  Mailimap_close(&mc);
@@ -1176,6 +1251,7 @@ static void Mail_showmessage(struct Fetchdriver *fd,UBYTE *folder,unsigned long 
 {  struct Mailconn mc={0};
    struct Buffer err={0};
    UBYTE *body;
+   UBYTE *deliver;
    long bodylen;
    BOOL ok;
    mc.fd=fd;
@@ -1187,8 +1263,8 @@ static void Mail_showmessage(struct Fetchdriver *fd,UBYTE *folder,unsigned long 
    {  ok=TRUE;
    }
    else
-   {  /* FALSE = wait for index/other IMAP use to finish (do not fail as "busy"). */
-      if(Mailimap_open(&mc,FALSE))
+   {        /* TRUE = block until index/other IMAP use releases the global mail lock. */
+      if(Mailimap_open(&mc,TRUE))
       {  if(Mailimap_select(&mc,folder))
          {  if(Mailimap_fetch_body(&mc,uid,&body,&bodylen))
             {  Mail_cache_write(fd,folder,uid,body,bodylen);
@@ -1215,8 +1291,7 @@ static void Mail_showmessage(struct Fetchdriver *fd,UBYTE *folder,unsigned long 
     * may retain pointers only until it copies, and we must not FREE the IMAP
     * buffer until the source task has finished reading this chunk. */
    if(ok && body)
-   {  UBYTE *deliver;
-      deliver=ALLOCTYPE(UBYTE,bodylen,MEMF_PUBLIC);
+   {  deliver=ALLOCTYPE(UBYTE,bodylen,MEMF_PUBLIC);
       if(deliver)
       {  memcpy(deliver,body,bodylen);
          FREE(body);
@@ -1226,6 +1301,7 @@ static void Mail_showmessage(struct Fetchdriver *fd,UBYTE *folder,unsigned long 
             AOURL_Datalength,bodylen,
             TAG_END);
          FREE(deliver);
+         deliver=NULL;
       }
       else
       {  Updatetaskattrs(AOURL_Contenttype,"message/rfc822",
@@ -1233,6 +1309,7 @@ static void Mail_showmessage(struct Fetchdriver *fd,UBYTE *folder,unsigned long 
             AOURL_Datalength,bodylen,
             TAG_END);
          FREE(body);
+         body=NULL;
       }
    }
    else

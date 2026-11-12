@@ -230,10 +230,16 @@ static BOOL Assl_wait_io(struct Assl *assl, BOOL want_read, BOOL want_write, lon
    tv.tv_usec = 0;
    nfds = assl->sock + 1;
 
-   /* Retry on EINTR (errno 4): same rationale as Readblock — not a fatal select error. */
+   /* Retry on EINTR (errno 4): same rationale as Readblock — not a fatal select error.
+    *
+    * Do NOT hold socketbase_swap_sema across WaitSelect.  That global lock would
+    * serialize every HTTP task for up to `seconds` and stall parallel fetches
+    * (stylesheet TCP/TLS while HTML drains a chunked trailer).  bsdsocket LVOs
+    * capture A6 at stub entry; SocketBase only needs to be correct for the call. */
    intr_tries = 0;
    for(;;)
-   {  saved = AcquireSocketBaseSwap(assl->socketbase);
+   {  saved = SocketBase;
+      SocketBase = assl->socketbase;
       rc = WaitSelect((int)nfds,
                       want_read ? &rfds : NULL,
                       want_write ? &wfds : NULL,
@@ -244,7 +250,7 @@ static BOOL Assl_wait_io(struct Assl *assl, BOOL want_read, BOOL want_write, lon
       if(rc < 0)
       {  errno_value = Errno();
       }
-      ReleaseSocketBaseSwap(saved);
+      SocketBase = saved;
 
       if(rc > 0) return TRUE;
       if(rc == 0)
@@ -2512,6 +2518,10 @@ __asm long Assl_write(register __a0 struct Assl *assl,
   /* CRITICAL: Shadow global AmiSSLBase */
   /* struct Library *AmiSSLBase = NULL; */ /* Removed - use global directly */
   /* struct Library *local_amisslbase = NULL; */ /* Removed */
+
+  /* Empty write is a no-op success (POST with Content-Length: 0). */
+  if (assl && buffer && length == 0)
+    return 0;
 
   /* Validate basic parameters first */
   /* Validate buffer pointer range to prevent CHK instruction errors */

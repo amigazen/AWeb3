@@ -87,7 +87,8 @@ static BOOL IsEmailUrl(UBYTE *url)
    
    ext = url + len - 4;
    if(!strnicmp(ext, ".eml", 4)) return TRUE;
-   
+   if(!strnicmp(url, "mail:", 5)) return TRUE;
+
    return FALSE;
 }
 
@@ -123,8 +124,10 @@ static BOOL IsEmailContent(UBYTE *data, long length)
 __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
 {
    struct EmlFilterData *fd;
+   struct EmailMessage *message;
    BOOL should_filter;
    
+   message = NULL;
    EMLDBG4("Filterplugin enter pf=%lx eof=%ld len=%ld userdata=%lx",
       (ULONG)pf, pf ? (ULONG)pf->eof : 0, pf ? pf->length : 0,
       pf ? (ULONG)pf->userdata : 0);
@@ -168,6 +171,10 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
       if(IsEmailContentType(pf->contenttype))
       {  should_filter = TRUE;
       }
+      EMLDBG3("Filterplugin classify: contenttype=%s url=%s should_filter=%ld",
+         pf->contenttype ? pf->contenttype : (UBYTE *)"(null)",
+         pf->url ? pf->url : (UBYTE *)"(null)",
+         (ULONG)should_filter);
       
       /* Check URL extension as fallback - but verify content on first chunk */
       if(!should_filter && IsEmailUrl(pf->url))
@@ -213,6 +220,9 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
          if(url_suggests_email || content_type_suggests_email)
          {  if(IsEmailContent(pf->data, pf->length))
             {  fd->is_email = TRUE;
+               EMLDBG2("Filterplugin sniff: url_suggests=%ld contenttype_suggests=%ld is_email=1",
+                  (ULONG)url_suggests_email,
+                  (ULONG)content_type_suggests_email);
                if(!fd->parser)
                {  fd->parser = (struct EmlParser *)AllocVec(sizeof(struct EmlParser), MEMF_CLEAR);
                   if(fd->parser)
@@ -223,6 +233,11 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
                   }
                }
             }
+            else
+            {  EMLDBG2("Filterplugin sniff: url_suggests=%ld contenttype_suggests=%ld is_email=0",
+                  (ULONG)url_suggests_email,
+                  (ULONG)content_type_suggests_email);
+            }
          }
       }
       
@@ -232,7 +247,7 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
           * and write a proper HTML header */
          if(fd->first)
          {
-            Setfiltertype(pf->handle, "text/html");
+            Setfiltertype(pf->handle, "text/html; charset=UTF-8");
             fd->first = FALSE;
          }
          
@@ -240,6 +255,42 @@ __asm __saveds void Filterplugin(register __a0 struct Pluginfilter *pf)
          EMLDBG2("Filterplugin: ParseEmlChunk len=%ld buflen=%ld",
             pf->length, fd->parser->buflen);
          ParseEmlChunk(fd->parser, pf->data, pf->length);
+         message = fd->parser->message;
+         if(message)
+         {  EMLDBG5("Filterplugin post-parse: headers=%ld multipart=%ld html=%lx text=%lx attachments=%ld",
+               (ULONG)fd->parser->headers_complete,
+               (ULONG)message->is_multipart,
+               (ULONG)message->html_part,
+               (ULONG)message->text_part,
+               message->attachment_count);
+            if(message->html_part)
+            {  EMLDBG2("Filterplugin post-parse: html len=%ld data=%lx",
+                  message->html_part->datalen,
+                  (ULONG)message->html_part->data);
+            }
+            if(message->text_part)
+            {  EMLDBG2("Filterplugin post-parse: text len=%ld data=%lx",
+                  message->text_part->datalen,
+                  (ULONG)message->text_part->data);
+            }
+         }
+         /* Single-chunk mail: render now so the document is not empty until EOF. */
+         if(!fd->rendered && fd->parser->headers_complete
+         && fd->parser->message
+         && (fd->parser->message->html_part || fd->parser->message->text_part))
+         {
+            EMLDBG2("Filterplugin early render: html=%lx text=%lx",
+               (ULONG)fd->parser->message->html_part,
+               (ULONG)fd->parser->message->text_part);
+            RenderEmailToHtml(fd, pf->handle);
+            fd->rendered = TRUE;
+         }
+         else if(fd->rendered)
+         {  EMLDBG0("Filterplugin early render skipped: already rendered");
+         }
+         else if(fd->parser->headers_complete)
+         {  EMLDBG0("Filterplugin early render skipped: no html/text part yet");
+         }
       }
       else
       {  /* Not an email after all, pass through unchanged */

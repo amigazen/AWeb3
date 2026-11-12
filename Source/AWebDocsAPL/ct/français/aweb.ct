@@ -1,5 +1,5 @@
 ## version $VER: AWeb.catalog 1.34 (07.01.2001)
-## language français
+## language franï¿½ais
 ## codeset 0
 ;
 ; AWeb.cd - AWeb catalog description file
@@ -13,72 +13,72 @@
 ;-------------- General -----------------------------
 ;
 MSG_REQUEST_TITLE
-Requête d'AWeb
+Requï¿½te d'AWeb
 ; AWeb request
 ;
 ;
 ;-------------- About requester ---------------------
 ;
 MSG_ABOUT_TITLE
-À propos d'AWeb
+ï¿½ propos d'AWeb
 ; About AWeb
 ;
 MSG_ABOUT_REGNR
-N° d'enregistrement 
+Nï¿½ d'enregistrementï¿½
 ; Registration #
 ;
 MSG_ABOUT_REGTO
-Enregistré à 
+Enregistrï¿½ ï¿½
 ; Registered to
 ;
 MSG_ABOUT_SCREENNAME
- \n\
-Nom de l'écran public 
+ï¿½\n\
+Nom de l'ï¿½cran publicï¿½
 ; Public screen name
 ;
 MSG_ABOUT_PORTNAME
-Nom du port ARexx 
+Nom du port ARexxï¿½
 ; ARexx port name
 ;
 MSG_ABOUT_EMAIL
-Adresse électronique 
+Adresse ï¿½lectroniqueï¿½
 ; E-mail
 ;
 MSG_ABOUT_WWW
-WWW 
+WWWï¿½
 ; WWW
 ;
 MSG_ABOUT_OK
-_Ok
-; _Ok
+_OK 
+; _OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Version non enregistrée\n
+Version non enregistrï¿½e\n
 ; Unregistered version\n
 ;
 MSG_ABOUT_DEMO
-Version de démonstration non enregistrée\n
+Version de dï¿½monstration non enregistrï¿½e\n
 ; Unregistered demo version\n
 ;
 MSG_ABOUT_DISTRIBUTED
-Distribué par %s
+Distribuï¿½ par %s
 ; Distributed by %s
 ;
 ; Translators give yourself credit with this string.
 ; It should read something like "(Language) translation by: (your name)\n"
 ;
 MSG_ABOUT_TRANSLATOR
-Traduction française effectuée par :\n\
+Traduction franï¿½aise effectuï¿½e par :\n\
 \n                 AWeb 3.1\n\
-» Jean-Michel Bezeau   » Georges Goncalves\n\
-» Julien Wilk          » Jacques Foury\n\
+ï¿½ Jean-Michel Bezeau   ï¿½ Georges Goncalves\n\
+ï¿½ Julien Wilk          ï¿½ Jacques Foury\n\
 \n                 AWeb 3.3\n\
-» Didier Giron         » Hervé Dupont\n\n\
+ï¿½ Didier Giron         ï¿½ Hervï¿½ Dupont\n\n\
 \n                 AWeb 3.4\n\
-» Jean-Marc Mossu      » Hervé Dupont\n\n
+ï¿½ Jean-Marc Mossu      ï¿½ Hervï¿½ Dupont\n\n
 ;
 MSG_ABOUT_SPECIAL
-Version spéciale distribuée avec Amiga OS\n\
+Version spï¿½ciale distribuï¿½e avec Amiga OS\n\
 
 ; Special version for distribution with Amiga OS\n
 ;
@@ -90,34 +90,34 @@ Voulez-vous vraiment quitter AWeb ?
 ;
 MSG_QUIT_OK
 _Oui
-; _Ok
+; _OK 
 ;
 MSG_QUIT_CANCEL
 _Annuler
 ; _Cancel
 ;
 MSG_QUIT_WARNING
-ATTENTION : Les transferts seront annulés !\n\n
+ATTENTION : Les transferts seront annulï¿½s !\n\n
 ; WARNING: Transfers will be aborted!\n\n
 ;
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Ceci est la version de démonstration de AWeb,\n\
-elle ne peut ouvrir plusieurs fenêtres de navigation\n\
-à la fois dans plusieurs fenêtres.
+Ceci est la version de dï¿½monstration de AWeb,\n\
+elle ne peut ouvrir plusieurs fenï¿½tres de navigation\n\
+ï¿½ la fois dans plusieurs fenï¿½tres.
 ; This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
 D'acc_ord
-; _Ok
+; _OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-AWeb ne peut pas fermer son écran.\n\
-Veuillez fermer toutes les fenêtres.
+AWeb ne peut pas fermer son ï¿½cran.\n\
+Veuillez fermer toutes les fenï¿½tres.
 ; AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
@@ -128,19 +128,19 @@ D'accord
 ;-------------- Network status window ---------------
 ;
 MSG_NWS_TITLE
-État du réseau
+ï¿½tat du rï¿½seau
 ; Network status
 ;
 MSG_NWS_QUEUED
-Envoyé(s)
+Envoyï¿½(s)
 ; Queued
 ;
 MSG_NWS_STARTED
-Commencé(s)
+Commencï¿½(s)
 ; Started
 ;
 MSG_NWS_LOOKUP
-Vérification
+Vï¿½rification
 ; Looking up
 ;
 MSG_NWS_CONNECT
@@ -178,7 +178,7 @@ Autorisation
 ; Authorization
 ;
 MSG_AUTH_PROMPT
-Identification (ID) et mot de passe nécessaires pour
+Identification (ID) et mot de passe nï¿½cessaires pour
 ; Userid and password required for
 ;
 MSG_AUTH_USERID
@@ -191,14 +191,14 @@ _Mot de passe
 ;
 MSG_AUTH_OK
 D'acc_ord
-; _Ok
+; _OK 
 ;
 MSG_AUTH_CANCEL
 _Annuler
 ; _Cancel
 ;
 MSG_AUTH_PROMPT_FTP
-Mot de passe nécessaire pour
+Mot de passe nï¿½cessaire pour
 ; Password required for
 ;
 MSG_AUTH_USERID_FTP
@@ -206,13 +206,13 @@ Identification (ID)
 ; Userid
 ;
 MSG_AUTH_PROMPT_PROXY
-Identification (ID) et mot de passe nécessaires pour le proxy
+Identification (ID) et mot de passe nï¿½cessaires pour le proxy
 ; Userid and password required for proxy
 ;
 ;-------------- File requesters ---------------------
 ;
 MSG_FILE_SAVETITLE
-Choisir le nom du fichier à sauver
+Choisir le nom du fichier ï¿½ sauver
 ; Select save filename
 ;
 MSG_FILE_SAVE
@@ -223,8 +223,8 @@ MSG_FILE_INCTEXT
 Fichier incomplet !\n\
 %s\n\
 Attendus : %ld octets\n\
-Reçus : %ld octets\n\
-Choisir « D'accord » pour conserver les données reçues.
+Reï¿½us : %ld octets\n\
+Choisir ï¿½ D'accord ï¿½ pour conserver les donnï¿½es reï¿½ues.
 ; Incomplete file!\n%s\nExpected: %ld bytes\nReceived: %ld bytes\n\n\
 ; Choose OK to keep the partial data.
 ;
@@ -232,11 +232,11 @@ MSG_DUMMY_1
 
 ; 
 MSG_FILE_EXISTTEXT
-Le fichier :\n%s\nexiste déjà !
+Le fichier :\n%s\nexiste dï¿½jï¿½ !
 ; File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-_Remplacer|_Compléter|Re_nommer|_Annuler
+_Remplacer|_Complï¿½ter|Re_nommer|_Annuler
 ; _Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
@@ -244,7 +244,7 @@ Choisir une macro ARexx
 ; Select ARexx macro
 ;
 MSG_FILE_HOTLISTTITLE
-Choisir une liste hiérarchique de favoris
+Choisir une liste hiï¿½rarchique de favoris
 ; Select hierarchical hotlist
 ;
 MSG_FILE_LOCALTITLE
@@ -263,24 +263,24 @@ Utilisation de T: !
 ;
 MSG_FILE_TEMPBUTTONS
 D'acc_ord
-; _Ok
+; _OK 
 ;
 MSG_FILE_INCBUTTONS2
-D'acc_ord|_Réessayer|_Annuler
-; _Ok|_Retry|_Cancel
+D'acc_ord|_Rï¿½essayer|_Annuler
+; _OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
-Choisir le répertoire des préférences
+Choisir le rï¿½pertoire des prï¿½fï¿½rences
 ; Select settings directory
 ;
 MSG_FILE_UPLOADTITLE
-Choisir un fichier à transférer
+Choisir un fichier ï¿½ transfï¿½rer
 ; Select file to upload
 ;
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-AWeb est arrêté.\n\
+AWeb est arrï¿½tï¿½.\n\
 Voulez-vous mettre fin aux connexions TCP existantes ?
 ; AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
@@ -399,15 +399,15 @@ Retirer _>
 ; Out _>
 ;
 MSG_HOTL_MOVE
-< Dé_placer
+< Dï¿½_placer
 ; < _Move
 ;
 MSG_HOTL_DEL
-_Détruire
+_Dï¿½truire
 ; _Delete
 ;
 MSG_HOTL_WHERE
-O_ù
+O_ï¿½
 ; _Where
 ;
 MSG_HOTL_SHOW
@@ -419,7 +419,7 @@ _Trier
 ; Sor_t
 ;
 MSG_HOTL_PARENT
-Pr_écédent
+Pr_ï¿½cï¿½dent
 ; _Parent
 ;
 MSG_HOTL_ALL
@@ -427,7 +427,7 @@ _Groupes
 ; G_roups
 ;
 MSG_HOTL_ADDENTRY
-+ _Entrée
++ _Entrï¿½e
 ; + _Entry
 ;
 MSG_HOTL_ADDGROUP2
@@ -475,15 +475,15 @@ Tous les groupes
 ; All groups
 ;
 MSG_HOTL_TITLE_WHERE
-Groupes contenant cette entrée
+Groupes contenant cette entrï¿½e
 ; Groups containing this entry
 ;
 MSG_HOTL_TITLE_REST
-Entrées non assignées
+Entrï¿½es non assignï¿½es
 ; Unassigned entries
 ;
 MSG_HOTL_TITLE_ALL
-Toutes les entrées
+Toutes les entrï¿½es
 ; All entries
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
@@ -498,7 +498,7 @@ Date
 ;--------------  Window history requester -------------------
 ;
 MSG_WHIS_TITLE
-Fenêtre de l'historique
+Fenï¿½tre de l'historique
 ; Window history
 ;
 MSG_WHIS_FILTER
@@ -506,7 +506,7 @@ _Filtre
 ; _Filter
 ;
 MSG_WHIS_WINDOW
-F_enêtre
+F_enï¿½tre
 ; _Window
 ;
 MSG_WHIS_ORDER
@@ -526,7 +526,7 @@ Grandes lignes
 ; Mainline
 ;
 MSG_WHIS_ORDER_RETRIEVED
-Récupéré
+Rï¿½cupï¿½rï¿½
 ; Retrieved
 ;
 MSG_WHIS_ORDER_TITLE
@@ -581,7 +581,7 @@ _Sauver
 ; Sa_ve
 ;
 MSG_CABR_DELETE
-_Détruire
+_Dï¿½truire
 ; _Delete
 ;
 MSG_CABR_FIND
@@ -600,7 +600,7 @@ S_uivant
 ;-------------- Progress requester ----------------------
 ;
 MSG_PROGRESS_TITLE
-Exécution en cours...
+Exï¿½cution en cours...
 ; AWeb progress
 ;
 MSG_PROGRESS_CANCEL
@@ -612,34 +612,34 @@ Annuler
 ;
 MSG_FIXCACHE_WARNING
 Attention !\n\
-Cette opération va détruire tous les fichiers\n\
-étrangers du répertoire %s
+Cette opï¿½ration va dï¿½truire tous les fichiers\n\
+ï¿½trangers du rï¿½pertoire %s
 ; WARNING!\n\
 ; This function will delete all foreign files from the\n\
 ; %s drawer
 ;
 MSG_FIXCACHE_BUTTONS
 D'acc_ord|_Annuler
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
 Indexation du cache disque en cours...
 ; Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Êtes-vous sûr de vouloir détruire\n\
+ï¿½tes-vous sï¿½r de vouloir dï¿½truire\n\
 toutes les images du cache ?
 ; Are you sure you want to delete\n\
 ; all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Êtes-vous sûr de vouloir détruire\n\
+ï¿½tes-vous sï¿½r de vouloir dï¿½truire\n\
 tous les documents du cache ?
 ; Are you sure you want to delete\n\
 ; all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
-Êtes-vous sûr de vouloir détruire\n\
+ï¿½tes-vous sï¿½r de vouloir dï¿½truire\n\
 tous les documents et images du cache ?\n\
 ; Are you sure you want to delete\n\
 ; all documents and images from the cache?
@@ -649,7 +649,7 @@ tous les documents et images du cache ?\n\
 MSG_FIXCACHE_CORRUPT
 L'index du cache est illisible ou provient\n\
 d'une ancienne version d'AWeb.\n\
-Les fichiers du cache ne peuvent plus être utilisés.\n\
+Les fichiers du cache ne peuvent plus ï¿½tre utilisï¿½s.\n\
 Voulez-vous les supprimer maintenant ?
 ; The cache registration is unreadable\n\
 ; or from an older version of AWeb.\n\
@@ -663,7 +663,7 @@ Re_chercher
 ; Search _for
 ;
 MSG_SEARCH_IGNORECASE
-_Ignorer la différence entre majuscules et minuscules
+_Ignorer la diffï¿½rence entre majuscules et minuscules
 ; _Ignore case
 ;
 MSG_SEARCH_SEARCH
@@ -671,11 +671,11 @@ En a_vant
 ; _Search
 ;
 MSG_SEARCH_FROMTOP
-_Du début
+_Du dï¿½but
 ; From _top
 ;
 MSG_SEARCH_BACKWARDS
-En a_rrière
+En a_rriï¿½re
 ; _Backwards
 ;
 MSG_SEARCH_CANCEL
@@ -683,12 +683,12 @@ _Annuler
 ; _Cancel
 ;
 MSG_SEARCH_NOTFOUND
-Chaîne introuvable
+Chaï¿½ne introuvable
 ; String not found
 ;
 MSG_SEARCH_OK
 D'acc_ord
-; _Ok
+; _OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
@@ -706,7 +706,7 @@ Sauver l'image
 ; Save image
 ;
 MSG_POPUP_DOWNLOADIMAGE
-Télécharger l'image
+Tï¿½lï¿½charger l'image
 ; Download image
 ;
 MSG_POPUP_FLUSHIMAGE
@@ -722,11 +722,11 @@ Ouvrir le lien
 ; Open link
 ;
 MSG_POPUP_OPENLINKNW
-Ouvrir dans une nouvelle fenêtre
+Ouvrir dans une nouvelle fenï¿½tre
 ; Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Charger le lien en arrière-plan
+Charger le lien en arriï¿½re-plan
 ; Load link in background
 ;
 MSG_POPUP_SAVELINK
@@ -734,7 +734,7 @@ Sauver le lien
 ; Save link
 ;
 MSG_POPUP_DOWNLOADLINK
-Télécharger le lien
+Tï¿½lï¿½charger le lien
 ; Download link
 ;
 MSG_POPUP_ADDLINK
@@ -754,7 +754,7 @@ Visualiser le document source
 ; View source
 ;
 MSG_POPUP_SHOWFRAME
-Visualiser séparément
+Visualiser sï¿½parï¿½ment
 ; Show separately
 ;
 MSG_POPUP_SEARCHFRAME
@@ -768,15 +768,15 @@ Informations
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Paramètres d'impression
+Paramï¿½tres d'impression
 ; Print parameters
 ;
 MSG_PRINTP_SCALE
-Éc_helle (%)
+ï¿½c_helle (%)
 ; _Scale (%)
 ;
 MSG_PRINTP_PRINTBG
-_Imprimer les arrière-plans
+_Imprimer les arriï¿½re-plans
 ; Print _backgrounds
 ;
 MSG_PRINTP_FORMFEED
@@ -801,7 +801,7 @@ Imprimante inaccessible
 ;
 MSG_PRINT_OK
 D'acc_ord
-; _Ok
+; _OK 
 ;
 MSG_PRINT_PROGRESS
 Impression en cours...
@@ -812,7 +812,7 @@ _Largeur page
 ; _Layout Width
 ;
 MSG_PRINTP_LW_WINDOW
-Fenêtre
+Fenï¿½tre
 ; Window
 ;
 MSG_PRINTP_LW_DOCUMENT
@@ -820,7 +820,7 @@ Document
 ; Document
 ;
 MSG_PRINTP_LW_SCREEN
-Écran
+ï¿½cran
 ; Screen
 ;
 ;
@@ -831,7 +831,7 @@ Alerte cookie !
 ; Cookie alert
 ;
 MSG_COOKIE_WARNING
-Création d'un cookie de type Netscape !
+Crï¿½ation d'un cookie de type Netscape !
 ; About to set a NetScape cookie!
 ;
 MSG_COOKIE_NAME
@@ -855,11 +855,11 @@ Commentaire :
 ; Comment:
 ;
 MSG_COOKIE_MAXAGE
-Âge-maxi :
+ï¿½ge-maxi :
 ; Max-age:
 ;
 MSG_COOKIE_EXPIRES
-Validité :
+Validitï¿½ :
 ; Expires:
 ;
 MSG_COOKIE_ONCE
@@ -880,12 +880,12 @@ _Annuler
 ;
 MSG_COOKIE_SECURE
 AWeb ne renverra ce cookie que par\n\
-une connexion sécurisée.
+une connexion sï¿½curisï¿½e.
 ; AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb renverra ce cookie également sous\n\
-connexion NON SÉCURISÉE.
+AWeb renverra ce cookie ï¿½galement sous\n\
+connexion NON Sï¿½CURISï¿½E.
 ; AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
@@ -900,11 +900,11 @@ Lu depuis le cache d'AWeb
 ; Read from AWeb cache
 ;
 MSG_INFO_XFER
-En-têtes de transfert :
+En-tï¿½tes de transfert :
 ; Transfer headers:
 ;
 MSG_INFO_META
-Méta-informations :
+Mï¿½ta-informations :
 ; Meta information:
 ;
 MSG_INFO_LINK
@@ -912,11 +912,11 @@ Liens utilisables :
 ; Clickable links:
 ;
 MSG_INFO_CIPHER
-Méthode d'encryptage HTTPS : %s
+Mï¿½thode d'encryptage HTTPS : %s
 ; HTTPS cipher method: %s
 ;
 MSG_INFO_SSLLIBRARY
-Bibliothèque SSL utilisée : %s
+Bibliothï¿½que SSL utilisï¿½e : %s
 ; SSL library used: %s
 ;
 ;-------------- Default buttons ---------------------
@@ -933,7 +933,7 @@ Horloge
 ;-------------- Authorizations edit requester -------
 ;
 MSG_AUTHEDIT_TITLE
-Édition des autorisations
+ï¿½dition des autorisations
 ; Edit authorizations
 ;
 MSG_AUTHEDIT_TITLE_SERVER
@@ -945,7 +945,7 @@ Identification
 ; Userid
 ;
 MSG_AUTHEDIT_DEL
-_Détruire
+_Dï¿½truire
 ; _Del
 ;
 MSG_AUTHEDIT_SERVER
@@ -965,7 +965,7 @@ Mot de _passe
 ;
 MSG_JSPROMPT_OK
 D'acc_ord
-; _Ok
+; _OK 
 ;
 MSG_JSPROMPT_CANCEL
 _Annuler
@@ -979,13 +979,13 @@ Avertissement de AWeb
 ; AWeb warning
 ;
 MSG_FORMWARN_WARNING
-Les données de ce formulaire seront\n\
-envoyées par connexion NON SÉCURISÉE.
+Les donnï¿½es de ce formulaire seront\n\
+envoyï¿½es par connexion NON Sï¿½CURISï¿½E.
 ; Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
 D'acc_ord|_Annuler
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
@@ -995,36 +995,36 @@ Erreur du gestionnaire de courrier d'AWeb
 ; AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Il vous faut d'abord configurer votre hôte SMTP.\n\
-Consultez les réglages Réseau/Courrier.
+Il vous faut d'abord configurer votre hï¿½te SMTP.\n\
+Consultez les rï¿½glages Rï¿½seau/Courrier.
 ; You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
-Impossible de se connecter à %s.
+Impossible de se connecter ï¿½ %s.
 ; Can't connect to %s.
 ;
 MSG_MAIL_MAILFAILED
-L'envoi du message a échoué.
+L'envoi du message a ï¿½chouï¿½.
 ; Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-_Réessayer|_Sauver|_Annuler
+_Rï¿½essayer|_Sauver|_Annuler
 ; _Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
-La sauvegarde du message a échoué
+La sauvegarde du message a ï¿½chouï¿½
 ; Save failed message
 ;
 MSG_MAIL_MAILTO_TITLE
-Envoyer à %s
+Envoyer ï¿½ %s
 ; Mail to %s
 ;
 MSG_MAIL_MAILTO_HEADER
-Envoyer à : %s
+Envoyer ï¿½ : %s
 ; Mail to: %s
 ;
 MSG_MAIL_TO
-À :
+ï¿½ :
 ; To:
 ;
 MSG_MAIL_SUBJECT
@@ -1036,7 +1036,7 @@ Corps du message :
 ; Message body:
 ;
 MSG_MAIL_EXTRA_HEADERS
-En-têtes supplémentaires ajoutées
+En-tï¿½tes supplï¿½mentaires ajoutï¿½es
 ; Extra mail headers included
 ;
 MSG_MAIL_SEND
@@ -1044,7 +1044,7 @@ Envoyer le courrier
 ; Send mail
 ;
 MSG_MAIL_RESET
-Réinitialiser
+Rï¿½initialiser
 ; Reset
 ;
 MSG_MAIL_RETURN
@@ -1052,7 +1052,7 @@ Retour
 ; Return
 ;
 MSG_MAIL_MAIL_SENT_TITLE
-Courrier envoyé à : %s
+Courrier envoyï¿½ ï¿½ : %s
 ; Mail sent to: %s
 ;
 MSG_MAIL_MAIL_SENT
@@ -1068,24 +1068,24 @@ Erreur du lecteur de forums d'AWeb
 ; AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Il vous faut d'abord configurer votre hôte NNTP.\n\
-Consultez les réglages Réseau/Courrier.
+Il vous faut d'abord configurer votre hï¿½te NNTP.\n\
+Consultez les rï¿½glages Rï¿½seau/Courrier.
 ; You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
-Impossible de se connecter à %s.
+Impossible de se connecter ï¿½ %s.
 ; Can't connect to %s.
 ;
 MSG_NEWS_POSTFAILED
-L'envoi de l'article a échoué.
+L'envoi de l'article a ï¿½chouï¿½.
 ; Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-_Réessayer|_Sauvegarder|_Annuler
+_Rï¿½essayer|_Sauvegarder|_Annuler
 ; _Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
-Sauver l'envoi ayant échoué
+Sauver l'envoi ayant ï¿½chouï¿½
 ; Save failed article
 ;
 MSG_NEWS_NEWS_HEADER
@@ -1093,7 +1093,7 @@ Nouvelles
 ; News
 ;
 MSG_NEWS_SUBSCRIBED
-Groupes de discussion reçus
+Groupes de discussion reï¿½us
 ; Subscribed newsgroups
 ;
 ; Don't forget to include the '8' in the %8ld below:
@@ -1102,11 +1102,11 @@ MSG_NEWS_NEW_ARTICLES
 ; %8ld new articles
 ;
 MSG_NEWS_CATCH_UP
-Lecture terminée
+Lecture terminï¿½e
 ; Catch up
 ;
 MSG_NEWS_UNSUBSCRIBE
-Se désabonner
+Se dï¿½sabonner
 ; Unsubscribe
 ;
 MSG_NEWS_OTHER_GROUP
@@ -1130,9 +1130,9 @@ Rechercher
 ; Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-La première fois que vous effectuez une\n\
+La premiï¿½re fois que vous effectuez une\n\
 recherche de groupe, une liste de tous les\n\
-groupes de discussion sera chargée. Ceci\n\
+groupes de discussion sera chargï¿½e. Ceci\n\
 peut prendre plusieurs minutes.
 ; The first time you search for a group,\n\
 ; a list of all newsgroup names will be downloaded.\n\
@@ -1160,7 +1160,7 @@ Le groupe %s n'existe pas.
 ; <h1>Error</h1>\nGroup %s does not exist.
 ;
 MSG_NEWS_USE_FRAMES
-Ce lecteur est configuré pour utiliser les cadres
+Ce lecteur est configurï¿½ pour utiliser les cadres
 ; News is configured to use frames
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
@@ -1172,7 +1172,7 @@ Faire suivre
 ; Follow-up
 ;
 MSG_NEWS_REPLY
-Répondre par courrier
+Rï¿½pondre par courrier
 ; Reply in e-mail
 ;
 MSG_NEWS_SAVE
@@ -1192,7 +1192,7 @@ Corps de l'article :
 ; Article body:
 ;
 MSG_NEWS_EXTRA_HEADERS
-En-têtes supplémentaires ajoutées
+En-tï¿½tes supplï¿½mentaires ajoutï¿½es
 ; Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
@@ -1200,7 +1200,7 @@ Poster l'article
 ; Post article
 ;
 MSG_NEWS_RESET
-Réinitialiser
+Rï¿½initialiser
 ; Reset
 ;
 MSG_NEWS_RETURN
@@ -1212,23 +1212,23 @@ Faire suivre l'article
 ; Follow-up to article
 ;
 MSG_NEWS_FOLLOWUP_TO_GROUPS
-Faire suivre à :
+Faire suivre ï¿½ :
 ; Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Veuillez effacer les lignes citées non nécessaires
+Veuillez effacer les lignes citï¿½es non nï¿½cessaires
 ; Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
-Répondre à l'article
+Rï¿½pondre ï¿½ l'article
 ; Reply to article
 ;
 MSG_NEWS_REPLY_TO_ADDRESS
-Répondre à :
+Rï¿½pondre ï¿½ :
 ; Reply to:
 ;
 MSG_NEWS_ARTICLE_POSTED_TITLE
-Article posté
+Article postï¿½
 ; Article posted
 ;
 MSG_NEWS_ARTICLE_POSTED
@@ -1249,15 +1249,15 @@ Ceci peut prendre plusieurs minutes.
 ; Downloading newsgroup list. This can take several minutes.
 ;
 MSG_NEWS_SEARCH_RESULT
-Résultat de la recherche
+Rï¿½sultat de la recherche
 ; Search result
 ;
 MSG_NEWS_FIRST_MATCHING
-Noms des %ld premiers groupes sur %ld correspondant à <B>%s</B>
+Noms des %ld premiers groupes sur %ld correspondant ï¿½ <B>%s</B>
 ; First %ld of %ld newsgroup names matching <B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
-%ld groupe(s) correspondant à <B>%s</B> trouvé(s)
+%ld groupe(s) correspondant ï¿½ <B>%s</B> trouvï¿½(s)
 ; Found %ld newsgroup names matching <B>%s</B>
 ;
 ;
@@ -1268,16 +1268,16 @@ Avertissement d'AWeb
 ; AWeb warning
 ;
 MSG_CMDWARN_SHELL
-Sur le point d'exécuter la commande shell :\n%s
+Sur le point d'exï¿½cuter la commande shell :\n%s
 ; About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
-Sur le point d'exécuter le programme ARexx :\n%s
+Sur le point d'exï¿½cuter le programme ARexx :\n%s
 ; About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
 D'acc_ord|_Annuler
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
@@ -1287,19 +1287,19 @@ Message d'AWeb
 ; AWeb warning
 ;
 MSG_SSLWARN_SSL_TEXT
-Impossible d'effectuer une connexion sécurisée avec\n\
+Impossible d'effectuer une connexion sï¿½curisï¿½e avec\n\
 %s:\n\
 %s\n\
 \\ \n\
-Effectuer une connexion non-sécurisée ?
+Effectuer une connexion non-sï¿½curisï¿½e ?
 ; Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?
 ;
 MSG_SSLWARN_SSL_BUTTONS
-_Non-sécurisée|_Annuler
+_Non-sï¿½curisï¿½e|_Annuler
 ; _Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Les connexions sécurisées ne sont réalisées qu'avec Miami et MiamiSSL
+Les connexions sï¿½curisï¿½es ne sont rï¿½alisï¿½es qu'avec Miami et MiamiSSL
 ; Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
@@ -1307,13 +1307,13 @@ Message d'AWeb
 ; AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-La certification pour %s ne peut pas être vérifiée.\nDétails : %s\n\
+La certification pour %s ne peut pas ï¿½tre vï¿½rifiï¿½e.\nDï¿½tails : %s\n\
 \n\
-Si vous continuez, les données seront cryptées (protection contre\n\
-la lecture), mais l'identité du serveur ne sera pas vérifiée\n\
-(-PAS- de protection contre le détournement).\n\
+Si vous continuez, les donnï¿½es seront cryptï¿½es (protection contre\n\
+la lecture), mais l'identitï¿½ du serveur ne sera pas vï¿½rifiï¿½e\n\
+(-PAS- de protection contre le dï¿½tournement).\n\
 \n\
-Voulez-vous tout de même continuer?
+Voulez-vous tout de mï¿½me continuer?
 ; Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ; If you continue the data will be encrypted (protection against eavesdropping), \
 ; but the identity of the server cannot be verified (-NO- protection against fraud).\n \n\
@@ -1321,10 +1321,10 @@ Voulez-vous tout de même continuer?
 ;
 MSG_SSLWARN_CERT_BUTTONS
 D'acc_ord|_Annuler
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
-Les connexions sécurisées ne sont supportées qu'avec AmiSSL ou MiamiSSL.
+Les connexions sï¿½curisï¿½es ne sont supportï¿½es qu'avec AmiSSL ou MiamiSSL.
 ; Secure connections are only supported when using AmiSSL or MiamiSSL.
 ;
 ;
@@ -1335,15 +1335,15 @@ Contenu de type inconnu
 ; Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Un fichier non reconnu va être sauvé\n\
+Un fichier non reconnu va ï¿½tre sauvï¿½\n\
  \n\
 URL :   %s\n\
 Type du contenu :   %s\n\
 Extension :   %s\n\
  \n\
 Vous pouvez annuler la sauvegarde maintenant,\n\
-puis recharger ce fichier après avoir configuré une action\n\
-pour ce type MIME dans les réglages du navigateur « Types MIME ».
+puis recharger ce fichier aprï¿½s avoir configurï¿½ une action\n\
+pour ce type MIME dans les rï¿½glages du navigateur ï¿½ Types MIME ï¿½.
 ; Unrecognized file will be saved\n \n\
 ; URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ; You might want to cancel the save now, and reload this file \
@@ -1362,16 +1362,16 @@ Copier _URL vers presse-papiers
 ;
 ;
 MSG_OPENURL_TITLE
-Requête d'AWeb
+Requï¿½te d'AWeb
 ; AWeb request
 ;
 MSG_OPENURL_TEXT
-Entrer l'URL à ouvrir :
+Entrer l'URL ï¿½ ouvrir :
 ; Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
 _D'accord|_Annuler
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
@@ -1392,11 +1392,11 @@ Projet
 ; Project
 ;
 MSG_PROJECT_NEWWINDOW
-N/Nouvelle fenêtre
+N/Nouvelle fenï¿½tre
 ; N/New window
 ;
 MSG_PROJECT_CLOSEWINDOW
-K/Fermer la fenêtre
+K/Fermer la fenï¿½tre
 ; K/Close window
 ;
 MSG_PROJECT_OPENURL
@@ -1424,7 +1424,7 @@ S/Sauver le code HTML...
 ; S/Save source...
 ;
 MSG_PROJECT_ABOUT
-À propos...
+ï¿½ propos...
 ; About...
 ;
 MSG_PROJECT_QUIT
@@ -1440,7 +1440,7 @@ I/Imprimer...
 ; P/Print...
 ;
 MSG_PROJECT_EDIT
-Éditer le code HTML...
+ï¿½diter le code HTML...
 ; Edit source...
 ;
 MSG_PROJECT_INFO
@@ -1453,7 +1453,7 @@ Ouvrir les nouvelles
 ;
 ; (Shortcut key is backslash)
 MSG_PROJECT_ICONIFY
-\\/Icônifier
+\\/Icï¿½nifier
 ; \\/Iconify
 ;
 MSG_PROJECT_SAVEIFF
@@ -1461,7 +1461,7 @@ Sauver en IFF...
 ; Save as IFF...
 ;
 MSG_CONTROL_MENU
-Contrôle
+Contrï¿½le
 ; Control
 ;
 MSG_CONTROL_LOADNOW
@@ -1473,11 +1473,11 @@ I/Toutes les images
 ; I/All images
 ;
 MSG_CONTROL_LOADNOWMAPS
-M/Images réactives uniquement
+M/Images rï¿½actives uniquement
 ; M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
-?/État du réseau...
+?/ï¿½tat du rï¿½seau...
 ; ?/Network status...
 ;
 MSG_DUMMY_2
@@ -1488,15 +1488,15 @@ Z/Interrompre le chargement
 ; Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
-./Fenêtre suivante
+./Fenï¿½tre suivante
 ; ./Next window
 ;
 MSG_CONTROL_PREVWINDOW
-,/Fenêtre précédente
+,/Fenï¿½tre prï¿½cï¿½dente
 ; ,/Previous window
 ;
 MSG_CONTROL_NOPROXY
-Y/Désactiver le Proxy
+Y/Dï¿½sactiver le Proxy
 ; Y/Disable proxy
 ;
 MSG_CONTROL_RLOAD
@@ -1524,11 +1524,11 @@ Coller l'URL
 ; Paste URL
 ;
 MSG_CONTROL_COPYBLOCK
-C/Copier la sélection
+C/Copier la sï¿½lection
 ; C/Copy block
 ;
 MSG_CONTROL_DRAGGING
-Activer le glissé/déposé
+Activer le glissï¿½/dï¿½posï¿½
 ; Dragging
 ;
 MSG_CONTROL_BREAKJS
@@ -1536,7 +1536,7 @@ X/Interrompre le javascript
 ; X/Break JavaScript
 ;
 MSG_CONTROL_DEBUGJS
-Déboguer le JavaScript
+Dï¿½boguer le JavaScript
 ; Debug JavaScript
 ;
 MSG_CONTROL_RESET
@@ -1573,11 +1573,11 @@ Navigateur de cache...
 ; Cache browser...
 ;
 MSG_CACHE_FLUSH
-Effacer de la mémoire
+Effacer de la mï¿½moire
 ; Flush from memory
 ;
 MSG_CACHE_FLSHIMGSND
-Images non affichées
+Images non affichï¿½es
 ; Nondisplayed images
 ;
 MSG_CACHE_FLSHIMGS
@@ -1585,7 +1585,7 @@ Toutes les images
 ; All images
 ;
 MSG_CACHE_FLSHDOCSND
-Documents non affichés
+Documents non affichï¿½s
 ; Nondisplayed documents
 ;
 MSG_CACHE_DELETE
@@ -1609,7 +1609,7 @@ Nettoyer le cache...
 ; Fix cache...
 ;
 MSG_CACHE_EDITAUTH
-Éditer les autorisations...
+ï¿½diter les autorisations...
 ; Edit authorizations...
 ;
 MSG_NAVIGATE_MENU
@@ -1617,7 +1617,7 @@ Navigation
 ; Navigate
 ;
 MSG_NAVIGATE_BACK
-B/Précédent
+B/Prï¿½cï¿½dent
 ; B/Back
 ;
 MSG_NAVIGATE_FWD
@@ -1654,7 +1654,7 @@ Sauver les favoris
 ; Save hotlist
 ;
 MSG_HOTLIST_RESTORE
-Dernière sauvegarde
+Derniï¿½re sauvegarde
 ; Restore last saved
 ;
 MSG_HOTLIST_AMHOTRX
@@ -1670,7 +1670,7 @@ Autres...
 ; Other...
 ;
 MSG_HOTLIST_VIEW
-V/Fenêtre des favoris...
+V/Fenï¿½tre des favoris...
 ; V/View hotlist...
 ;
 MSG_HOTLIST_MGR
@@ -1678,7 +1678,7 @@ T/Gestionnaire des favoris...
 ; T/Hotlist manager...
 ;
 MSG_SETTINGS_MENU
-Préférences
+Prï¿½fï¿½rences
 ; Settings
 ;
 MSG_SETTINGS_LOADIMG
@@ -1690,7 +1690,7 @@ Toutes les images
 ; All images
 ;
 MSG_SETTINGS_LOADIMGMAPS
-Les images réactives
+Les images rï¿½actives
 ; Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
@@ -1704,27 +1704,27 @@ MSG_DUMMY_8
 
 ; 
 MSG_SETTINGS_BROWSER
-Réglages du navigateur...
+Rï¿½glages du navigateur...
 ; Browser settings...
 ;
 MSG_SETTINGS_PROGRAM
-Réglages du programme...
+Rï¿½glages du programme...
 ; Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Réglages du réseau...
+Rï¿½glages du rï¿½seau...
 ; Network settings...
 ;
 MSG_SETTINGS_CLASSACT
-Réglages de ClassAct...
+Rï¿½glages de ClassAct...
 ; ClassAct settings...
 ;
 MSG_SETTINGS_SAVEALL
-Sauver les réglages actuels
+Sauver les rï¿½glages actuels
 ; Save current settings
 ;
 MSG_SETTINGS_SNAPSHOT
-Figer les fenêtres
+Figer les fenï¿½tres
 ; Snapshot windows
 ;
 ;**obsolete
@@ -1741,15 +1741,15 @@ Musique de fond
 ; Background sound
 ;
 MSG_SETTINGS_SAVEAS
-Sauver les réglages sous...
+Sauver les rï¿½glages sous...
 ; Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Charger les réglages...
+Charger les rï¿½glages...
 ; Load settings...
 ;
 MSG_SETTINGS_GUI
-Réglages de l'interface...
+Rï¿½glages de l'interface...
 ; GUI settings...
 ;
 MSG_HELP_MENU
@@ -1777,7 +1777,7 @@ ARexx
 ; ARexx
 ;
 MSG_AREXX_AREXX
-!/Exécuter une macro ARexx...
+!/Exï¿½cuter une macro ARexx...
 ; !/Start ARexx macro...
 ;
 ;
@@ -1794,13 +1794,13 @@ Impossible d'ouvrir %s version %ld
 ; Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30
-AWeb requiert le système 3.0 ou supérieur
+AWeb requiert le systï¿½me 3.0 ou supï¿½rieur
 ; AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
 Impossible de quitter !\n\
 %s\n\
-est encore utilisé
+est encore utilisï¿½
 ; Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
@@ -1818,7 +1818,7 @@ Le protocole &quot;%s&quot; n'est pas disponible dans cette version d'AWeb
 ; The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
-Une couche TCP doit être présente
+Une couche TCP doit ï¿½tre prï¿½sente
 ; A TCP stack must be started first
 ;
 MSG_EPART_NOHOST
@@ -1826,7 +1826,7 @@ Impossible de trouver le domaine &quot;%s&quot;
 ; Cannot resolve host name &quot;%s&quot;
 ;
 MSG_EPART_NOCONNECT
-Impossible de se connecter à &quot;%s&quot;
+Impossible de se connecter ï¿½ &quot;%s&quot;
 ; Cannot connect to &quot;%s&quot;
 ;
 MSG_EPART_NOFILE
@@ -1838,21 +1838,21 @@ Nom interne (x-aweb:) invalide : &quot;%s&quot;
 ; Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
-Vidé
+Vidï¿½
 ; Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-Ce document n'est plus disponible en mémoire
+Ce document n'est plus disponible en mï¿½moire
 ; This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Ce document ne peut être reçu à nouveau. Vous devrez soumettre une nouvelle fois le formulaire qui l'avait produit.  Attention aux effets secondaires inattendus si vous soumettez ce formulaire plus de deux fois, comme produire un enregistrement en double.
+Ce document ne peut ï¿½tre reï¿½u ï¿½ nouveau. Vous devrez soumettre une nouvelle fois le formulaire qui l'avait produit.  Attention aux effets secondaires inattendus si vous soumettez ce formulaire plus de deux fois, comme produire un enregistrement en double.
 ; This document cannot be retrieved again. You will have to submit the form again that \
 ; produced this page. Beware of undesired side-effects if you submit that form twice, \
 ; like a duplicate registration.
 ;
 MSG_EPART_NOLOGIN
-Impossible de se connecter à &quot;%s&quot; en étant &quot;%s&quot;
+Impossible de se connecter ï¿½ &quot;%s&quot; en ï¿½tant &quot;%s&quot;
 ; Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
@@ -1860,7 +1860,7 @@ Impossible de charger le module AWebLib pour &quot;%s&quot;.
 ; Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
-Vous n'avez pas désigné de programme pour le protocole &quot;%s&quot;.
+Vous n'avez pas dï¿½signï¿½ de programme pour le protocole &quot;%s&quot;.
 ; You haven't configured a program for the &quot;%s&quot; addressing scheme.
 ;
 ;
@@ -1883,22 +1883,22 @@ Soumettre
 ;
 ; (form RESET button default text)
 MSG_AWEB_FORMRESET
-Réinitialiser
+Rï¿½initialiser
 ; Reset
 ;
 ; (ISINDEX default prompt)
 MSG_AWEB_INDEXPROMPT
-Ceci est un index de recherche. Entrez les mots clefs :
+Ceci est un index de recherche. Entrez les mots clefsï¿½:
 ; This is a searchable index. Enter keywords:
 ;
 ; (window title)
 MSG_AWEB_NODOCTITLE
-(Aucun document chargé)
+(Aucun document chargï¿½)
 ; (No document loaded)
 ;
 ; (screen title)
 MSG_AWEB_SCREENTITLE
-Écran public d'AWeb - Nommé « AWeb »
+ï¿½cran public d'AWeb - Nommï¿½ ï¿½ AWeb ï¿½
 ; AWeb public screen - Name AWeb
 ;
 ; (hotlist document title)
@@ -1918,7 +1918,7 @@ Menu pour Gopher
 ;
 ; (window history title)
 MSG_AWEB_WINDOWHIS
-Fenêtre de l'historique
+Fenï¿½tre de l'historique
 ; Window history
 ;
 ; (partial title of other hotlist)
@@ -1936,7 +1936,7 @@ Connexion %s vers %s
 ; Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-Requête %s envoyée. Réponse en attente
+Requï¿½te %s envoyï¿½e. Rï¿½ponse en attente
 ; %s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
@@ -1945,7 +1945,7 @@ Connexion TCP en cours...
 ;
 ; (form image fieldstatus text)
 MSG_AWEB_FORMLOCATION
-Soumission de formulaire à x=%ld, y=%ld
+Soumission de formulaire ï¿½ x=%ld, y=%ld
 ; Submit form at x=%ld, y=%ld
 ;
 ; (form BUTTON button default text)
@@ -1960,7 +1960,7 @@ Redimensionner le cadre
 ;
 ; (transfer status message)
 MSG_AWEB_LOGIN
-Connexion à %s
+Connexion ï¿½ %s
 ; Logging in at %s
 ;
 ; (transfer status message)

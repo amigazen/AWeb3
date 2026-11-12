@@ -235,20 +235,19 @@ void Unregistercidparts(UBYTE *referer_url)
    ReleaseSemaphore(&cid_sema);
 }
 
-/* Cleanup CID registry */
+/* Free all registered parts (caller must ensure no task holds cid_sema). */
 void Cleanupcidregistry(void)
 {
    struct CidPart *part;
    struct CidPart *next;
 
    ObtainSemaphore(&cid_sema);
-
    for(part = cid_parts.first; part; part = next)
    {
       next = part->next;
       REMOVE(part);
       CidFreePart(part);
    }
-
+   NEWLIST(&cid_parts);
    ReleaseSemaphore(&cid_sema);
 }

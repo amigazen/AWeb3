@@ -31,6 +31,10 @@
 
 static LIST(Docext) docexts;
 
+/* Never keep a DOCEXT body this large.  Huge stylesheets exhaust Chip when
+ * Expandbuffer preallocates and then (re)parses the body. */
+#define DOCEXT_BODY_MAX (96UL * 1024UL)
+
 /*------------------------------------------------------------------------*/
 
 /* Reference to a waiting document */
@@ -135,7 +139,22 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Contentlength:
-            Expandbuffer(&dox->buf,tag->ti_Data-dox->buf.length);
+            /* Refuse to preallocate a body we will never parse. */
+            if(tag->ti_Data>=DOCEXT_BODY_MAX)
+            {  if(dox->buf.buffer) Freebuffer(&dox->buf);
+               dox->flags|=DOXF_DROPPED|DOXF_EOF;
+               dox->flags&=~(DOXF_LOADING|DOXF_RETRY|DOXF_ERROR);
+               if(httpdebug)
+               {  void *urlstr;
+                  urlstr=(void *)Agetattr(dox->url,AOURL_Url);
+                  AwebLog("fetch",
+                     "Srcupdatedocext: drop huge body Content-Length=%lu URL=%s",
+                     (unsigned long)tag->ti_Data,
+                     urlstr?(char *)urlstr:"NULL");
+               }
+            }
+            else
+               Expandbuffer(&dox->buf,tag->ti_Data-dox->buf.length);
             break;
          case AOURL_Data:
             data=(UBYTE *)tag->ti_Data;
@@ -152,11 +171,12 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
          case AOURL_Reload:
             Freebuffer(&dox->buf);
             /* Clear both EOF and ERROR flags on reload to allow retry */
-            dox->flags&=~(DOXF_EOF|DOXF_ERROR|DOXF_LOADING|DOXF_RETRY);
+            dox->flags&=~(DOXF_EOF|DOXF_ERROR|DOXF_LOADING|DOXF_RETRY|DOXF_DROPPED);
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
-            {  dox->flags|=DOXF_EOF;
+            {  if(!(dox->flags&DOXF_DROPPED))
+                  dox->flags|=DOXF_EOF;
                dox->flags&=~DOXF_LOADING;  /* Load completed successfully */
                dox->flags&=~DOXF_RETRY;     /* Clear RETRY flag on successful completion */
                /* If ERROR was set earlier but we now have valid data, clear ERROR flag.
@@ -193,12 +213,28 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
             break;
       }
    }
-   if(data)
-   {  Addtobuffer(&dox->buf,data,length);
-      Asetattrs(dox->source,AOSRC_Memory,dox->buf.size,TAG_END);
+   if(data && !(dox->flags&DOXF_DROPPED))
+   {  /* Chunked / no Content-Length: abort once the body grows too large. */
+      if((ULONG)dox->buf.length+(ULONG)length>=DOCEXT_BODY_MAX)
+      {  if(dox->buf.buffer) Freebuffer(&dox->buf);
+         dox->flags|=DOXF_DROPPED|DOXF_EOF;
+         dox->flags&=~(DOXF_LOADING|DOXF_RETRY|DOXF_ERROR);
+         if(httpdebug)
+         {  void *urlstr;
+            urlstr=(void *)Agetattr(dox->url,AOURL_Url);
+            AwebLog("fetch",
+               "Srcupdatedocext: drop huge body mid-stream URL=%s",
+               urlstr?(char *)urlstr:"NULL");
+         }
+      }
+      else
+      {  Addtobuffer(&dox->buf,data,length);
+         Asetattrs(dox->source,AOSRC_Memory,dox->buf.size,TAG_END);
+      }
    }
    if(eof)
-   {  Addtobuffer(&dox->buf,"",1);
+   {  if(!(dox->flags&DOXF_DROPPED))
+         Addtobuffer(&dox->buf,"",1);
       if(httpdebug)
       {  void *urlstr;
          urlstr=(void *)Agetattr(dox->url,AOURL_Url);
@@ -232,6 +268,10 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
             if(dox->flags&DOXF_ERROR) dox->flags&=~DOXF_ERROR;  /* Clear error for retry */
             Signaldocs(dox);
          }
+      }
+      else if((dox->flags&DOXF_DROPPED))
+      {  /* Intentionally discarded huge body — signal waiters once, no retry. */
+         Signaldocs(dox);
       }
       else if(!dox->buf.buffer || dox->buf.length <= 1)
       {  /* Buffer is invalid (not a 304 case) - set RETRY flag to indicate retry needed.
@@ -379,6 +419,9 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                }
                return dox->buf.buffer;
             }
+            /* Body was freed after an intentional skip (huge CSS) — stay quiet. */
+            if(dox->flags&DOXF_DROPPED)
+               return NULL;
             /* If EOF is set but buffer is invalid (empty or just null terminator), the previous
              * load completed but failed. Clear EOF, set RETRY flag, and return NULL.
              * The RETRY flag prevents immediate retry from callbacks, but allows retry from

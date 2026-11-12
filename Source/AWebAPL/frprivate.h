@@ -93,6 +93,7 @@ struct Frame
 #define FRMF_JSOPEN        0x00200000  /* JS generated source is still open */
 #define FRMF_JSOPTIONCTR   0x00400000  /* JS object has JS option constructor added */
 #define FRMF_JSXHRCTR      0x00800000  /* JS object has JS XMLHttpRequest constructor added */
+#define FRMF_JSWASMCTR     0x01000000  /* JS object has WebAssembly API added (AWEB4) */
 #define FRMF_RESET         0x00800000  /* Next layout must relayout even if dims unchanged */
 
 #define FSIDE_TOP    1

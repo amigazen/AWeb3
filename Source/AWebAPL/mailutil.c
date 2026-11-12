@@ -15,7 +15,8 @@
 
 extern void *AwebPluginBase;
 
-/* Build IMAP host from smtphost: smtp.foo -> imap.foo, else use as-is */
+/* Build IMAP host from smtphost: smtp.foo -> imap.foo, "*smtp.foo" -> "*imap.foo"
+ * (e.g. mail-smtp.example.com -> mail-imap.example.com), else use as-is. */
 void Mail_imap_host(struct Fetchdriver *fd,UBYTE *buf,long buflen)
 {  UBYTE *smtp;
    UBYTE *p;
@@ -24,7 +25,7 @@ void Mail_imap_host(struct Fetchdriver *fd,UBYTE *buf,long buflen)
    ObtainSemaphore(fd->prefssema);
    smtp=fd->prefs->smtphost;
    if(smtp && *smtp)
-   {  if(buflen>0) strncpy(buf,smtp,buflen-1);
+   {  strncpy(buf,smtp,buflen-1);
       buf[buflen-1]='\0';
       if(STRNIEQUAL(buf,"smtp.",5))
       {  buf[0]='i';
@@ -32,10 +33,14 @@ void Mail_imap_host(struct Fetchdriver *fd,UBYTE *buf,long buflen)
          buf[2]='a';
          buf[3]='p';
       }
-      else if((p=strchr(buf,'.')) && p>buf)
-      {  if(STRNIEQUAL(p-4,"smtp",4))
-      {  memcpy(p-4,"imap",4);
-      }
+      else
+      {  p=strchr(buf,'.');
+         /* Need at least four characters before the dot so p-4 stays inside
+          * buf; without this guard a short host like "smtp.x" or a leading
+          * dot would underflow the buffer. */
+         if(p && (p-buf)>=4 && STRNIEQUAL(p-4,"smtp",4))
+         {  memcpy(p-4,"imap",4);
+         }
       }
    }
    ReleaseSemaphore(fd->prefssema);
@@ -188,10 +193,15 @@ BOOL Mail_cache_read(struct Fetchdriver *fd,UBYTE *folder,unsigned long uid,
    *datalen=0;
    Mail_cache_path(fd,folder,uid,path,sizeof(path));
    if(!(file=Open(path,MODE_OLDFILE))) return FALSE;
-   size=0;
+   /* dos.library returns the new position after Seek(_,_,OFFSET_END), which
+    * for a file we just opened equals the file size. */
    len=Seek(file,0,OFFSET_END);
    if(len<=0) { Close(file); return FALSE; }
-   Seek(file,0,OFFSET_BEGINNING);
+   /* Bound the read to a sane upper limit; a 0-byte-file or a malformed cache
+    * entry was already rejected, but a very large file (mistaken cache name
+    * collision with a non-mail file) could exhaust memory. */
+   if(len>MAIL_MAX_CACHED_BODY) { Close(file); return FALSE; }
+   if(Seek(file,0,OFFSET_BEGINNING)<0) { Close(file); return FALSE; }
    if(!(buf=ALLOCTYPE(UBYTE,len+1,MEMF_CLEAR))) { Close(file); return FALSE; }
    size=Read(file,buf,len);
    Close(file);
@@ -207,18 +217,26 @@ BOOL Mail_cache_write(struct Fetchdriver *fd,UBYTE *folder,unsigned long uid,
 {  UBYTE path[256];
    UBYTE dir[256];
    long file;
+   long lock;
+   long written;
    UBYTE *slash;
    if(!data || datalen<=0) return FALSE;
    Mail_cache_path(fd,folder,uid,path,sizeof(path));
    strncpy(dir,path,sizeof(dir)-1);
+   dir[sizeof(dir)-1]='\0';
    slash=strrchr(dir,'/');
    if(slash) *slash='\0';
-   {  long lock;
-      if(lock=CreateDir(dir)) UnLock(lock);
-   }
+   /* CreateDir may fail because the directory already exists; that's fine.
+    * We only react to a successful create by releasing the lock it returns. */
+   lock=CreateDir(dir);
+   if(lock) UnLock(lock);
    if(!(file=Open(path,MODE_NEWFILE))) return FALSE;
-   Write(file,data,datalen);
+   written=Write(file,data,datalen);
    Close(file);
+   /* Treat a short write as a failure but the file is already created; the
+    * next cache_read attempt will see a truncated entry. Return FALSE so the
+    * caller knows to refetch rather than trust whatever was on disk. */
+   if(written!=datalen) return FALSE;
    return TRUE;
 }
 

@@ -22,12 +22,14 @@
 #include <proto/dos.h>
 #include <proto/utility.h>
 #include <stdarg.h>
+#include <string.h>
 #include "aweb.h"
 #include "html.h"
 #include "application.h"
 #include "docprivate.h"
 #include "jslib.h"
 #include "ttengine.h"
+#include "awebutf8.h"
 
 #define MAXATTRS 40
 static struct Tagattr tagattr[MAXATTRS];
@@ -304,7 +306,7 @@ static struct Chardes chars[]=
    "bdquo", 132,  /* Latin-1 double low-9 quotation mark (Windows-1252 extension) */
    "brkbar",166,  /* Latin-1 broken vertical bar (alternate name for brvbar) */
    "brvbar",166,
-   "bull",  183,  /* Latin-1 MIDDLE DOT (¬∑) for bullet - U+00B7 */
+   "bull",  183,  /* Latin-1 MIDDLE DOT (?) for bullet - U+00B7 */
    "ccedil",231,
    "cedil", 184,
    "cent",  162,
@@ -323,7 +325,7 @@ static struct Chardes chars[]=
    "ensp",  8194,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "eth",   240,
    "euml",  235,
-   "euro",  164,  /* Approximated as currency symbol (¬§) in Latin-1 */
+   "euro",  164,  /* Approximated as currency symbol (?) in Latin-1 */
    "fnof",  402,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "frac12",189,
    "frac14",188,
@@ -342,7 +344,7 @@ static struct Chardes chars[]=
    "iuml",  239,
    "lang",  9001,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "laquo", 171,
-   "larr",  8592,  /* Left arrow (‚Üê) - Unicode U+2190 */
+   "larr",  8592,  /* Left arrow (?) - Unicode U+2190 */
    "ldquo", 147,  /* Latin-1 left double quotation mark (Windows-1252 extension) */
    "le",    8804,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "lowast",8727,  /* No Latin-1 equivalent, kept as Unicode for translation */
@@ -521,47 +523,7 @@ static UBYTE *Findicon(UBYTE *name)
    return NULL;
 }
 
-/* Windows-1252 bytes 0x80-0x9F (128-159) to Unicode scalars. Bytes 0xA0-0xFF match ISO-8859-1 / U+00A0-U+00FF.
- * Used when expanding HTML entities into a UTF-8 document buffer: raw 0x91 is invalid UTF-8 but U+2018 is not. */
-static const ULONG cp1252_to_unicode[32]=
-{  0x20ACUL,0x0020UL,0x201AUL,0x0192UL,0x201EUL,0x2026UL,0x2020UL,0x2021UL,
-   0x02C6UL,0x2030UL,0x0160UL,0x2039UL,0x0152UL,0x0020UL,0x017DUL,0x0020UL,
-   0x0020UL,0x2018UL,0x2019UL,0x201CUL,0x201DUL,0x2022UL,0x2013UL,0x2014UL,
-   0x02DCUL,0x2122UL,0x0161UL,0x203AUL,0x0153UL,0x0020UL,0x017EUL,0x0178UL
-};
-
-static ULONG EntitybyteToUnicode(USHORT n)
-{
-   if(n < 128)
-   {
-      return (ULONG)n;
-   }
-   if(n < 160)
-   {
-      return cp1252_to_unicode[n - 128];
-   }
-   return (ULONG)n;
-}
-
-/* Encode one Unicode BMP code point as UTF-8; returns 1-3. */
-static int UnicodeToUtf8(ULONG u, UBYTE *out)
-{
-   if(u <= 0x7FUL)
-   {
-      out[0] = (UBYTE)u;
-      return 1;
-   }
-   if(u <= 0x7FFUL)
-   {
-      out[0] = (UBYTE)(0xC0 | (u >> 6));
-      out[1] = (UBYTE)(0x80 | (u & 0x3F));
-      return 2;
-   }
-   out[0] = (UBYTE)(0xE0 | (u >> 12));
-   out[1] = (UBYTE)(0x80 | ((u >> 6) & 0x3F));
-   out[2] = (UBYTE)(0x80 | (u & 0x3F));
-   return 3;
-}
+/* Entity / UTF-8 helpers live in awebutf8.c (shared with Bullet and TTEngine). */
 
 /* Replace &name; / &#...; source bytes with the decoded character. For UTF-8
  * documents write valid UTF-8 (e.g. nbsp -> C2 A0) and remove the whole entity
@@ -583,8 +545,8 @@ static long Replaceentityspan(struct Buffer *buf,long pos,long elen,USHORT ch,
    ulen = 1;
    if(utf8doc && !sjis && ch > 127)
    {
-      u = EntitybyteToUnicode(ch);
-      ulen = UnicodeToUtf8(u, u8);
+      u = AwebEntityByteToUnicode(ch);
+      ulen = AwebUnicodeToUtf8(u, u8);
    }
    replen = (long)ulen;
    if(!Insertinbuffer(buf, u8, replen, pos))
@@ -648,281 +610,78 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL sjis;
    BOOL utf8doc;
    
-   /* Lookup tables for Latin Extended-A (U+0100-U+017F) and Latin Extended-B (U+0180-U+024F) */
-   /* These map UTF-8 sequences 0xC4 and 0xC5 (Latin Extended-A) and 0xC6 and 0xC7 (Latin Extended-B) */
-   static const UBYTE latin_ext_a_c4[] =
-      "AaAaAaCcCcCcCcDdDdEeEeEeEeEeGgGgGgGgHhHhIiIiIiIiIiiiJjKkkLlLlLlL";
-   static const UBYTE latin_ext_a_c5[] =
-      "lLlNnNnNnnNnOoOoOoOoRrRrRrSsSsSsSsTtTtTtUuUuUuUuUuUuWwYyYZzZzZzs";
-   static const UBYTE latin_ext_b_c6[] =
-      "bBBbbbCCcDDDddEaEFfGGhIIKkllWNnOCoOoPpRS2EetTttUuUVYyZzEEee255?w";
-   static const UBYTE latin_ext_b_c7[] =
-      "||||DDdLLlNNnAaIiOoUuUuUuUuUueAaAaAaGgGgKkOoOoEejDDdGgHWNnAaAaOo";
+   UBYTE amiga_tmp[4];
+   static UBYTE amiga_multi[8];
+   ULONG u8flags;
    
    sjis=(BOOL)(doc->charset==DOCCHARSET_SHIFT_JIS);
    utf8doc=(BOOL)(doc->charset==DOCCHARSET_UTF8);
+   u8flags=0UL;
+   if(doc->pflags&DPF_PREFORMAT) u8flags|=AWEB_U8_PREFORMAT;
    while(p<end)
-   {  /* Detect and decode UTF-8 sequences.
-       * 2-byte UTF-8: 0xC0-0xDF followed by 0x80-0xBF (range 0x80-0x7FF)
-       * 3-byte UTF-8: 0xE0-0xEF followed by 0x80-0xBF, 0x80-0xBF (range 0x800-0xFFFF)
-       * 4-byte UTF-8: 0xF0-0xF7 followed by 0x80-0xBF, 0x80-0xBF, 0x80-0xBF (range 0x10000-0x10FFFF)
-       * This handles common Unicode characters like:
-       * - Copyright (0xC2 0xA9) -> 0xA9
-       * - Right single quotation mark (0xE2 0x80 0x99) -> 0x27 (')
-       * - Left single quotation mark (0xE2 0x80 0x98) -> 0x60 (`)
-       * - Em dash (0xE2 0x80 0x94) -> -- (two dashes) */
-      ULONG utf8_char = 0;
-      ULONG utf8_bytes = 0;
-      UBYTE replacement = 0;
-      UBYTE *replacement_str = NULL;
-      BOOL skip_char = FALSE;
+   {  ULONG utf8_char;
+      ULONG utf8_bytes;
+      UBYTE replacement;
+      UBYTE *replacement_str;
+      BOOL skip_char;
       UBYTE b0;
+      int amiga_n;
       
+      utf8_char=0;
+      utf8_bytes=0;
+      replacement=0;
+      replacement_str=NULL;
+      skip_char=FALSE;
       b0=*p;
       
-      /* Minimal Shift_JIS preservation (core): do not apply Latin-1/UTF-8 translations to raw SJIS bytes.
-       * Keep entity handling (&...;) working, but otherwise pass-through byte pairs unchanged.
-       *
-       * IMPORTANT (HTML4 behaviour): do not auto-detect or switch the document charset here.
-       * Charset is determined by HTTP headers and/or META declarations. */
+      /* Shift_JIS: preserve lead/trail pairs; entities still handled below. */
       if(sjis && b0!='&')
       {
-         /* Shift_JIS lead byte: 0x81-0x9F, 0xE0-0xFC */
          if(((b0>=0x81 && b0<=0x9F) || (b0>=0xE0 && b0<=0xFC)) && (p+1<end))
          {
-            /* Preserve both bytes regardless of trail validity. */
             p+=2;
             continue;
          }
-         /* Single-byte kana range (0xA1-0xDF) and any other byte: preserve as-is. */
          p++;
          continue;
       }
-      /* UTF-8 document + ttengine: leave the buffer as valid UTF-8 (including
-       * Latin-1 Supplement C2/C3 pairs such as u-umlaut = C3 BC). text.c sets
-       * TT_Encoding_UTF8 for these docs; folding C2/C3 to single 0x80-0xFF
-       * bytes produced invalid UTF-8 and broke umlauts on pages like
-       * mviess.de. Named entities already emit UTF-8 via Replaceentityspan.
-       * Without ttengine, the fold below still maps C2/C3 to Latin-1 for
-       * diskfont. Entity references (&...;) are still processed below. */
+      /* UTF-8 + TTEngine: keep valid UTF-8 for TT_Encoding_UTF8. Bullet/diskfont
+       * fold at draw time via awebutf8. Entities still processed below. */
       if(utf8doc && TTEngineAvailable() && b0!='&')
       {
-         if(b0<0x80)
-         {
-            p++;
-            continue;
-         }
-         if((b0 & 0xE0)==0xC0 && b0>=0xC2 && p+1<end && (p[1] & 0xC0)==0x80)
-         {
-            p+=2;
-            continue;
-         }
-         if((b0 & 0xF0)==0xE0 && p+2<end && (p[1] & 0xC0)==0x80 && (p[2] & 0xC0)==0x80)
-         {
-            p+=3;
-            continue;
-         }
-         if((b0 & 0xF8)==0xF0 && p+3<end
-         && (p[1] & 0xC0)==0x80 && (p[2] & 0xC0)==0x80 && (p[3] & 0xC0)==0x80)
-         {
-            p+=4;
-            continue;
-         }
-         p++;
+         ULONG adv;
+         (void)AwebUtf8NextCodepoint(p,(ULONG)(end-p),&adv);
+         if(adv==0UL) adv=1UL;
+         p+=adv;
          continue;
       }
       
-      /* Check for 4-byte UTF-8 sequence (0xF0-0xF7) */
-      if((*p & 0xF8) == 0xF0 && p+3 < end && 
-         (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80 && (p[3] & 0xC0) == 0x80)
-      {  /* 4-byte UTF-8: characters outside BMP (U+10000-U+10FFFF) */
-         /* Replace with bullet character (0xB7) as these can't be represented in Latin-1 */
-         utf8_bytes = 4;
-         replacement = 0xB7;  /* Bullet character */
-      }
-      /* Check for 3-byte UTF-8 sequence (0xE0-0xEF) */
-      else if((*p & 0xF0) == 0xE0 && p+2 < end && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80)
-      {  /* 3-byte UTF-8: extract 16 bits from the three bytes */
-         utf8_char = ((*p & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
-         utf8_bytes = 3;
-         
-         /* Handle specific 3-byte sequences */
-         if(*p == 0xE2 && p[1] == 0x80)
-         {  /* U+2000-U+20FF range (General Punctuation) */
-            switch(p[2])
-            {  case 0x8A: replacement = 0x20; break;  /* Hair space -> space */
-               case 0x93: replacement = 0x2D; break;  /* En dash -> - */
-               case 0x94: replacement_str = "--"; break;  /* Em dash -> -- (two dashes) */
-               case 0x98: replacement = 0x60; break;  /* Left single quotation mark -> ` */
-               case 0x99: replacement = 0x27; break;  /* Right single quotation mark -> ' */
-               case 0x9C: replacement = 0x22; break;  /* Left double quotation mark -> " */
-               case 0x9D: replacement = 0x22; break;  /* Right double quotation mark -> " */
-               case 0xA6: replacement_str = "..."; break;  /* Horizontal ellipsis -> ... */
-               case 0xAF: replacement = 0x20; break;  /* Narrow no-break space -> space */
-               default:
-                  replacement = 0xB7;  /* Bullet character for unmapped */
-                  break;
+      /* Fold UTF-8 (and Latin Extended) to Amiga 8-bit for diskfont / no-TT. */
+      if(b0>=0x80 && b0!='&')
+      {
+         utf8_char=AwebUtf8NextCodepoint(p,(ULONG)(end-p),&utf8_bytes);
+         if(utf8_bytes>=2UL)
+         {
+            amiga_n=AwebUnicodeToAmigaBytes(utf8_char,amiga_tmp,4,(ULONG)u8flags);
+            if(amiga_n<=0)
+            {
+               skip_char=TRUE;
             }
-         }
-         else if(*p == 0xE2 && p[1] == 0x96)
-         {  /* U+2500-U+25FF range (Box Drawing) */
-            if(p[2] == 0x88)
-            {  replacement = 0x80;  /* Full block (U+2588) -> 0x80 (Amiga block */
+            else if(amiga_n==1)
+            {
+               replacement=amiga_tmp[0];
             }
             else
-            {  replacement = 0xB7;  /* Bullet character for other box drawing */
+            {
+               if(amiga_n>(int)sizeof(amiga_multi)-1) amiga_n=(int)sizeof(amiga_multi)-1;
+               memcpy(amiga_multi,amiga_tmp,(size_t)amiga_n);
+               amiga_multi[amiga_n]='\0';
+               replacement_str=amiga_multi;
             }
          }
          else
-         {  /* Other 3-byte sequences - map common characters */
-            switch(utf8_char)
-            {  case 0x2018: replacement = 0x60; break;  /* Left single quotation mark -> ` */
-               case 0x2019: replacement = 0x27; break;  /* Right single quotation mark -> ' */
-               case 0x201A: replacement = 0x27; break;  /* Single low-9 quotation mark -> ' */
-               case 0x201C: replacement = 0x22; break;  /* Left double quotation mark -> " */
-               case 0x201D: replacement = 0x22; break;  /* Right double quotation mark -> " */
-               case 0x201E: replacement = 0x22; break;  /* Double low-9 quotation mark -> " */
-               case 0x2013: replacement = 0x2D; break;  /* En dash -> - */
-               case 0x2014: replacement_str = "--"; break;  /* Em dash -> -- (two dashes) */
-               case 0x2022: replacement = 0x95; break;  /* Bullet -> 0x95 */
-               case 0x2026: replacement_str = "..."; break;  /* Horizontal ellipsis -> ... */
-               case 0x2039: replacement = 0x3C; break;  /* Single left-pointing angle quotation mark -> < */
-               case 0x203A: replacement = 0x3E; break;  /* Single right-pointing angle quotation mark -> > */
-               case 0x2122: replacement_str = "TM"; break;  /* Trade mark sign -> TM */
-               case 0x00A0: 
-                  /* Preserve non-breaking space in preformat mode to maintain column alignment */
-                  if(doc->pflags&DPF_PREFORMAT) replacement = 0xA0;
-                  else replacement = 0x20;  /* Non-breaking space -> space */
-                  break;
-               case 0x00A9: replacement = 0xA9; break;  /* Copyright sign -> 0xA9 */
-               case 0x00AE: replacement = 0xAE; break;  /* Registered sign -> 0xAE */
-               default:
-                  /* For other 3-byte UTF-8 characters, try to map to Latin-1 if possible */
-                  if(utf8_char >= 0x80 && utf8_char <= 0xFF)
-                  {  replacement = (UBYTE)utf8_char;
-                  }
-                  else
-                  {  /* Character outside Latin-1 range - replace with bullet */
-                     replacement = 0xB7;
-                  }
-                  break;
-            }
-         }
-      }
-      /* Check for 2-byte UTF-8 sequence (0xC0-0xDF) */
-      else if((*p & 0xE0) == 0xC0 && *p >= 0xC2 && p+1 < end && (p[1] & 0xC0) == 0x80)
-      {  /* 2-byte UTF-8: extract 11 bits from the two bytes */
-         utf8_char = ((*p & 0x1F) << 6) | (p[1] & 0x3F);
-         utf8_bytes = 2;
-         
-         /* Handle specific 2-byte sequences */
-         if(*p == 0xC2)
-         {  /* U+0080-U+00BF (Latin-1 Supplement, first half) */
-            if((p[1] & 0xE0) == 0xA0)
-            {  /* U+00A0-U+00BF range */
-               if(p[1] == 0xAD)
-               {  /* Soft hyphen (U+00AD) - skip it */
-                  skip_char = TRUE;
-               }
-               else if(p[1] == 0xA0)
-               {  /* Non-breaking space (U+00A0) */
-                  /* Preserve non-breaking space in preformat mode to maintain column alignment */
-                  if(doc->pflags&DPF_PREFORMAT) replacement = 0xA0;
-                  else replacement = 0x20;  /* Non-breaking space -> space */
-               }
-               else
-               {  /* Map directly to Latin-1 */
-                  replacement = p[1];
-               }
-            }
-            else
-            {  /* Other 0xC2 sequences - map directly if in range */
-               if(utf8_char >= 0x80 && utf8_char <= 0xFF)
-               {  replacement = (UBYTE)utf8_char;
-               }
-               else
-               {  replacement = 0xB7;  /* Bullet character */
-               }
-            }
-         }
-         else if(*p == 0xC3)
-         {  /* U+00C0-U+00FF (Latin-1 Supplement, second half) */
-            /* Add 0x40 offset to map to Latin-1 */
-            replacement = p[1] + 0x40;
-         }
-         else if(*p == 0xC4)
-         {  /* U+0100-U+017F (Latin Extended-A, first half */
-            if(p[1] >= 0x80 && p[1] <= 0xBF)
-            {  UBYTE idx = p[1] - 0x80;
-               if(idx < sizeof(latin_ext_a_c4) - 1)
-               {  replacement = latin_ext_a_c4[idx];
-               }
-               else
-               {  replacement = 0xB7;
-               }
-            }
-            else
-            {  replacement = 0xB7;
-            }
-         }
-         else if(*p == 0xC5)
-         {  /* U+0180-U+01FF (Latin Extended-A, second half) */
-            if(p[1] >= 0x80 && p[1] <= 0xBF)
-            {  UBYTE idx = p[1] - 0x80;
-               if(idx < sizeof(latin_ext_a_c5) - 1)
-               {  replacement = latin_ext_a_c5[idx];
-               }
-               else
-               {  replacement = 0xB7;
-               }
-            }
-            else
-            {  replacement = 0xB7;
-            }
-         }
-         else if(*p == 0xC6)
-         {  /* U+0180-U+01BF (Latin Extended-B, first half) */
-            if(p[1] >= 0x80 && p[1] <= 0xBF)
-            {  UBYTE idx = p[1] - 0x80;
-               if(idx < sizeof(latin_ext_b_c6) - 1)
-               {  replacement = latin_ext_b_c6[idx];
-               }
-               else
-               {  replacement = 0xB7;
-               }
-            }
-            else
-            {  replacement = 0xB7;
-            }
-         }
-         else if(*p == 0xC7)
-         {  /* U+01C0-U+01FF (Latin Extended-B, second half) */
-            if(p[1] >= 0x80 && p[1] <= 0xBF)
-            {  UBYTE idx = p[1] - 0x80;
-               if(idx < sizeof(latin_ext_b_c7) - 1)
-               {  replacement = latin_ext_b_c7[idx];
-               }
-               else
-               {  replacement = 0xB7;
-               }
-            }
-            else
-            {  replacement = 0xB7;
-            }
-         }
-         else if(*p == 0xCC || (*p == 0xCD && p[1] <= 0xAF))
-         {  /* Combining characters (U+0300-U+036F) - skip them */
-            skip_char = TRUE;
-         }
-         else
-         {  /* Other 2-byte sequences - try to map to Latin-1 if in range */
-            if(utf8_char >= 0x80 && utf8_char <= 0xFF)
-            {  replacement = (UBYTE)utf8_char;
-            }
-            else
-            {  /* Character outside Latin-1 range - replace with bullet */
-               replacement = 0xB7;
-            }
+         {
+            utf8_bytes=0;
          }
       }
       
@@ -973,6 +732,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             continue;
          }
       }
+      
       n=*p;
       if(*p=='&')
       {  q=p;
@@ -1008,7 +768,11 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             if(entrep>=0)
             {  ta->length+=entrep-l;
                end=buf->buffer+buf->length;
-               p=buf->buffer+entpos+entrep;
+               /* Re-scan replacement so !TTEngine UTF-8?Latin-1 fold can run. */
+               if(utf8doc && !sjis && !TTEngineAvailable())
+                  p=buf->buffer+entpos;
+               else
+                  p=buf->buffer+entpos+entrep;
                continue;
             }
             memmove(p,q,end+1-q);
@@ -1069,7 +833,11 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
                   if(entrep>=0)
                   {  ta->length+=entrep-l;
                      end=buf->buffer+buf->length;
-                     p=buf->buffer+entpos+entrep;
+                     /* Re-scan replacement so !TTEngine UTF-8?Latin-1 fold can run. */
+                     if(utf8doc && !sjis && !TTEngineAvailable())
+                        p=buf->buffer+entpos;
+                     else
+                        p=buf->buffer+entpos+entrep;
                      continue;
                   }
                   memmove(p,q,end+1-q);
@@ -1146,8 +914,8 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 8254:n=(UBYTE)0xAF;break;
             case 8260:n=(UBYTE)'/';break;
             case 8482:r="TM";break;
-            case 8592:n=(UBYTE)171;break;  /* Left arrow (larr) - approximate as ´ (laquo) */
-            case 8594:n=(UBYTE)187;break;  /* Right arrow (rarr) - approximate as ª (raquo) */
+            case 8592:n=(UBYTE)171;break;  /* Left arrow (larr) - approximate as ? (laquo) */
+            case 8594:n=(UBYTE)187;break;  /* Right arrow (rarr) - approximate as ? (raquo) */
             case 8709:n=(UBYTE)0xD8;break;
             case 8722:n=(UBYTE)'-';break;
             case 8727:n=(UBYTE)'*';break;

@@ -28,23 +28,20 @@
  */
 
 #include "pluginlib.h"
+struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebwebp.h"
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
-
 #include <proto/awebplugin.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
 #include <proto/graphics.h>
-#include <proto/Picasso96.h>
-
 /* Library base variables.  These are declared as struct Library *
  * (or struct GfxBase * for GfxBase) and shared with the source and
  * copy drivers via the extern declarations in awebwebp.h. */
 struct Library *DOSBase;
 struct GfxBase *GfxBase;
 struct Library *UtilityBase;
-struct Library *P96Base;
 struct Library *AwebPluginBase;
 
 /* Open all required libraries.  Returns TRUE if the mandatory
@@ -54,7 +51,7 @@ ULONG Initpluginlib(struct AwebWebpBase *base)
 {  DOSBase=OpenLibrary("dos.library",39);
    GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
-   P96Base=OpenLibrary("Picasso96.library",0);
+   CyberGfxBase=AwebOpenRtgGfx();
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
    return (ULONG)(DOSBase && GfxBase && UtilityBase && AwebPluginBase);
 }
@@ -62,7 +59,7 @@ ULONG Initpluginlib(struct AwebWebpBase *base)
 void Expungepluginlib(struct AwebWebpBase *base)
 {  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
    if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
-   if(P96Base) CloseLibrary(P96Base);
+   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
    if(AwebPluginBase) CloseLibrary(AwebPluginBase);
    if(UtilityBase) CloseLibrary(UtilityBase);
    if(GfxBase) CloseLibrary((struct Library *)GfxBase);

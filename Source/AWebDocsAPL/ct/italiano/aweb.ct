@@ -47,8 +47,8 @@ WWW
 ;WWW
 ;
 MSG_ABOUT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
 Versione non registrata\n
@@ -80,8 +80,8 @@ Sei sicuro di voler uscire da AWeb?
 ;Are you sure you want to quit AWeb?
 ;
 MSG_QUIT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_QUIT_CANCEL
 _Annulla
@@ -94,18 +94,18 @@ ATTENZIONE: i download verranno interrotti!\n\n
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Questa è la versione demo di AWeb\nle finestre multiple non sono supportate
+Questa ï¿½ la versione demo di AWeb\nle finestre multiple non sono supportate
 ;This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-AWeb non può chiudere il proprio schermo.\nPer favore chiudi tutte le finestre presenti.
+AWeb non puï¿½ chiudere il proprio schermo.\nPer favore chiudi tutte le finestre presenti.
 ;AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
@@ -178,8 +178,8 @@ _Password
 ;_Password
 ;
 MSG_AUTH_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_AUTH_CANCEL
 _Annulla
@@ -217,7 +217,7 @@ MSG_DUMMY_1
 
 ;
 MSG_FILE_EXISTTEXT
-Il file:\n%s\nesiste già!
+Il file:\n%s\nesiste giï¿½!
 ;File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
@@ -245,12 +245,12 @@ Non trovo il path temporaneo:\n%s\nUtilizzo T: al suo posto.
 ;Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
-_Ok|_Riprova|_Annulla
-;_Ok|_Retry|_Cancel
+_OK |_Riprova|_Annulla
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
 Selezione directory impostazioni
@@ -263,7 +263,7 @@ Selezione file da inviare
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-AWeb è stato fermato.\nVa conclusa anche la connessione TCP?
+AWeb ï¿½ stato fermato.\nVa conclusa anche la connessione TCP?
 ;AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
 MSG_TCP_BUTTONS
@@ -594,15 +594,15 @@ Annulla
 ;
 MSG_FIXCACHE_WARNING
 ATTENZIONE!\n\
-Questa opzione cancellerà tutti i file alieni dalla\n\
+Questa opzione cancellerï¿½ tutti i file alieni dalla\n\
 directory %s
 ;WARNING!\n\
 ;This function will delete all foreign files from the\n\
 ;%s drawer
 ;
 MSG_FIXCACHE_BUTTONS
-_Ok|_Annulla
-;_Ok|_Cancel
+_OK |_Annulla
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
 Correzione della cache su disco...
@@ -667,9 +667,9 @@ Stringa non trovata
 ;String not found
 ;
 MSG_SEARCH_OK
-  _Ok  \
+  _OK   \
 
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
@@ -781,8 +781,8 @@ Non posso accedere alla stampante
 ;Unable to access the printer
 ;
 MSG_PRINT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_PRINT_PROGRESS
 Stampa in corso...
@@ -860,11 +860,11 @@ _Annulla
 ;_Cancel
 ;
 MSG_COOKIE_SECURE
-AWeb invierà questo cookie solo\ntramite connessioni protette.
+AWeb invierï¿½ questo cookie solo\ntramite connessioni protette.
 ;AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb invierà questo cookie anche\ntramite connessioni NON PROTETTE.
+AWeb invierï¿½ questo cookie anche\ntramite connessioni NON PROTETTE.
 ;AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
@@ -943,8 +943,8 @@ _Password
 ;-------------- JavaScript prompt requester ---------
 ;
 MSG_JSPROMPT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
 _Annulla
@@ -962,8 +962,8 @@ I dati di questo form verranno inviati\ntramite una connessione NON PROTETTA.
 ;Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
-_Ok|_Annulla
-;_Ok|_Cancel
+_OK |_Annulla
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
@@ -1248,8 +1248,8 @@ Esecuzione programma ARexx:\n%s
 ;About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
-_Ok|_Annulla
-;_Ok|_Cancel
+_OK |_Annulla
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
@@ -1275,9 +1275,9 @@ Avviso di AWeb
 ;AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-Il certificato per %s non può essere verificato.\nDettagli: %s\n \n\
+Il certificato per %s non puï¿½ essere verificato.\nDettagli: %s\n \n\
 Procedendo, i dati verranno criptati (protezione dalle intercettazioni), \
-ma l'identità del server non potrà essere verificata (-NESSUNA- protezione dalle frodi).\n \n\
+ma l'identitï¿½ del server non potrï¿½ essere verificata (-NESSUNA- protezione dalle frodi).\n \n\
 Vuoi procedere?
 ;Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ;If you continue the data will be encrypted (protection against eavesdropping), \
@@ -1285,8 +1285,8 @@ Vuoi procedere?
 ;Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_Ok|_Annulla
-;_Ok|_Cancel
+_OK |_Annulla
+;_OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
 Le connessioni protette sono possibili solo utilizzando AmiSSL o MiamiSSL.
@@ -1300,7 +1300,7 @@ Tipo contenuto sconosciuto
 ;Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Il file non identificato verrà salvato\n \n\
+Il file non identificato verrï¿½ salvato\n \n\
 URL:            %s\nTipo contenuto: %s\nEstensione:     %s\n \n\
 Eventualmente puoi annullare il salvataggio e ricaricare \
 il file dopo aver configurato un visualizzatore \
@@ -1332,8 +1332,8 @@ Inserire l'URL da aprire:
 ;Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
-_Ok|_Annulla
-;_Ok|_Cancel
+_OK |_Annulla
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
@@ -1760,7 +1760,7 @@ AWeb richiede l'OS 3.0 o superiore
 ;AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-Impossibile uscire!\n%s\nè ancora in uso
+Impossibile uscire!\n%s\nï¿½ ancora in uso
 ;Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------

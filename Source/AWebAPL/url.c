@@ -498,6 +498,8 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
       url->movedto=NULL;
       url->flags&=~URLF_TEMPMOVED;
       url->flags&=~URLF_FETCHERROR;
+      /* Fresh network fetch: prior no-store must not stick forever. */
+      url->flags&=~URLF_VOLATILE;
    }
    else /* No reload */
    {  /* If we are temporarily moved, reset our movedto url now.
@@ -790,8 +792,10 @@ static void Moveurl(struct Url *url,UBYTE *newurl,BOOL temp,BOOL seeother,void *
             Clearobject(&url->cache);
          }
          else url->flags&=~URLF_TEMPMOVED;
-         /* Redirects with query strings should always refresh to avoid
-          * showing stale cached content when query parameters change */
+         /* Always refetch the redirect target.  An in-memory source for that
+          * URL is from an earlier navigation and is stale once a redirect
+          * lands here (Set-Cookie on 302, auth walls, POST→GET, etc.).
+          * Query-string targets are also marked volatile. */
          if(strchr(newurl,'?'))
          {  Asetattrs(url->movedto,
                AOURL_Volatile,TRUE,
@@ -808,6 +812,7 @@ static void Moveurl(struct Url *url,UBYTE *newurl,BOOL temp,BOOL seeother,void *
          /* In case of multipart data, the loadflags are already set ok. Just use
           * mpd instead of postmsg */
          /* For redirects, set referer to the original URL (the one that redirected) */
+         loadflags|=AUMLF_RELOAD;
          Auload(url->movedto,loadflags,url,
             mpd?(UBYTE *)mpd:postmsg,NULL);
          if(url->ssource)
@@ -983,7 +988,10 @@ static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
             break;
          case AOURL_Nocache:
             if(tag->ti_Data)
-            {  Clearobject(&url->cache);
+            {  /* no-store / no-cache: drop disk cache and do not reuse this
+                * response's in-memory source on the next navigation. */
+               Clearobject(&url->cache);
+               url->flags|=URLF_VOLATILE;
             }
             break;
       }

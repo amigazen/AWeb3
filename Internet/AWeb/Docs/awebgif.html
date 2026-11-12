@@ -22,7 +22,7 @@ Follow these steps to install the AWeb GIF plugin.
 <ol>
 <li>
 Run the supplied Installer script. It will copy the necessary files to a
-drawer <code>awebplugins</code> in the drawer where the AWeb-II program is
+drawer <code>awebplugins</code> in the drawer where the AWeb program is
 located.
 <br><br>
 <li>
@@ -38,7 +38,7 @@ can install it by hand.
 <li>
 Copy the file named <code>awebgif.awebplugin</code> to a location of your
 choice. The recommended location for plugins like this is a drawer
-<code>awebplugins</code> in the drawer where the AWeb-II program is located.
+<code>awebplugins</code> in the drawer where the AWeb program is located.
 <br><br>
 <li>
 Start AWeb-II, open the browser settings and bring up the <em>Viewers</em> page.
@@ -137,6 +137,11 @@ possibility of such damage or loss.
 The AWeb GIF plugin is copyright &copy; 1998 by Yvon Rozijn.<br>
 
 <h2>History</h2>
+
+awebgif.awebplugin 1.15 (23-05-2026)
+<ul>
+<li>Refactored input handling to reduce per-byte and per-block overhead, using contiguous buffer fast paths and single-allocation datablocks.</li>
+</ul>
 
 awebgif.awebplugin 1.14 (16-12-2025)
 <ul>

@@ -33,6 +33,7 @@ extern struct AwebPngBase *PluginBase;
 
 /* Library bases */
 extern struct Library *AwebPluginBase;
+extern struct Library *CyberGfxBase;
 extern struct GfxBase *GfxBase;
 
 /* Declarations of the OO dispatcher functions */

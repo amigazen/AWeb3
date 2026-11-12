@@ -19,6 +19,8 @@
 /* jfifsource.c - AWeb jfif plugin sourcedriver */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebjfif.h"
 #include <stdlib.h>
 
@@ -32,7 +34,6 @@
 #include "ezlists.h"
 #include <math.h>
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <datatypes/pictureclass.h>
@@ -41,8 +42,6 @@
 #include <proto/alib.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
-
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
 /*--------------------------------------------------------------------*/
@@ -104,6 +103,7 @@ struct Jfifsource
 #define JFIFSF_GRAYSCALE   0x0010   /* Grayscale requested */
 #define JFIFSF_LOWPRI      0x0020   /* Run decoder at low priority */
 #define JFIFSF_MULTI       0x0040   /* Do progressive JPEGs progressively */
+#define JFIFSF_RTGSCREEN   0x0080   /* Screen mode is RTG (AwebScreenIsRtg) */
 
 /*--------------------------------------------------------------------*/
 /* Memory accounting helpers                                          */
@@ -170,15 +170,14 @@ struct Decoder
    struct RastPort rp;              /* Temporary for pixelline8 functions */
    struct RastPort temprp;          /* Temporary for pixelline8 functions */
    UBYTE *chunky;                   /* Row of chunky pixels */
-   struct RenderInfo renderinfo;    /* Picasso96 render info for pixel operations */
 };
 
 /* Decoder flags: */
 #define DECOF_STOP         0x0001   /* The decoder process should stop */
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_MAPPED       0x0004   /* Colormap is used */
-#define DECOF_CYBERMAP     0x0010   /* Bitmap is Picasso96 */
-#define DECOF_CYBERDEEP    0x0020   /* Bitmap is Picasso96 >8 bits */
+#define DECOF_CYBERMAP     0x0010   /* Bitmap is RTG */
+#define DECOF_CYBERDEEP    0x0020   /* Bitmap is RTG >8 bits */
 
 /*--------------------------------------------------------------------*/
 /* Read from the input stream                                         */
@@ -363,24 +362,27 @@ static BOOL Decompress(struct Decoder *decoder)
       decoder->width=cinfo.image_width;
       decoder->height=cinfo.image_height;
       
-      /* Only p96* on friend when it is a P96 bitmap (PNG policy); else decode
-       * into a non-displayable planar master (BMF_CLEAR|BMF_MINPLANES, NULL friend). */
-      if(P96Base && decoder->source->friendbitmap
-      && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
-      {  depth=(short)p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
-         decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
-            BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
-         if (decoder->bitmap) 
-			{
-	         if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
-   	      {  decoder->flags|=DECOF_CYBERMAP;
-      	      if(depth>8)
-         	   {  decoder->flags|=DECOF_CYBERDEEP;
-            	}
-         	}
+      /* CyberGfx: do not GetCyberMapAttr() the screen friend (mixed
+       * P96 screens).  P96 builds still require ISP96 on friend first. */
+      if((decoder->source->flags&JFIFSF_RTGSCREEN)
+         && AwebFriendIsRtg(decoder->source->friendbitmap))
+      {  depth=(short)AwebFriendDepth(decoder->source->friendbitmap);
+         decoder->bitmap=AwebAllocRtgBitMap(decoder->width,decoder->height,depth,
+            BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap);
+         if(decoder->bitmap)
+         {  if(GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
+            {  decoder->flags|=DECOF_CYBERMAP;
+               if(depth>8)
+               {  decoder->flags|=DECOF_CYBERDEEP;
+               }
+            }
+            else
+            {  AwebFreeRtgBitMap(decoder->bitmap);
+               decoder->bitmap=NULL;
+            }
          }
       }
-      else
+      if(!decoder->bitmap)
       {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
             BMF_CLEAR|BMF_MINPLANES,NULL);
          depth=8;
@@ -417,12 +419,7 @@ static BOOL Decompress(struct Decoder *decoder)
 	      decoder->rp.BitMap=decoder->bitmap;
 	      if(decoder->flags&DECOF_CYBERMAP)
 	      {  error=!(decoder->chunky=AllocVec(decoder->width*3,MEMF_PUBLIC));
-	         if(!error)
-	         {  /* Initialize RenderInfo for Picasso96 pixel operations */
-	            decoder->renderinfo.Memory = decoder->chunky;
-	            decoder->renderinfo.BytesPerRow = decoder->width * 3;
-	            decoder->renderinfo.RGBFormat = RGBFB_R8G8B8;
-	         }
+	         ;
 	      }
 	      else
 	      {  /* The colour mapping process needs a temporary RastPort plus BitMap
@@ -496,8 +493,8 @@ static BOOL Decompress(struct Decoder *decoder)
                   decoder->chunky[x]=map;
                }
                if(decoder->flags&DECOF_CYBERMAP)
-               {  p96WritePixelArray(&decoder->renderinfo,0,0,
-                     &decoder->rp,0,row,decoder->width,1);
+               {  WritePixelArray(decoder->chunky,0,0,decoder->width,
+                     &decoder->rp,0,row,decoder->width,1,RECTFMT_LUT8);
                }
                else
                {  WritePixelLine8(&decoder->rp,0,row,decoder->width,decoder->chunky,
@@ -505,13 +502,8 @@ static BOOL Decompress(struct Decoder *decoder)
                }
             }
             else
-            {  /* Use Picasso96 pixel array functions for RGB mode */
-               struct RenderInfo rgbrenderinfo;
-               rgbrenderinfo.Memory = buffer[0];
-               rgbrenderinfo.BytesPerRow = rowsize;
-               rgbrenderinfo.RGBFormat = RGBFB_R8G8B8;
-               p96WritePixelArray(&rgbrenderinfo,0,0,
-                  &decoder->rp,0,row,decoder->width,1);
+            {  WritePixelArray(buffer[0],0,0,rowsize,
+                  &decoder->rp,0,row,decoder->width,1,RECTFMT_RGB);
             }
 
             if(++decoder->progress==decoder->source->progress || row==decoder->height-1)
@@ -589,7 +581,11 @@ static void Startdecoder(struct Jfifsource *js)
          AOAPP_Screen,&screen,
          AOAPP_Colormap,&js->colormap,
          TAG_END);
-      if(screen) js->friendbitmap=screen->RastPort.BitMap;
+      if(screen)
+      {  js->friendbitmap=screen->RastPort.BitMap;
+         if(AwebScreenIsRtg(screen)) js->flags|=JFIFSF_RTGSCREEN;
+         else js->flags&=~JFIFSF_RTGSCREEN;
+      }
       if(js->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,Decodetask,
          AOTSK_Name,"AWebJFIF decoder",
@@ -608,7 +604,7 @@ static void Releaseimage(struct Jfifsource *js)
 {  short i;
    Anotifyset(js->source,AOJFIF_Bitmap,NULL,TAG_END);
    if(js->bitmap)
-   {  FreeBitMap(js->bitmap);
+   {  AwebFreeRtgBitMap(js->bitmap);
       js->bitmap=NULL;
    }
    for(i=0;i<256;i++)

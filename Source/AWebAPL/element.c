@@ -21,6 +21,7 @@
 #include "aweb.h"
 #include "element.h"
 #include "ttengine.h"
+#include "bulletfont.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -371,10 +372,9 @@ long Textlengthext(struct RastPort *rp,UBYTE *text,long count,long *extent)
 {  long length=0,part;
    struct TextExtent te={0};
    if(extent) *extent=0;
-   /* Use ttengine wrapper if ttengine font is active, else use standard graphics.library function */
-   if(IsTTEngineFontActive(rp))
-   {  /* ttengine: te_Width is advance; ink span is MaxX-MinX+1 (SDK says they need not match). */
-      long lim;
+   /* TTEngine or live Bullet: one-shot extent; else graphics TextFit loop. */
+   if(IsTTEngineFontActive(rp) || BulletFontIsLiveActive(rp))
+   {  long lim;
       long ink;
       long adv;
       if(count > 0)
@@ -395,10 +395,17 @@ long Textlengthext(struct RastPort *rp,UBYTE *text,long count,long *extent)
          {
             length=ink;
          }
-         length+=(long)TTEngineBoldInkPad(rp);
+         if(IsTTEngineFontActive(rp))
+         {
+            length+=(long)TTEngineBoldInkPad(rp);
+         }
          if(extent)
          {
-            *extent=ink+(long)TTEngineBoldInkPad(rp);
+            *extent=ink;
+            if(IsTTEngineFontActive(rp))
+            {
+               *extent+=(long)TTEngineBoldInkPad(rp);
+            }
          }
       }
    }
@@ -416,10 +423,9 @@ long Textlengthext(struct RastPort *rp,UBYTE *text,long count,long *extent)
 }
 
 long Textlength(struct RastPort *rp,UBYTE *text,long count)
-{  /* Use ttengine wrapper if ttengine font is active, else use standard function */
-   if(IsTTEngineFontActive(rp))
-   {  /* ttengine handles whole strings at once - no need for loops */
-      if(count > 0)
+{  /* TTEngine / live Bullet wrappers handle whole strings at once. */
+   if(IsTTEngineFontActive(rp) || BulletFontIsLiveActive(rp))
+   {  if(count > 0)
       {  return (long)TTEngineTextLength(rp,text,count);
       }
       return 0;

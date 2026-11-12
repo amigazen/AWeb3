@@ -25,9 +25,10 @@
  * the algorithm is identical, only the tag names change. */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebwebp.h"
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <graphics/scale.h>
@@ -35,8 +36,6 @@
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
-
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
 /*--------------------------------------------------------------------*/
@@ -143,11 +142,14 @@ static void Newbitmap(struct Webpcopy *wc,struct BitMap *bitmap,UBYTE *mask)
    {  ULONG src_isp96;
       ULONG arch_depth;
       src_isp96=0UL;
-      if(P96Base && p96GetBitMapAttr(bitmap,P96BMA_ISP96))
+      if(GetBitMapAttr(bitmap,BMA_FLAGS)&BMF_STANDARD)
+      {  src_isp96=0UL;
+      }
+      else if(CyberGfxBase && GetCyberMapAttr(bitmap,CYBRMATTR_ISCYBERGFX))
       {  src_isp96=1UL;
       }
-      if(P96Base && src_isp96)
-      {  depth=(short)p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+      if(CyberGfxBase && src_isp96)
+      {  depth=(short)GetCyberMapAttr(bitmap,CYBRMATTR_DEPTH);
       }
       else
       {  arch_depth=GetBitMapAttr(bitmap,BMA_DEPTH);
@@ -168,9 +170,9 @@ static void Newbitmap(struct Webpcopy *wc,struct BitMap *bitmap,UBYTE *mask)
                height=wc->bitmap->Rows;
                memfchip=MEMF_CHIP;
             }
-            else if(P96Base && p96GetBitMapAttr(wc->bitmap,P96BMA_ISP96))
-            {  width=p96GetBitMapAttr(wc->bitmap,P96BMA_WIDTH)/8;
-               height=p96GetBitMapAttr(wc->bitmap,P96BMA_HEIGHT);
+            else if(CyberGfxBase && GetCyberMapAttr(wc->bitmap,CYBRMATTR_ISCYBERGFX))
+            {  width=GetCyberMapAttr(wc->bitmap,CYBRMATTR_WIDTH)/8;
+               height=GetCyberMapAttr(wc->bitmap,CYBRMATTR_HEIGHT);
             }
             else width=0;
             if(width)
@@ -213,14 +215,14 @@ static void Scalebitmap(struct Webpcopy *wc,long sfrom,long sheight,long dfrom)
          dbm.BytesPerRow=wc->bitmap->BytesPerRow;
          dbm.Rows=wc->bitmap->Rows;
       }
-      else if(P96Base)
-      {  if(p96GetBitMapAttr(wc->srcbitmap,P96BMA_ISP96))
-         {  sbm.BytesPerRow=p96GetBitMapAttr(wc->srcbitmap,P96BMA_WIDTH)/8;
-            sbm.Rows=p96GetBitMapAttr(wc->srcbitmap,P96BMA_HEIGHT);
+      else if(CyberGfxBase)
+      {  if(GetCyberMapAttr(wc->srcbitmap,CYBRMATTR_ISCYBERGFX))
+         {  sbm.BytesPerRow=GetCyberMapAttr(wc->srcbitmap,CYBRMATTR_WIDTH)/8;
+            sbm.Rows=GetCyberMapAttr(wc->srcbitmap,CYBRMATTR_HEIGHT);
          }
-         if(p96GetBitMapAttr(wc->bitmap,P96BMA_ISP96))
-         {  dbm.BytesPerRow=p96GetBitMapAttr(wc->bitmap,P96BMA_WIDTH)/8;
-            dbm.Rows=p96GetBitMapAttr(wc->bitmap,P96BMA_HEIGHT);
+         if(GetCyberMapAttr(wc->bitmap,CYBRMATTR_ISCYBERGFX))
+         {  dbm.BytesPerRow=GetCyberMapAttr(wc->bitmap,CYBRMATTR_WIDTH)/8;
+            dbm.Rows=GetCyberMapAttr(wc->bitmap,CYBRMATTR_HEIGHT);
          }
       }
       if(sbm.BytesPerRow && dbm.BytesPerRow)

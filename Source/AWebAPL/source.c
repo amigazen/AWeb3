@@ -30,6 +30,7 @@
 #include "plugin.h"
 #include "fetch.h"
 #include "info.h"
+#include "aweblog.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
@@ -195,8 +196,17 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
       src->memory=0;
    }
       
-   /* If server has reported a MIME type, use it, else use the one from cache */
-   if(*src->contenttype) type=src->contenttype;
+   /* If server has reported a MIME type, use it, else use the one from cache.
+    * HTTP content-types often include parameters such as "; charset=UTF-8".
+    * MIME driver lookup is based on the media type only; leaving parameters
+    * attached can make a configured text/html filter miss and fall through to
+    * save-as. */
+   if(*src->contenttype)
+   {  UBYTE *sc;
+      sc=strchr(src->contenttype,';');
+      if(sc) *sc='\0';
+      type=src->contenttype;
+   }
    else
    {  UBYTE *ct;
       UBYTE *sc;
@@ -347,8 +357,17 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
          case MIMEDRV_PLUGIN:
             Openplugin(src,name);
             if(!src->sdtype)
-            {  src->sdtype=AOTP_SAVEAS;
-               src->cdtype=0;
+            {  /* text/html must always remain displayable. If the optional
+                * filter plugin is missing, incompatible, or failed to open,
+                * render the original document rather than prompting to save. */
+               if(type && STRIEQUAL(type,"text/html"))
+               {  src->sdtype=AOTP_DOCSOURCE;
+                  src->cdtype=AOTP_DOCUMENT;
+               }
+               else
+               {  src->sdtype=AOTP_SAVEAS;
+                  src->cdtype=0;
+               }
             }
             break;
          case MIMEDRV_EXTPROG:

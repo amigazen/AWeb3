@@ -1,5 +1,5 @@
 ## version $VER: aweb.catalog 3.4 (6.1.2001)
-## language türkçe
+## language tï¿½rkï¿½e
 ## codeset 0
 ;
 ; AWeb.cd - AWeb catalog description file
@@ -20,7 +20,7 @@ AWeb istemi
 ;-------------- About requester ---------------------
 ;
 MSG_ABOUT_TITLE
-AWeb Hakkýnda
+AWeb Hakkï¿½nda
 ; About AWeb
 ;
 MSG_ABOUT_REGNR
@@ -28,7 +28,7 @@ Sicil #
 ; Registration #
 ;
 MSG_ABOUT_REGTO
-Adýna Kayýtlý Kiþi
+Adï¿½na Kayï¿½tlï¿½ Kiï¿½i
 ; Registered to
 ;
 MSG_ABOUT_SCREENNAME
@@ -49,43 +49,43 @@ WWW
 ;
 MSG_ABOUT_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Kayýtlý Olmayan Sürüm\n
+Kayï¿½tlï¿½ Olmayan Sï¿½rï¿½m\n
 ; Unregistered version\n
 ;
 MSG_ABOUT_DEMO
-Deneme sürümü\n
+Deneme sï¿½rï¿½mï¿½\n
 ; Unregistered demo version\n
 ;
 MSG_ABOUT_DISTRIBUTED
-Daðýtým %s
+Daï¿½ï¿½tï¿½m %s
 ; Distributed by %s
 ;
 ; Translators give yourself credit with this string.
 ; It should read something like "(Language) translation by: (your name)\n"
 ;
 MSG_ABOUT_TRANSLATOR
-Türkçe Çeviri: Sinan Gürkan\n
+Tï¿½rkï¿½e ï¿½eviri: Sinan Gï¿½rkan\n
 ; 
 ;
 MSG_ABOUT_SPECIAL
-Amiga OS için özel daðýtým sürümü\n
+Amiga OS iï¿½in ï¿½zel daï¿½ï¿½tï¿½m sï¿½rï¿½mï¿½\n
 ; Special version for distribution with Amiga OS\n
 ;
 ;-------------- Quit requester ----------------------
 ;
 MSG_QUIT_TEXT
-AWeb`den çýkmak istediðinize eminmisiniz?
+AWeb`den ï¿½ï¿½kmak istediï¿½inize eminmisiniz?
 ; Are you sure you want to quit AWeb?
 ;
 MSG_QUIT_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 MSG_QUIT_CANCEL
-_Vazgeç
+_Vazgeï¿½
 ; _Cancel
 ;
 MSG_QUIT_WARNING
@@ -95,18 +95,18 @@ UYARI: Transferler kesilecektir!\n\n
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Bu AWeb deneme sürümdür.\nÇoklu döküman penceresi desteklenmiyor.
+Bu AWeb deneme sï¿½rï¿½mdï¿½r.\nï¿½oklu dï¿½kï¿½man penceresi desteklenmiyor.
 ; This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-AWeb ekranýný kapatamýyor.\nLütfen bütün pencereleri kapatýn.
+AWeb ekranï¿½nï¿½ kapatamï¿½yor.\nLï¿½tfen bï¿½tï¿½n pencereleri kapatï¿½n.
 ; AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
@@ -117,7 +117,7 @@ Ok
 ;-------------- Network status window ---------------
 ;
 MSG_NWS_TITLE
-Að durumu
+Aï¿½ durumu
 ; Network status
 ;
 MSG_NWS_QUEUED
@@ -125,15 +125,15 @@ Kuyrukta
 ; Queued
 ;
 MSG_NWS_STARTED
-Baþlatýldý
+Baï¿½latï¿½ldï¿½
 ; Started
 ;
 MSG_NWS_LOOKUP
-Aranýyor
+Aranï¿½yor
 ; Looking up
 ;
 MSG_NWS_CONNECT
-Baðlanýlýyor
+Baï¿½lanï¿½lï¿½yor
 ; Connecting
 ;
 MSG_NWS_WAIT
@@ -141,7 +141,7 @@ Bekleniyor
 ; Waiting
 ;
 MSG_NWS_PROCESS
-Ýþleniyor
+ï¿½ï¿½leniyor
 ; Processing
 ;
 MSG_NWS_LOGIN
@@ -153,55 +153,55 @@ MSG_NWS_CPS
 ; %ld cps
 ;
 MSG_NWS_NEWSGROUP
-Taranýyor
+Taranï¿½yor
 ; Scanning
 ;
 MSG_NWS_UPLOAD
-Yükleniyor
+Yï¿½kleniyor
 ; Uploading
 ;
 ;-------------- Authorization requester -------------
 ;
 MSG_AUTH_TITLE
-Ýzin
+ï¿½zin
 ; Authorization
 ;
 MSG_AUTH_PROMPT
-için KullanýcýÝsmi ve þifre gerekli
+iï¿½in Kullanï¿½cï¿½ï¿½smi ve ï¿½ifre gerekli
 ; Userid and password required for
 ;
 MSG_AUTH_USERID
-_KullanýcýÝsmi
+_Kullanï¿½cï¿½ï¿½smi
 ; _Userid
 ;
 MSG_AUTH_PASSWORD
-Þi_fre
+ï¿½i_fre
 ; _Password
 ;
 MSG_AUTH_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 MSG_AUTH_CANCEL
-_Vazgeç
+_Vazgeï¿½
 ; _Cancel
 ;
 MSG_AUTH_PROMPT_FTP
-Ýçin þifre gerekli
+ï¿½ï¿½in ï¿½ifre gerekli
 ; Password required for
 ;
 MSG_AUTH_USERID_FTP
-KullanýcýÝsmi
+Kullanï¿½cï¿½ï¿½smi
 ; Userid
 ;
 MSG_AUTH_PROMPT_PROXY
-Proxy için KullanýcýÝsmi ve þifre gerekli
+Proxy iï¿½in Kullanï¿½cï¿½ï¿½smi ve ï¿½ifre gerekli
 ; Userid and password required for proxy
 ;
 ;-------------- File requesters ---------------------
 ;
 MSG_FILE_SAVETITLE
-Kayýt ismini seç
+Kayï¿½t ismini seï¿½
 ; Select save filename
 ;
 MSG_FILE_SAVE
@@ -209,7 +209,7 @@ Kaydet
 ; Save
 ;
 MSG_FILE_INCTEXT
-Bitmemiþ dosya!\n%s\nBeklenen: %ld bayt\nGelen: %ld bayt\n\nTamam`a basarak yarým veriyi saklayabilirsiniz.
+Bitmemiï¿½ dosya!\n%s\nBeklenen: %ld bayt\nGelen: %ld bayt\n\nTamam`a basarak yarï¿½m veriyi saklayabilirsiniz.
 ; Incomplete file!\n%s\nExpected: %ld bytes\nReceived: %ld bytes\n\n\
 ; Choose OK to keep the partial data.
 ;
@@ -221,68 +221,68 @@ Dosya:\n%s\nzaten var!
 ; File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-Ü_stüne Yaz|_Ekle|_Yeni isim|_Vazgeç
+ï¿½_stï¿½ne Yaz|_Ekle|_Yeni isim|_Vazgeï¿½
 ; _Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
-Arexx makrosunu seç
+Arexx makrosunu seï¿½
 ; Select ARexx macro
 ;
 MSG_FILE_HOTLISTTITLE
-Hiyearþik en sýk ziyaret edilenler listesini seç
+Hiyearï¿½ik en sï¿½k ziyaret edilenler listesini seï¿½
 ; Select hierarchical hotlist
 ;
 MSG_FILE_LOCALTITLE
-Lokal dosyayý aç
+Lokal dosyayï¿½ aï¿½
 ; Open local file
 ;
 MSG_FILE_OPEN
-Aç
+Aï¿½
 ; Open
 ;
 MSG_FILE_TEMPTITLE
-Geçici yol bulunamýyor:\n%s\nYerine T: kullan.
+Geï¿½ici yol bulunamï¿½yor:\n%s\nYerine T: kullan.
 ; Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
 _Tamam
-; _Ok
+; _OK 
 ;
 MSG_FILE_INCBUTTONS2
-_Tamam|Tekrar _Dene|_Vazgeç
-; _Ok|_Retry|_Cancel
+_Tamam|Tekrar _Dene|_Vazgeï¿½
+; _OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
-Ayarlar dizinini seç
+Ayarlar dizinini seï¿½
 ; Select settings directory
 ;
 MSG_FILE_UPLOADTITLE
-Yüklenecek dosyayý seç
+Yï¿½klenecek dosyayï¿½ seï¿½
 ; Select file to upload
 ;
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-Aweb durduruldu.\nTCP baðlantýsý da yok edilsin mi?
+Aweb durduruldu.\nTCP baï¿½lantï¿½sï¿½ da yok edilsin mi?
 ; AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
 MSG_TCP_BUTTONS
-_Evet|_Hayýr
+_Evet|_Hayï¿½r
 ; _Yes|_No
 ;
 ;-------------- Startup requester -------------------
 ; Mind the maximum length!
 ;
 MSG_STARTUP_FONTS
-Fontlar yükleniyor
+Fontlar yï¿½kleniyor
 ; Loading fonts
 ;
 MSG_STARTUP_IMAGES
-Arabirim imajlarý yükleniyor
+Arabirim imajlarï¿½ yï¿½kleniyor
 ; Loading GUI images
 ;
 MSG_STARTUP_CACHE
-Kaþe indeksi yükleniyor
+Kaï¿½e indeksi yï¿½kleniyor
 ; Loading cache index
 ;
 ;-------------- Hotlist requester -------------------
@@ -292,7 +292,7 @@ AWeb Favori Listesi
 ; AWeb hotlist
 ;
 MSG_HOTL_ADDLINK
-_Baðlantý Ekle
+_Baï¿½lantï¿½ Ekle
 ; _Add link
 ;
 MSG_HOTL_ADDGROUP
@@ -301,15 +301,15 @@ _Grup Ekle
 ;
 ; (No hotkey for this one please!)
 MSG_HOTL_REMOVE
-Çýkar
+ï¿½ï¿½kar
 ; Remove
 ;
 MSG_HOTL_FOLLOW
-Ý_zle
+ï¿½_zle
 ; _Follow
 ;
 MSG_HOTL_NAME
-Ý_sim
+ï¿½_sim
 ; _Name
 ;
 MSG_HOTL_URL
@@ -321,13 +321,13 @@ Yeni grup
 ; New group
 ;
 MSG_HOTL_NEWLINK
-Yeni baðlantý
+Yeni baï¿½lantï¿½
 ; New link
 ;
 ; -- new hotlist viewer requester --
 ;
 MSG_HOTL_TITLE_VIEWER
-Aweb favoriler gösterici
+Aweb favoriler gï¿½sterici
 ; AWeb hotlist viewer
 ;
 MSG_HOTL_VURLS
@@ -361,11 +361,11 @@ Gruplar
 ; Groups
 ;
 MSG_HOTL_LSORT
-Sý_rala
+Sï¿½_rala
 ; S_ort
 ;
 MSG_HOTL_LSORT_TITLE
-Baþlýk
+Baï¿½lï¿½k
 ; Title
 ;
 MSG_HOTL_LSORT_URL
@@ -373,15 +373,15 @@ URL
 ; URL
 ;
 MSG_HOTL_MOVEIN
-_< Ýçeri
+_< ï¿½ï¿½eri
 ; _< In
 ;
 MSG_HOTL_MOVEOUT
-Dýþarý _>
+Dï¿½ï¿½arï¿½ _>
 ; Out _>
 ;
 MSG_HOTL_MOVE
-< _Taþý
+< _Taï¿½ï¿½
 ; < _Move
 ;
 MSG_HOTL_DEL
@@ -393,15 +393,15 @@ _Yer
 ; _Where
 ;
 MSG_HOTL_SHOW
-_Göster
+_Gï¿½ster
 ; S_how
 ;
 MSG_HOTL_SORT
-Sýra_la
+Sï¿½ra_la
 ; Sor_t
 ;
 MSG_HOTL_PARENT
-Üst _Dizin
+ï¿½st _Dizin
 ; _Parent
 ;
 MSG_HOTL_ALL
@@ -409,7 +409,7 @@ G_ruplar
 ; G_roups
 ;
 MSG_HOTL_ADDENTRY
-+ G_iriþ
++ G_iriï¿½
 ; + _Entry
 ;
 MSG_HOTL_ADDGROUP2
@@ -421,7 +421,7 @@ UR_L
 ; UR_Ls
 ;
 MSG_HOTL_REVERT
-Ter_s döndür
+Ter_s dï¿½ndï¿½r
 ; Re_vert
 ;
 MSG_HOTL_SAVE
@@ -437,7 +437,7 @@ _Bul
 ; _Find
 ;
 MSG_HOTL_PATTERN
-Eþ_le
+Eï¿½_le
 ; Mat_ch
 ;
 MSG_HOTL_NEXT
@@ -445,7 +445,7 @@ S_onraki
 ; Ne_xt
 ;
 MSG_HOTL_DEFAULT_TITLE
-** Yeni baðlantý **
+** Yeni baï¿½lantï¿½ **
 ; ** New link **
 ;
 MSG_HOTL_DEFAULT_GROUP
@@ -453,23 +453,23 @@ MSG_HOTL_DEFAULT_GROUP
 ; ** New group **
 ;
 MSG_HOTL_TITLE_ALLGROUPS
-Bütün gruplar
+Bï¿½tï¿½n gruplar
 ; All groups
 ;
 MSG_HOTL_TITLE_WHERE
-Bu giriþi içeren gruplar
+Bu giriï¿½i iï¿½eren gruplar
 ; Groups containing this entry
 ;
 MSG_HOTL_TITLE_REST
-Atanmamýþ giriþler
+Atanmamï¿½ï¿½ giriï¿½ler
 ; Unassigned entries
 ;
 MSG_HOTL_TITLE_ALL
-Bütün giriþler
+Bï¿½tï¿½n giriï¿½ler
 ; All entries
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
-Root-düzeyi gruplar
+Root-dï¿½zeyi gruplar
 ; Root-level groups
 ;
 MSG_HOTL_LSORT_DATE
@@ -480,7 +480,7 @@ Tarih
 ;--------------  Window history requester -------------------
 ;
 MSG_WHIS_TITLE
-Pencere geçmiþi
+Pencere geï¿½miï¿½i
 ; Window history
 ;
 MSG_WHIS_FILTER
@@ -492,27 +492,27 @@ _Pencere
 ; _Window
 ;
 MSG_WHIS_ORDER
-_Düzen
+_Dï¿½zen
 ; _Order
 ;
 MSG_WHIS_DISPLAY
-_Görünüm
+_Gï¿½rï¿½nï¿½m
 ; _Display
 ;
 MSG_WHIS_ORDER_NATURAL
-Doðal
+Doï¿½al
 ; Natural
 ;
 MSG_WHIS_ORDER_MAINLINE
-Anaçizgi
+Anaï¿½izgi
 ; Mainline
 ;
 MSG_WHIS_ORDER_RETRIEVED
-Alýnmýþ
+Alï¿½nmï¿½ï¿½
 ; Retrieved
 ;
 MSG_WHIS_ORDER_TITLE
-Baþlýk
+Baï¿½lï¿½k
 ; Title
 ;
 MSG_WHIS_ORDER_URL
@@ -523,7 +523,7 @@ URL
 ;-------------- Cache browser ---------------------------
 ;
 MSG_CABR_TITLE
-Kaþe tarayýcý
+Kaï¿½e tarayï¿½cï¿½
 ; Cache browser
 ;
 MSG_CABR_URL
@@ -551,11 +551,11 @@ MSG_CABR_STATUS
 ; %ld files, %ld kB
 ;
 MSG_CABR_SORTBY
-_Ýle Sýrala
+_ï¿½le Sï¿½rala
 ; _Sort by
 ;
 MSG_CABR_OPEN
-_Aç
+_Aï¿½
 ; _Open
 ;
 MSG_CABR_SAVE
@@ -571,7 +571,7 @@ _Bul
 ; _Find
 ;
 MSG_CABR_PATTERN
-_Eþle
+_Eï¿½le
 ; _Match
 ;
 MSG_CABR_NEXT
@@ -582,47 +582,47 @@ S_onraki
 ;-------------- Progress requester ----------------------
 ;
 MSG_PROGRESS_TITLE
-Aweb iþlemi
+Aweb iï¿½lemi
 ; AWeb progress
 ;
 MSG_PROGRESS_CANCEL
-Vazgeç
+Vazgeï¿½
 ; Cancel
 ;
 ;
 ;-------------- Fix cache requesters ---------------------
 ;
 MSG_FIXCACHE_WARNING
-UYARI!\nBu fonksiyon bütün yabancý dosyalarý\n%s dizininden silecektir
+UYARI!\nBu fonksiyon bï¿½tï¿½n yabancï¿½ dosyalarï¿½\n%s dizininden silecektir
 ; WARNING!\n\
 ; This function will delete all foreign files from the\n\
 ; %s drawer
 ;
 MSG_FIXCACHE_BUTTONS
-_Tamam|_Vazgeç
-; _Ok|_Cancel
+_Tamam|_Vazgeï¿½
+; _OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
-Disk kaþesi düzeltiliyor...
+Disk kaï¿½esi dï¿½zeltiliyor...
 ; Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Bütün imajlarý kaþeden silmek\nistediðinizden eminmisiniz ?
+Bï¿½tï¿½n imajlarï¿½ kaï¿½eden silmek\nistediï¿½inizden eminmisiniz ?
 ; Are you sure you want to delete\n\
 ; all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Bütün dökümanlarý kaþeden silmek\nistediðinizden eminmisiniz ?
+Bï¿½tï¿½n dï¿½kï¿½manlarï¿½ kaï¿½eden silmek\nistediï¿½inizden eminmisiniz ?
 ; Are you sure you want to delete\n\
 ; all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
-Bütün imaj ve dökümanlarý kaþeden\nsilmek istediðinizden eminmisiniz?
+Bï¿½tï¿½n imaj ve dï¿½kï¿½manlarï¿½ kaï¿½eden\nsilmek istediï¿½inizden eminmisiniz?
 ; Are you sure you want to delete\n\
 ; all documents and images from the cache?
 ;
 MSG_FIXCACHE_CORRUPT
-Kaþe sicil okunamaz veya daha\neski bir AWeb sürümünden.Kaþelenen dosyalar\nkullanýlamaz. Temizlemek istermisiniz?
+Kaï¿½e sicil okunamaz veya daha\neski bir AWeb sï¿½rï¿½mï¿½nden.Kaï¿½elenen dosyalar\nkullanï¿½lamaz. Temizlemek istermisiniz?
 ; The cache registration is unreadable\n\
 ; or from an older version of AWeb.\n\
 ; Cached files cannot be used any more.\n\
@@ -635,7 +635,7 @@ A_ra
 ; Search _for
 ;
 MSG_SEARCH_IGNORECASE
-Küçü_k büyük harf dikkate alma
+Kï¿½ï¿½ï¿½_k bï¿½yï¿½k harf dikkate alma
 ; _Ignore case
 ;
 MSG_SEARCH_SEARCH
@@ -643,7 +643,7 @@ _Ara
 ; _Search
 ;
 MSG_SEARCH_FROMTOP
-Ü_stten
+ï¿½_stten
 ; From _top
 ;
 MSG_SEARCH_BACKWARDS
@@ -651,86 +651,86 @@ _Geriye
 ; _Backwards
 ;
 MSG_SEARCH_CANCEL
-_Vazgeç
+_Vazgeï¿½
 ; _Cancel
 ;
 MSG_SEARCH_NOTFOUND
-Katar bulunamadý
+Katar bulunamadï¿½
 ; String not found
 ;
 MSG_SEARCH_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
 ;
 MSG_POPUP_LOADIMAGE
-Ýmajý yükle
+ï¿½majï¿½ yï¿½kle
 ; Load image
 ;
 MSG_POPUP_RELOADIMAGE
-Ýmajý tekrar yükle
+ï¿½majï¿½ tekrar yï¿½kle
 ; Reload image
 ;
 MSG_POPUP_SAVEIMAGE
-Ýmajý kaydet
+ï¿½majï¿½ kaydet
 ; Save image
 ;
 MSG_POPUP_DOWNLOADIMAGE
-Ýmajý indir
+ï¿½majï¿½ indir
 ; Download image
 ;
 MSG_POPUP_FLUSHIMAGE
-Ýmajý temizle
+ï¿½majï¿½ temizle
 ; Flush image
 ;
 MSG_POPUP_SHOWIMAGE
-Ýmajý göster
+ï¿½majï¿½ gï¿½ster
 ; Show image
 ;
 MSG_POPUP_OPENLINK
-Baðlantýyý aç
+Baï¿½lantï¿½yï¿½ aï¿½
 ; Open link
 ;
 MSG_POPUP_OPENLINKNW
-Baðlantýyý yeni pencerede aç
+Baï¿½lantï¿½yï¿½ yeni pencerede aï¿½
 ; Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Baðlantýyý arkada yükle
+Baï¿½lantï¿½yï¿½ arkada yï¿½kle
 ; Load link in background
 ;
 MSG_POPUP_SAVELINK
-Baðlantýyý kaydet
+Baï¿½lantï¿½yï¿½ kaydet
 ; Save link
 ;
 MSG_POPUP_DOWNLOADLINK
-Baðlantýyý indir
+Baï¿½lantï¿½yï¿½ indir
 ; Download link
 ;
 MSG_POPUP_ADDLINK
-Baðlantýyý favorilere kaydet
+Baï¿½lantï¿½yï¿½ favorilere kaydet
 ; Add link to hotlist
 ;
 MSG_POPUP_RELOADFRAME
-Ýçerikleri tekrar yükle
+ï¿½ï¿½erikleri tekrar yï¿½kle
 ; Reload contents
 ;
 MSG_POPUP_SAVEFRAME
-Kaynaðý kaydet
+Kaynaï¿½ï¿½ kaydet
 ; Save source
 ;
 MSG_POPUP_VIEWFRAME
-Kaynaðý göster
+Kaynaï¿½ï¿½ gï¿½ster
 ; View source
 ;
 MSG_POPUP_SHOWFRAME
-Ayrý ayrý göster
+Ayrï¿½ ayrï¿½ gï¿½ster
 ; Show separately
 ;
 MSG_POPUP_SEARCHFRAME
-Ýçerik içinde ara
+ï¿½ï¿½erik iï¿½inde ara
 ; Search in contents
 ;
 MSG_POPUP_INFOFRAME
@@ -740,19 +740,19 @@ Bilgi
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Basým parametreleri
+Basï¿½m parametreleri
 ; Print parameters
 ;
 MSG_PRINTP_SCALE
-Ö_lçek (%)
+ï¿½_lï¿½ek (%)
 ; _Scale (%)
 ;
 MSG_PRINTP_PRINTBG
-Arkaplaný _bastýr
+Arkaplanï¿½ _bastï¿½r
 ; Print _backgrounds
 ;
 MSG_PRINTP_FORMFEED
-_Sayfayý çýkar
+_Sayfayï¿½ ï¿½ï¿½kar
 ; _Formfeed
 ;
 MSG_PRINTP_CENTER
@@ -760,27 +760,27 @@ _Ortala
 ; Ce_nter
 ;
 MSG_PRINTP_PRINT
-B_astýr
+B_astï¿½r
 ; _Print
 ;
 MSG_PRINTP_CANCEL
-_Vazgeç
+_Vazgeï¿½
 ; _Cancel
 ;
 MSG_PRINT_NOPRINTER
-Yazýcýya eriþilemiyor
+Yazï¿½cï¿½ya eriï¿½ilemiyor
 ; Unable to access the printer
 ;
 MSG_PRINT_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 MSG_PRINT_PROGRESS
-Basým yapýlýyor...
+Basï¿½m yapï¿½lï¿½yor...
 ; Printing in progress...
 ;
 MSG_PRINTP_LAYOUTWIDTH
-_Sayfa Düzeni Geniþliði
+_Sayfa Dï¿½zeni Geniï¿½liï¿½i
 ; _Layout Width
 ;
 MSG_PRINTP_LW_WINDOW
@@ -788,7 +788,7 @@ Pencere
 ; Window
 ;
 MSG_PRINTP_LW_DOCUMENT
-Döküman
+Dï¿½kï¿½man
 ; Document
 ;
 MSG_PRINTP_LW_SCREEN
@@ -799,7 +799,7 @@ Ekran
 ;-------------- Cookie warning ----------------------
 ;
 MSG_COOKIE_TITLE
-Cookie alarmý
+Cookie alarmï¿½
 ; Cookie alert
 ;
 MSG_COOKIE_WARNING
@@ -811,7 +811,7 @@ Cookie ismi:
 ; Cookie name:
 ;
 MSG_COOKIE_VALUE
-Cookie deðeri:
+Cookie deï¿½eri:
 ; Cookie value:
 ;
 MSG_COOKIE_DOMAIN
@@ -827,11 +827,11 @@ Yorum:
 ; Comment:
 ;
 MSG_COOKIE_MAXAGE
-Mak-yaþ:
+Mak-yaï¿½:
 ; Max-age:
 ;
 MSG_COOKIE_EXPIRES
-Son kullaným:
+Son kullanï¿½m:
 ; Expires:
 ;
 MSG_COOKIE_ONCE
@@ -847,15 +847,15 @@ _Asla
 ; _Never
 ;
 MSG_COOKIE_CANCEL
-_Vazgeç
+_Vazgeï¿½
 ; _Cancel
 ;
 MSG_COOKIE_SECURE
-AWeb bu cookie`i sadece güvenli\nbaðlantýlar üzerinden gönderecek.
+AWeb bu cookie`i sadece gï¿½venli\nbaï¿½lantï¿½lar ï¿½zerinden gï¿½nderecek.
 ; AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb bu cookie`i sadece GÜVENLÝ\nolmayan baðlantýlar üzerinden gönderecek.
+AWeb bu cookie`i sadece Gï¿½VENLï¿½\nolmayan baï¿½lantï¿½lar ï¿½zerinden gï¿½nderecek.
 ; AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
@@ -866,11 +866,11 @@ Bilgi
 ; Information
 ;
 MSG_INFO_FROMCACHE
-AWeb kaþeden oku
+AWeb kaï¿½eden oku
 ; Read from AWeb cache
 ;
 MSG_INFO_XFER
-Transfer baþlýklarý:
+Transfer baï¿½lï¿½klarï¿½:
 ; Transfer headers:
 ;
 MSG_INFO_META
@@ -878,7 +878,7 @@ Meta bilgisi:
 ; Meta information:
 ;
 MSG_INFO_LINK
-Týklanabilir baðlantýlar:
+Tï¿½klanabilir baï¿½lantï¿½lar:
 ; Clickable links:
 ;
 MSG_INFO_CIPHER
@@ -886,13 +886,13 @@ HTTPS cipher metodu: %s
 ; HTTPS cipher method: %s
 ;
 MSG_INFO_SSLLIBRARY
-Kullanýlan SSL kütüphanesi: %s
+Kullanï¿½lan SSL kï¿½tï¿½phanesi: %s
 ; SSL library used: %s
 ;
 ;-------------- Default buttons ---------------------
 ;
 MSG_USERBUTTON_CACHE
-Kaþe
+Kaï¿½e
 ; Cache
 ;
 MSG_USERBUTTON_CLOCK
@@ -903,7 +903,7 @@ Saat
 ;-------------- Authorizations edit requester -------
 ;
 MSG_AUTHEDIT_TITLE
-Ýzinleri editle
+ï¿½zinleri editle
 ; Edit authorizations
 ;
 MSG_AUTHEDIT_TITLE_SERVER
@@ -911,7 +911,7 @@ Sunucu
 ; Server
 ;
 MSG_AUTHEDIT_TITLE_USERID
-KullanýcýÝsmi
+Kullanï¿½cï¿½ï¿½smi
 ; Userid
 ;
 MSG_AUTHEDIT_DEL
@@ -923,11 +923,11 @@ Sunucu
 ; Server
 ;
 MSG_AUTHEDIT_USERID
-_KullanýcýAdý
+_Kullanï¿½cï¿½Adï¿½
 ; _Userid
 ;
 MSG_AUTHEDIT_PASSWORD
-Þi_fre
+ï¿½i_fre
 ; _Password
 ;
 ;
@@ -935,52 +935,52 @@ MSG_AUTHEDIT_PASSWORD
 ;
 MSG_JSPROMPT_OK
 _Tamam
-; _Ok
+; _OK 
 ;
 MSG_JSPROMPT_CANCEL
-_Vazgeç
+_Vazgeï¿½
 ; _Cancel
 ;
 ;
 ;-------------- Unsecure form warning ---------------
 ;
 MSG_FORMWARN_TITLE
-AWeb uyarýsý
+AWeb uyarï¿½sï¿½
 ; AWeb warning
 ;
 MSG_FORMWARN_WARNING
-Bu formdan gelen veri GÜVENLÝ olmayan\nbaðlantýlardan gönderilecek.
+Bu formdan gelen veri Gï¿½VENLï¿½ olmayan\nbaï¿½lantï¿½lardan gï¿½nderilecek.
 ; Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
-_Tamam|_Vazgeç
-; _Ok|_Cancel
+_Tamam|_Vazgeï¿½
+; _OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
 ;
 MSG_MAIL_TITLE
-AWeb postacý hatasý
+AWeb postacï¿½ hatasï¿½
 ; AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Ýlk önce SMTP sunucusunu ayarlamalsýnýz.\nAð/Posta ayarlarýna bakýn.
+ï¿½lk ï¿½nce SMTP sunucusunu ayarlamalsï¿½nï¿½z.\nAï¿½/Posta ayarlarï¿½na bakï¿½n.
 ; You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
-%s adresine baðlanýlamýyor.
+%s adresine baï¿½lanï¿½lamï¿½yor.
 ; Can't connect to %s.
 ;
 MSG_MAIL_MAILFAILED
-Posta mesaj gönderimi baþarýsýz.
+Posta mesaj gï¿½nderimi baï¿½arï¿½sï¿½z.
 ; Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-_Tekrar|_Kaydet|_Vazgeç
+_Tekrar|_Kaydet|_Vazgeï¿½
 ; _Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
-Baþarýsýz mesajý kaydet
+Baï¿½arï¿½sï¿½z mesajï¿½ kaydet
 ; Save failed message
 ;
 MSG_MAIL_MAILTO_TITLE
@@ -992,7 +992,7 @@ Postalanan adres: %s
 ; Mail to: %s
 ;
 MSG_MAIL_TO
-Alýcý:
+Alï¿½cï¿½:
 ; To:
 ;
 MSG_MAIL_SUBJECT
@@ -1000,58 +1000,58 @@ Konu:
 ; Subject:
 ;
 MSG_MAIL_MESSAGE_BODY
-Mesaj gövdesi:
+Mesaj gï¿½vdesi:
 ; Message body:
 ;
 MSG_MAIL_EXTRA_HEADERS
-Ekstra posta baþlýklarý ekli
+Ekstra posta baï¿½lï¿½klarï¿½ ekli
 ; Extra mail headers included
 ;
 MSG_MAIL_SEND
-Postayý gönder
+Postayï¿½ gï¿½nder
 ; Send mail
 ;
 MSG_MAIL_RESET
-Sýfýrla
+Sï¿½fï¿½rla
 ; Reset
 ;
 MSG_MAIL_RETURN
-Geri Dön
+Geri Dï¿½n
 ; Return
 ;
 MSG_MAIL_MAIL_SENT_TITLE
-Gönderilen postanýn alýcýsý: %s
+Gï¿½nderilen postanï¿½n alï¿½cï¿½sï¿½: %s
 ; Mail sent to: %s
 ;
 MSG_MAIL_MAIL_SENT
-<H1>Posta gönderildi</H1>\nMesajýnýz <b>%s</b> adresine baþarý ile gönderildi.
+<H1>Posta gï¿½nderildi</H1>\nMesajï¿½nï¿½z <b>%s</b> adresine baï¿½arï¿½ ile gï¿½nderildi.
 ; <H1>Mail sent</H1>\nYour mail message to <B>%s</B> has been sent succesfully.
 ;
 ;
 ;-------------- Newsreader messages -----------------
 ;
 MSG_NEWS_TITLE
-AWeb haber okuyucu hatasý
+AWeb haber okuyucu hatasï¿½
 ; AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Ýlk önce NNTP sunucunuzu ayarlamalýsýnýz.\nAð/Haber ayarýna bakýn.
+ï¿½lk ï¿½nce NNTP sunucunuzu ayarlamalï¿½sï¿½nï¿½z.\nAï¿½/Haber ayarï¿½na bakï¿½n.
 ; You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
-%s adresine baðlanýlamýyor.
+%s adresine baï¿½lanï¿½lamï¿½yor.
 ; Can't connect to %s.
 ;
 MSG_NEWS_POSTFAILED
-Makalenin postalanmasý baþarýsýz.
+Makalenin postalanmasï¿½ baï¿½arï¿½sï¿½z.
 ; Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-_Tekrar|_Kaydet|_Vazgeç
+_Tekrar|_Kaydet|_Vazgeï¿½
 ; _Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
-Baþarýsýz makaleyi kaydet
+Baï¿½arï¿½sï¿½z makaleyi kaydet
 ; Save failed article
 ;
 MSG_NEWS_NEWS_HEADER
@@ -1059,7 +1059,7 @@ Haberler
 ; News
 ;
 MSG_NEWS_SUBSCRIBED
-Abone olunmuþ haber gruplarý
+Abone olunmuï¿½ haber gruplarï¿½
 ; Subscribed newsgroups
 ;
 ; Don't forget to include the '8' in the %8ld below:
@@ -1072,11 +1072,11 @@ Yakala
 ; Catch up
 ;
 MSG_NEWS_UNSUBSCRIBE
-Aboneliði bitir
+Aboneliï¿½i bitir
 ; Unsubscribe
 ;
 MSG_NEWS_OTHER_GROUP
-Diðer grup
+Diï¿½er grup
 ; Other group
 ;
 MSG_NEWS_SUBSCRIBE
@@ -1096,7 +1096,7 @@ Ara
 ; Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-Bir grubu ilk kez aradýðýnýzda,\nbütün grup haber gruplarýnýn ismi indirilecektir.\nBu birkaç dakika süre alabilir.
+Bir grubu ilk kez aradï¿½ï¿½ï¿½nï¿½zda,\nbï¿½tï¿½n grup haber gruplarï¿½nï¿½n ismi indirilecektir.\nBu birkaï¿½ dakika sï¿½re alabilir.
 ; The first time you search for a group,\n\
 ; a list of all newsgroup names will be downloaded.\n\
 ; This may take several minutes to complete.
@@ -1106,7 +1106,7 @@ MSG_NEWS_NO_SUBJECT
 ; (no subject)
 ;
 MSG_NEWS_LINES
-(%s satýr)
+(%s satï¿½r)
 ; (%s lines)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
@@ -1118,19 +1118,19 @@ Grup listesi
 ; Group list
 ;
 MSG_NEWS_ERROR_NO_GROUP
-<h1>Hata</h1>\nGrup %s mevcut deðil.
+<h1>Hata</h1>\nGrup %s mevcut deï¿½il.
 ; <h1>Error</h1>\nGroup %s does not exist.
 ;
 MSG_NEWS_USE_FRAMES
-Haberler çerçeveleri kullanacak þekilde ayarlanmýþ
+Haberler ï¿½erï¿½eveleri kullanacak ï¿½ekilde ayarlanmï¿½ï¿½
 ; News is configured to use frames
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
-Makale %s mevucut deðil<BR>
+Makale %s mevucut deï¿½il<BR>
 ; Article %s does not exist<BR>
 ;
 MSG_NEWS_FOLLOW_UP
-Ýzleyen
+ï¿½zleyen
 ; Follow-up
 ;
 MSG_NEWS_REPLY
@@ -1146,27 +1146,27 @@ Konu:
 ; Subject:
 ;
 MSG_NEWS_NEWSGROUPS
-Haber gruplarý:
+Haber gruplarï¿½:
 ; Newsgroups:
 ;
 MSG_NEWS_ARTICLE_BODY
-Makale gövdesi:
+Makale gï¿½vdesi:
 ; Article body:
 ;
 MSG_NEWS_EXTRA_HEADERS
-Ekstra haber baþlýklarý eklendi
+Ekstra haber baï¿½lï¿½klarï¿½ eklendi
 ; Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
-Makaleyi gönder
+Makaleyi gï¿½nder
 ; Post article
 ;
 MSG_NEWS_RESET
-Sýfýrla
+Sï¿½fï¿½rla
 ; Reset
 ;
 MSG_NEWS_RETURN
-Geri Dön
+Geri Dï¿½n
 ; Return
 ;
 MSG_NEWS_FOLLOWUP_TITLE
@@ -1174,11 +1174,11 @@ Makaleyi izleyen
 ; Follow-up to article
 ;
 MSG_NEWS_FOLLOWUP_TO_GROUPS
-Ýzleyen:
+ï¿½zleyen:
 ; Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Lütfen gereksiz alýntý satýrlarýný sil
+Lï¿½tfen gereksiz alï¿½ntï¿½ satï¿½rlarï¿½nï¿½ sil
 ; Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
@@ -1190,11 +1190,11 @@ Cevap verilen:
 ; Reply to:
 ;
 MSG_NEWS_ARTICLE_POSTED_TITLE
-Makale postalandý
+Makale postalandï¿½
 ; Article posted
 ;
 MSG_NEWS_ARTICLE_POSTED
-<H1>Makale postalandý</h1>\nMakaleniz postalandý.
+<H1>Makale postalandï¿½</h1>\nMakaleniz postalandï¿½.
 ; <H1>Article posted</h1>\n\
 ; Your article has been posted.
 ;
@@ -1203,7 +1203,7 @@ Habergrubu listesini indir
 ; Download newsgroup list
 ;
 MSG_NEWS_DOWNLOAD_BODY
-<H1>Ýndiriliyor...</H1>\nHaber grubu listesi indiriliyor. Birkaç dakika alabilir.
+<H1>ï¿½ndiriliyor...</H1>\nHaber grubu listesi indiriliyor. Birkaï¿½ dakika alabilir.
 ; <H1>Downloading...</H1>\n\
 ; Downloading newsgroup list. This can take several minutes.
 ;
@@ -1212,7 +1212,7 @@ Arama sonucu
 ; Search result
 ;
 MSG_NEWS_FIRST_MATCHING
-Ýlk %ld / %ld haber gruplarý <B>%s<B>'e uyan
+ï¿½lk %ld / %ld haber gruplarï¿½ <B>%s<B>'e uyan
 ; First %ld of %ld newsgroup names matching <B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
@@ -1223,68 +1223,68 @@ MSG_NEWS_FOUND_MATCHING
 ;-------------- Shell/ARexx command warning ---------
 ;
 MSG_CMDWARN_TITLE
-AWeb uyarý
+AWeb uyarï¿½
 ; AWeb warning
 ;
 MSG_CMDWARN_SHELL
-Shell komutunu çalýþtýrmak üzereyim:\n%s
+Shell komutunu ï¿½alï¿½ï¿½tï¿½rmak ï¿½zereyim:\n%s
 ; About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
-Arexx programýný baþlatmak üzereyim:\n%s
+Arexx programï¿½nï¿½ baï¿½latmak ï¿½zereyim:\n%s
 ; About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
-_Tamam|_Vazgeç
-; _Ok|_Cancel
+_Tamam|_Vazgeï¿½
+; _OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
 ;
 MSG_SSLWARN_SSL_TITLE
-AWeb uyarý
+AWeb uyarï¿½
 ; AWeb warning
 ;
 MSG_SSLWARN_SSL_TEXT
-%s adresine güvenli baðlantý yapýlamýyor:\n%s\n \nGüvenli olmayan baðlantý kullanýlsýn mý ?
+%s adresine gï¿½venli baï¿½lantï¿½ yapï¿½lamï¿½yor:\n%s\n \nGï¿½venli olmayan baï¿½lantï¿½ kullanï¿½lsï¿½n mï¿½ ?
 ; Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?
 ;
 MSG_SSLWARN_SSL_BUTTONS
-_Güvenli Olmayan|_Vazgeç
+_Gï¿½venli Olmayan|_Vazgeï¿½
 ; _Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Güvenli baðlantýlar sadece Miami TCP ve Miami SSL ile desteklenir.
+Gï¿½venli baï¿½lantï¿½lar sadece Miami TCP ve Miami SSL ile desteklenir.
 ; Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
-AWeb uyarý
+AWeb uyarï¿½
 ; AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-%s için sertifika onaylanamýyor.\nDetaylar: %s\n \nEðer devam ederseniz veri açýk halde gönderilecek ve sunucunun tanýmý yapýlamayacaktýr.\n \nDevam etmek istiyormusunuz ?
+%s iï¿½in sertifika onaylanamï¿½yor.\nDetaylar: %s\n \nEï¿½er devam ederseniz veri aï¿½ï¿½k halde gï¿½nderilecek ve sunucunun tanï¿½mï¿½ yapï¿½lamayacaktï¿½r.\n \nDevam etmek istiyormusunuz ?
 ; Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ; If you continue the data will be encrypted (protection against eavesdropping), \
 ; but the identity of the server cannot be verified (-NO- protection against fraud).\n \n\
 ; Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_Tamam|_Vazgeç
-; _Ok|_Cancel
+_Tamam|_Vazgeï¿½
+; _OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
-Güvenli baðlantýlar sadece AmiSSL ve Miami SSL ile desteklenir.
+Gï¿½venli baï¿½lantï¿½lar sadece AmiSSL ve Miami SSL ile desteklenir.
 ; Secure connections are only supported when using AmiSSL or MiamiSSL.
 ;
 ;
 ;-------------- Unknown MIME type -------------------
 ;
 MSG_UNKMIME_TITLE
-Bilinmeyen içerik tipi
+Bilinmeyen iï¿½erik tipi
 ; Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Tanýmlanamayan dosya kaydedilecek\n \nURL:   %s\nÝçerik tipi:   %s\nUzantý:   %s\n \nÞimdi kaydý iptal edip, bu dosyayý bir gösterici veya MIME tipi belirledikten sonra tekrar yüklemek isteyebilirsiniz.
+Tanï¿½mlanamayan dosya kaydedilecek\n \nURL:   %s\nï¿½ï¿½erik tipi:   %s\nUzantï¿½:   %s\n \nï¿½imdi kaydï¿½ iptal edip, bu dosyayï¿½ bir gï¿½sterici veya MIME tipi belirledikten sonra tekrar yï¿½klemek isteyebilirsiniz.
 ; Unrecognized file will be saved\n \n\
 ; URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ; You might want to cancel the save now, and reload this file \
@@ -1292,7 +1292,7 @@ Tanýmlanamayan dosya kaydedilecek\n \nURL:   %s\nÝçerik tipi:   %s\nUzantý:   %s
 ; in the Browser settings (Viewers).
 ;
 MSG_UNKMIME_BUTTONS
-_Kaydet|_Vazgeç
+_Kaydet|_Vazgeï¿½
 ; _Save|_Cancel
 ;
 MSG_REQUEST_COPYURL
@@ -1307,19 +1307,19 @@ AWeb istemi
 ; AWeb request
 ;
 MSG_OPENURL_TEXT
-Açmak için URL içine yazýn:
+Aï¿½mak iï¿½in URL iï¿½ine yazï¿½n:
 ; Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
-_Tamam|_Vazgeç
-; _Ok|_Cancel
+_Tamam|_Vazgeï¿½
+; _OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
 ;
 ;
 MSG_SAVEIFF_PROGRESS
-IFF dosyasý kaydediliyor...
+IFF dosyasï¿½ kaydediliyor...
 ; Saving IFF file...
 ;
 ;
@@ -1341,35 +1341,35 @@ K/Pencereyi kapat
 ; K/Close window
 ;
 MSG_PROJECT_OPENURL
-U/Adresi Aç
+U/Adresi Aï¿½
 ; U/Open URL
 ;
 MSG_PROJECT_OPENWWW
-W/WWW Aç
+W/WWW Aï¿½
 ; W/Open WWW
 ;
 MSG_PROJECT_OPENLOCAL
-L/Lokal Döküman Aç...
+L/Lokal Dï¿½kï¿½man Aï¿½...
 ; L/Open local...
 ;
 MSG_PROJECT_OPENSEARCH
-E/Motorlarý araþtýr
+E/Motorlarï¿½ araï¿½tï¿½r
 ; E/Search engines
 ;
 MSG_PROJECT_SOURCE
-Kaynaðý göster...
+Kaynaï¿½ï¿½ gï¿½ster...
 ; View source...
 ;
 MSG_PROJECT_SAVEHTML
-S/Kaynaðý kaydet...
+S/Kaynaï¿½ï¿½ kaydet...
 ; S/Save source...
 ;
 MSG_PROJECT_ABOUT
-Hakkýnda...
+Hakkï¿½nda...
 ; About...
 ;
 MSG_PROJECT_QUIT
-Q/Çýk...
+Q/ï¿½ï¿½k...
 ; Q/Quit...
 ;
 MSG_PROJECT_SEARCH
@@ -1381,7 +1381,7 @@ P/Bas...
 ; P/Print...
 ;
 MSG_PROJECT_EDIT
-Kaynaðý Editle...
+Kaynaï¿½ï¿½ Editle...
 ; Edit source...
 ;
 MSG_PROJECT_INFO
@@ -1389,12 +1389,12 @@ Bilgi...
 ; Info...
 ;
 MSG_PROJECT_OPENNEWS
-Haberleri Aç
+Haberleri Aï¿½
 ; Open News
 ;
 ; (Shortcut key is backslash)
 MSG_PROJECT_ICONIFY
-\\/Simgeleþtir
+\\/Simgeleï¿½tir
 ; \\/Iconify
 ;
 MSG_PROJECT_SAVEIFF
@@ -1406,11 +1406,11 @@ Kontrol
 ; Control
 ;
 MSG_CONTROL_LOADNOW
-Imajlarý þimdi yükle
+Imajlarï¿½ ï¿½imdi yï¿½kle
 ; Load images now
 ;
 MSG_CONTROL_LOADNOWALL
-I/Bütün imajlar
+I/Bï¿½tï¿½n imajlar
 ; I/All images
 ;
 MSG_CONTROL_LOADNOWMAPS
@@ -1418,14 +1418,14 @@ M/Haritalar sadece
 ; M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
-?/Að durumu...
+?/Aï¿½ durumu...
 ; ?/Network status...
 ;
 MSG_DUMMY_2
 
 ; 
 MSG_CONTROL_CANCEL
-Z/Yüklemeyi iptal et
+Z/Yï¿½klemeyi iptal et
 ; Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
@@ -1433,7 +1433,7 @@ MSG_CONTROL_NEXTWINDOW
 ; ./Next window
 ;
 MSG_CONTROL_PREVWINDOW
-,/Önceki pencere
+,/ï¿½nceki pencere
 ; ,/Previous window
 ;
 MSG_CONTROL_NOPROXY
@@ -1441,19 +1441,19 @@ Y/Proxy`i iptal et
 ; Y/Disable proxy
 ;
 MSG_CONTROL_RLOAD
-Tekrar yükle
+Tekrar yï¿½kle
 ; Reload
 ;
 MSG_CONTROL_RLOADDOC
-R/Þu anki döküman
+R/ï¿½u anki dï¿½kï¿½man
 ; R/Current document
 ;
 MSG_CONTROL_RLOADIMGS
-Þu anki imajlar
+ï¿½u anki imajlar
 ; Images in current
 ;
 MSG_CONTROL_PLAYBGSOUND
-J/Arkaplan sesini çal
+J/Arkaplan sesini ï¿½al
 ; J/Play background sound
 ;
 MSG_CONTROL_COPYURL
@@ -1461,15 +1461,15 @@ URL`i kopyala
 ; Copy URL
 ;
 MSG_CONTROL_PASTEURL
-URL Yapýþtýr
+URL Yapï¿½ï¿½tï¿½r
 ; Paste URL
 ;
 MSG_CONTROL_COPYBLOCK
-C/Bloðu kopyala
+C/Bloï¿½u kopyala
 ; C/Copy block
 ;
 MSG_CONTROL_DRAGGING
-Sürükleme
+Sï¿½rï¿½kleme
 ; Dragging
 ;
 MSG_CONTROL_BREAKJS
@@ -1481,11 +1481,11 @@ Javascript`i incele
 ; Debug JavaScript
 ;
 MSG_CONTROL_RESET
-Çerçeveleri sýfýrla
+ï¿½erï¿½eveleri sï¿½fï¿½rla
 ; Reset frames
 ;
 MSG_CACHE_MENU
-Kaþe
+Kaï¿½e
 ; Cache
 ;
 MSG_DUMMY_3
@@ -1501,16 +1501,16 @@ MSG_DUMMY_6
 
 ; 
 MSG_CACHE_SAVEAUTH
-Ýzinleri kaydet
+ï¿½zinleri kaydet
 ; Save authorizations
 ;
 ;**obsolete**
 MSG_CACHE_FLUSHAUTH
-Ýzinleri temizle
+ï¿½zinleri temizle
 ; Flush authorizations
 ;
 MSG_CACHE_BROWSER
-Kaþe tarayýcý...
+Kaï¿½e tarayï¿½cï¿½...
 ; Cache browser...
 ;
 MSG_CACHE_FLUSH
@@ -1518,15 +1518,15 @@ Bellekten temizle
 ; Flush from memory
 ;
 MSG_CACHE_FLSHIMGSND
-Gösterilmeyen imajlar
+Gï¿½sterilmeyen imajlar
 ; Nondisplayed images
 ;
 MSG_CACHE_FLSHIMGS
-Bütün imajlar
+Bï¿½tï¿½n imajlar
 ; All images
 ;
 MSG_CACHE_FLSHDOCSND
-Gösterilmeyen dökümanlar
+Gï¿½sterilmeyen dï¿½kï¿½manlar
 ; Nondisplayed documents
 ;
 MSG_CACHE_DELETE
@@ -1534,27 +1534,27 @@ Diskten sil
 ; Delete from disk
 ;
 MSG_CACHE_DELIMGS
-Bütün imajlar
+Bï¿½tï¿½n imajlar
 ; All images
 ;
 MSG_CACHE_DELDOCS
-Bütün dökümanlar
+Bï¿½tï¿½n dï¿½kï¿½manlar
 ; All documents
 ;
 MSG_CACHE_CLEAR
-Kaþeyi sil
+Kaï¿½eyi sil
 ; Erase cache
 ;
 MSG_CACHE_FIX
-Kaþeyi düzelt...
+Kaï¿½eyi dï¿½zelt...
 ; Fix cache...
 ;
 MSG_CACHE_EDITAUTH
-Ýzinleri editle...
+ï¿½zinleri editle...
 ; Edit authorizations...
 ;
 MSG_NAVIGATE_MENU
-Dolaþ
+Dolaï¿½
 ; Navigate
 ;
 MSG_NAVIGATE_BACK
@@ -1562,15 +1562,15 @@ B/Geri
 ; B/Back
 ;
 MSG_NAVIGATE_FWD
-F/Ýleri
+F/ï¿½leri
 ; F/Forward
 ;
 MSG_NAVIGATE_HOME
-D/Ana döküman
+D/Ana dï¿½kï¿½man
 ; D/Home document
 ;
 MSG_NAVIGATE_HISTORY
--/Pencere geçmiþi...
+-/Pencere geï¿½miï¿½i...
 ; -/Window history...
 ;
 MSG_HOTLIST_MENU
@@ -1582,7 +1582,7 @@ A/Favorilere ekle
 ; A/Add to hotlist
 ;
 MSG_HOTLIST_SHOWHOT
-H/Favorileri göster
+H/Favorileri gï¿½ster
 ; H/Show hotlist
 ;
 ;**obsolete**
@@ -1607,11 +1607,11 @@ AMosaic (2.0)
 ; AMosaic (2.0)
 ;
 MSG_HOTLIST_IBHOT
-Diðer
+Diï¿½er
 ; Other...
 ;
 MSG_HOTLIST_VIEW
-V/Favorileri göster...
+V/Favorileri gï¿½ster...
 ; V/View hotlist...
 ;
 MSG_HOTLIST_MGR
@@ -1623,11 +1623,11 @@ Ayarlar
 ; Settings
 ;
 MSG_SETTINGS_LOADIMG
-Imaj yükleme
+Imaj yï¿½kleme
 ; Image loading
 ;
 MSG_SETTINGS_LOADIMGALL
-Bütün imajlar
+Bï¿½tï¿½n imajlar
 ; All images
 ;
 MSG_SETTINGS_LOADIMGMAPS
@@ -1635,7 +1635,7 @@ Haritalar sadece
 ; Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
-Kapalý
+Kapalï¿½
 ; Off
 ;
 MSG_DUMMY_7
@@ -1645,23 +1645,23 @@ MSG_DUMMY_8
 
 ; 
 MSG_SETTINGS_BROWSER
-Tarayýcý ayarlarý...
+Tarayï¿½cï¿½ ayarlarï¿½...
 ; Browser settings...
 ;
 MSG_SETTINGS_PROGRAM
-Program ayarlarý
+Program ayarlarï¿½
 ; Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Að ayarlarý
+Aï¿½ ayarlarï¿½
 ; Network settings...
 ;
 MSG_SETTINGS_CLASSACT
-ClassAct ayarlarý...
+ClassAct ayarlarï¿½...
 ; ClassAct settings...
 ;
 MSG_SETTINGS_SAVEALL
-Þu anki ayarlarý kaydet
+ï¿½u anki ayarlarï¿½ kaydet
 ; Save current settings
 ;
 MSG_SETTINGS_SNAPSHOT
@@ -1674,7 +1674,7 @@ Alterne boyut olarak kaydet
 ; Snapshot as alternate size
 ;
 MSG_SETTINGS_BGIMAGES
-Arkaplan imajlarý
+Arkaplan imajlarï¿½
 ; Background images
 ;
 MSG_SETTINGS_BGSOUND
@@ -1682,27 +1682,27 @@ Arkaplan sesi
 ; Background sound
 ;
 MSG_SETTINGS_SAVEAS
-Ayarlarý ismiyle kaydet...
+Ayarlarï¿½ ismiyle kaydet...
 ; Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Ayarlarý yükle...
+Ayarlarï¿½ yï¿½kle...
 ; Load settings...
 ;
 MSG_SETTINGS_GUI
-Arabirim ayarlarý...
+Arabirim ayarlarï¿½...
 ; GUI settings...
 ;
 MSG_HELP_MENU
-Yardým
+Yardï¿½m
 ; Help
 ;
 MSG_HELP_HELP
-Döküman
+Dï¿½kï¿½man
 ; Documentation
 ;
 MSG_HELP_AWEBHOME
-AWeb ana sayfasý
+AWeb ana sayfasï¿½
 ; AWeb home page
 ;
 MSG_HELP_AWEBFAQ
@@ -1710,7 +1710,7 @@ AWeb SSS
 ; AWeb FAQ
 ;
 MSG_HELP_REGISTER
-Sicil Kayýt
+Sicil Kayï¿½t
 ; Registration
 ;
 MSG_AREXX_MENU
@@ -1718,20 +1718,20 @@ ARexx
 ; ARexx
 ;
 MSG_AREXX_AREXX
-!/ARexx makrosunu baþlat...
+!/ARexx makrosunu baï¿½lat...
 ; !/Start ARexx macro...
 ;
 ;
 ;-------------- Error messages ----------------------
 ;
 MSG_ERROR_CANTOPEN
-%s açýlamýyor
+%s aï¿½ï¿½lamï¿½yor
 ; Can't open %s
 ;
 ; NOTE - No locale formatters (like %1$s) possible in this string!
 ;        Only plain C formatters allowed.
 MSG_ERROR_CANTOPENV
-%s sürüm %ld açýlamýyor
+%s sï¿½rï¿½m %ld aï¿½ï¿½lamï¿½yor
 ; Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30
@@ -1739,7 +1739,7 @@ AWeb OS3.0 veya dahi yenisini gerektirir
 ; AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-Çýkýlamaz!\n%s\nhala kullanýmda
+ï¿½ï¿½kï¿½lamaz!\n%s\nhala kullanï¿½mda
 ; Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
@@ -1749,31 +1749,31 @@ Hata
 ; Error
 ;
 MSG_EPART_RETURL
-URL alýnmasý sýrasýnda
+URL alï¿½nmasï¿½ sï¿½rasï¿½nda
 ; While retrieving URL
 ;
 MSG_EPART_ADDRSCHEME
-&quot;%s&quot; adresleme þemasý AWeb`in bu sürümüne eklenmemiþtir
+&quot;%s&quot; adresleme ï¿½emasï¿½ AWeb`in bu sï¿½rï¿½mï¿½ne eklenmemiï¿½tir
 ; The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
-Ýlk önce bir TCP yýðýný çalýþtýrýlmalýdýr
+ï¿½lk ï¿½nce bir TCP yï¿½ï¿½ï¿½nï¿½ ï¿½alï¿½ï¿½tï¿½rï¿½lmalï¿½dï¿½r
 ; A TCP stack must be started first
 ;
 MSG_EPART_NOHOST
-&quot;%s&quot; adresi çözülemiyor
+&quot;%s&quot; adresi ï¿½ï¿½zï¿½lemiyor
 ; Cannot resolve host name &quot;%s&quot;
 ;
 MSG_EPART_NOCONNECT
-&quot;%s&quot; adresine baðlanýlamýyor
+&quot;%s&quot; adresine baï¿½lanï¿½lamï¿½yor
 ; Cannot connect to &quot;%s&quot;
 ;
 MSG_EPART_NOFILE
-&quot;%s&quot; dosyasý açýlamýyor
+&quot;%s&quot; dosyasï¿½ aï¿½ï¿½lamï¿½yor
 ; Cannot open file &quot;%s&quot;
 ;
 MSG_EPART_XAWEB
-Geçersiz dahili (x-aweb ismi &quot;%s&quot;
+Geï¿½ersiz dahili (x-aweb ismi &quot;%s&quot;
 ; Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
@@ -1781,11 +1781,11 @@ Temizlendi
 ; Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-Bu döküman artýk bellekte deðil
+Bu dï¿½kï¿½man artï¿½k bellekte deï¿½il
 ; This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Bu döküman tekrar alýnamaz. Bu sayfayý yaratan formu tekrar göndermelisiniz.Bu formu iki defa göndermekten doðacak iki defa sipariþ gibi hatalardan sakýnýnýz.
+Bu dï¿½kï¿½man tekrar alï¿½namaz. Bu sayfayï¿½ yaratan formu tekrar gï¿½ndermelisiniz.Bu formu iki defa gï¿½ndermekten doï¿½acak iki defa sipariï¿½ gibi hatalardan sakï¿½nï¿½nï¿½z.
 ; This document cannot be retrieved again. You will have to submit the form again that \
 ; produced this page. Beware of undesired side-effects if you submit that form twice, \
 ; like a duplicate registration.
@@ -1795,11 +1795,11 @@ MSG_EPART_NOLOGIN
 ; Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
-&quot;%s&quot; için AWebLib modülü yüklenemiyor
+&quot;%s&quot; iï¿½in AWebLib modï¿½lï¿½ yï¿½klenemiyor
 ; Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
-&quot;%s&quot; adreslemesi için bir program belirlemediniz.
+&quot;%s&quot; adreslemesi iï¿½in bir program belirlemediniz.
 ; You haven't configured a program for the &quot;%s&quot; addressing scheme.
 ;
 ;
@@ -1807,7 +1807,7 @@ MSG_EPART_NOPROGRAM
 ;
 ; (external program window title)
 MSG_AWEB_EXTWINTITLE
-AWeb Harici Yazýlým
+AWeb Harici Yazï¿½lï¿½m
 ; AWeb External Program
 ;
 ; (status field text)
@@ -1817,12 +1817,12 @@ Okunan bayt
 ;
 ; (form SUBMIT button default text)
 MSG_AWEB_FORMSUBMIT
-Gönder
+Gï¿½nder
 ; Submit
 ;
 ; (form RESET button default text)
 MSG_AWEB_FORMRESET
-Sýfýrla
+Sï¿½fï¿½rla
 ; Reset
 ;
 ; (ISINDEX default prompt)
@@ -1832,12 +1832,12 @@ Bu aranabilir bir indekstir. Anahtar kelimeleri girin:
 ;
 ; (window title)
 MSG_AWEB_NODOCTITLE
-(Döküman yüklenmedi)
+(Dï¿½kï¿½man yï¿½klenmedi)
 ; (No document loaded)
 ;
 ; (screen title)
 MSG_AWEB_SCREENTITLE
-AWeb ekran - Ýsim AWeb
+AWeb ekran - ï¿½sim AWeb
 ; AWeb public screen - Name AWeb
 ;
 ; (hotlist document title)
@@ -1852,84 +1852,84 @@ Gopher indeksi
 ;
 ; (gopher menu title)
 MSG_AWEB_GOPHERMENU
-Gopher menüsü
+Gopher menï¿½sï¿½
 ; Gopher menu
 ;
 ; (window history title)
 MSG_AWEB_WINDOWHIS
-Pencere geçmiþi
+Pencere geï¿½miï¿½i
 ; Window history
 ;
 ; (partial title of other hotlist)
 MSG_AWEB_OTHER
-Diðer
+Diï¿½er
 ; Other
 ;
 ; (transfer status messages)
 MSG_AWEB_LOOKUP
-%s aranýyor
+%s aranï¿½yor
 ; Looking up %s
 ;
 MSG_AWEB_CONNECT
-%s baðlantýsý %s adresine yapýlýyor
+%s baï¿½lantï¿½sï¿½ %s adresine yapï¿½lï¿½yor
 ; Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-%s istemi gönderildi; tepki bekleniyor
+%s istemi gï¿½nderildi; tepki bekleniyor
 ; %s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
-TCP baðlantýsý kuruluyor
+TCP baï¿½lantï¿½sï¿½ kuruluyor
 ; Establishing TCP connection
 ;
 ; (form image fieldstatus text)
 MSG_AWEB_FORMLOCATION
-Formu x=%ld, y=%ld de gönder
+Formu x=%ld, y=%ld de gï¿½nder
 ; Submit form at x=%ld, y=%ld
 ;
 ; (form BUTTON button default text)
 MSG_AWEB_FORMBUTTON
-Baþlat
+Baï¿½lat
 ; Start
 ;
 ; (frame resizing status prompt)
 MSG_AWEB_FRAME_RESIZE
-Çerçevenin boyutunu deðiþtir
+ï¿½erï¿½evenin boyutunu deï¿½iï¿½tir
 ; Resize frame
 ;
 ; (transfer status message)
 MSG_AWEB_LOGIN
-%s adresine giriþ yapýlýyor
+%s adresine giriï¿½ yapï¿½lï¿½yor
 ; Logging in at %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSGROUP
-%s taranýyor
+%s taranï¿½yor
 ; Scanning %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSCAN
-%s taranýyor (%ld makale)
+%s taranï¿½yor (%ld makale)
 ; Scanning %s (%ld articles)
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSORT
-%s sýralanýyor
+%s sï¿½ralanï¿½yor
 ; Sorting %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSPOST
-Makale gönderiliyor
+Makale gï¿½nderiliyor
 ; Posting article
 ;
 ; (transfer status message)
 MSG_AWEB_MAILSEND
-Posta mesajý gönderiliyor
+Posta mesajï¿½ gï¿½nderiliyor
 ; Sending mail message
 ;
 ; (transfer status message)
 MSG_AWEB_UPLOAD
-Dosya yükleniyor
+Dosya yï¿½kleniyor
 ; Uploading file
 ;
 ; ** (don't use numbers 40001 or higher) **

@@ -109,8 +109,24 @@
 #define AOTAB_Bgalign      (AOTAB_Dummy+34)  /* SET,GET */
    /* (struct Aobject *) Object to align background to */
 
-#define AOTAB_    (AOTAB_Dummy+)
-#define AOTAB_    (AOTAB_Dummy+)
+#define AOTAB_Bordercollapse (AOTAB_Dummy+35)  /* SET (BOOL) TRUE=collapse */
+#define AOTAB_Borderspacing  (AOTAB_Dummy+36)  /* SET (short) horizontal spacing */
+#define AOTAB_BorderspacingV (AOTAB_Dummy+37)  /* SET (short) vertical spacing */
+#define AOTAB_Tablelayout    (AOTAB_Dummy+38)  /* SET 0=auto, 1=fixed */
+#define AOTAB_Captionside    (AOTAB_Dummy+39)  /* SET 0=top, 1=bottom */
+#define AOTAB_Emptycells     (AOTAB_Dummy+40)  /* SET 0=show, 1=hide */
+#define AOTAB_Minwidth       (AOTAB_Dummy+41)  /* SET (long) px, table only */
+#define AOTAB_Maxwidth       (AOTAB_Dummy+42)  /* SET (long) px, table only */
+#define AOTAB_Tabheight      (AOTAB_Dummy+43)  /* SET (long) px, table only */
+
+#define AOTAB_Tabpercentheight (AOTAB_Dummy+44) /* SET (long) %, table only */
+
+/* Tabcell border edge flags (for CSS per-side borders on TD/TH). */
+#define TABCF_BORLEFT      0x0010
+#define TABCF_BORTOP       0x0020
+#define TABCF_BORRIGHT     0x0040
+#define TABCF_BORBOTTOM    0x0080
+#define TABCF_BORCSS       0x1000   /* edge colour set via CSS on this cell */
 
 /* Detail attributes are passed together with (but after) AOTAB_Caption,
  * AOTAB_Colgroup, AOTAB_Column,
@@ -138,6 +154,18 @@ void TableApplyCellAttrs(void *table, void *cellBody, ULONG tag, long data);
 
 /* Reapply td/th stylesheet rules to every cell after async CSS load. */
 void ReapplyCSSToTable(struct Document *doc, void *table);
+
+/* Apply width from CSS col/colgroup (wtag is AOTAB_Pixelwidth etc.). */
+void TableSetLastColWidth(void *table, ULONG wtag, short swidth);
+
+/* Map CSS border on TD/TH to the table grid (not the cell body box). */
+void TableApplyCellBorder(void *table, void *cellBody, struct Colorinfo *ci);
+
+/* sides==0 enables all four edges; otherwise OR in TABCF_BOR* bits only.
+ * borderWidth>0 sets width on the sides being enabled (CSS px). */
+void TableApplyCellBorderSides(void *table, void *cellBody, struct Colorinfo *ci,
+   USHORT sides, BOOL fromCss, long borderWidth);
+void TableClearCellBorderSides(void *table, void *cellBody, USHORT sides);
 
 #endif
 

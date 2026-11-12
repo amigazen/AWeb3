@@ -170,23 +170,31 @@ static BOOL Buildrequest_ensure(struct Fetchdriver *fd, UBYTE **req, UBYTE **pp,
    return TRUE;
 }
 
-/* Cloudflare (and similar) often return 403 / error 1010 for any UA whose token is
- * Mozilla/3.0 or Mozilla/3.01; Mozilla/4.0+ with the same product comment is accepted. */
-static UBYTE *useragent="User-Agent: Mozilla/4.0 (compatible; Amiga-AWeb/%s; %s)\r\n";
+/* Default HTTP User-Agent when prefs.network.spoofid is empty.
+ * Mozilla/5.0 avoids Cloudflare 1010 on ancient Mozilla/3 tokens.  Do NOT
+ * advertise Chrome/WebKit: Google then serves a tablet/SPA shell with no
+ * usable no-JS search form (or a tbm=isch↔udm=2 redirect loop on Images).
+ * Classic "compatible; AWeb/…" still gets the desktop gbqf homepage.
+ *
+ * Trade-off: Anubis (techaro.lol — e.g. eab.abime.net) challenges any UA
+ * containing "Mozilla". html.c/anubis.c solve that PoW natively. Spoof
+ * "AWeb/5.0 (AmigaOS Compatible)" for metarefresh-only Anubis instead. */
+static UBYTE *useragent=
+   "User-Agent: Mozilla/5.0 (%s; compatible; AWeb/%s)\r\n";
 
 #ifndef DEMOVERSION
 /* Full replacement User-Agent from prefs (chooser supplies a complete token, no suffix). */
 static UBYTE *useragentspoof="User-Agent: %s\r\n";
 #endif
 
-static UBYTE default_useragent[128];
+static UBYTE default_useragent[256];
 static BOOL default_useragent_init=FALSE;
 
 static const UBYTE *Defaultuseragent(void)
 {  const UBYTE *osver;
    if(!default_useragent_init)
    {  osver=Awebosversion();
-      sprintf(default_useragent,useragent,awebversion,osver);
+      sprintf(default_useragent,useragent,osver,awebversion);
       default_useragent_init=TRUE;
    }
    return default_useragent;
@@ -261,8 +269,26 @@ BOOL socketbase_swap_sema_initialized = FALSE;
 #define KEEPALIVE_TIMEOUT 15  /* Reduced to 15s to free resources faster */
 #define MAX_IDLE_CONNECTIONS 8 /* Hard limit on idle connections */
 
-/* Redirect loop protection - track redirects across HTTP requests */
+/* Redirect loop protection - track redirects across HTTP requests.
+ * Also remember the previous Location so A↔B ping-pong (Google Images
+ * tbm=isch↔udm=2) is cut off before the hard count.
+ *
+ * Each 3xx spawns a new Httptask for the Location, so the counter is
+ * process-global.  It MUST be cleared whenever a retrieval finishes
+ * without issuing another redirect; otherwise every http→https hop in
+ * the session accumulates and the 10th follow-up task is aborted as a
+ * false "redirect loop" (seen with news.ycombinator.com after a few
+ * other sites). */
 static int redirect_count=0;
+static UBYTE *redirect_prevurl=NULL;
+static UBYTE *redirect_prevprevurl=NULL;
+
+static void HttpClearRedirectBudget(void)
+{
+   redirect_count=0;
+   if(redirect_prevurl) { FREE(redirect_prevurl); redirect_prevurl=NULL; }
+   if(redirect_prevprevurl) { FREE(redirect_prevprevurl); redirect_prevprevurl=NULL; }
+}
 
 /*-----------------------------------------------------------------------*/
 
@@ -1730,7 +1756,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
 
          /* Bound all scans to this header line so long CSP/other headers cannot make strstr walk past NUL */
          lineend=hi->fd->block+hi->linelength;
-         /* 20 == strlen("Content-Disposition:") — first value byte is at index 20 (not +21, which ate 'a' of "attachment" when no space after ':') */
+         /* 20 == strlen("Content-Disposition:") - first value byte is at index 20 (not +21, which ate 'a' of "attachment" when no space after ':') */
          for(p=hi->fd->block+20;p<lineend && *p && isspace((int)(unsigned char)*p);p++);
          for(q=p;q<lineend && *q && !isspace((int)(unsigned char)*q) && *q!=';';q++);
          if(q<lineend)
@@ -2022,12 +2048,160 @@ static void HttpGzipCompactInput(z_stream *ds,UBYTE *gzipbuffer,long *gziplength
    *gziplength=(long)ds->avail_in;
 }
 
+/* Compact verified unconsumed bytes AND the trailing hold (unverified
+ * subsequent-chunk body) so hold is not discarded when avail_in excludes it. */
+static void HttpGzipCompactInputHold(z_stream *ds,UBYTE *gzipbuffer,long *gziplength,
+                                    long hold_len)
+{
+   long verified_left;
+   UBYTE *hold_src;
+
+   if(!ds || !gzipbuffer || !gziplength) return;
+   if(hold_len < 0) hold_len = 0;
+   if(hold_len == 0)
+   {  HttpGzipCompactInput(ds,gzipbuffer,gziplength);
+      return;
+   }
+   verified_left = (long)ds->avail_in;
+   if(verified_left < 0) verified_left = 0;
+   /* Hold sits at the end of the previous gziplength. */
+   if(*gziplength >= hold_len)
+      hold_src = gzipbuffer + (*gziplength - hold_len);
+   else
+   {  hold_src = gzipbuffer;
+      hold_len = 0;
+   }
+   if(verified_left > 0 && ds->next_in != gzipbuffer)
+      memmove(gzipbuffer, ds->next_in, (ULONG)verified_left);
+   if(hold_len > 0)
+   {  if(hold_src != gzipbuffer + verified_left)
+         memmove(gzipbuffer + verified_left, hold_src, (ULONG)hold_len);
+   }
+   *gziplength = verified_left + hold_len;
+   ds->next_in = gzipbuffer;
+   ds->avail_in = (uInt)verified_left;
+}
+
+/* Offer only the verified prefix of gzipbuffer to zlib (exclude hold_len). */
+static void HttpGzipPublish(z_stream *ds,UBYTE *gzipbuffer,long gziplength,long hold_len)
+{
+   long publish;
+
+   if(!ds || !gzipbuffer) return;
+   publish = gziplength - hold_len;
+   if(publish < 0) publish = 0;
+   ds->next_in = gzipbuffer;
+   ds->avail_in = (uInt)publish;
+}
+
+/* Does buf[pos..] look like a chunk-size line (HEX digits, optional
+ * ;extension, then CR/LF)?  Used so a CRLF that happens to sit inside
+ * gzip payload is not mistaken for a chunk trailer (Google SERP).
+ * Returns 1=yes, 0=no, -1=need more bytes to decide. */
+static int HttpChunkSizeLineAt(UBYTE *buf,long len,long pos)
+{
+   long i;
+   long digits;
+
+   if(!buf || pos < 0) return 0;
+   if(pos >= len) return -1;
+   digits = 0;
+   i = pos;
+   while(i < len)
+   {  UBYTE c;
+      c = buf[i];
+      if((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))
+      {  digits++;
+         i++;
+         if(digits > 16) return 0;
+         continue;
+      }
+      break;
+   }
+   if(digits < 1)
+   {  if(i >= len) return -1;
+      return 0;
+   }
+   if(i >= len) return -1;
+   /* Optional chunk-extension: ;... up to CR/LF */
+   if(buf[i] == ';')
+   {  i++;
+      while(i < len && buf[i] != '\r' && buf[i] != '\n')
+         i++;
+      if(i >= len) return -1;
+   }
+   if(buf[i] == '\r')
+   {  if(i + 1 >= len) return -1;
+      return (buf[i + 1] == '\n') ? 1 : 0;
+   }
+   if(buf[i] == '\n') return 1;
+   return 0;
+}
+
+/* Grow the compressed staging buffer so gziplength+need_extra fits.
+ * Large chunked+gzip responses (The Register HTML) often have a single
+ * chunk bigger than INPUTBLOCKSIZE; aborting there truncated the page and
+ * left CSS painting empty/odd glyphs over a half-parsed DOM. */
+static int HttpGzipGrowBuffer(UBYTE **pbuf,long *psize,long gziplength,
+                              long need_extra,z_stream *ds)
+{
+   long want,new_size,next_off;
+   UBYTE *bigger;
+
+   if(!pbuf || !*pbuf || !psize) return 0;
+   if(need_extra < 1) need_extra=1;
+   want=gziplength+need_extra;
+   if(want <= *psize) return 1;
+   new_size=*psize;
+   if(new_size < INPUTBLOCKSIZE) new_size=INPUTBLOCKSIZE;
+   while(new_size < want)
+   {  if(new_size >= 524288L)
+      {  new_size=want;
+         break;
+      }
+      new_size*=2;
+   }
+   /* Keep staging modest so a mis-parsed chunk size cannot eat all RAM.
+    * Inflate+compact should free space; growing past 128KB means something
+    * is holding compressed bytes instead of streaming them. */
+   if(new_size > 131072L) new_size=131072L;
+   if(new_size < want) return 0;
+   bigger=ALLOCTYPE(UBYTE,new_size,0);
+   if(!bigger) return 0;
+   if(gziplength > 0) memcpy(bigger,*pbuf,(ULONG)gziplength);
+   if(ds && ds->next_in)
+   {  next_off=(long)(ds->next_in - *pbuf);
+      if(next_off < 0) next_off=0;
+      if(next_off > gziplength) next_off=gziplength;
+      ds->next_in=bigger+next_off;
+   }
+   FREE(*pbuf);
+   *pbuf=bigger;
+   *psize=new_size;
+   debug_printf("DEBUG: Chunked+gzip: Grew staging buffer to %ld bytes\n", new_size);
+   return 1;
+}
+
 /* Read data and pass to main task. Returns FALSE if error or connection eof, TRUE if
  * multipart boundary found. */
+/* A gzip body that stopped before zlib reported Z_STREAM_END (connection
+ * closed, buffer limit, loop guard, zlib error) has been passed on only in
+ * part.  The page still shows what arrived, but it must not be written to
+ * the disk cache: a later 304 revalidation would replay the short copy
+ * forever, because the ETag still matches. */
+static void Gzipfinished(BOOL started,BOOL complete)
+{  if(started && !complete)
+   {  debug_printf("DEBUG: Readdata: gzip stream incomplete, marking response uncacheable\n");
+      Updatetaskattrs(AOURL_Nocache,TRUE,TAG_END);
+   }
+}
+
 static BOOL Readdata(struct Httpinfo *hi)
 {  UBYTE *bdcopy=NULL;
    long bdlength=0,blocklength=0;
    BOOL result=FALSE,boundary,partial,eof=FALSE;
+   BOOL gzip_started=FALSE;   /* inflate stream was initialised */
+   BOOL gzip_complete=FALSE;  /* inflate returned Z_STREAM_END */
    BOOL done_after_send=FALSE; /* True if we reached Content-Length exactly */
    long remaining_bytes=0;
    long gzip_buffer_size=INPUTBLOCKSIZE;
@@ -2048,6 +2222,29 @@ static BOOL Readdata(struct Httpinfo *hi)
     * next_out; stash them here until gzip finishes, then restore so the final-chunk parser can run. */
    UBYTE chunked_trailer_stash[512];
    long chunked_trailer_stash_len;
+   /* Bytes still owed from the current HTTP chunk body.  Continuation reads must
+    * stop at this count so the chunk's trailing CRLF is not fed into zlib. */
+   long chunk_bytes_remaining;
+   /* After a false chunk-size (hex+CRLF that was really gzip payload), stop
+    * parsing chunk headers and append the rest of the response as raw gzip. */
+   int chunk_raw_mode;
+   /* Body finished exactly at a TCP boundary: defer CRLF check to the next read
+    * so a false size cannot silently drop its hex header from the gzip stream. */
+   int chunk_await_trailer;
+   long chunk_pending_hdr_len;
+   long chunk_pending_body;
+   UBYTE chunk_pending_hdr[64];
+   /* Unverified subsequent-chunk body kept at the end of gzipbuffer.  zlib
+    * only sees gziplength - chunk_hold_len until the chunk CRLF checks out.
+    * Feeding those bytes early produced SERP corruption (false sizes). */
+   long chunk_hold_len;
+   /* First chunk size comes from the pre-body header line (trusted). Later
+    * sizes are parsed from the byte stream and need trailer verification. */
+   int chunk_first_done;
+   /* The terminating "0" chunk has been parsed.  The body bytes queued in
+    * front of it must still be inflated before decoding ends, and the
+    * kept-alive socket must not be read again: nothing more is coming. */
+   int chunk_final_seen;
    
    /* Content-Length on gzip body is compressed size; need room for all of it in flight. */
    if(hi->partlength>INPUTBLOCKSIZE)
@@ -2055,6 +2252,14 @@ static BOOL Readdata(struct Httpinfo *hi)
       else gzip_buffer_size=hi->partlength;
    }
    chunked_trailer_stash_len = 0;
+   chunk_bytes_remaining = 0;
+   chunk_final_seen = 0;
+   chunk_raw_mode = 0;
+   chunk_await_trailer = 0;
+   chunk_pending_hdr_len = 0;
+   chunk_pending_body = 0;
+   chunk_hold_len = 0;
+   chunk_first_done = 0;
    
    debug_printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld, partlength=%ld\n",
           hi->blocklength, hi->flags, hi->parttype ? (char *)hi->parttype : "(null)", hi->sock, hi->partlength);
@@ -2097,19 +2302,79 @@ static BOOL Readdata(struct Httpinfo *hi)
             gzip_start = 0;
             search_start = 0;
             
-            /* Handle chunked encoding + gzip combination */
-            /* When chunked encoding is present, skip chunk headers before looking for gzip magic */
+            /* Handle chunked encoding + gzip combination.
+             * Parse a real chunk-size line (hex [;ext] CR?LF). Blindly scanning for
+             * the first CRLF lands inside gzip when the size line used LF-only or when
+             * TE:chunked was wrong - that made Google consent pages feed 1-byte "chunks". */
             if(hi->flags & HTTPIF_CHUNKED)
-            {  /* Skip chunk size line (e.g., "3259\r\n") */
+            {  long cpos;
+               long cdigits;
+               long csz;
+               UBYTE cterm;
+
                p = hi->fd->block;
-               while(search_start < hi->blocklength - 1)
-               {  if(p[search_start] == '\r' && search_start + 1 < hi->blocklength && p[search_start + 1] == '\n')
-                  {  search_start += 2; /* Skip CRLF */
+               cpos = 0;
+               while(cpos < hi->blocklength &&
+                     (p[cpos] == ' ' || p[cpos] == '\t'))
+                  cpos++;
+               cdigits = 0;
+               csz = 0;
+               while(cpos < hi->blocklength)
+               {  UBYTE ch;
+                  long digit;
+
+                  ch = p[cpos];
+                  if(ch >= '0' && ch <= '9')
+                     digit = ch - '0';
+                  else if(ch >= 'A' && ch <= 'F')
+                     digit = ch - 'A' + 10;
+                  else if(ch >= 'a' && ch <= 'f')
+                     digit = ch - 'a' + 10;
+                  else
+                     break;
+                  csz = csz * 16 + digit;
+                  cdigits++;
+                  cpos++;
+                  if(cdigits > 16)
+                  {  cdigits = 0;
                      break;
                   }
-                  search_start++;
                }
-               debug_printf("DEBUG: Chunked encoding detected, skipping %ld bytes of chunk header\n", search_start);
+               if(cdigits > 0 && cpos < hi->blocklength)
+               {  cterm = p[cpos];
+                  if(cterm == ';' || cterm == '\r' || cterm == '\n')
+                  {  while(cpos < hi->blocklength &&
+                           p[cpos] != '\r' && p[cpos] != '\n')
+                        cpos++;
+                     if(cpos < hi->blocklength && p[cpos] == '\r')
+                        cpos++;
+                     if(cpos < hi->blocklength && p[cpos] == '\n')
+                        cpos++;
+                     search_start = cpos;
+                     /* Remember how much of this first chunk is still owed after
+                      * the bytes already present in this TCP block. */
+                     if(csz > 0)
+                     {  long have;
+                        have = hi->blocklength - search_start;
+                        if(have < 0) have = 0;
+                        if(have < csz)
+                           chunk_bytes_remaining = csz - have;
+                        else
+                           chunk_bytes_remaining = 0;
+                     }
+                     debug_printf("DEBUG: Chunked encoding detected, skipping %ld bytes of chunk header (size=%ld)\n",
+                            search_start, csz);
+                  }
+                  else
+                  {  debug_printf("DEBUG: Chunked encoding: first line not a chunk size (term=0x%02X), search from 0\n",
+                           (unsigned)cterm);
+                     search_start = 0;
+                  }
+               }
+               else
+               {  debug_printf("DEBUG: Chunked encoding: no chunk size at body start, search from 0\n");
+                  search_start = 0;
+               }
             }
             
             /* Find the start of actual gzip data (1F 8B 08) */
@@ -2141,24 +2406,41 @@ static BOOL Readdata(struct Httpinfo *hi)
                   continue;
                }
                else
-               {  /* We have data but no gzip magic yet - this is OK with chunked encoding */
-                  /* The gzip stream may start in a later chunk, so we should extract chunks */
-                  /* and look for gzip magic in the accumulated data, or trust Content-Encoding header */
-                  debug_printf("DEBUG: Chunked+gzip: Have %ld bytes after chunk header but no gzip magic yet - will extract chunks and look for gzip in accumulated data\n", data_after_chunk);
-                  /* Don't disable gzip - trust Content-Encoding header and process chunks */
-                  /* Set gzip_start to 0 to process all chunks from the beginning */
-                  /* The chunk extraction code will handle finding where gzip data actually starts */
-                  gzip_start = 0;
-                  debug_printf("DEBUG: Chunked+gzip: Setting gzip_start to 0 to process all chunks from beginning\n");
+               {  /* Trust Content-Encoding: start extracting at the first chunk body,
+                   * not at byte 0 (re-parsing the size line as payload creates the
+                   * 1-byte false-chunk storm seen on consent.google.com). */
+                  debug_printf("DEBUG: Chunked+gzip: Have %ld bytes after chunk header but no gzip magic yet - extracting from search_start=%ld\n",
+                         data_after_chunk, search_start);
+                  gzip_start = search_start;
                }
             }
             
             /* If we found gzip magic (at any position, including 0), use it */
             if(gzip_start >= 0)
             {  debug_printf("DEBUG: Found gzip data starting at position %ld, skipping prefix\n", gzip_start);
-               
+
+               /* Gzip magic at byte 0 means there is no chunk-size line in front of
+                * the stream (mis-tagged TE, or a prior skip already consumed it).
+                * Parsing "1F 8B..." as hex sizes creates the 1-byte false-chunk storm. */
+               if((hi->flags & HTTPIF_CHUNKED) && gzip_start == 0 && search_start == 0)
+               {  debug_printf("DEBUG: Chunked+gzip: Magic at 0 with no chunk header - raw gzip mode\n");
+                  chunk_raw_mode = 1;
+                  gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
+                  if(!gzipbuffer)
+                     gzip_buffer_size = 0;
+                  else
+                  {  gziplength = hi->blocklength;
+                     if(gziplength > gzip_buffer_size)
+                        gziplength = gzip_buffer_size;
+                     if(gziplength > 0)
+                        memcpy(gzipbuffer, hi->fd->block, (ULONG)gziplength);
+                     compressed_bytes_consumed += gziplength;
+                     hi->blocklength = 0;
+                     chunk_bytes_remaining = 0;
+                  }
+               }
                /* For chunked encoding, extract all chunks and accumulate them */
-               if(hi->flags & HTTPIF_CHUNKED)
+               else if(hi->flags & HTTPIF_CHUNKED)
                {                 /* Extract all chunks from the block and accumulate in gzipbuffer */
                   long chunk_pos;
                   long chunk_size;
@@ -2245,13 +2527,20 @@ static BOOL Readdata(struct Httpinfo *hi)
                         }
                         
                         if(hex_digits == 0)
-                        {  debug_printf("DEBUG: No hex digits found in chunk size, invalid chunk header\n");
-                           /* No valid hex digits - invalid chunk header */
-                           if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
-                           if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
-                           if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
-                           Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
-                           return FALSE;
+                        {  /* Rest is payload (or need more data) - stop sizing. */
+                           debug_printf("DEBUG: Chunked+gzip: size scan stop - no hex digits\n");
+                           chunk_pos = hi->blocklength;
+                           break;
+                        }
+                        if(chunk_pos < hi->blocklength)
+                        {  UBYTE term;
+                           term = hi->fd->block[chunk_pos];
+                           if(term != '\r' && term != '\n' && term != ';')
+                           {  debug_printf("DEBUG: Chunked+gzip: size scan stop - false size term=0x%02X\n",
+                                    (unsigned)term);
+                              chunk_pos = hi->blocklength;
+                              break;
+                           }
                         }
                      }
                      
@@ -2358,26 +2647,24 @@ static BOOL Readdata(struct Httpinfo *hi)
                      }
                   }
                   else if(total_chunk_data > gzip_buffer_size)
-                  {  /* Chunked data is larger than buffer - allocate full size needed */
-                     /* Allocate the full total_chunk_data size to avoid truncation */
-                     long original_total = total_chunk_data;  /* C89: Declare at start */
-                     gzipbuffer = ALLOCTYPE(UBYTE, total_chunk_data, 0);
+                  {  /* First-block chunk sum is only a lower bound and can be
+                      * huge (Register: ~130KB).  Do not pre-allocate that;
+                      * stream through a modest buffer and grow if needed. */
+                     long original_total = total_chunk_data;  /* C89 */
+                     long start_size;
+                     start_size = gzip_buffer_size;
+                     if(start_size < INPUTBLOCKSIZE) start_size = INPUTBLOCKSIZE;
+                     if(start_size > 131072L) start_size = 131072L;
+                     gzipbuffer = ALLOCTYPE(UBYTE, start_size, 0);
                      if(!gzipbuffer)
-                     {  debug_printf("DEBUG: Chunked+gzip: Failed to allocate buffer of size %ld, trying fallback size %ld\n", total_chunk_data, gzip_buffer_size);
-                        /* Fallback to smaller buffer if allocation fails */
-                        gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
-                        if(!gzipbuffer)
-                        {  debug_printf("DEBUG: Chunked+gzip: Failed to allocate fallback buffer of size %ld\n", gzip_buffer_size);
-                           total_chunk_data = 0;
-                        }
-                        else
-                        {  debug_printf("DEBUG: Chunked+gzip: Using fallback buffer size %ld (original was %ld)\n", gzip_buffer_size, original_total);
-                           total_chunk_data = gzip_buffer_size;
-                        }
+                     {  debug_printf("DEBUG: Chunked+gzip: Failed to allocate staging buffer of size %ld (estimated %ld)\n",
+                               start_size, original_total);
+                        total_chunk_data = 0;
                      }
                      else
-                     {  /* Successfully allocated full size - keep total_chunk_data as is */
-                        debug_printf("DEBUG: Chunked+gzip: Allocated full buffer size %ld (exceeds default %ld)\n", total_chunk_data, gzip_buffer_size);
+                     {  debug_printf("DEBUG: Chunked+gzip: Staging buffer %ld (estimated chunk sum was %ld)\n",
+                               start_size, original_total);
+                        total_chunk_data = start_size;
                      }
                   }
                   else
@@ -2412,8 +2699,19 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   
                   if(gzipbuffer && total_chunk_data > 0)
-                  {  debug_printf("DEBUG: Chunked+gzip: Successfully allocated buffer of size %ld\n", total_chunk_data);
-                     /* Update gzip_buffer_size to match actual allocated buffer size */
+                  {  /* First-block chunk sum is only a lower bound.  Keep at least
+                      * INPUTBLOCKSIZE so later chunks can stream through inflate. */
+                     if(total_chunk_data < INPUTBLOCKSIZE)
+                     {  UBYTE *bigger;
+                        bigger=ALLOCTYPE(UBYTE,INPUTBLOCKSIZE,0);
+                        if(bigger)
+                        {  memcpy(bigger,gzipbuffer,total_chunk_data);
+                           FREE(gzipbuffer);
+                           gzipbuffer=bigger;
+                           total_chunk_data=INPUTBLOCKSIZE;
+                        }
+                     }
+                     debug_printf("DEBUG: Chunked+gzip: Successfully allocated buffer of size %ld\n", total_chunk_data);
                      gzip_buffer_size = total_chunk_data;
                   }
                   
@@ -2516,11 +2814,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  /* Don't advance past chunk boundary if chunk wasn't fully copied */
                                  if(bytes_in_block < expected_bytes)
                                  {  /* Chunk continues in next block - leave block position at end of data we copied */
-                                    debug_printf("DEBUG: Chunked+gzip: First chunk extends beyond block (%ld of %ld bytes), will continue in next block\n",
-                                           bytes_in_block, expected_bytes);
+                                    chunk_bytes_remaining = expected_bytes - bytes_in_block;
+                                    debug_printf("DEBUG: Chunked+gzip: First chunk extends beyond block (%ld of %ld bytes), remaining=%ld\n",
+                                           bytes_in_block, expected_bytes, chunk_bytes_remaining);
                                     /* Break out - the remaining chunk data will be handled when we read more blocks */
                                     break;
                                  }
+                                 chunk_bytes_remaining = 0;
                               }
                               else
                               {  debug_printf("DEBUG: Chunked+gzip: WARNING - Failed to copy first chunk: actual_copy=%ld, bytes_in_block=%ld, gziplength=%ld, total=%ld, gzipbuffer=%p\n",
@@ -2535,16 +2835,26 @@ static BOOL Readdata(struct Httpinfo *hi)
                            /* Move to next chunk only if we copied all data from this chunk */
                            if(actual_copy >= expected_bytes)
                            {  chunk_pos = chunk_data_end;
+                              chunk_bytes_remaining = 0;
                               
-                              /* Skip CRLF after chunk data */
+                              /* amihttp: after body, the next CRLF is the trailer. */
                               if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
-                              {  chunk_pos++;
-                              }
+                                 chunk_pos++;
                               if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
                               {  chunk_pos++;
+                                 chunk_first_done = 1;
+                                 chunk_await_trailer = 0;
                               }
-                              
-                              /* Now extract all remaining chunks */
+                              else if(chunk_pos >= hi->blocklength)
+                              {  chunk_await_trailer = 1;
+                                 chunk_first_done = 1;
+                                 debug_printf("DEBUG: Chunked+gzip: First chunk ended at TCP boundary, awaiting trailer\n");
+                              }
+                              else
+                              {  /* Body ended mid-buffer without CRLF — await. */
+                                 chunk_await_trailer = 1;
+                                 chunk_first_done = 1;
+                              }
                               break;
                            }
                            else
@@ -2572,14 +2882,22 @@ static BOOL Readdata(struct Httpinfo *hi)
                      
                      /* Now extract all remaining chunks */
                      while(chunk_pos < hi->blocklength && gziplength < total_chunk_data)
-                     {  /* Skip whitespace before chunk size */
+                     {  long size_digits;
+                        UBYTE term;
+
+                        /* Skip whitespace / inter-chunk CRLF before chunk size */
                         while(chunk_pos < hi->blocklength && 
-                              (hi->fd->block[chunk_pos] == ' ' || hi->fd->block[chunk_pos] == '\t'))
+                              (hi->fd->block[chunk_pos] == ' ' || hi->fd->block[chunk_pos] == '\t' ||
+                               hi->fd->block[chunk_pos] == '\r' || hi->fd->block[chunk_pos] == '\n'))
                         {  chunk_pos++;
                         }
+                        if(chunk_pos >= hi->blocklength)
+                           break;
                         
-                        /* Parse chunk size */
+                        /* Parse chunk size - require a real size terminator so gzip
+                         * payload hex is not treated as a series of 1-byte chunks. */
                         chunk_size = 0;
+                        size_digits = 0;
                         while(chunk_pos < hi->blocklength)
                         {  UBYTE c;
                            long digit;
@@ -2598,7 +2916,23 @@ static BOOL Readdata(struct Httpinfo *hi)
                            {  break;
                            }
                            chunk_size = chunk_size * 16 + digit;
+                           size_digits++;
                            chunk_pos++;
+                        }
+                        if(size_digits == 0)
+                        {  debug_printf("DEBUG: Chunked+gzip: initial extract stop - no size digits at pos\n");
+                           break;
+                        }
+                        if(chunk_pos >= hi->blocklength)
+                           break;
+                        term = hi->fd->block[chunk_pos];
+                        if(term != '\r' && term != '\n' && term != ';')
+                        {  debug_printf("DEBUG: Chunked+gzip: initial extract stop - false size term=0x%02X\n",
+                                 (unsigned)term);
+                           /* Rewind digits; leave bytes for streaming raw path. */
+                           chunk_pos -= size_digits;
+                           if(chunk_pos < 0) chunk_pos = 0;
+                           break;
                         }
                         
                         if(chunk_size == 0)
@@ -2931,6 +3265,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
             
             hi->flags|=HTTPIF_GZIPDECODING;
+            gzip_started=TRUE;
             debug_printf("DEBUG: Starting gzip decompression, blocklength=%ld, gziplength=%ld\n", hi->blocklength, gziplength);
             
             /* Initialize zlib for gzip decompression */
@@ -3117,6 +3452,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   if(err==Z_OK && d_stream.avail_in==0)
                   {  /* Need more input - read next block */
+                     if(chunk_final_seen)
+                     {  /* All body bytes inflated without Z_STREAM_END: the
+                         * response really was short (stays uncacheable). */
+                        debug_printf("DEBUG: Chunked+gzip: Final chunk drained, ending\n");
+                        gzip_end=1;
+                        break;
+                     }
                      if(!Readblock(hi))
                      {  debug_printf("DEBUG: No more data for gzip, ending\n");
                         gzip_end=1;
@@ -3139,10 +3481,17 @@ static BOOL Readdata(struct Httpinfo *hi)
                         remaining_space=gzip_buffer_size-used_space;
                         
                         if(remaining_space <= 0 || hi->blocklength > remaining_space)
-                        {  debug_printf("DEBUG: Non-chunked gzip: Buffer full or block too large (remaining=%ld, block=%ld), cannot continue\n",
-                                  remaining_space, hi->blocklength);
-                           gzip_end = 1;
-                           break;
+                        {  long need;
+                           need=hi->blocklength;
+                           if(need < INPUTBLOCKSIZE) need=INPUTBLOCKSIZE;
+                           if(!HttpGzipGrowBuffer(&gzipbuffer,&gzip_buffer_size,
+                                  gziplength,need,&d_stream))
+                           {  debug_printf("DEBUG: Non-chunked gzip: Buffer full or block too large (remaining=%ld, block=%ld), cannot continue\n",
+                                     remaining_space, hi->blocklength);
+                              gzip_end = 1;
+                              break;
+                           }
+                           remaining_space=gzip_buffer_size-gziplength;
                         }
                         
                         bytes_to_append = MIN(hi->blocklength, remaining_space);
@@ -3167,381 +3516,234 @@ static BOOL Readdata(struct Httpinfo *hi)
                         }
                      }
                      else if(hi->flags & HTTPIF_CHUNKED)
-                     {  /* Extract chunk data from new block and append to gzipbuffer */
-                        UBYTE *chunk_p;
-                        long chunk_pos;
+                     {  /* amihttp-style: dechunk by remaining count, then inflate.
+                         * Never peek gzip for "false trailers" — after the declared
+                         * body length, the next CRLF is the chunk trailer.
+                         * Incomplete size/CRLF bytes are stashed: fd->block is also
+                         * zlib next_out and would overwrite them on inflate. */
+                        long pos;
+                        long take;
+                        long left;
+                        long size_digits;
+                        long digit;
                         long chunk_size;
-                        long new_data_start;
-                        long remaining_space;
-                        long available_space;
-                        long remaining_unprocessed;
-                        long used_space;
-                        long bytes_to_move;
-                        UBYTE first_char;
-                        BOOL is_continuation;
-                        
-                        chunk_p = hi->fd->block;
-                        chunk_pos = 0;
-                        new_data_start = 0;
-                        
-                        /* Check if this block is continuing a chunk from previous block */
-                        /* If block doesn't start with hex digits (chunk header), it's continuation of previous chunk */
-                        is_continuation = FALSE;
-                        if(hi->blocklength > 0)
-                        {  first_char = hi->fd->block[0];
-                           /* Chunk headers start with hex digits (0-9, A-F, a-f) */
-                           /* If first char is not hex digit, this is continuation of previous chunk data */
-                           if(!((first_char >= '0' && first_char <= '9') ||
-                                (first_char >= 'A' && first_char <= 'F') ||
-                                (first_char >= 'a' && first_char <= 'f')))
-                           {  is_continuation = TRUE;
-                              debug_printf("DEBUG: Chunked+gzip: Block starts with non-hex char (0x%02X), treating as continuation of previous chunk\n", first_char);
+                        UBYTE c;
+                        UBYTE term;
+
+                        pos = 0;
+                        chunk_size = 0;
+                        chunk_hold_len = 0;
+                        HttpGzipCompactInput(&d_stream,gzipbuffer,&gziplength);
+
+                        if(chunk_pending_hdr_len > 0 && hi->blocklength > 0)
+                        {
+                           if(hi->blocklength + chunk_pending_hdr_len <= hi->fd->blocksize)
+                           {
+                              memmove(hi->fd->block + chunk_pending_hdr_len, hi->fd->block,
+                                 (ULONG)hi->blocklength);
+                              memcpy(hi->fd->block, chunk_pending_hdr,
+                                 (ULONG)chunk_pending_hdr_len);
+                              hi->blocklength += chunk_pending_hdr_len;
+                              chunk_pending_hdr_len = 0;
                            }
                         }
-                        
-                        if(is_continuation)
-                        {  /* This block continues the previous chunk - copy directly to gzipbuffer */
-                           /* Calculate available space and copy what we can */
-                           remaining_unprocessed = d_stream.avail_in;
-                           
-                           /* Validate remaining_unprocessed is reasonable */
-                           if(remaining_unprocessed < 0 || remaining_unprocessed > gzip_buffer_size)
-                           {  debug_printf("DEBUG: Invalid remaining_unprocessed (%ld) in continuation, resetting to 0\n", remaining_unprocessed);
-                              remaining_unprocessed = 0;
-                           }
-                           
-                           if(remaining_unprocessed > 0)
-                           {  /* Validate next_in pointer before pointer arithmetic */
-                              if(gzipbuffer && d_stream.next_in >= gzipbuffer && 
-                                 d_stream.next_in < gzipbuffer + gzip_buffer_size)
-                              {  used_space = (d_stream.next_in - gzipbuffer) + remaining_unprocessed;
-                                 /* Validate used_space is reasonable */
-                                 if(used_space < 0 || used_space > gzip_buffer_size)
-                                 {  debug_printf("DEBUG: Invalid used_space (%ld) in continuation, resetting\n", used_space);
-                                    used_space = remaining_unprocessed; /* Fallback */
-                                    if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
-                                 }
-                              }
-                              else
-                              {  debug_printf("DEBUG: Invalid d_stream.next_in pointer (%p) in continuation, resetting\n", d_stream.next_in);
-                                 used_space = remaining_unprocessed; /* Fallback */
-                                 if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
-                              }
-                           }
-                           else
-                           {  used_space = 0;
-                           }
-                           
-                           remaining_space = gzip_buffer_size - used_space;
-                           if(remaining_space <= 0)
-                           {  debug_printf("DEBUG: Chunked+gzip: Buffer full, cannot add continuation data\n");
-                              gzip_end = 1;
-                              break;
-                           }
-                           
-                           /* Move unprocessed data to start if needed */
-                           /* gziplength tracks where to append new data (after any unprocessed data) */
-                           if(remaining_unprocessed > 0 && d_stream.next_in != gzipbuffer)
-                           {  bytes_to_move = remaining_unprocessed;
-                              /* Validate all pointers and sizes before memmove */
-                              if(bytes_to_move > gzip_buffer_size)
-                              {  debug_printf("DEBUG: bytes_to_move (%ld) exceeds buffer size (%ld) in continuation, resetting\n",
-                                        bytes_to_move, gzip_buffer_size);
-                                 gziplength = 0;
-                                 remaining_unprocessed = 0;
-                              }
-                              else if(bytes_to_move > 0 && gzipbuffer && d_stream.next_in >= gzipbuffer && 
-                                      d_stream.next_in < gzipbuffer + gzip_buffer_size &&
-                                      (d_stream.next_in + bytes_to_move) <= gzipbuffer + gzip_buffer_size &&
-                                      bytes_to_move <= remaining_unprocessed)
-                              {  memmove(gzipbuffer, d_stream.next_in, bytes_to_move);
-                                 gziplength = bytes_to_move; /* Position after unprocessed data */
-                              }
-                              else
-                              {  debug_printf("DEBUG: Invalid pointer state for memmove in continuation (next_in=%p, gzipbuffer=%p, bytes=%ld, buffer_size=%ld), resetting\n",
-                                        d_stream.next_in, gzipbuffer, bytes_to_move, gzip_buffer_size);
-                                 gziplength = 0;
-                                 remaining_unprocessed = 0;
-                              }
-                           }
-                           else if(remaining_unprocessed == 0)
-                           {  /* All data was consumed - start fresh at beginning */
-                              gziplength = 0;
-                           }
-                           else
-                           {  /* remaining_unprocessed > 0 but next_in == gzipbuffer - data already at start */
-                              gziplength = remaining_unprocessed; /* Position after unprocessed data */
-                           }
-                           
-                           /* Copy continuation data to buffer */
-                           available_space = MIN(hi->blocklength, remaining_space);
-                           if(gziplength + available_space <= gzip_buffer_size)
-                           {  /* Validate pointers before memcpy */
-                              if(gzipbuffer && hi->fd && hi->fd->block &&
-                                 gziplength >= 0 && gziplength < gzip_buffer_size &&
-                                 available_space > 0 && available_space <= (gzip_buffer_size - gziplength) &&
-                                 hi->blocklength > 0 && available_space <= hi->blocklength)
-                              {  memcpy(gzipbuffer + gziplength, hi->fd->block, available_space);
-                                 gziplength += available_space; /* Total data in buffer now */
-                                 compressed_bytes_consumed += available_space; /* Track compressed data consumed */
-                              }
-                              else
-                              {  debug_printf("DEBUG: Invalid pointers for memcpy in continuation (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, blocklength=%ld), aborting\n",
-                                        gzipbuffer, hi->fd ? hi->fd->block : NULL, gziplength, available_space, hi->blocklength);
-                                 gzip_end = 1;
-                                 break;
-                              }
-                              
-                              /* CRITICAL FIX: Set next_in to start of unprocessed data, not start of buffer */
-                              /* If we had unprocessed data, it's at the start; new data is after it */
-                              if(remaining_unprocessed > 0)
-                              {  /* Unprocessed data is at start, new data is after it */
-                                 d_stream.next_in = gzipbuffer; /* Start of unprocessed data */
-                                 d_stream.avail_in = remaining_unprocessed + available_space; /* Total unprocessed */
-                              }
-                              else
-                              {  /* No unprocessed data - all new data is unprocessed */
-                                 d_stream.next_in = gzipbuffer; /* Start of buffer */
-                                 d_stream.avail_in = available_space; /* Only new data is unprocessed */
-                              }
-                              
-                              debug_printf("DEBUG: Chunked+gzip: Added %ld bytes of chunk continuation (gziplength=%ld, remaining_unprocessed was=%ld, avail_in=%lu)\n",
-                                     available_space, gziplength, remaining_unprocessed, d_stream.avail_in);
-                              
-                              /* Clear block - we've used all continuation data */
-                              hi->blocklength = 0;
-                              
-                              /* Continue decompression */
-                              continue;
-                           }
-                           else
-                           {  debug_printf("DEBUG: Chunked+gzip: Not enough space for continuation (%ld bytes)\n", hi->blocklength);
-                              gzip_end = 1;
-                              break;
-                           }
-                        }
-                        
-                        /* Find start of next chunk data (new chunk header) */
-                        while(chunk_pos < hi->blocklength)
-                        {  /* Skip whitespace */
-                           while(chunk_pos < hi->blocklength && 
-                                 (hi->fd->block[chunk_pos] == ' ' || hi->fd->block[chunk_pos] == '\t'))
-                           {  chunk_pos++;
-                           }
-                           
-                           /* Parse chunk size */
-                           chunk_size = 0;
-                           while(chunk_pos < hi->blocklength)
-                           {  UBYTE c;
-                              long digit;
-                              
-                              c = hi->fd->block[chunk_pos];
-                              if(c >= '0' && c <= '9')
-                              {  digit = c - '0';
-                              }
-                              else if(c >= 'A' && c <= 'F')
-                              {  digit = c - 'A' + 10;
-                              }
-                              else if(c >= 'a' && c <= 'f')
-                              {  digit = c - 'a' + 10;
-                              }
-                              else
-                              {  break;
-                              }
-                              chunk_size = chunk_size * 16 + digit;
-                              chunk_pos++;
-                           }
-                           
-                           if(chunk_size == 0)
-                           {  /* Last chunk */
-                              gzip_end = 1;
-                              break;
-                           }
-                           
-                           /* Skip chunk extension */
-                           while(chunk_pos < hi->blocklength && 
-                                 hi->fd->block[chunk_pos] != '\r' && hi->fd->block[chunk_pos] != '\n')
-                           {  chunk_pos++;
-                           }
-                           
-                           /* Skip CRLF after chunk header */
-                           if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
-                           {  chunk_pos++;
-                           }
-                           if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
-                           {  chunk_pos++;
-                           }
-                           
-                           /* Calculate remaining unprocessed data and available space */
-                           /* If avail_in > 0, we have unprocessed data starting at next_in */
-                           /* If avail_in == 0, we've consumed all data and can reuse buffer */
-                           
-                           remaining_unprocessed = d_stream.avail_in;
-                           
-                           /* Validate remaining_unprocessed is reasonable */
-                           if(remaining_unprocessed < 0 || remaining_unprocessed > gzip_buffer_size)
-                           {  debug_printf("DEBUG: Invalid remaining_unprocessed (%ld) in chunk extraction, resetting to 0\n", remaining_unprocessed);
-                              remaining_unprocessed = 0;
-                           }
-                           
-                           if(remaining_unprocessed > 0)
-                           {  /* We have unprocessed data - calculate how much buffer is used */
-                              /* Validate next_in pointer before pointer arithmetic */
-                              if(gzipbuffer && d_stream.next_in >= gzipbuffer && 
-                                 d_stream.next_in < gzipbuffer + gzip_buffer_size)
-                              {  /* Used space = data from start to next_in + remaining unprocessed */
-                                 used_space = (d_stream.next_in - gzipbuffer) + remaining_unprocessed;
-                                 /* Validate used_space is reasonable */
-                                 if(used_space < 0 || used_space > gzip_buffer_size)
-                                 {  debug_printf("DEBUG: Invalid used_space (%ld) calculated from next_in=%p, gzipbuffer=%p, remaining=%ld\n",
-                                           used_space, d_stream.next_in, gzipbuffer, remaining_unprocessed);
-                                    used_space = remaining_unprocessed; /* Fallback to just remaining */
-                                    if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
-                                 }
-                              }
-                              else
-                              {  debug_printf("DEBUG: Invalid d_stream.next_in pointer (%p) for gzipbuffer (%p), resetting\n",
-                                        d_stream.next_in, gzipbuffer);
-                                 used_space = remaining_unprocessed; /* Fallback */
-                                 if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
-                              }
-                           }
-                           else
-                           {  /* All data consumed - buffer can be reused from start */
-                              used_space = 0;
-                           }
-                           
-                           remaining_space = gzip_buffer_size - used_space;
-                           if(remaining_space <= 0)
-                           {  debug_printf("DEBUG: Chunked+gzip: Gzip buffer full (used=%ld, remaining=%ld), cannot add more chunks\n",
-                                     used_space, remaining_space);
-                              gzip_end = 1;
-                              break;
-                           }
-                           
-                           /* Determine how much chunk data we can copy */
-                           available_space = MIN(chunk_size, remaining_space);
-                           if(chunk_pos + available_space <= hi->blocklength)
-                           {  /* We have the full chunk or space for it */
-                              /* If we have unprocessed data, move it to start of buffer first */
-                              if(remaining_unprocessed > 0 && d_stream.next_in != gzipbuffer)
-                              {  bytes_to_move = remaining_unprocessed;
-                                 /* Validate all pointers and sizes before memmove */
-                                 if(bytes_to_move > gzip_buffer_size)
-                                 {  debug_printf("DEBUG: bytes_to_move (%ld) exceeds buffer size (%ld), resetting\n",
-                                           bytes_to_move, gzip_buffer_size);
-                                    gziplength = 0;
-                                    remaining_unprocessed = 0;
-                                 }
-                                 else if(bytes_to_move > 0 && gzipbuffer && d_stream.next_in >= gzipbuffer && 
-                                         d_stream.next_in < gzipbuffer + gzip_buffer_size &&
-                                         (d_stream.next_in + bytes_to_move) <= gzipbuffer + gzip_buffer_size &&
-                                         bytes_to_move <= remaining_unprocessed)
-                                 {  memmove(gzipbuffer, d_stream.next_in, bytes_to_move);
-                                    gziplength = bytes_to_move;
-                                    debug_printf("DEBUG: Chunked+gzip: Moved %ld bytes of unprocessed data to start\n", bytes_to_move);
-                                 }
-                                 else
-                                 {  /* Invalid state - reset */
-                                    debug_printf("DEBUG: Chunked+gzip: CRITICAL - Invalid buffer state (next_in=%p, gzipbuffer=%p, bytes=%ld, buffer_size=%ld), resetting\n",
-                                           d_stream.next_in, gzipbuffer, bytes_to_move, gzip_buffer_size);
-                                    gziplength = 0;
-                                    remaining_unprocessed = 0;
-                                 }
-                              }
-                              else
-                              {  /* No unprocessed data or already at start - start fresh */
-                                 if(remaining_unprocessed == 0)
-                                 {  gziplength = 0;
-                                 }
-                                 /* else gziplength already set correctly */
-                              }
-                              
-                              /* Append new chunk data to buffer */
-                              if(gziplength + available_space <= gzip_buffer_size)
-                              {  /* Validate pointers before memcpy */
-                                 if(gzipbuffer && hi->fd && hi->fd->block &&
-                                    gziplength >= 0 && gziplength < gzip_buffer_size &&
-                                    available_space > 0 && available_space <= (gzip_buffer_size - gziplength) &&
-                                    chunk_pos >= 0 && chunk_pos < hi->blocklength &&
-                                    (chunk_pos + available_space) <= hi->blocklength)
-                                 {  memcpy(gzipbuffer + gziplength, hi->fd->block + chunk_pos, available_space);
-                                    gziplength += available_space;
-                                    compressed_bytes_consumed += available_space; /* Track compressed data consumed */
-                                 }
-                                 else
-                                 {  debug_printf("DEBUG: Invalid pointers for memcpy in chunk extraction (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, chunk_pos=%ld, blocklength=%ld), aborting\n",
-                                           gzipbuffer, hi->fd ? hi->fd->block : NULL, gziplength, available_space, chunk_pos, hi->blocklength);
-                                    gzip_end = 1;
+
+                        while(pos < hi->blocklength)
+                        {
+                           /* ---- trailer CRLF after a completed body ---- */
+                           if(chunk_await_trailer)
+                           {
+                              if(hi->fd->block[pos] == '\r')
+                              {
+                                 if(pos + 1 >= hi->blocklength)
+                                 {
+                                    /* Lone CR — stash; inflate must not clobber it. */
+                                    chunk_pending_hdr[0] = '\r';
+                                    chunk_pending_hdr_len = 1;
+                                    hi->blocklength = 0;
+                                    pos = 0;
                                     break;
                                  }
-                                 
-                                 /* Update zlib stream to point to start of all unprocessed data */
-                                 d_stream.next_in = gzipbuffer;
-                                 d_stream.avail_in = gziplength;
-                                 
-                                 debug_printf("DEBUG: Chunked+gzip: Added %ld bytes from chunk (unprocessed was=%ld, total=%ld, avail_in=%lu)\n", 
-                                        available_space, remaining_unprocessed, gziplength, d_stream.avail_in);
-                                 
-                                 /* Move past chunk data and CRLF */
-                                 /* CRITICAL: Advance by available_space (what we copied), not chunk_size (total chunk size) */
-                                 /* If we only copied part of the chunk due to buffer space, we need to advance by that amount */
-                                 chunk_pos += available_space;
-                                 
-                                 /* Check if we've processed the entire chunk */
-                                 if(available_space >= chunk_size)
-                                 {  /* Full chunk processed - skip CRLF */
-                                    if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
-                                    {  chunk_pos++;
-                                    }
-                                    if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
-                                    {  chunk_pos++;
-                                    }
-                                    
-                                    /* Remove processed chunk from block */
-                                    if(chunk_pos < hi->blocklength)
-                                    {  long remaining;
-                                       remaining = hi->blocklength - chunk_pos;
-                                       memmove(hi->fd->block, hi->fd->block + chunk_pos, remaining);
-                                       hi->blocklength = remaining;
-                                    }
-                                    else
-                                    {  hi->blocklength = 0;
-                                    }
+                                 if(hi->fd->block[pos + 1] == '\n')
+                                 {
+                                    pos += 2;
+                                    chunk_await_trailer = 0;
+                                    chunk_first_done = 1;
+                                    continue;
                                  }
-                                 else
-                                 {  /* Partial chunk copied - keep remaining chunk data in block for next iteration */
-                                    /* Don't remove data - we'll continue this chunk in next loop iteration */
-                                    /* Just update blocklength to reflect what we've consumed */
-                                    if(chunk_pos < hi->blocklength)
-                                    {  /* Move unprocessed chunk data to start of block */
-                                       long remaining;
-                                       remaining = hi->blocklength - chunk_pos;
-                                       memmove(hi->fd->block, hi->fd->block + chunk_pos, remaining);
-                                       hi->blocklength = remaining;
-                                    }
-                                    else
-                                    {  hi->blocklength = 0;
-                                    }
-                                 }
-                                 
-                                 /* Continue decompression */
+                                 /* CR not LF: treat as start of next size below. */
+                                 chunk_await_trailer = 0;
+                              }
+                              else if(hi->fd->block[pos] == '\n')
+                              {
+                                 pos++;
+                                 chunk_await_trailer = 0;
+                                 chunk_first_done = 1;
                                  continue;
                               }
                               else
-                              {  debug_printf("DEBUG: Chunked+gzip: Not enough space in buffer (gziplength=%ld, available_space=%ld, buffer_size=%ld)\n",
-                                       gziplength, available_space, gzip_buffer_size);
+                              {
+                                 /* Prior TCP segment already ended with CRLF; this
+                                  * byte is the next size digit (amihttp IoPos). */
+                                 chunk_await_trailer = 0;
+                                 chunk_first_done = 1;
+                              }
+                           }
+
+                           /* ---- copy owed body bytes ---- */
+                           if(chunk_bytes_remaining > 0)
+                           {
+                              take = chunk_bytes_remaining;
+                              left = hi->blocklength - pos;
+                              if(take > left) take = left;
+                              if(gziplength + take > gzip_buffer_size)
+                              {
+                                 if(!HttpGzipGrowBuffer(&gzipbuffer,&gzip_buffer_size,
+                                       gziplength,take,&d_stream))
+                                 {
+                                    gzip_end = 1;
+                                    break;
+                                 }
+                              }
+                              if(take > gzip_buffer_size - gziplength)
+                                 take = gzip_buffer_size - gziplength;
+                              if(take < 1)
+                              {
                                  gzip_end = 1;
                                  break;
                               }
+                              if(gzipbuffer)
+                              {
+                                 memcpy(gzipbuffer + gziplength, hi->fd->block + pos, take);
+                                 gziplength += take;
+                                 compressed_bytes_consumed += take;
+                                 pos += take;
+                                 chunk_bytes_remaining -= take;
+                                 debug_printf("DEBUG: Chunked+gzip: Dechunked %ld body bytes (remain=%ld, gzip=%ld)\n",
+                                        take, chunk_bytes_remaining, gziplength);
+                              }
+                              if(chunk_bytes_remaining == 0)
+                                 chunk_await_trailer = 1;
+                              if(pos >= hi->blocklength)
+                                 break;
+                              continue;
                            }
-                           else
-                           {  /* Need more data for this chunk */
-                              debug_printf("DEBUG: Chunked+gzip: Chunk extends beyond block, need more data\n");
-                              /* Keep the block and wait for more data */
+
+                           /* ---- parse next chunk size (only between chunks) ---- */
+                           while(pos < hi->blocklength &&
+                                 (hi->fd->block[pos] == ' ' || hi->fd->block[pos] == '\t' ||
+                                  hi->fd->block[pos] == '\r' || hi->fd->block[pos] == '\n'))
+                              pos++;
+                           if(pos >= hi->blocklength)
+                              break;
+
+                           {  long size_at;
+                              size_at = pos;
+                              chunk_size = 0;
+                              size_digits = 0;
+                              while(pos < hi->blocklength)
+                              {
+                                 c = hi->fd->block[pos];
+                                 if(c >= '0' && c <= '9')
+                                    digit = c - '0';
+                                 else if(c >= 'A' && c <= 'F')
+                                    digit = c - 'A' + 10;
+                                 else if(c >= 'a' && c <= 'f')
+                                    digit = c - 'a' + 10;
+                                 else
+                                    break;
+                                 chunk_size = chunk_size * 16 + digit;
+                                 size_digits++;
+                                 pos++;
+                              }
+                              if(size_digits == 0)
+                              {
+                                 debug_printf("DEBUG: Chunked+gzip: No size digits at 0x%02X — ending\n",
+                                        (unsigned)hi->fd->block[pos]);
+                                 hi->blocklength = 0;
+                                 gzip_end = 1;
+                                 break;
+                              }
+                              if(pos >= hi->blocklength)
+                              {
+                                 left = hi->blocklength - size_at;
+                                 if(left > 0 && left <= (long)sizeof(chunk_pending_hdr))
+                                 {
+                                    memcpy(chunk_pending_hdr, hi->fd->block + size_at, (ULONG)left);
+                                    chunk_pending_hdr_len = left;
+                                 }
+                                 hi->blocklength = 0;
+                                 pos = 0;
+                                 break;
+                              }
+                              term = hi->fd->block[pos];
+                              if(term != '\r' && term != '\n' && term != ';')
+                              {
+                                 debug_printf("DEBUG: Chunked+gzip: Bad size terminator 0x%02X — ending\n",
+                                        (unsigned)term);
+                                 hi->blocklength = 0;
+                                 gzip_end = 1;
+                                 break;
+                              }
+                              while(pos < hi->blocklength &&
+                                    hi->fd->block[pos] != '\r' && hi->fd->block[pos] != '\n')
+                                 pos++;
+                              if(pos >= hi->blocklength ||
+                                 (hi->fd->block[pos] == '\r' && pos + 1 >= hi->blocklength))
+                              {
+                                 left = hi->blocklength - size_at;
+                                 if(left > 0 && left <= (long)sizeof(chunk_pending_hdr))
+                                 {
+                                    memcpy(chunk_pending_hdr, hi->fd->block + size_at, (ULONG)left);
+                                    chunk_pending_hdr_len = left;
+                                 }
+                                 hi->blocklength = 0;
+                                 pos = 0;
+                                 break;
+                              }
+                              if(hi->fd->block[pos] == '\r')
+                                 pos++;
+                              if(pos < hi->blocklength && hi->fd->block[pos] == '\n')
+                                 pos++;
+                              else
+                              {
+                                 hi->blocklength = 0;
+                                 break;
+                              }
+                           }
+
+                           if(chunk_size == 0)
+                           {
+                              left = hi->blocklength - pos;
+                              if(left > 0 && left <= (long)sizeof(chunked_trailer_stash))
+                              {
+                                 memcpy(chunked_trailer_stash, hi->fd->block + pos, (ULONG)left);
+                                 chunked_trailer_stash_len = left;
+                              }
+                              else
+                              {
+                                 memcpy(chunked_trailer_stash, "0\r\n\r\n", 5);
+                                 chunked_trailer_stash_len = 5;
+                              }
+                              hi->blocklength = 0;
+                              chunk_final_seen = 1;
+                              chunk_await_trailer = 0;
+                              chunk_bytes_remaining = 0;
+                              debug_printf("DEBUG: Chunked+gzip: Final chunk size 0\n");
                               break;
                            }
+
+                           chunk_bytes_remaining = chunk_size;
+                           debug_printf("DEBUG: Chunked+gzip: Next chunk size=%ld\n", chunk_size);
                         }
+
+                        /* fd->block is zlib next_out — never leave unread wire
+                         * bytes here across inflate.  Incomplete headers were
+                         * already moved to chunk_pending_hdr. */
+                        hi->blocklength = 0;
+
+                        HttpGzipPublish(&d_stream,gzipbuffer,gziplength,0);
+                        continue;
                      }
                      else
                      {  /* Non-chunked - all data already in gzipbuffer */
@@ -3552,6 +3754,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
                else if(err==Z_STREAM_END)
                {  /* Stream complete */
+                  gzip_complete=TRUE;
                   decompressed_len=hi->fd->blocksize-d_stream.avail_out;
                   if(decompressed_len > 0 && decompressed_len <= hi->fd->blocksize)
                   {  debug_printf("DEBUG: Processing final %ld bytes of decompressed data\n", decompressed_len);
@@ -3608,184 +3811,102 @@ static BOOL Readdata(struct Httpinfo *hi)
                hi->flags &= ~HTTPIF_GZIPENCODED;
                debug_printf("DEBUG: Gzip processing complete\n");
                
-               /* For chunked+gzip, we need to continue processing remaining chunks */
-               /* even after gzip finishes, until we reach the final "0\r\n\r\n" chunk */
+               /* For chunked+gzip, try to consume any trailer already buffered.
+                * The gzip body is complete — do NOT Readblock for a missing final
+                * "0\\r\\n\\r\\n": that blocks in Assl_wait_io/WaitSelect and used to
+                * hold socketbase_swap_sema, stalling parallel same-host fetches
+                * (e.g. a stylesheet started while HTML was finishing).  If the
+                * final chunk is not in-hand, drop keep-alive and move on. */
                if(hi->flags & HTTPIF_CHUNKED)
-               {  debug_printf("DEBUG: Chunked+gzip: Gzip complete, discarding remaining chunks until final chunk\n");
-                  /* Process remaining data in blocklength, then continue reading chunks */
-                  /* until we find the final "0\r\n\r\n" chunk */
-                  /* Note: remaining data might be chunk continuation (not starting with hex digits) */
-                  while(hi->blocklength > 0 || Readblock(hi))
-                  {  UBYTE *chunk_p;
-                     long chunk_pos;
-                     long chunk_size;
-                     long chunk_data_end;
-                     BOOL final_chunk_found;
-                     UBYTE first_char;
-                     BOOL is_chunk_header;
-                     
-                     if(hi->blocklength <= 0) break;
-                     
-                     chunk_p = hi->fd->block;
-                     chunk_pos = 0;
-                     final_chunk_found = FALSE;
-                     /* Skip leading line breaks so a lone CR/LF is not mis-handled as "continuation". */
-                     while(chunk_pos < hi->blocklength &&
+               {  BOOL final_chunk_found;
+                  UBYTE *chunk_p;
+                  long chunk_pos;
+                  long chunk_size;
+                  long chunk_data_end;
+                  UBYTE first_char;
+                  BOOL is_chunk_header;
+                  BOOL need_more;
+
+                  final_chunk_found = FALSE;
+                  need_more = FALSE;
+                  debug_printf("DEBUG: Chunked+gzip: Gzip complete, discarding buffered trailer only\n");
+
+                  chunk_p = hi->fd->block;
+                  chunk_pos = 0;
+                  while(chunk_pos < hi->blocklength && !final_chunk_found && !need_more)
+                  {  while(chunk_pos < hi->blocklength &&
                            (chunk_p[chunk_pos] == '\r' || chunk_p[chunk_pos] == '\n'))
                      {  chunk_pos++;
                      }
-                     if(chunk_pos >= hi->blocklength)
-                     {  hi->blocklength = 0;
-                        continue;
+                     if(chunk_pos >= hi->blocklength) break;
+
+                     first_char = chunk_p[chunk_pos];
+                     is_chunk_header = FALSE;
+                     if((first_char >= '0' && first_char <= '9') ||
+                        (first_char >= 'A' && first_char <= 'F') ||
+                        (first_char >= 'a' && first_char <= 'f'))
+                     {  is_chunk_header = TRUE;
                      }
-                     
-                     /* Parse chunks in current block until we find final chunk or run out of data */
-                     while(chunk_pos < hi->blocklength)
-                     {  /* Check if this looks like a chunk header (starts with hex digit) */
-                        /* or continuation data (starts with non-hex) */
-                        first_char = chunk_p[chunk_pos];
-                        is_chunk_header = FALSE;
-                        if((first_char >= '0' && first_char <= '9') ||
-                           (first_char >= 'A' && first_char <= 'F') ||
-                           (first_char >= 'a' && first_char <= 'f'))
-                        {  is_chunk_header = TRUE;
-                        }
-                        
-                        if(!is_chunk_header)
-                        {  /* This is continuation data from a previous chunk - skip until we find CRLF */
-                           /* which indicates end of chunk data, then we'll see next chunk header */
-                           debug_printf("DEBUG: Chunked+gzip: Found continuation data (starts with 0x%02X), skipping to next chunk boundary\n", first_char);
-                           /* Skip until we find CRLF (end of chunk data) */
-                           while(chunk_pos < hi->blocklength - 1)
-                           {  if(chunk_p[chunk_pos] == '\r' && chunk_p[chunk_pos + 1] == '\n')
-                              {  chunk_pos += 2; /* Skip CRLF */
-                                 break; /* Now we should see next chunk header */
-                              }
-                              chunk_pos++;
-                           }
-                           if(chunk_pos >= hi->blocklength - 1)
-                           {  /* CRLF not found in this block - need more data */
-                              /* Move remaining data to start */
-                              if(chunk_pos < hi->blocklength)
-                              {  long remaining;
-                                 remaining = hi->blocklength - chunk_pos;
-                                 memmove(hi->fd->block, chunk_p + chunk_pos, remaining);
-                                 hi->blocklength = remaining;
-                              }
-                              break; /* Exit inner loop to read more */
-                           }
-                           /* Continue to parse next chunk header */
-                           continue;
-                        }
-                        
-                        /* Skip whitespace */
-                        while(chunk_pos < hi->blocklength && 
-                              (chunk_p[chunk_pos] == ' ' || chunk_p[chunk_pos] == '\t'))
-                        {  chunk_pos++;
-                        }
-                        
-                        if(chunk_pos >= hi->blocklength) break;
-                        
-                        /* Parse chunk size */
-                        chunk_size = 0;
-                        while(chunk_pos < hi->blocklength)
-                        {  UBYTE c;
-                           long digit;
-                           c = chunk_p[chunk_pos];
-                           if(c >= '0' && c <= '9')
-                           {  digit = c - '0';
-                           }
-                           else if(c >= 'A' && c <= 'F')
-                           {  digit = c - 'A' + 10;
-                           }
-                           else if(c >= 'a' && c <= 'f')
-                           {  digit = c - 'a' + 10;
-                           }
-                           else
-                           {  break;
-                           }
-                           chunk_size = chunk_size * 16 + digit;
-                           chunk_pos++;
-                        }
-                        
-                        /* Skip chunk extension and CRLF */
-                        while(chunk_pos < hi->blocklength && 
-                              chunk_p[chunk_pos] != '\r' && chunk_p[chunk_pos] != '\n')
-                        {  chunk_pos++;
-                        }
-                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r')
-                        {  chunk_pos++;
-                        }
-                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n')
-                        {  chunk_pos++;
-                        }
-                        
-                        if(chunk_size == 0)
-                        {  /* Final chunk found */
-                           debug_printf("DEBUG: Chunked+gzip: Final chunk (0) found, all chunks processed\n");
-                           final_chunk_found = TRUE;
-                           /* Skip final CRLF if present */
-                           if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r')
-                           {  chunk_pos++;
-                           }
-                           if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n')
-                           {  chunk_pos++;
-                           }
-                           break;
-                        }
-                        
-                        /* Skip chunk data and trailing CRLF */
-                        chunk_data_end = chunk_pos + chunk_size;
-                        if(chunk_data_end > hi->blocklength)
-                        {  /* Chunk extends beyond current block - need more data */
-                           debug_printf("DEBUG: Chunked+gzip: Chunk size %ld extends beyond block, need more data\n", chunk_size);
-                           /* Move remaining data to start of block */
-                           if(chunk_pos < hi->blocklength)
-                           {  long remaining;
-                              remaining = hi->blocklength - chunk_pos;
-                              memmove(hi->fd->block, chunk_p + chunk_pos, remaining);
-                              hi->blocklength = remaining;
-                           }
-                           break; /* Exit inner loop to read more */
-                        }
-                        
-                        chunk_pos = chunk_data_end;
-                        /* Skip trailing CRLF after chunk data */
-                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r')
-                        {  chunk_pos++;
-                        }
-                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n')
-                        {  chunk_pos++;
-                        }
-                        
-                        debug_printf("DEBUG: Chunked+gzip: Discarded chunk of size %ld\n", chunk_size);
-                     }
-                     
-                     if(final_chunk_found)
-                     {  /* Final chunk found - we're done */
-                        hi->blocklength = 0;
+
+                     if(!is_chunk_header)
+                     {  /* Partial leftover of prior chunk data — need network bytes. */
+                        need_more = TRUE;
                         break;
                      }
-                     
-                     /* Move any remaining data to start of block for next iteration */
-                     if(chunk_pos < hi->blocklength)
-                     {  long remaining;
-                        remaining = hi->blocklength - chunk_pos;
-                        memmove(hi->fd->block, chunk_p + chunk_pos, remaining);
-                        hi->blocklength = remaining;
+
+                     chunk_size = 0;
+                     while(chunk_pos < hi->blocklength)
+                     {  UBYTE c;
+                        long digit;
+                        c = chunk_p[chunk_pos];
+                        if(c >= '0' && c <= '9') digit = c - '0';
+                        else if(c >= 'A' && c <= 'F') digit = c - 'A' + 10;
+                        else if(c >= 'a' && c <= 'f') digit = c - 'a' + 10;
+                        else break;
+                        chunk_size = chunk_size * 16 + digit;
+                        chunk_pos++;
                      }
-                     else
-                     {  hi->blocklength = 0;
+                     while(chunk_pos < hi->blocklength &&
+                           chunk_p[chunk_pos] != '\r' && chunk_p[chunk_pos] != '\n')
+                     {  chunk_pos++;
                      }
+                     if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r') chunk_pos++;
+                     if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n') chunk_pos++;
+                     else if(chunk_pos >= hi->blocklength)
+                     {  need_more = TRUE;
+                        break;
+                     }
+
+                     if(chunk_size == 0)
+                     {  debug_printf("DEBUG: Chunked+gzip: Final chunk (0) found in buffer\n");
+                        final_chunk_found = TRUE;
+                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r') chunk_pos++;
+                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n') chunk_pos++;
+                        break;
+                     }
+
+                     chunk_data_end = chunk_pos + chunk_size;
+                     if(chunk_data_end + 2 > hi->blocklength)
+                     {  /* Incomplete chunk in buffer — do not block for the rest. */
+                        need_more = TRUE;
+                        break;
+                     }
+                     chunk_pos = chunk_data_end;
+                     if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r') chunk_pos++;
+                     if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n') chunk_pos++;
+                     debug_printf("DEBUG: Chunked+gzip: Discarded buffered chunk of size %ld\n", chunk_size);
                   }
-                  
-                  debug_printf("DEBUG: Chunked+gzip: Finished discarding remaining chunks\n");
-                  /* If Readblock() failed but gzip decompression completed successfully, */
-                  /* treat as successful completion (server may have closed connection early) */
-                  /* The actual data is already decompressed, so missing chunk boundaries is OK */
-                  /* Note: If we exited the loop because Readblock() failed (not because final chunk found), */
-                  /* we still treat it as success since gzip decompression already completed */
-                  result = TRUE;  /* Always success if gzip decompression completed */
+
+                  hi->blocklength = 0;
+                  if(!final_chunk_found)
+                  {  /* Trailer incomplete: cannot safely reuse the socket. */
+                     hi->flags &= ~(HTTPIF_KEEPALIVE|HTTPIF_KEEPALIVE_REQ);
+                     debug_printf("DEBUG: Chunked+gzip: Trailer incomplete — dropping keep-alive\n");
+                  }
+                  else
+                  {  debug_printf("DEBUG: Chunked+gzip: Buffered trailer complete\n");
+                  }
+                  result = TRUE;
                   break;
                }
                
@@ -4369,6 +4490,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             continue;
          }
          else if(err==Z_STREAM_END) {
+            gzip_complete=TRUE;
             debug_printf("DEBUG: Gzip decompression completed successfully\n");
             /* Process any remaining decompressed data before exiting */
             if(d_stream.avail_out < hi->fd->blocksize) {
@@ -4501,10 +4623,17 @@ static BOOL Readdata(struct Httpinfo *hi)
                remaining_space=gzip_buffer_size-used_space;
                
                if(remaining_space <= 0 || hi->blocklength > remaining_space)
-               {  debug_printf("DEBUG: Non-chunked gzip: Buffer full (remaining=%ld, block=%ld), ending\n",
-                         remaining_space, hi->blocklength);
-                  gzip_end = 1;
-                  break;
+               {  long need;
+                  need=hi->blocklength;
+                  if(need < INPUTBLOCKSIZE) need=INPUTBLOCKSIZE;
+                  if(!HttpGzipGrowBuffer(&gzipbuffer,&gzip_buffer_size,
+                         gziplength,need,&d_stream))
+                  {  debug_printf("DEBUG: Non-chunked gzip: Buffer full (remaining=%ld, block=%ld), ending\n",
+                            remaining_space, hi->blocklength);
+                     gzip_end = 1;
+                     break;
+                  }
+                  remaining_space=gzip_buffer_size-gziplength;
                }
                
                bytes_to_append = MIN(hi->blocklength, remaining_space);
@@ -5051,6 +5180,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Exit Readdata - gzip response is complete */
             result = !eof;
             if(bdcopy) FREE(bdcopy);
+            Gzipfinished(gzip_started,gzip_complete);
             return result;
          }
       } else if(gzipbuffer != NULL) {
@@ -5336,6 +5466,7 @@ static BOOL Readdata(struct Httpinfo *hi)
       hi->blocklength = 0;
    }
    
+   Gzipfinished(gzip_started,gzip_complete);
    return result;
 }
 
@@ -5364,6 +5495,18 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
             Httpstatushint(rcode,hi->movedtourl);
             redirect_count++; /* Increment redirect counter for loop protection */
             debug_printf("DEBUG: Processing redirect to: %s (redirect_count=%d)\n", hi->movedtourl, redirect_count);
+            /* Detect A→B→A oscillation before burning the full redirect budget. */
+            if(redirect_prevprevurl && hi->movedtourl
+               && STREQUAL(redirect_prevprevurl,hi->movedtourl))
+            {  debug_printf("DEBUG: Redirect ping-pong detected to %s, aborting\n",
+                      hi->movedtourl);
+               Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
+               HttpClearRedirectBudget();
+               return;
+            }
+            if(redirect_prevprevurl) FREE(redirect_prevprevurl);
+            redirect_prevprevurl=redirect_prevurl;
+            redirect_prevurl=Dupstr(hi->movedtourl,-1);
             /* For redirects, consume any remaining body data before processing redirect */
             Nextline(hi);
             debug_printf("DEBUG: Nextline called for redirect body consumption, blocklength=%ld\n", hi->blocklength);
@@ -6476,7 +6619,12 @@ send_request:
             else if(fd->postmsg)
             {  msglen=strlen(fd->postmsg);
                debug_printf("DEBUG: Httpretrieve: Sending POST message, length=%ld\n", msglen);
-               result=(Send(hi,fd->postmsg,msglen)==msglen);
+               /* Empty body is valid (Content-Length: 0); Assl_write rejects
+                * length 0 so treat it as already complete after the headers. */
+               if(msglen==0)
+                  result=TRUE;
+               else
+                  result=(Send(hi,fd->postmsg,msglen)==msglen);
                debug_printf("DEBUG: Httpretrieve: POST Send() returned, result=%ld (expected %ld)\n",
                       result, msglen);
 #ifdef BETAKEYFILE
@@ -6597,7 +6745,7 @@ void Httptask(struct Fetchdriver *fd)
          if(redirect_count >= 10)
          {  debug_printf("DEBUG: Httptask: Redirect loop detected (%d redirects), breaking to prevent infinite loop\n", redirect_count);
             Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
-            redirect_count=0; /* Reset counter after error */
+            HttpClearRedirectBudget();
             break;
          }
          
@@ -6669,10 +6817,15 @@ void Httptask(struct Fetchdriver *fd)
             Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
          }
          
-         /* Successful non-redirect response - reset redirect counter */
-         if(hi.status >= 200 && hi.status < 300 && !hi.movedto)
-         {  redirect_count=0; /* Reset redirect counter on successful completion */
-            debug_printf("DEBUG: Httptask: Successful response (status=%ld), resetting redirect_count\n", hi.status);
+         /* Finished without another redirect: clear the budget.
+          * hi.status is often 0 by the time Readdata returns even after a
+          * real 200, so do not require 2xx here — that left the counter
+          * climbing across unrelated navigations. */
+         if(!hi.movedto)
+         {  if(redirect_count > 0)
+               debug_printf("DEBUG: Httptask: Non-redirect completion (status=%ld), resetting redirect_count (was %d)\n",
+                      hi.status, redirect_count);
+            HttpClearRedirectBudget();
             /* Clear Range request flag after successful completion */
             if(hi.flags & HTTPIF_RANGE_REQUEST)
             {  debug_printf("DEBUG: Httptask: Range request completed successfully, clearing flag\n");

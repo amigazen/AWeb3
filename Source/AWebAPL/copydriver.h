@@ -40,7 +40,7 @@
    /* (long) GET Y position for this fragment, or -1 if not found.
     * Supply a AOCDV_Fragmentname first */
 
-#define AOCDV_Sourcedriver (AOCDV_Dummy+5)      /* NEW,SET */
+#define AOCDV_Sourcedriver (AOCDV_Dummy+5)      /* NEW,SET,GET */
    /* (void *) The source driver controlling this copy. */
 
 #define AOCDV_Ready        (AOCDV_Dummy+6)      /* GET */

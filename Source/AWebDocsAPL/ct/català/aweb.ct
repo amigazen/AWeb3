@@ -1,7 +1,7 @@
 ## version $VER: aweb.catalog 3.4 (26.01.2001)
-## language català
+## language catalï¿½
 ## codeset 0
-## chunk AUTH Catalan catalog translation by Llorenç Grau <llor69@olivet.com> ATO
+## chunk AUTH Catalan catalog translation by Llorenï¿½ Grau <llor69@olivet.com> ATO
 ;
 ; AWeb.cd - AWeb catalog description file
 ;
@@ -14,7 +14,7 @@
 ;-------------- General -----------------------------
 ;
 MSG_REQUEST_TITLE
-Sol·licitud d'AWeb
+Solï¿½licitud d'AWeb
 ;AWeb request
 ;
 ;
@@ -33,7 +33,7 @@ Registrat a
 ;Registered to
 ;
 MSG_ABOUT_SCREENNAME
-Nom de la pantalla pública
+Nom de la pantalla pï¿½blica
 ;Public screen name
 ;
 MSG_ABOUT_PORTNAME
@@ -41,7 +41,7 @@ Nom del port ARexx
 ;ARexx port name
 ;
 MSG_ABOUT_EMAIL
-Correu electrònic
+Correu electrï¿½nic
 ;E-mail
 ;
 MSG_ABOUT_WWW
@@ -50,29 +50,29 @@ WWW
 ;
 MSG_ABOUT_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Versió no registrada\n
+Versiï¿½ no registrada\n
 ;Unregistered version\n
 ;
 MSG_ABOUT_DEMO
-Versió demostració no registrada\n
+Versiï¿½ demostraciï¿½ no registrada\n
 ;Unregistered demo version\n
 ;
 MSG_ABOUT_DISTRIBUTED
-Distribuït per %s
+Distribuï¿½t per %s
 ;Distributed by %s
 ;
 ; Translators give yourself credit with this string.
 ; It should read something like "(Language) translation by: (your name)\n"
 ;
 MSG_ABOUT_TRANSLATOR
-Traducció al català per Llorenç Grau\n
+Traducciï¿½ al catalï¿½ per Llorenï¿½ Grau\n
 ;
 ;
 MSG_ABOUT_SPECIAL
-Versió especial per ser distribuïda amb l'Amiga OS\n
+Versiï¿½ especial per ser distribuï¿½da amb l'Amiga OS\n
 ;Special version for distribution with Amiga OS\n
 ;
 ;-------------- Quit requester ----------------------
@@ -83,25 +83,25 @@ Segur que voleu sortir d'AWeb?
 ;
 MSG_QUIT_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 MSG_QUIT_CANCEL
-_Cancel·lar
+_Cancelï¿½lar
 ;_Cancel
 ;
 MSG_QUIT_WARNING
-ADVERTÈNCIA: Les transferències seran avortades!\n\n
+ADVERTï¿½NCIA: Les transferï¿½ncies seran avortades!\n\n
 ;WARNING: Transfers will be aborted!\n\n
 ;
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Aquesta és la versió demostració d'AWeb\nno suporta distintes finestres de documents
+Aquesta ï¿½s la versiï¿½ demostraciï¿½ d'AWeb\nno suporta distintes finestres de documents
 ;This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
@@ -126,15 +126,15 @@ En cua
 ;Queued
 ;
 MSG_NWS_STARTED
-Començat
+Comenï¿½at
 ;Started
 ;
 MSG_NWS_LOOKUP
-S'està cercant
+S'estï¿½ cercant
 ;Looking up
 ;
 MSG_NWS_CONNECT
-S'està connectant
+S'estï¿½ connectant
 ;Connecting
 ;
 MSG_NWS_WAIT
@@ -142,11 +142,11 @@ Esperant
 ;Waiting
 ;
 MSG_NWS_PROCESS
-S'està processant
+S'estï¿½ processant
 ;Processing
 ;
 MSG_NWS_LOGIN
-S'està entrant
+S'estï¿½ entrant
 ;Logging in
 ;
 MSG_NWS_CPS
@@ -154,17 +154,17 @@ MSG_NWS_CPS
 ;%ld cps
 ;
 MSG_NWS_NEWSGROUP
-S'està escanejant
+S'estï¿½ escanejant
 ;Scanning
 ;
 MSG_NWS_UPLOAD
-S'està penjant
+S'estï¿½ penjant
 ;Uploading
 ;
 ;-------------- Authorization requester -------------
 ;
 MSG_AUTH_TITLE
-Autorització
+Autoritzaciï¿½
 ;Authorization
 ;
 MSG_AUTH_PROMPT
@@ -181,10 +181,10 @@ Contrasen_ya
 ;
 MSG_AUTH_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 MSG_AUTH_CANCEL
-_Cancel·lar
+_Cancelï¿½lar
 ;_Cancel
 ;
 MSG_AUTH_PROMPT_FTP
@@ -223,7 +223,7 @@ El fitxer:\n%s\nja existeix!
 ;File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-_Sobreescriure|_Afegir|_Nom nou|_Cancel·lar
+_Sobreescriure|_Afegir|_Nom nou|_Cancelï¿½lar
 ;_Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
@@ -231,7 +231,7 @@ Seleccioneu una macro ARexx
 ;Select ARexx macro
 ;
 MSG_FILE_HOTLISTTITLE
-Seleccioneu una llista jeràrquica de favorits
+Seleccioneu una llista jerï¿½rquica de favorits
 ;Select hierarchical hotlist
 ;
 MSG_FILE_LOCALTITLE
@@ -243,19 +243,19 @@ Obrir
 ;Open
 ;
 MSG_FILE_TEMPTITLE
-No es pot trobar el camí temporal:\n%s\nEs farà servir T: en el seu lloc.
+No es pot trobar el camï¿½ temporal:\n%s\nEs farï¿½ servir T: en el seu lloc.
 ;Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
 _D'acord
-;_Ok
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
-_D'acord|_Reintentar|_Cancel·lar
-;_Ok|_Retry|_Cancel
+_D'acord|_Reintentar|_Cancelï¿½lar
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
-Seleccioneu un directori pels paràmetres
+Seleccioneu un directori pels parï¿½metres
 ;Select settings directory
 ;
 MSG_FILE_UPLOADTITLE
@@ -265,11 +265,11 @@ Seleccioneu el fitxer a penjar
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-AWeb està aturat.\nVoleu finalitzar la connexió TCP, també?
+AWeb estï¿½ aturat.\nVoleu finalitzar la connexiï¿½ TCP, tambï¿½?
 ;AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
 MSG_TCP_BUTTONS
-_Sí|_No
+_Sï¿½|_No
 ;_Yes|_No
 ;
 ;-------------- Startup requester -------------------
@@ -284,7 +284,7 @@ Carregant les imatges del GUI
 ;Loading GUI images
 ;
 MSG_STARTUP_CACHE
-Carregant l'índex memòria cau
+Carregant l'ï¿½ndex memï¿½ria cau
 ;Loading cache index
 ;
 ;-------------- Hotlist requester -------------------
@@ -294,7 +294,7 @@ Favorits d'AWeb
 ;AWeb hotlist
 ;
 MSG_HOTL_ADDLINK
-_Afegir enllaç
+_Afegir enllaï¿½
 ;_Add link
 ;
 MSG_HOTL_ADDGROUP
@@ -323,7 +323,7 @@ Grup nou
 ;New group
 ;
 MSG_HOTL_NEWLINK
-Enllaç nou
+Enllaï¿½ nou
 ;New link
 ;
 ; -- new hotlist viewer requester --
@@ -367,7 +367,7 @@ _Ordenar
 ;S_ort
 ;
 MSG_HOTL_LSORT_TITLE
-Títol
+Tï¿½tol
 ;Title
 ;
 MSG_HOTL_LSORT_URL
@@ -443,11 +443,11 @@ _Filtre
 ;Mat_ch
 ;
 MSG_HOTL_NEXT
-Següent
+Segï¿½ent
 ;Ne_xt
 ;
 MSG_HOTL_DEFAULT_TITLE
-** Enllaç nou **
+** Enllaï¿½ nou **
 ;** New link **
 ;
 MSG_HOTL_DEFAULT_GROUP
@@ -514,7 +514,7 @@ Recuperat
 ;Retrieved
 ;
 MSG_WHIS_ORDER_TITLE
-Títol
+Tï¿½tol
 ;Title
 ;
 MSG_WHIS_ORDER_URL
@@ -525,7 +525,7 @@ URL
 ;-------------- Cache browser ---------------------------
 ;
 MSG_CABR_TITLE
-Navegador de la memòria cau
+Navegador de la memï¿½ria cau
 ;Cache browser
 ;
 MSG_CABR_URL
@@ -577,62 +577,62 @@ Coinci_dir
 ;_Match
 ;
 MSG_CABR_NEXT
-Se_güent
+Se_gï¿½ent
 ;_Next
 ;
 ;
 ;-------------- Progress requester ----------------------
 ;
 MSG_PROGRESS_TITLE
-Control de progrés d'AWeb
+Control de progrï¿½s d'AWeb
 ;AWeb progress
 ;
 MSG_PROGRESS_CANCEL
-Cancel·lar
+Cancelï¿½lar
 ;Cancel
 ;
 ;
 ;-------------- Fix cache requesters ---------------------
 ;
 MSG_FIXCACHE_WARNING
-ADVERTÈNCIA!\n\
-Aquesta funció esborrarà tots els fitxers del\n\
+ADVERTï¿½NCIA!\n\
+Aquesta funciï¿½ esborrarï¿½ tots els fitxers del\n\
 calaix %s
 ;WARNING!\n\
 ;This function will delete all foreign files from the\n\
 ;%s drawer
 ;
 MSG_FIXCACHE_BUTTONS
-_D'acord|_Cancel·lar
-;_Ok|_Cancel
+_D'acord|_Cancelï¿½lar
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
-S'està arreglant la memòria cau de disc...
+S'estï¿½ arreglant la memï¿½ria cau de disc...
 ;Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
 Segur que voleu esborrar totes\n\
-les imatges de la memòria cau?
+les imatges de la memï¿½ria cau?
 ;Are you sure you want to delete\n\
 ;all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
 Segur que voleu esborrar tots els\n\
-documents de la memòria cau?
+documents de la memï¿½ria cau?
 ;Are you sure you want to delete\n\
 ;all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
 Segur que voleu esborrar totes les\n\
-imatges i documents de la memòria cau?
+imatges i documents de la memï¿½ria cau?
 ;Are you sure you want to delete\n\
 ;all documents and images from the cache?
 ;
 MSG_FIXCACHE_CORRUPT
-El registre de la memòria cau no es pot\n\
-llegir o és d'una antiga versió d'AWeb.\n\
-Els fitxers en la memória cau ja no es\n\
-poden fer servir més. Voleu buidar-ho ara?
+El registre de la memï¿½ria cau no es pot\n\
+llegir o ï¿½s d'una antiga versiï¿½ d'AWeb.\n\
+Els fitxers en la memï¿½ria cau ja no es\n\
+poden fer servir mï¿½s. Voleu buidar-ho ara?
 ;The cache registration is unreadable\n\
 ;or from an older version of AWeb.\n\
 ;Cached files cannot be used any more.\n\
@@ -661,7 +661,7 @@ _Endarrere
 ;_Backwards
 ;
 MSG_SEARCH_CANCEL
-_Cancel·lar
+_Cancelï¿½lar
 ;_Cancel
 ;
 MSG_SEARCH_NOTFOUND
@@ -670,7 +670,7 @@ No s'ha trobat la cadena
 ;
 MSG_SEARCH_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
@@ -700,27 +700,27 @@ Mostrar imatge
 ;Show image
 ;
 MSG_POPUP_OPENLINK
-Obrir enllaç
+Obrir enllaï¿½
 ;Open link
 ;
 MSG_POPUP_OPENLINKNW
-Obrir enllaç en nova finestra
+Obrir enllaï¿½ en nova finestra
 ;Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Carregar enllaç en fons
+Carregar enllaï¿½ en fons
 ;Load link in background
 ;
 MSG_POPUP_SAVELINK
-Desar enllaç
+Desar enllaï¿½
 ;Save link
 ;
 MSG_POPUP_DOWNLOADLINK
-Baixar enllaç
+Baixar enllaï¿½
 ;Download link
 ;
 MSG_POPUP_ADDLINK
-Afegir enllaç als favorits
+Afegir enllaï¿½ als favorits
 ;Add link to hotlist
 ;
 MSG_POPUP_RELOADFRAME
@@ -744,13 +744,13 @@ Cercar en continguts
 ;Search in contents
 ;
 MSG_POPUP_INFOFRAME
-Informació
+Informaciï¿½
 ;Info
 ;
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Paràmetres d'impressió
+Parï¿½metres d'impressiï¿½
 ;Print parameters
 ;
 MSG_PRINTP_SCALE
@@ -774,7 +774,7 @@ _Imprimir
 ;_Print
 ;
 MSG_PRINTP_CANCEL
-_Cancel·lar
+_Cancelï¿½lar
 ;_Cancel
 ;
 MSG_PRINT_NOPRINTER
@@ -783,10 +783,10 @@ No s'ha pogut accedir a la impressora
 ;
 MSG_PRINT_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 MSG_PRINT_PROGRESS
-Impressió en curs...
+Impressiï¿½ en curs...
 ;Printing in progress...
 ;
 MSG_PRINTP_LAYOUTWIDTH
@@ -809,7 +809,7 @@ Pantalla
 ;-------------- Cookie warning ----------------------
 ;
 MSG_COOKIE_TITLE
-Avís de galeta
+Avï¿½s de galeta
 ;Cookie alert
 ;
 MSG_COOKIE_WARNING
@@ -829,7 +829,7 @@ Pel domini:
 ;For domain:
 ;
 MSG_COOKIE_PATH
-Camí:
+Camï¿½:
 ;Path:
 ;
 MSG_COOKIE_COMMENT
@@ -837,7 +837,7 @@ Comentari:
 ;Comment:
 ;
 MSG_COOKIE_MAXAGE
-Edat-màx:
+Edat-mï¿½x:
 ;Max-age:
 ;
 MSG_COOKIE_EXPIRES
@@ -857,42 +857,42 @@ _Mai
 ;_Never
 ;
 MSG_COOKIE_CANCEL
-_Cancel·lar
+_Cancelï¿½lar
 ;_Cancel
 ;
 MSG_COOKIE_SECURE
-AWeb enviarà aquesta galeta només\nen connexions segures.
+AWeb enviarï¿½ aquesta galeta nomï¿½s\nen connexions segures.
 ;AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb també enviarà aquesta galeta\ntambé en connexions INSEGURES.
+AWeb tambï¿½ enviarï¿½ aquesta galeta\ntambï¿½ en connexions INSEGURES.
 ;AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
 ;-------------- Info requester ----------------------
 ;
 MSG_INFO_TITLE
-Informació
+Informaciï¿½
 ;Information
 ;
 MSG_INFO_FROMCACHE
-Llegit de la memòria cau d'AWeb
+Llegit de la memï¿½ria cau d'AWeb
 ;Read from AWeb cache
 ;
 MSG_INFO_XFER
-Capçaleres de transferència:
+Capï¿½aleres de transferï¿½ncia:
 ;Transfer headers:
 ;
 MSG_INFO_META
-Meta informació:
+Meta informaciï¿½:
 ;Meta information:
 ;
 MSG_INFO_LINK
-Enllaços clicables:
+Enllaï¿½os clicables:
 ;Clickable links:
 ;
 MSG_INFO_CIPHER
-Mètode de xifrat HTTPS: %s
+Mï¿½tode de xifrat HTTPS: %s
 ;HTTPS cipher method: %s
 ;
 MSG_INFO_SSLLIBRARY
@@ -902,7 +902,7 @@ Biblioteca SSL emprada: %s
 ;-------------- Default buttons ---------------------
 ;
 MSG_USERBUTTON_CACHE
-Memòria cau
+Memï¿½ria cau
 ;Cache
 ;
 MSG_USERBUTTON_CLOCK
@@ -945,17 +945,17 @@ Contrasen_ya
 ;
 MSG_JSPROMPT_OK
 _D'acord
-;_Ok
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
-_Cancel·lar
+_Cancelï¿½lar
 ;_Cancel
 ;
 ;
 ;-------------- Unsecure form warning ---------------
 ;
 MSG_FORMWARN_TITLE
-Avís d'AWeb
+Avï¿½s d'AWeb
 ;AWeb warning
 ;
 MSG_FORMWARN_WARNING
@@ -963,8 +963,8 @@ Les dades d'aquest formulari seran\nenviades de forma INSEGURA.
 ;Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
-_D'acord|_Cancel·lar
-;_Ok|_Cancel
+_D'acord|_Cancelï¿½lar
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
@@ -974,7 +974,7 @@ Error del gestor de correu
 ;AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Heu de configurar primer l'SMTP.\nMireu dins Paràmetres de la xarxa/Correu.
+Heu de configurar primer l'SMTP.\nMireu dins Parï¿½metres de la xarxa/Correu.
 ;You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
@@ -986,7 +986,7 @@ No s'ha pogut enviar el correu.
 ;Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-_Reintentar|De_sar|_Cancel·lar
+_Reintentar|De_sar|_Cancelï¿½lar
 ;_Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
@@ -1014,7 +1014,7 @@ Cos del missatge:
 ;Message body:
 ;
 MSG_MAIL_EXTRA_HEADERS
-Capçaleres extra incloses
+Capï¿½aleres extra incloses
 ;Extra mail headers included
 ;
 MSG_MAIL_SEND
@@ -1041,11 +1041,11 @@ MSG_MAIL_MAIL_SENT
 ;-------------- Newsreader messages -----------------
 ;
 MSG_NEWS_TITLE
-Error del lector de notícies
+Error del lector de notï¿½cies
 ;AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Heu de configurar primer l'NNTP.\nMireu dins Paràmetres de la xarxa/Notícies.
+Heu de configurar primer l'NNTP.\nMireu dins Parï¿½metres de la xarxa/Notï¿½cies.
 ;You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
@@ -1057,7 +1057,7 @@ No s'ha pogut enviar l'article.
 ;Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-_Reintentar|De_sar|_Cancel·lar
+_Reintentar|De_sar|_Cancelï¿½lar
 ;_Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
@@ -1065,7 +1065,7 @@ Article fallit desat
 ;Save failed article
 ;
 MSG_NEWS_NEWS_HEADER
-Notícies
+Notï¿½cies
 ;News
 ;
 MSG_NEWS_SUBSCRIBED
@@ -1082,7 +1082,7 @@ Capturar
 ;Catch up
 ;
 MSG_NEWS_UNSUBSCRIBE
-Cancel·lar la subscripció
+Cancelï¿½lar la subscripciï¿½
 ;Unsubscribe
 ;
 MSG_NEWS_OTHER_GROUP
@@ -1106,8 +1106,8 @@ Cercar
 ;Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-La primera vegada que cerqueu un grup, es descarregarà\n\
-una llista de tots els grups de missatges. Això podrà\n\
+La primera vegada que cerqueu un grup, es descarregarï¿½\n\
+una llista de tots els grups de missatges. Aixï¿½ podrï¿½\n\
 durar uns quants minuts en completar-se.
 ;The first time you search for a group,\n\
 ;a list of all newsgroup names will be downloaded.\n\
@@ -1118,7 +1118,7 @@ MSG_NEWS_NO_SUBJECT
 ;(no subject)
 ;
 MSG_NEWS_LINES
-(%s línies)
+(%s lï¿½nies)
 ;(%s lines)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
@@ -1166,7 +1166,7 @@ Cos de l'article:
 ;Article body:
 ;
 MSG_NEWS_EXTRA_HEADERS
-Capçaleres extra incloses
+Capï¿½aleres extra incloses
 ;Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
@@ -1190,7 +1190,7 @@ Seguiment a:
 ;Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Esborreu les línies no necessàries
+Esborreu les lï¿½nies no necessï¿½ries
 ;Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
@@ -1216,8 +1216,8 @@ Descarregar la llista de grups de missatges
 ;Download newsgroup list
 ;
 MSG_NEWS_DOWNLOAD_BODY
-<H1>S'està descarregant...</H1>\n\
-Descarregant la llista de grups de missatges. Això pot durar uns minuts.
+<H1>S'estï¿½ descarregant...</H1>\n\
+Descarregant la llista de grups de missatges. Aixï¿½ pot durar uns minuts.
 ;<H1>Downloading...</H1>\n\
 ;Downloading newsgroup list. This can take several minutes.
 ;
@@ -1237,11 +1237,11 @@ Trobats %ld noms de grups que coincideixen amb <B>%s</B>
 ;-------------- Shell/ARexx command warning ---------
 ;
 MSG_CMDWARN_TITLE
-Avís d'Aweb
+Avï¿½s d'Aweb
 ;AWeb warning
 ;
 MSG_CMDWARN_SHELL
-Sobre l'execució d'una comanda shell:\n%s
+Sobre l'execuciï¿½ d'una comanda shell:\n%s
 ;About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
@@ -1249,36 +1249,36 @@ Sobre l'inici d'un programa ARexx:\n%s
 ;About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
-_D'acord|_Cancel·lar
-;_Ok|_Cancel
+_D'acord|_Cancelï¿½lar
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
 ;
 MSG_SSLWARN_SSL_TITLE
-Avís d'AWeb
+Avï¿½s d'AWeb
 ;AWeb warning
 ;
 MSG_SSLWARN_SSL_TEXT
-No es pot fer una connexió segura amb %s:\n%s\n \nVoleu fer servir una connexió insegura?
+No es pot fer una connexiï¿½ segura amb %s:\n%s\n \nVoleu fer servir una connexiï¿½ insegura?
 ;Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?
 ;
 MSG_SSLWARN_SSL_BUTTONS
-_Insegura|_Cancel·lar
+_Insegura|_Cancelï¿½lar
 ;_Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Les connexions segures només estan suportades amb Miami i MiamiSSL.
+Les connexions segures nomï¿½s estan suportades amb Miami i MiamiSSL.
 ;Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
-Avís d'AWeb
+Avï¿½s d'AWeb
 ;AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-La certificació per %s no es pot verificar.\nDetalls: %s\n \n\
-Si contineu, les dades seran xifrades (protecció envers espionatge), \
-però la identitat del servidor no es pot verificar (-NO- protecció envers frau).\n \n\
+La certificaciï¿½ per %s no es pot verificar.\nDetalls: %s\n \n\
+Si contineu, les dades seran xifrades (protecciï¿½ envers espionatge), \
+perï¿½ la identitat del servidor no es pot verificar (-NO- protecciï¿½ envers frau).\n \n\
 Voleu continuar?
 ;Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ;If you continue the data will be encrypted (protection against eavesdropping), \
@@ -1286,11 +1286,11 @@ Voleu continuar?
 ;Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_D'acord|_Cancel·lar
-;_Ok|_Cancel
+_D'acord|_Cancelï¿½lar
+;_OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
-Les connexions segures només estan suportades amb AmiSSL o MiamiSSL.
+Les connexions segures nomï¿½s estan suportades amb AmiSSL o MiamiSSL.
 ;Secure connections are only supported when using AmiSSL or MiamiSSL.
 ;
 ;
@@ -1301,11 +1301,11 @@ Contigut desconegut
 ;Unknown content type
 ;
 MSG_UNKMIME_TEXT
-El fitxer no reconegut serà desat\n \n\
-URL:  %s\nContingut:  %s\nExtensió:  %s\n \n\
-Podeu cancel·lar el desar ara, i recarregar aquest fitxer \
-després de configurar un visualitzador o acció per aquest tipus MIME \
-en els paràmetres del navegador (Visualitzadors).
+El fitxer no reconegut serï¿½ desat\n \n\
+URL:  %s\nContingut:  %s\nExtensiï¿½:  %s\n \n\
+Podeu cancelï¿½lar el desar ara, i recarregar aquest fitxer \
+desprï¿½s de configurar un visualitzador o acciï¿½ per aquest tipus MIME \
+en els parï¿½metres del navegador (Visualitzadors).
 ;Unrecognized file will be saved\n \n\
 ;URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ;You might want to cancel the save now, and reload this file \
@@ -1313,7 +1313,7 @@ en els paràmetres del navegador (Visualitzadors).
 ;in the Browser settings (Viewers).
 ;
 MSG_UNKMIME_BUTTONS
-De_sar|_Cancel·lar
+De_sar|_Cancelï¿½lar
 ;_Save|_Cancel
 ;
 MSG_REQUEST_COPYURL
@@ -1324,7 +1324,7 @@ Copiar l'_URL al porta-retalls
 ;
 ;
 MSG_OPENURL_TITLE
-Petició d'AWeb
+Peticiï¿½ d'AWeb
 ;AWeb request
 ;
 MSG_OPENURL_TEXT
@@ -1332,15 +1332,15 @@ Escriviu la URL a obrir:
 ;Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
-_D'acord|_Cancel·lar
-;_Ok|_Cancel
+_D'acord|_Cancelï¿½lar
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
 ;
 ;
 MSG_SAVEIFF_PROGRESS
-S'està desant el fitxer IFF...
+S'estï¿½ desant el fitxer IFF...
 ;Saving IFF file...
 ;
 ;
@@ -1406,11 +1406,11 @@ Editar el codi...
 ;Edit source...
 ;
 MSG_PROJECT_INFO
-Informació...
+Informaciï¿½...
 ;Info...
 ;
 MSG_PROJECT_OPENNEWS
-Obrir Notícies
+Obrir Notï¿½cies
 ;Open News
 ;
 ; (Shortcut key is backslash)
@@ -1435,7 +1435,7 @@ I/Totes les imatges
 ;I/All images
 ;
 MSG_CONTROL_LOADNOWMAPS
-M/Només els mapes
+M/Nomï¿½s els mapes
 ;M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
@@ -1446,11 +1446,11 @@ MSG_DUMMY_2
 
 ;
 MSG_CONTROL_CANCEL
-Z/Cancel·lar la càrrega
+Z/Cancelï¿½lar la cï¿½rrega
 ;Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
-./Finestra següent
+./Finestra segï¿½ent
 ;./Next window
 ;
 MSG_CONTROL_PREVWINDOW
@@ -1506,7 +1506,7 @@ Inicialitzar els marcs
 ;Reset frames
 ;
 MSG_CACHE_MENU
-Memòria cau
+Memï¿½ria cau
 ;Cache
 ;
 MSG_DUMMY_3
@@ -1535,7 +1535,7 @@ Navegador de mem. cau...
 ;Cache browser...
 ;
 MSG_CACHE_FLUSH
-Alliberar de la memòria
+Alliberar de la memï¿½ria
 ;Flush from memory
 ;
 MSG_CACHE_FLSHIMGSND
@@ -1575,7 +1575,7 @@ Editar autoritzacions...
 ;Edit authorizations...
 ;
 MSG_NAVIGATE_MENU
-Navegació
+Navegaciï¿½
 ;Navigate
 ;
 MSG_NAVIGATE_BACK
@@ -1640,7 +1640,7 @@ T/Editor dels favorits...
 ;T/Hotlist manager...
 ;
 MSG_SETTINGS_MENU
-Paràmetres
+Parï¿½metres
 ;Settings
 ;
 MSG_SETTINGS_LOADIMG
@@ -1652,7 +1652,7 @@ Totes les imatges
 ;All images
 ;
 MSG_SETTINGS_LOADIMGMAPS
-Només els mapes
+Nomï¿½s els mapes
 ;Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
@@ -1666,23 +1666,23 @@ MSG_DUMMY_8
 
 ;
 MSG_SETTINGS_BROWSER
-Paràmetres del navegador...
+Parï¿½metres del navegador...
 ;Browser settings...
 ;
 MSG_SETTINGS_PROGRAM
-Paràmetres del programa...
+Parï¿½metres del programa...
 ;Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Paràmetres de la xarxa...
+Parï¿½metres de la xarxa...
 ;Network settings...
 ;
 MSG_SETTINGS_CLASSACT
-Paràmetres de ClassAct...
+Parï¿½metres de ClassAct...
 ;ClassAct settings...
 ;
 MSG_SETTINGS_SAVEALL
-Desar els paràmetres actuals
+Desar els parï¿½metres actuals
 ;Save current settings
 ;
 MSG_SETTINGS_SNAPSHOT
@@ -1703,15 +1703,15 @@ So de fons
 ;Background sound
 ;
 MSG_SETTINGS_SAVEAS
-Desar els paràmetres com...
+Desar els parï¿½metres com...
 ;Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Carregar els paràmetres...
+Carregar els parï¿½metres...
 ;Load settings...
 ;
 MSG_SETTINGS_GUI
-Paràmetres del GUI...
+Parï¿½metres del GUI...
 ;GUI settings...
 ;
 MSG_HELP_MENU
@@ -1719,11 +1719,11 @@ Ajuda
 ;Help
 ;
 MSG_HELP_HELP
-Documentació
+Documentaciï¿½
 ;Documentation
 ;
 MSG_HELP_AWEBHOME
-Pàgina inicial d'AWeb
+Pï¿½gina inicial d'AWeb
 ;AWeb home page
 ;
 MSG_HELP_AWEBFAQ
@@ -1752,7 +1752,7 @@ No es pot obrir %s
 ; NOTE - No locale formatters (like %1$s) possible in this string!
 ;        Only plain C formatters allowed.
 MSG_ERROR_CANTOPENV
-No es pot obrir %s versió %ld
+No es pot obrir %s versiï¿½ %ld
 ;Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30
@@ -1760,7 +1760,7 @@ AWeb necessita l'AmigaOS 3.0 o superior
 ;AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-No es pot sortir!\n%s\nestà en ús
+No es pot sortir!\n%s\nestï¿½ en ï¿½s
 ;Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
@@ -1774,7 +1774,7 @@ Mentre demanava la URL
 ;While retrieving URL
 ;
 MSG_EPART_ADDRSCHEME
-La &quot;%s&quot; esquema d'adreça no està implementada en aquesta versió d'AWeb
+La &quot;%s&quot; esquema d'adreï¿½a no estï¿½ implementada en aquesta versiï¿½ d'AWeb
 ;The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
@@ -1794,7 +1794,7 @@ No es pot obrir el fitxer &quot;%s&quot;
 ;Cannot open file &quot;%s&quot;
 ;
 MSG_EPART_XAWEB
-Nom intern (x-aweb:) no vàlid &quot;%s&quot;
+Nom intern (x-aweb:) no vï¿½lid &quot;%s&quot;
 ;Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
@@ -1802,12 +1802,12 @@ Alliberat
 ;Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-Aquest document ja no resta disponible en memòria
+Aquest document ja no resta disponible en memï¿½ria
 ;This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
 Aquest document no pot ser recuperat altre cop. Heu d'enviar el formulari que ha \
-produït aquesta pàgina. Aneu amb compte amb els efectes col·laterals ocasionats \
+produï¿½t aquesta pï¿½gina. Aneu amb compte amb els efectes colï¿½laterals ocasionats \
 a l'enviar dues vegades un formulari, com ara un doble registre.
 ;This document cannot be retrieved again. You will have to submit the form again that \
 ;produced this page. Beware of undesired side-effects if you submit that form twice, \
@@ -1818,11 +1818,11 @@ No es pot accedir a &quot;%s&quot; com &quot;%s&quot;
 ;Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
-No es pot carregar el mòdul AWebLib per &quot;%s&quot;
+No es pot carregar el mï¿½dul AWebLib per &quot;%s&quot;
 ;Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
-No heu configurat un programa per &quot;%s&quot; esquema d'adreçament.
+No heu configurat un programa per &quot;%s&quot; esquema d'adreï¿½ament.
 ;You haven't configured a program for the &quot;%s&quot; addressing scheme.
 ;
 ;
@@ -1850,7 +1850,7 @@ Inicialitzar
 ;
 ; (ISINDEX default prompt)
 MSG_AWEB_INDEXPROMPT
-Aquest és un índex cercable. Entreu lletres: 
+Aquest ï¿½s un ï¿½ndex cercable. Entreu lletres: 
 ;This is a searchable index. Enter keywords: 
 ;
 ; (window title)
@@ -1860,7 +1860,7 @@ MSG_AWEB_NODOCTITLE
 ;
 ; (screen title)
 MSG_AWEB_SCREENTITLE
-Pantalla pública d'AWeb - Nom Aweb
+Pantalla pï¿½blica d'AWeb - Nom Aweb
 ;AWeb public screen - Name AWeb
 ;
 ; (hotlist document title)
@@ -1870,12 +1870,12 @@ Favorits
 ;
 ; (gopher index title)
 MSG_AWEB_GOPHERINDEX
-Índex Gopher
+ï¿½ndex Gopher
 ;Gopher index
 ;
 ; (gopher menu title)
 MSG_AWEB_GOPHERMENU
-Menú Gopher
+Menï¿½ Gopher
 ;Gopher menu
 ;
 ; (window history title)
@@ -1898,11 +1898,11 @@ Fent que %s connecti amb %s
 ;Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-%s petició enviada; esperant resposta
+%s peticiï¿½ enviada; esperant resposta
 ;%s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
-Establint connexió TCP
+Establint connexiï¿½ TCP
 ;Establishing TCP connection
 ;
 ; (form image fieldstatus text)
@@ -1922,17 +1922,17 @@ Canviar la mida del marc
 ;
 ; (transfer status message)
 MSG_AWEB_LOGIN
-S'està entrant a %s
+S'estï¿½ entrant a %s
 ;Logging in at %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSGROUP
-S'està escanejant %s
+S'estï¿½ escanejant %s
 ;Scanning %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSCAN
-S'està escanejant %s (%ld articles)
+S'estï¿½ escanejant %s (%ld articles)
 ;Scanning %s (%ld articles)
 ;
 ; (transfer status message)

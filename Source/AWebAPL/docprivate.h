@@ -63,6 +63,7 @@ struct Docext
 #define DOXF_ERROR      0x0002   /* Extension was in error */
 #define DOXF_LOADING    0x0004   /* Load is currently in progress */
 #define DOXF_RETRY      0x0008   /* Retry needed - load completed with invalid buffer */
+#define DOXF_DROPPED    0x0010   /* Body freed after intentional skip; do not refetch */
 
 #define DIV_ANCESTOR_STACK_MAX 64
 

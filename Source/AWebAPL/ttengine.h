@@ -78,6 +78,10 @@ BOOL IsTTEngineFontActive(struct RastPort *rp);
  * Call before SetFont when switching an UTF-8 run from TTF metrics back to 7-bit ASCII. */
 void TTEngineClearRastPort(struct RastPort *rp);
 
+/* SoftStyle for HTML text: skip when TTEngine active; when live Bullet is
+ * active, only underline (bold/italic already via OT_Embolden/Shear). */
+void TTEngineApplySoftStyle(struct RastPort *rp,USHORT style);
+
 /* Enable built-in JKFF mixed Shift_JIS rendering (no system patches). */
 void SetJkffEnable(BOOL on);
 

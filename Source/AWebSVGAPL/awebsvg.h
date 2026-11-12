@@ -26,7 +26,7 @@ extern struct Library *AwebPluginBase;
 extern struct Library *GfxBase;
 extern struct Library *IntuitionBase;
 extern struct Library *UtilityBase;
-extern struct Library *P96Base;
+extern struct Library *CyberGfxBase;
 
 extern struct Library *TTEngineBase;
 extern BOOL            TTEngineAvail;

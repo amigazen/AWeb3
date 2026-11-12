@@ -59,6 +59,8 @@
  */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebwebp.h"
 #include "ezlists.h"
 
@@ -69,14 +71,11 @@
 #include <graphics/gfx.h>
 #include <datatypes/pictureclass.h>
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
 #include <proto/awebplugin.h>
 #include <proto/exec.h>
 #include <proto/alib.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
-
 #include "webp/decode.h"
 
 /* Alpha values >= THRESHOLD are opaque, < THRESHOLD are transparent.
@@ -144,6 +143,7 @@ struct Webpsource
 #define WEBPSF_GRAYSCALE   0x0010   /* Grayscale requested (reserved) */
 #define WEBPSF_LOWPRI      0x0020   /* Run decoder at low priority */
 #define WEBPSF_DISPOSING   0x0040   /* Source is being disposed */
+#define WEBPSF_RTGSCREEN   0x0080   /* Screen mode is RTG (AwebScreenIsRtg) */
 
 /*--------------------------------------------------------------------*/
 /* Memory accounting helpers                                          */
@@ -217,7 +217,6 @@ struct Decoder
    struct RastPort rp;              /* Used for blitting */
    struct RastPort temprp;          /* Temporary for pixelline8 functions */
    UBYTE *chunky;                   /* Row of chunky pixels (8-bit path) */
-   struct RenderInfo renderinfo;    /* p96 render info for pixel operations */
    /* WebP decoder state.
     *
     * We use WebPDecoderConfig (instead of the bare WebPDecBuffer that
@@ -270,8 +269,8 @@ struct Decoder
 #define DECOF_STOP         0x0001   /* The decoder process should stop */
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_TRANSPARENT  0x0004   /* Image has an alpha channel */
-#define DECOF_P96MAP       0x0010   /* Bitmap is Picasso96 */
-#define DECOF_P96DEEP      0x0020   /* Bitmap is Picasso96 >8 bits */
+#define DECOF_CYBERMAP       0x0010   /* Bitmap is Picasso96 */
+#define DECOF_CYBERDEEP      0x0020   /* Bitmap is Picasso96 >8 bits */
 
 /*--------------------------------------------------------------------*/
 /* Drain pending task messages.  Only called when we are about to     */
@@ -501,10 +500,8 @@ static void Maprowto8bit(struct Decoder *decoder,UBYTE *src)
       {  chunky[x]=prevmap;
          continue;
       }
-      /* Match the PNG plugin's RGB cache hash.  This keeps the key
-       * exact while avoiding a 32-bit multiply in the shallow target
-       * path, where any cache miss is dominated by ObtainBestPen(). */
-      slot=(short)(((key>>16)^(key>>8)^key)&0xffUL);
+      /* Multiplicative hash (Knuth) folded down to 8 bits. */
+      slot=(short)(((key*2654435761UL)>>24)&0xffUL);
       if(decoder->rgbcache_rgb[slot]==key)
       {  map=decoder->rgbcache_pen[slot];
       }
@@ -544,31 +541,24 @@ static void Maprowto8bit(struct Decoder *decoder,UBYTE *src)
 
 static void Writerow(struct Decoder *decoder,long row)
 {  UBYTE *src;
-   struct RenderInfo rgbinfo;
+   UBYTE fmt;
 
    if(row<0 || row>=decoder->height) return;
    src=decoder->rgba+row*decoder->rgbastride;
 
-   if(decoder->flags&DECOF_P96DEEP)
-   {  rgbinfo.Memory=src;
-      rgbinfo.BytesPerRow=decoder->rgbastride;
-      if(decoder->flags&DECOF_TRANSPARENT)
-      {  rgbinfo.RGBFormat=RGBFB_R8G8B8A8;
-      }
+   if(decoder->flags&DECOF_CYBERDEEP)
+   {  if(decoder->flags&DECOF_TRANSPARENT)
+         fmt=RECTFMT_RGBA;
       else
-      {  rgbinfo.RGBFormat=RGBFB_R8G8B8;
-      }
-      p96WritePixelArray(&rgbinfo,0,0,
-         &decoder->rp,0,row,decoder->width,1);
+         fmt=RECTFMT_RGB;
+      WritePixelArray(src,0,0,decoder->rgbastride,
+         &decoder->rp,0,row,decoder->width,1,fmt);
    }
    else
    {  Maprowto8bit(decoder,src);
-      if(decoder->flags&DECOF_P96MAP)
-      {  decoder->renderinfo.Memory=decoder->chunky;
-         decoder->renderinfo.BytesPerRow=decoder->width;
-         decoder->renderinfo.RGBFormat=RGBFB_CLUT;
-         p96WritePixelArray(&decoder->renderinfo,0,0,
-            &decoder->rp,0,row,decoder->width,1);
+      if(decoder->flags&DECOF_CYBERMAP)
+      {  WritePixelArray(decoder->chunky,0,0,decoder->width,
+            &decoder->rp,0,row,decoder->width,1,RECTFMT_LUT8);
       }
       else if(decoder->usewritechunky)
       {  /* V40+ fast path: graphics.library does the chunky->planar
@@ -657,23 +647,25 @@ static BOOL Allocoutputbuf(struct Decoder *decoder)
 
 static BOOL Allocbitmap(struct Decoder *decoder)
 {  ULONG memfchip;
-   /* Only call p96* on friend when it is a P96 bitmap; on classic
-    * Workbench friend bitmaps the p96 query can hit graphics paths
-    * we don't want.  Same dance as in pngsource.c. */
-   if(P96Base && decoder->source->friendbitmap
-      && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
-   {  decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,
-         P96BMA_DEPTH);
-      decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,
+   /* CyberGfx: do not GetCyberMapAttr() the screen friend (mixed
+    * P96 screens).  P96 builds still require ISP96 on friend first. */
+   if((decoder->source->flags&WEBPSF_RTGSCREEN)
+      && AwebFriendIsRtg(decoder->source->friendbitmap))
+   {  decoder->depth=AwebFriendDepth(decoder->source->friendbitmap);
+      decoder->bitmap=AwebAllocRtgBitMap(decoder->width,decoder->height,
          decoder->depth,
          BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,
-         decoder->source->friendbitmap,RGBFB_NONE);
-      if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
-      {  decoder->flags|=DECOF_P96MAP;
-         if(decoder->depth>8) decoder->flags|=DECOF_P96DEEP;
+         decoder->source->friendbitmap);
+      if(decoder->bitmap && GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
+      {  decoder->flags|=DECOF_CYBERMAP;
+         if(decoder->depth>8) decoder->flags|=DECOF_CYBERDEEP;
+      }
+      else if(decoder->bitmap)
+      {  AwebFreeRtgBitMap(decoder->bitmap);
+         decoder->bitmap=NULL;
       }
    }
-   else
+   if(!decoder->bitmap)
    {  /* Classic planar bitmap.  NULL friend so graphics.library can
        * place the planes in Fast RAM when available. */
       decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
@@ -683,8 +675,8 @@ static BOOL Allocbitmap(struct Decoder *decoder)
    if(!decoder->bitmap) return FALSE;
 
    if(decoder->flags&DECOF_TRANSPARENT)
-   {  if(decoder->flags&DECOF_P96MAP)
-      {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
+   {  if(decoder->flags&DECOF_CYBERMAP)
+      {  decoder->maskw=GetCyberMapAttr(decoder->bitmap,CYBRMATTR_WIDTH)/8;
          memfchip=0;
       }
       else
@@ -701,7 +693,7 @@ static BOOL Allocbitmap(struct Decoder *decoder)
           * the success path that BitMap is owned by ws->bitmap).  If
           * we just bailed here the BitMap would dangle in chip RAM
           * for the lifetime of the page. */
-         FreeBitMap(decoder->bitmap);
+         AwebFreeRtgBitMap(decoder->bitmap);
          decoder->bitmap=NULL;
          return FALSE;
       }
@@ -739,7 +731,7 @@ static BOOL Allocbitmap(struct Decoder *decoder)
    InitRastPort(&decoder->rp);
    decoder->rp.BitMap=decoder->bitmap;
 
-   if(!(decoder->flags&DECOF_P96DEEP))
+   if(!(decoder->flags&DECOF_CYBERDEEP))
    {  /* Shallow or planar target - allocate the chunky scratch row
        * and (for planar) a temporary RastPort used by
        * WritePixelLine8.  The chunky buffer is rounded up to a multiple
@@ -750,7 +742,7 @@ static BOOL Allocbitmap(struct Decoder *decoder)
       decoder->chunky=(UBYTE *)AllocVec(
          (ULONG)(((decoder->width+15)>>4)<<4),MEMF_PUBLIC);
       if(!decoder->chunky) return FALSE;
-      if(!(decoder->flags&DECOF_P96MAP))
+      if(!(decoder->flags&DECOF_CYBERMAP))
       {  /* Pre-decide which graphics call to use once for the whole
           * image.  WriteChunkyPixels was introduced with V40
           * (AmigaOS 3.0 / AGA) and is dramatically faster than the
@@ -996,7 +988,11 @@ static void Startdecoder(struct Webpsource *ws)
          AOAPP_Screen,&screen,
          AOAPP_Colormap,&ws->colormap,
          TAG_END);
-      if(screen) ws->friendbitmap=screen->RastPort.BitMap;
+      if(screen)
+      {  ws->friendbitmap=screen->RastPort.BitMap;
+         if(AwebScreenIsRtg(screen)) ws->flags|=WEBPSF_RTGSCREEN;
+         else ws->flags&=~WEBPSF_RTGSCREEN;
+      }
       if(ws->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,Decodetask,
          AOTSK_Name,"AWebWEBP decoder",
@@ -1018,7 +1014,7 @@ static void Releaseimage(struct Webpsource *ws)
       AOWEBP_Mask,NULL,
       TAG_END);
    if(ws->bitmap)
-   {  FreeBitMap(ws->bitmap);
+   {  AwebFreeRtgBitMap(ws->bitmap);
       ws->bitmap=NULL;
    }
    if(ws->mask)

@@ -1,16 +1,17 @@
-Short:        AWeb 3.6 — the Amiga web browser (Beta 8)
+Short:        AWeb 3.6 - the Amiga web browser (Beta 9)
 Author:       aweb@amigazen.com (amigazen project)
 Uploader:     aweb@amigazen.com (amigazen project)
 Type:         comm/www
-Version:      3.6b8
+Version:      3.6b9
+Replaces:     AWeb36b8.lha
 Architecture: m68k-amigaos
 
 
-AWeb 3.6 Beta 8
+AWeb 3.6 Beta 9
 ===============
 
 AWeb is the classic Amiga World Wide Web browser, updated in 2026 by
-amigazen project. This archive is AWeb 3.6 Beta 8 — a preview
+amigazen project. This archive is AWeb 3.6 Beta - a preview
 release for testing and feedback. 
 
 Full source code is available at:
@@ -30,7 +31,7 @@ The original AWeb author is not affiliated with amigazen; terms are in LICENSE
 READ THIS FIRST
 ---------------
 
- o This is Beta software — expect bugs. Please report issues at GitHub.
+ o This is Beta software - expect bugs. Please report issues at GitHub.
 
  o AWeb 3.6 is derived from AWeb 3.4 with AWeb 3.5 improvements merged in
    (as of Beta 8, all relevant 3.5 changes are integrated)
@@ -83,7 +84,7 @@ N.B. Many new features require testing and surely contain bugs or are incomplete
 
  o JavaScript 1.5 (ECMAScript 3) with RegExp, try/catch/finally, and XMLHttpRequest (AJAX)
 
- o CSS1/CSS2 — inline styles and external stylesheets
+ o CSS1/CSS2 - inline styles and external stylesheets
 
  o TTEngine + full UTF-8 when ttengine.library is installed; try about:fonts to see how your fonts render
 
@@ -125,11 +126,13 @@ N.B. Many new features require testing and surely contain bugs or are incomplete
 
  o Updated zlib, GIF, JFIF/JPEG and PNG libraries
 
+ o SVG AWebPlugin for inline SVG images
+
 
 LIMITATIONS (MODERN WEB)
 ------------------------
 
-AWeb targets 1990s–early-2000s sites. It does not implement HTML5, CSS3,
+AWeb targets 1990s/early-2000s sites. It does not implement HTML5, CSS3,
 ES6+ JavaScript, WebSockets, WebAssembly, or modern DOM/ storage APIs. 
 Sites such as GitHub or Google require a current browser; use GitHub on 
 another machine and report bugs from there.

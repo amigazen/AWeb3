@@ -19,20 +19,19 @@
 /* gifcopy.c - AWebgif copydriver */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebgif.h"
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <graphics/scale.h>
 #include <proto/awebplugin.h>
-#include <proto/Picasso96.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
 
 /* External library base */
-extern struct Library *P96Base;
 extern struct Library *AwebPluginBase;
 
 /*--------------------------------------------------------------------*/
@@ -192,11 +191,16 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
    {  ULONG src_isp96;
       ULONG arch_depth;
       src_isp96=0UL;
-      if(P96Base && p96GetBitMapAttr(bitmap,P96BMA_ISP96))
+      /* Prefer BMF_STANDARD before CyberGfx probes — GetCyberMapAttr on a
+       * Picasso96 BitMap can hang when cybergraphics.library is also open. */
+      if(GetBitMapAttr(bitmap,BMA_FLAGS)&BMF_STANDARD)
+      {  src_isp96=0UL;
+      }
+      else if(CyberGfxBase && GetCyberMapAttr(bitmap,CYBRMATTR_ISCYBERGFX))
       {  src_isp96=1UL;
       }
-      if(P96Base && src_isp96)
-      {  depth=(int)p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+      if(CyberGfxBase && src_isp96)
+      {  depth=(int)GetCyberMapAttr(bitmap,CYBRMATTR_DEPTH);
       }
       else
       {  arch_depth=GetBitMapAttr(bitmap,BMA_DEPTH);
@@ -216,9 +220,9 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
                height=gc->bitmap->Rows;
                memfchip=MEMF_CHIP;
             }
-            else if(P96Base && p96GetBitMapAttr(gc->bitmap,P96BMA_ISP96))
-            {  width=p96GetBitMapAttr(gc->bitmap,P96BMA_WIDTH)/8;
-               height=p96GetBitMapAttr(gc->bitmap,P96BMA_HEIGHT);
+            else if(CyberGfxBase && GetCyberMapAttr(gc->bitmap,CYBRMATTR_ISCYBERGFX))
+            {  width=GetCyberMapAttr(gc->bitmap,CYBRMATTR_WIDTH)/8;
+               height=GetCyberMapAttr(gc->bitmap,CYBRMATTR_HEIGHT);
             }
             else width=height=0;
             if(width)
@@ -267,14 +271,14 @@ static void Scalebitmap(struct Gifcopy *gc,long sfrom,long sheight,long dfrom)
          dbm.BytesPerRow=gc->bitmap->BytesPerRow;
          dbm.Rows=gc->bitmap->Rows;
       }
-      else if(P96Base)
-      {  if(p96GetBitMapAttr(gc->srcbitmap,P96BMA_ISP96))
-         {  sbm.BytesPerRow=p96GetBitMapAttr(gc->srcbitmap,P96BMA_WIDTH)/8;
-            sbm.Rows=p96GetBitMapAttr(gc->srcbitmap,P96BMA_HEIGHT);
+      else if(CyberGfxBase)
+      {  if(GetCyberMapAttr(gc->srcbitmap,CYBRMATTR_ISCYBERGFX))
+         {  sbm.BytesPerRow=GetCyberMapAttr(gc->srcbitmap,CYBRMATTR_WIDTH)/8;
+            sbm.Rows=GetCyberMapAttr(gc->srcbitmap,CYBRMATTR_HEIGHT);
          }
-         if(p96GetBitMapAttr(gc->bitmap,P96BMA_ISP96))
-         {  dbm.BytesPerRow=p96GetBitMapAttr(gc->bitmap,P96BMA_WIDTH)/8;
-            dbm.Rows=p96GetBitMapAttr(gc->bitmap,P96BMA_HEIGHT);
+         if(GetCyberMapAttr(gc->bitmap,CYBRMATTR_ISCYBERGFX))
+         {  dbm.BytesPerRow=GetCyberMapAttr(gc->bitmap,CYBRMATTR_WIDTH)/8;
+            dbm.Rows=GetCyberMapAttr(gc->bitmap,CYBRMATTR_HEIGHT);
          }
       }
       if(sbm.BytesPerRow && dbm.BytesPerRow)

@@ -413,6 +413,7 @@
 
 <A NAME="tables"></A>
 <H2>Table Cell Styles</H2>
+<P>These tests target <STRONG>commonly used CSS2 on real HTML tables</STRONG> (layout sites, forums, Wikipedia-style boxes): width, padding, align, colour, font-size, backgrounds, borders, and <CODE>border-collapse</CODE>. Full CSS2 table layout (<CODE>display:table</CODE>, complete border conflict rules, etc.) is out of scope.</P>
 
 <H3>CS22: width and height - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different widths and heights. Cells should be sized according to the CSS width and height properties.</P>
@@ -531,6 +532,443 @@
 <TABLE BORDER="4" STYLE="border-color: #00ff00;" CELLPADDING="5">
 <TR>
 <TD>Table with thick green border color</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS28: border-collapse and border-spacing</H3>
+<P><STRONG>What you should see:</STRONG> The first inner table has collapsed borders (single grid, no gaps). The second has 12px gaps between cells (separate model). The third uses asymmetric spacing (4px vertical, 16px horizontal).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; border: 2px solid #333333; width: 100%;">
+<TR>
+<TD STYLE="border: 1px solid #006600; padding: 8px; background-color: #e8f8e8;">Collapsed A</TD>
+<TD STYLE="border: 1px solid #006600; padding: 8px; background-color: #e8f8e8;">Collapsed B</TD>
+</TR>
+<TR>
+<TD STYLE="border: 1px solid #006600; padding: 8px; background-color: #e8f8e8;">Collapsed C</TD>
+<TD STYLE="border: 1px solid #006600; padding: 8px; background-color: #e8f8e8;">Collapsed D</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE STYLE="border-collapse: separate; border-spacing: 12px; border: 1px solid #666666; width: 100%;">
+<TR>
+<TD STYLE="background-color: #ffe8e8; padding: 8px;">Spaced 12px</TD>
+<TD STYLE="background-color: #ffe8e8; padding: 8px;">Spaced 12px</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE STYLE="border-collapse: separate; border-spacing: 4px 16px; border: 1px solid #666666; width: 100%;">
+<TR>
+<TD STYLE="background-color: #e8e8ff; padding: 8px;">4px / 16px spacing</TD>
+<TD STYLE="background-color: #e8e8ff; padding: 8px;">wider horizontal gap</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS29: table-layout fixed</H3>
+<P><STRONG>What you should see:</STRONG> With <CODE>table-layout: fixed</CODE> and <CODE>width: 400px</CODE>, the first row sets column widths (80px and the remainder). Long content in the second column must wrap, not widen the column.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="table-layout: fixed; width: 400px; border-collapse: collapse; border: 1px solid #333333;">
+<TR>
+<TD STYLE="width: 80px; background-color: #ffcccc; padding: 8px;">80px col</TD>
+<TD STYLE="background-color: #ccffcc; padding: 8px;">This column should use the remaining width only and wrap this long line of text instead of expanding the table.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS30: caption-side</H3>
+<P><STRONG>What you should see:</STRONG> Caption text below the grid for the first table, above the grid for the second.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #333333; caption-side: bottom; width: 280px;">
+<CAPTION STYLE="font-weight: bold; padding: 6px; background-color: #ffffcc;">Caption at bottom</CAPTION>
+<TR>
+<TD STYLE="padding: 8px;">Cell one</TD>
+<TD STYLE="padding: 8px;">Cell two</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #333333; caption-side: top; width: 280px;">
+<CAPTION STYLE="font-weight: bold; padding: 6px; background-color: #ccffff;">Caption at top</CAPTION>
+<TR>
+<TD STYLE="padding: 8px;">Cell one</TD>
+<TD STYLE="padding: 8px;">Cell two</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS31: empty-cells hide</H3>
+<P><STRONG>What you should see:</STRONG> The empty centre cell has no background and no inner border when <CODE>empty-cells: hide</CODE>; the same cell in the comparison table shows its yellow fill.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #333333; empty-cells: hide; width: 300px;">
+<TR>
+<TD STYLE="padding: 8px; background-color: #e8e8e8;">Filled</TD>
+<TD STYLE="padding: 8px; background-color: #ffff99;"></TD>
+<TD STYLE="padding: 8px; background-color: #e8e8e8;">Filled</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #333333; empty-cells: show; width: 300px;">
+<TR>
+<TD STYLE="padding: 8px; background-color: #e8e8e8;">Filled</TD>
+<TD STYLE="padding: 8px; background-color: #ffff99;"></TD>
+<TD STYLE="padding: 8px; background-color: #e8e8e8;">Filled</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS32: COL width via CSS</H3>
+<P><STRONG>What you should see:</STRONG> First column narrow (~60px), second column takes the rest (stylesheet rule <CODE>col.narrow</CODE>).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+table.cs32 { border-collapse: collapse; border: 1px solid #333333; width: 320px; }
+table.cs32 td { border: 1px solid #666666; padding: 8px; }
+col.narrow { width: 60px; }
+</STYLE>
+<TABLE CLASS="cs32">
+<COL CLASS="narrow">
+<COL>
+<TR>
+<TD>Short</TD>
+<TD>Second column is wider because col.narrow sets the first column only.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS33: table-layout fixed with percentage columns</H3>
+<P><STRONG>What you should see:</STRONG> Two equal columns (50% / 50%) inside a 400px fixed-layout table, matching CS48 / Codecraft-style rules.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="table-layout: fixed; width: 400px; border-collapse: collapse; border: 1px solid #006600;">
+<TR>
+<TH STYLE="width: 50%; padding: 10px; background-color: #e8f8e8; border: 1px solid #006600;">Left 50%</TH>
+<TH STYLE="width: 50%; padding: 10px; background-color: #e8f8e8; border: 1px solid #006600;">Right 50%</TH>
+</TR>
+<TR>
+<TD STYLE="width: 50%; padding: 10px; vertical-align: top;">Left cell content.</TD>
+<TD STYLE="width: 50%; padding: 10px; vertical-align: top;">Right cell content.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS34: TD/TH border on table grid (collapsed)</H3>
+<P><STRONG>What you should see:</STRONG> Green 1px grid lines on a collapsed table (not a separate box around text inside each cell). CS32 stylesheet rule uses the same mechanism.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 280px; border: 2px solid #333333;">
+<TR>
+<TD STYLE="border: 1px solid #006600; padding: 8px; background-color: #e8f8e8;">Cell A</TD>
+<TD STYLE="border: 1px solid #006600; padding: 8px; background-color: #e8f8e8;">Cell B</TD>
+</TR>
+<TR>
+<TD STYLE="border: 1px solid #006600; padding: 8px;">Cell C</TD>
+<TD STYLE="border: 1px solid #006600; padding: 8px;">Cell D</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS35: table min-width and max-width</H3>
+<P><STRONG>What you should see:</STRONG> First table at least 350px wide; second table capped near 200px (narrower than its long content would prefer).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #666666; min-width: 350px;">
+<TR>
+<TD STYLE="padding: 8px;">min-width 350px</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #666666; max-width: 200px;">
+<TR>
+<TD STYLE="padding: 8px;">max-width 200px — this sentence should wrap inside a narrow table.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS36: table height (px)</H3>
+<P><STRONG>What you should see:</STRONG> Table box at least 120px tall with short content (extra vertical space below the row).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #666666; width: 240px; height: 120px;">
+<TR>
+<TD STYLE="padding: 8px; vertical-align: top;">Short content in a tall table.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS37: stylesheet td/th border and padding bundle</H3>
+<P><STRONG>What you should see:</STRONG> Two-column table with grey grid borders and 12px cell padding from CSS rules (no inline border on cells).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+table.cs37 { border-collapse: collapse; border: 1px solid #333333; width: 100%; }
+table.cs37 td, table.cs37 th { border: 1px solid #888888; padding: 12px; background-color: #f4f4f4; }
+table.cs37 th { background-color: #e0e8ff; text-align: left; }
+</STYLE>
+<TABLE CLASS="cs37">
+<TR>
+<TH>Header one</TH>
+<TH>Header two</TH>
+</TR>
+<TR>
+<TD>Data row left</TD>
+<TD>Data row right with more text to show padding.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS38: per-side border-top on TD</H3>
+<P><STRONG>What you should see:</STRONG> A collapsed 2x2 table where each cell has a thick red line along its top edge only (no full box around cell text).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 100%;">
+<TR>
+<TD STYLE="border-top: 3px solid #cc0000; padding: 10px; background-color: #fff8f8;">Top edge only A</TD>
+<TD STYLE="border-top: 3px solid #cc0000; padding: 10px; background-color: #fff8f8;">Top edge only B</TD>
+</TR>
+<TR>
+<TD STYLE="border-top: 3px solid #cc0000; padding: 10px; background-color: #fff8f8;">Top edge only C</TD>
+<TD STYLE="border-top: 3px solid #cc0000; padding: 10px; background-color: #fff8f8;">Top edge only D</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS39: border-left and border-bottom on TH</H3>
+<P><STRONG>What you should see:</STRONG> Header cells with a blue left bar and green bottom bar; data cells have no coloured grid from this rule.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 100%;">
+<TR>
+<TH STYLE="border-left: 4px solid #0000aa; border-bottom: 2px solid #006600; padding: 8px; background-color: #f0f0ff;">Header A</TH>
+<TH STYLE="border-left: 4px solid #0000aa; border-bottom: 2px solid #006600; padding: 8px; background-color: #f0f0ff;">Header B</TH>
+</TR>
+<TR>
+<TD STYLE="padding: 8px;">Plain data</TD>
+<TD STYLE="padding: 8px;">Plain data</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS40: border-top-style none</H3>
+<P><STRONG>What you should see:</STRONG> Middle cell has left, right, and bottom borders (navy) but no top line; neighbours keep all four sides.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 100%;">
+<TR>
+<TD STYLE="border: 1px solid #333333; padding: 8px;">Normal</TD>
+<TD STYLE="border: 1px solid #000066; border-top-style: none; padding: 8px; background-color: #f8f8ff;">No top border</TD>
+<TD STYLE="border: 1px solid #333333; padding: 8px;">Normal</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS41: stylesheet border-right on TH</H3>
+<P><STRONG>What you should see:</STRONG> Vertical orange rules between header columns from embedded CSS, not inline on each TH.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+table.cs41 { border-collapse: collapse; width: 100%; }
+table.cs41 th { border-right: 3px solid #ff8800; padding: 8px; background-color: #fff4e8; }
+table.cs41 td { padding: 8px; }
+</STYLE>
+<TABLE CLASS="cs41">
+<TR>
+<TH>Col 1</TH>
+<TH>Col 2</TH>
+<TH>Col 3</TH>
+</TR>
+<TR>
+<TD>Row 2</TD>
+<TD>Row 2</TD>
+<TD>Row 2</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS42: border none and border-style none on TD</H3>
+<P><STRONG>What you should see:</STRONG> A collapsed table: left cell has a normal green border; centre cell has <CODE>border: none</CODE> (no grid lines on that cell); right cell has <CODE>border-style: none</CODE> (also no grid lines).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 100%;">
+<TR>
+<TD STYLE="border: 1px solid #006600; padding: 8px;">Bordered</TD>
+<TD STYLE="border: none; padding: 8px; background-color: #f8fff8;">border: none</TD>
+<TD STYLE="border: 1px solid #006600; border-style: none; padding: 8px; background-color: #fff8f8;">border-style: none</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS43: collapsed single grid line (no double thickness)</H3>
+<P><STRONG>What you should see:</STRONG> A 2x2 collapsed table with thin single lines between cells, not doubled 2px seams.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; border: 1px solid #333333; width: 200px;">
+<TR>
+<TD STYLE="border: 1px solid #666666; padding: 8px;">A</TD>
+<TD STYLE="border: 1px solid #666666; padding: 8px;">B</TD>
+</TR>
+<TR>
+<TD STYLE="border: 1px solid #666666; padding: 8px;">C</TD>
+<TD STYLE="border: 1px solid #666666; padding: 8px;">D</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS44: collapsed border colour conflict (right cell wins)</H3>
+<P><STRONG>What you should see:</STRONG> The shared edge between the two cells is blue (from the right cell's <CODE>border-left</CODE>), not red.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 100%;">
+<TR>
+<TD STYLE="border-right: 3px solid #cc0000; padding: 12px; background-color: #fff0f0;">Red right</TD>
+<TD STYLE="border-left: 3px solid #0000cc; padding: 12px; background-color: #f0f0ff;">Blue left wins</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS45: collapsed border width conflict (wider wins)</H3>
+<P><STRONG>What you should see:</STRONG> The shared edge is red and visibly thicker: left cell has <CODE>border-right: 5px</CODE>, right cell has <CODE>border-left: 2px</CODE>.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE STYLE="border-collapse: collapse; width: 100%;">
+<TR>
+<TD STYLE="border-right: 5px solid #cc0000; padding: 10px; background-color: #fff0f0;">5px red right</TD>
+<TD STYLE="border-left: 2px solid #0000cc; padding: 10px; background-color: #f0f0ff;">2px blue left</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS46: stylesheet cell padding (class on TD)</H3>
+<P><STRONG>What you should see:</STRONG> Generous padding inside both cells from embedded CSS class <CODE>.cs46pad</CODE>, not just cellpadding on the outer wrapper.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+table.cs46 { border-collapse: collapse; width: 100%; }
+table.cs46 td.cs46pad { padding: 18px; background-color: #f8f8ff; border: 1px solid #666666; }
+</STYLE>
+<TABLE CLASS="cs46">
+<TR>
+<TD CLASS="cs46pad">Padded via td.cs46pad</TD>
+<TD CLASS="cs46pad">Also padded</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CS47: td colour and font-size from stylesheet class</H3>
+<P><STRONG>What you should see:</STRONG> Navy text at roughly 14px in both cells (class <CODE>.cs47type</CODE>), not default body styling only.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+table.cs47t { border-collapse: collapse; width: 100%; }
+table.cs47t td.cs47type { color: #000066; font-size: 14px; padding: 10px; border: 1px solid #999999; }
+</STYLE>
+<TABLE CLASS="cs47t">
+<TR>
+<TD CLASS="cs47type">Navy 14px text</TD>
+<TD CLASS="cs47type">Same class</TD>
 </TR>
 </TABLE>
 </TD>

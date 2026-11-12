@@ -354,34 +354,108 @@ static void RenderPlainTextPart(struct EmlFilterData *fd, struct EmailBodyPart *
    AppendHtmlStr(fd, "</P>\n</DIV>\n");
 }
 
-/* Prefer HTML part from html_part pointer or body_parts chain. */
+/* Prefer largest HTML part (multipart/alternative may have tiny stub + full body). */
 static struct EmailBodyPart *EmlFindHtmlBodyPart(struct EmailMessage *message)
 {  struct EmailBodyPart *part;
+   struct EmailBodyPart *best;
+   long bestlen;
 
    if(!message) return NULL;
+   best = NULL;
+   bestlen = 0;
    if(message->html_part && message->html_part->data && message->html_part->datalen > 0)
-      return message->html_part;
-
+   {
+      best = message->html_part;
+      bestlen = message->html_part->datalen;
+      EMLDBG2("EmlFindHtmlBodyPart: candidate html_part len=%ld part=%lx",
+         bestlen, (ULONG)best);
+   }
+   else if(message->html_part)
+   {  EMLDBG2("EmlFindHtmlBodyPart: html_part has no data len=%ld part=%lx",
+         message->html_part->datalen, (ULONG)message->html_part);
+   }
    part = message->body_parts;
    while(part)
-   {  if(part->data && part->datalen > 0)
-      {  if(part->is_html) return part;
-         if(part->content_type && strstr(part->content_type, "text/html")) return part;
+   {  if(part->data && part->datalen > bestlen)
+      {  if(part->is_html
+      || (part->content_type && strstr(part->content_type, "text/html")))
+      {  best = part;
+         bestlen = part->datalen;
+         EMLDBG2("EmlFindHtmlBodyPart: candidate body_part len=%ld part=%lx",
+            bestlen, (ULONG)best);
+      }
       }
       part = part->next;
    }
-   return NULL;
+   EMLDBG2("EmlFindHtmlBodyPart: selected part=%lx len=%ld",
+      (ULONG)best, bestlen);
+   return best;
 }
 
-/* HTML body already references inline parts via cid: (do not add a second IMG). */
+static void EmlCleanContentIdBuf(UBYTE *cid, long cidlen, UBYTE *out, long outmax, long *outlen);
+
+/* True when HTML references a specific Content-ID (after cid: prefix). */
+static BOOL EmlHtmlReferencesCid(UBYTE *html, long htmllen, UBYTE *cid, long cidlen)
+{
+   UBYTE clean[256];
+   UBYTE *p;
+   UBYTE *end;
+   UBYTE *q;
+   long clen;
+   UBYTE term;
+
+   if(!html || htmllen <= 0 || !cid || cidlen <= 0) return FALSE;
+   EmlCleanContentIdBuf(cid, cidlen, clean, sizeof(clean), &clen);
+   if(clen <= 0) return FALSE;
+
+   end = html + htmllen;
+   p = html;
+   while(p < end - 4)
+   {
+      if((p[0] == 'c' || p[0] == 'C')
+      && (p[1] == 'i' || p[1] == 'I')
+      && (p[2] == 'd' || p[2] == 'D')
+      && p[3] == ':')
+      {
+         q = p + 4;
+         if(q + clen <= end && !strnicmp(q, clean, clen))
+         {
+            term = '\0';
+            if(q + clen < end) term = q[clen];
+            if(term == '\0' || term == '"' || term == '\'' || term == '>'
+            || term == '?' || term == ';' || term == ' ' || term == '\t'
+            || term == '\r' || term == '\n')
+            {  return TRUE;
+            }
+         }
+      }
+      p++;
+   }
+   return FALSE;
+}
+
+/* HTML already references a registered inline part (do not add a duplicate IMG). */
 static BOOL EmlHtmlHasInlineCid(struct EmailMessage *message)
 {
    struct EmailBodyPart *html;
+   struct EmailAttachment *attach;
 
    html = EmlFindHtmlBodyPart(message);
    if(!html || !html->data || html->datalen <= 0) return FALSE;
-   if(strstr((char *)html->data, "cid:")) return TRUE;
-   if(strstr((char *)html->data, "CID:")) return TRUE;
+   if(!strstr((char *)html->data, "cid:") && !strstr((char *)html->data, "CID:"))
+   {  return FALSE;
+   }
+   if(!message->attachments) return TRUE;
+   attach = message->attachments;
+   while(attach)
+   {
+      if(attach->content_id && attach->content_idlen > 0
+      && EmlHtmlReferencesCid(html->data, html->datalen,
+         attach->content_id, attach->content_idlen))
+      {  return TRUE;
+      }
+      attach = attach->next;
+   }
    return FALSE;
 }
 
@@ -410,135 +484,240 @@ static void EmlCleanContentIdBuf(UBYTE *cid, long cidlen, UBYTE *out, long outma
    if(outlen) *outlen = len;
 }
 
-/* Build data:<mime>;base64,... for an inline attachment (Exec pool). */
-static UBYTE *EmlBuildDataUrlForAttach(struct EmailAttachment *attach, long *urllen)
+/* True when p points at the start of an HTML tag name (after '<' or '</'). */
+static BOOL EmlTagNameAt(UBYTE *p, UBYTE *end, UBYTE *name)
 {
-   UBYTE *base64;
-   UBYTE *ctype;
-   UBYTE *ctype_alloc;
-   UBYTE *url;
-   long b64len;
-   long total;
+   long n;
+   UBYTE c;
 
-   if(urllen) *urllen = 0;
-   if(!attach || !attach->data || attach->datalen <= 0) return NULL;
-
-   base64 = EncodeBase64(attach->data, attach->datalen, &b64len);
-   if(!base64 || b64len <= 0) return NULL;
-
-   ctype_alloc = NULL;
-   ctype = (UBYTE *)"application/octet-stream";
-   if(attach->content_type && attach->content_typelen > 0)
-   {
-      ctype = EmlMimeBaseType(attach->content_type, attach->content_typelen);
-      if(ctype != attach->content_type) ctype_alloc = ctype;
-   }
-
-   total = (long)strlen((char *)ctype) + b64len + 24;
-   url = (UBYTE *)AllocVec(total, MEMF_CLEAR);
-   if(url)
-   {
-      sprintf((char *)url, "data:%s;base64,%s", ctype, base64);
-      if(urllen) *urllen = (long)strlen((char *)url);
-   }
-   if(ctype_alloc) FreeVec(ctype_alloc);
-   FreeVec(base64);
-   return url;
+   if(!p || !end || !name || p >= end) return FALSE;
+   n = (long)strlen((char *)name);
+   if(p + n > end) return FALSE;
+   if(strnicmp(p, name, n)) return FALSE;
+   if(p + n >= end) return TRUE;
+   c = p[n];
+   if(c == '>' || c == '/' || c == ' ' || c == '\t' || c == '\r' || c == '\n') return TRUE;
+   return FALSE;
 }
 
-/* Replace one cid:<id> occurrence in HTML with a data: URL (before CID registry). */
-static void EmlSubstituteOneCid(UBYTE *html, long *len, long cap, struct EmailAttachment *attach)
+/* Skip past '>' of an opening tag. */
+static UBYTE *EmlSkipToTagEnd(UBYTE *p, UBYTE *end)
 {
-   UBYTE cid_clean[256];
-   UBYTE needle[280];
-   UBYTE *data_url;
+   while(p < end && *p != '>') p++;
+   if(p < end) p++;
+   return p;
+}
+
+/* Find byte after closing tag or end if unclosed (avoids DPM_STYLE swallowing the body). */
+static UBYTE *EmlFindCloseTag(UBYTE *p, UBYTE *end, UBYTE *name)
+{
+   long n;
+   UBYTE *q;
+
+   n = (long)strlen((char *)name);
+   while(p < end)
+   {
+      if(p[0] == '<' && p + 2 + n < end && p[1] == '/'
+      && !strnicmp(p + 2, name, n))
+      {
+         q = p + 2 + n;
+         while(q < end && (*q == ' ' || *q == '\t' || *q == '\r' || *q == '\n')) q++;
+         if(q < end && *q == '>') return q + 1;
+      }
+      p++;
+   }
+   return end;
+}
+
+/* Drop embedded <style>/<script> blocks; AWeb hides markup while in DPM_STYLE. */
+static UBYTE *EmlSanitizeHtmlBody(UBYTE *data, long datalen, long *outlen)
+{
+   UBYTE *out;
    UBYTE *p;
    UBYTE *end;
-   long urllen;
-   long cid_len;
-   long needle_len;
-   long tail;
-   long delta;
+   UBYTE *w;
+   UBYTE *seg;
+   UBYTE *tagstart;
+   long copylen;
 
-   if(!html || !len || !cap || !attach || !attach->content_id || !attach->data) return;
-
-   EmlCleanContentIdBuf(attach->content_id, attach->content_idlen,
-      cid_clean, (long)sizeof(cid_clean), &cid_len);
-   if(cid_len <= 0) return;
-
-   sprintf((char *)needle, "cid:%s", cid_clean);
-   needle_len = (long)strlen((char *)needle);
-   data_url = EmlBuildDataUrlForAttach(attach, &urllen);
-   if(!data_url || urllen <= 0) return;
-
-   p = html;
-   while(p && p < html + *len)
+   if(outlen) *outlen = 0;
+   if(!data || datalen <= 0) return NULL;
+   out = (UBYTE *)AllocVec(datalen + 1, MEMF_CLEAR);
+   if(!out) return NULL;
+   p = data;
+   end = data + datalen;
+   w = out;
+   while(p < end)
    {
-      p = (UBYTE *)strstr((char *)p, (char *)needle);
-      if(!p) break;
-      delta = urllen - needle_len;
-      if(*len + delta + 1 >= cap) break;
-      end = p + needle_len;
-      tail = *len - (end - html);
-      memmove(end + delta, end, tail + 1);
-      memcpy(p, data_url, urllen);
-      *len += delta;
-      p += urllen;
+      seg = p;
+      while(p < end && *p != '<') p++;
+      copylen = p - seg;
+      if(copylen > 0)
+      {
+         memcpy(w, seg, copylen);
+         w += copylen;
+      }
+      if(p >= end) break;
+      tagstart = p;
+      /* HTML comment <!-- ... --> */
+      if(p + 4 <= end && p[1] == '!' && p[2] == '-' && p[3] == '-')
+      {
+         p += 4;
+         while(p < end - 2)
+         {
+            if(p[0] == '-' && p[1] == '-' && p[2] == '>')
+            {  p += 3;
+               break;
+            }
+            p++;
+         }
+         continue;
+      }
+      /* <?xml ...?> processing instruction */
+      if(p + 5 < end && !strnicmp(p, "<?xml", 5))
+      {
+         p = EmlSkipToTagEnd(tagstart, end);
+         continue;
+      }
+      /* Closing tags </name>: strip the document-wrappers that would
+       * prematurely close our enclosing <BODY>/<HTML>, drop the closers of
+       * blocks we already stripped (style/script/head/title), and keep
+       * everything else verbatim. Without this, e.g. </body></html> at the
+       * end of a marketing email shuts the surrounding document and AWeb
+       * shows a blank page. */
+      if(p + 1 < end && p[1] == '/')
+      {
+         if(EmlTagNameAt(p + 2, end, (UBYTE *)"html")
+         || EmlTagNameAt(p + 2, end, (UBYTE *)"body")
+         || EmlTagNameAt(p + 2, end, (UBYTE *)"head")
+         || EmlTagNameAt(p + 2, end, (UBYTE *)"style")
+         || EmlTagNameAt(p + 2, end, (UBYTE *)"script")
+         || EmlTagNameAt(p + 2, end, (UBYTE *)"title"))
+         {
+            p = EmlSkipToTagEnd(tagstart, end);
+            continue;
+         }
+         *w++ = *p++;
+         continue;
+      }
+      /* Block-form stripping: opening tag + everything up to matching close. */
+      if(EmlTagNameAt(p + 1, end, (UBYTE *)"style")
+      || EmlTagNameAt(p + 1, end, (UBYTE *)"script")
+      || EmlTagNameAt(p + 1, end, (UBYTE *)"head"))
+      {
+         p = EmlSkipToTagEnd(tagstart, end);
+         if(EmlTagNameAt(tagstart + 1, end, (UBYTE *)"style"))
+         {  p = EmlFindCloseTag(p, end, (UBYTE *)"style");
+         }
+         else if(EmlTagNameAt(tagstart + 1, end, (UBYTE *)"script"))
+         {  p = EmlFindCloseTag(p, end, (UBYTE *)"script");
+         }
+         else
+         {  p = EmlFindCloseTag(p, end, (UBYTE *)"head");
+         }
+         continue;
+      }
+      /* Self-closing / metadata tags we want gone. */
+      if(EmlTagNameAt(p + 1, end, (UBYTE *)"link")
+      || EmlTagNameAt(p + 1, end, (UBYTE *)"meta")
+      || EmlTagNameAt(p + 1, end, (UBYTE *)"title"))
+      {
+         p = EmlSkipToTagEnd(tagstart, end);
+         if(EmlTagNameAt(tagstart + 1, end, (UBYTE *)"title"))
+         {  p = EmlFindCloseTag(p, end, (UBYTE *)"title");
+         }
+         continue;
+      }
+      /* Document-wrapper opening tags: drop, keep their contents. */
+      if(EmlTagNameAt(p + 1, end, (UBYTE *)"html")
+      || EmlTagNameAt(p + 1, end, (UBYTE *)"body"))
+      {
+         p = EmlSkipToTagEnd(tagstart, end);
+         continue;
+      }
+      *w++ = *p++;
    }
-   FreeVec(data_url);
+   if(outlen) *outlen = w - out;
+   return out;
 }
 
-/* Render HTML body; inline cid: images become data: URLs so AWeb need not fetch cid:. */
+/* Render HTML body; keep cid: references (parts registered before this runs). */
+static void EmlDumpHtmlSlice(UBYTE *label, UBYTE *data, long datalen, long maxbytes)
+{
+   UBYTE line[160];
+   long i;
+   long col;
+   long shown;
+   UBYTE hi;
+   UBYTE lo;
+   UBYTE c;
+
+   if(!data || datalen <= 0) return;
+   shown = (datalen < maxbytes) ? datalen : maxbytes;
+   col = 0;
+   for(i = 0; i < shown; i++)
+   {
+      if(col >= (long)sizeof(line) - 6)
+      {  line[col] = '\0';
+         EMLDBG2("%s: %s", label, line);
+         col = 0;
+      }
+      c = data[i];
+      if(c == '\r') { line[col++] = '\\'; line[col++] = 'r'; }
+      else if(c == '\n') { line[col++] = '\\'; line[col++] = 'n'; }
+      else if(c >= 32 && c < 127) { line[col++] = c; }
+      else
+      {  hi = (UBYTE)((c >> 4) & 0xF);
+         lo = (UBYTE)(c & 0xF);
+         line[col++] = '<';
+         line[col++] = (UBYTE)(hi < 10 ? '0' + hi : 'A' + (hi - 10));
+         line[col++] = (UBYTE)(lo < 10 ? '0' + lo : 'A' + (lo - 10));
+         line[col++] = '>';
+      }
+   }
+   if(col > 0)
+   {  line[col] = '\0';
+      EMLDBG2("%s: %s", label, line);
+   }
+}
+
 static void EmlAppendHtmlBodyPart(struct EmlFilterData *fd, struct EmailBodyPart *part,
    struct EmailMessage *message)
 {
-   struct EmailAttachment *attach;
-   UBYTE *expanded;
-   long expanded_len;
-   long cap;
-   long extra;
+   UBYTE *safe;
+   long safelen;
+   long mid;
 
+   (void)message;
    if(!part || !part->data || part->datalen <= 0) return;
-
-   if(EmlHtmlHasInlineCid(message) && message->attachments)
-   {
-      extra = 65536;
-      attach = message->attachments;
-      while(attach)
-      {
-         if(attach->data && attach->datalen > 0)
-         {  extra += (attach->datalen * 4) / 3 + 256;
-         }
-         attach = attach->next;
+   safe = EmlSanitizeHtmlBody(part->data, part->datalen, &safelen);
+   EMLDBG4("EmlAppendHtmlBodyPart: part=%lx rawlen=%ld safelen=%ld safe=%lx",
+      (ULONG)part, part->datalen, safelen, (ULONG)safe);
+   if(safe && safelen > 0)
+   {  EmlDumpHtmlSlice((UBYTE *)"HtmlHead", safe, safelen, 256);
+      if(safelen > 512)
+      {  /* Mid samples make it possible to reconstruct what AWeb is being
+          * asked to render without dumping the entire body. Use 1/4, 2/4,
+          * and 3/4 offsets so we catch transitions in the marketing HTML
+          * that often appears in forwarded Gmail messages. */
+         mid = safelen / 4;
+         EmlDumpHtmlSlice((UBYTE *)"HtmlQ1", safe + mid, 256, 256);
+         EmlDumpHtmlSlice((UBYTE *)"HtmlQ2", safe + (safelen / 2), 256, 256);
+         EmlDumpHtmlSlice((UBYTE *)"HtmlQ3", safe + (3 * (safelen / 4)), 256, 256);
       }
-      cap = part->datalen + extra;
-      expanded = (UBYTE *)AllocVec(cap, MEMF_CLEAR);
-      if(expanded)
-      {
-         memcpy(expanded, part->data, part->datalen);
-         expanded_len = part->datalen;
-         expanded[expanded_len] = '\0';
-         attach = message->attachments;
-         while(attach)
-         {
-            if(attach->content_id && attach->content_idlen > 0
-            && attach->data && attach->datalen > 0)
-            {  EmlSubstituteOneCid(expanded, &expanded_len, cap, attach);
-            }
-            attach = attach->next;
-         }
-         AppendHtmlStr(fd, "<DIV CLASS=\"email-body\">\n");
-         AppendHtmlRaw(fd, expanded, expanded_len);
-         AppendHtmlStr(fd, "</DIV>\n");
-         Aprintf("EML: HTML body rendered with data: inline images, datalen=%ld\n",
-            expanded_len);
-         FreeVec(expanded);
-         return;
+      if(safelen > 256)
+      {  EmlDumpHtmlSlice((UBYTE *)"HtmlTail", safe + safelen - 256, 256, 256);
       }
    }
-
-   AppendHtmlStr(fd, "<DIV CLASS=\"email-body\">\n");
-   AppendHtmlRaw(fd, part->data, part->datalen);
+   AppendHtmlStr(fd, "<DIV>\n");
+   if(safe && safelen > 0)
+   {  AppendHtmlRaw(fd, safe, safelen);
+      FreeVec(safe);
+   }
+   else
+   {  AppendHtmlRaw(fd, part->data, part->datalen);
+      if(safe) FreeVec(safe);
+   }
    AppendHtmlStr(fd, "</DIV>\n");
 }
 
@@ -548,17 +727,70 @@ static struct EmailBodyPart *EmlFindTextBodyPart(struct EmailMessage *message)
 
    if(!message) return NULL;
    if(message->text_part && message->text_part->data && message->text_part->datalen > 0)
+   {  EMLDBG2("EmlFindTextBodyPart: selected text_part len=%ld part=%lx",
+         message->text_part->datalen, (ULONG)message->text_part);
       return message->text_part;
+   }
+   else if(message->text_part)
+   {  EMLDBG2("EmlFindTextBodyPart: text_part has no data len=%ld part=%lx",
+         message->text_part->datalen, (ULONG)message->text_part);
+   }
 
    part = message->body_parts;
    while(part)
    {  if(part->data && part->datalen > 0)
-      {  if(part->is_text) return part;
-         if(part->content_type && strstr(part->content_type, "text/plain")) return part;
+      {  if(part->is_text)
+         {  EMLDBG2("EmlFindTextBodyPart: selected body_part len=%ld part=%lx",
+               part->datalen, (ULONG)part);
+            return part;
+         }
+         if(part->content_type && strstr(part->content_type, "text/plain"))
+         {  EMLDBG2("EmlFindTextBodyPart: selected content-type body_part len=%ld part=%lx",
+               part->datalen, (ULONG)part);
+            return part;
+         }
       }
       part = part->next;
    }
+   EMLDBG0("EmlFindTextBodyPart: no text part selected");
    return NULL;
+}
+
+/* Charset from HTML or text body part for rendered page (UTF-8 marketing mail). */
+static struct EmailBodyPart *EmlCharsetSourcePart(struct EmailMessage *message)
+{
+   struct EmailBodyPart *part;
+
+   part = EmlFindHtmlBodyPart(message);
+   if(part && part->charset && part->charsetlen > 0) return part;
+   part = EmlFindTextBodyPart(message);
+   if(part && part->charset && part->charsetlen > 0) return part;
+   return NULL;
+}
+
+static void EmlAppendCharsetMeta(UBYTE *html, long *len, long maxlen, struct EmailMessage *message)
+{
+   struct EmailBodyPart *part;
+   long cslen;
+
+   if(!html || !len || maxlen <= 0) return;
+   part = EmlCharsetSourcePart(message);
+   if(part && part->charset && part->charsetlen > 0)
+   {
+      cslen = part->charsetlen;
+      if(cslen > 40) cslen = 40;
+      if(*len + cslen + 64 < maxlen)
+      {
+         *len += sprintf(html + *len,
+            "<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=%.*s\">\n",
+            (int)cslen, part->charset);
+      }
+   }
+   else if(*len + 64 < maxlen)
+   {
+      *len += sprintf(html + *len,
+         "<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n");
+   }
 }
 
 /* Base MIME type for CID registry (strip "; name=..." parameters). */
@@ -592,21 +824,39 @@ static void LogMessageLayout(struct EmailMessage *message)
    if(message->html_part)
    {  EMLDBG2("  html_part data=%lx len=%ld",
          (ULONG)message->html_part->data, message->html_part->datalen);
+      if(message->html_part->content_type)
+      {  EMLDBG2("  html_part type=%s charset=%s",
+            message->html_part->content_type,
+            message->html_part->charset ? message->html_part->charset : (UBYTE *)"(none)");
+      }
    }
    if(message->text_part)
    {  EMLDBG2("  text_part data=%lx len=%ld",
          (ULONG)message->text_part->data, message->text_part->datalen);
+      if(message->text_part->content_type)
+      {  EMLDBG2("  text_part type=%s charset=%s",
+            message->text_part->content_type,
+            message->text_part->charset ? message->text_part->charset : (UBYTE *)"(none)");
+      }
    }
    n = 0;
    for(part = message->body_parts; part; part = part->next)
    {  EMLDBG4("  body_parts[%ld] part=%lx data=%lx len=%ld",
          n, (ULONG)part, (ULONG)part->data, part->datalen);
+      if(part->content_type)
+      {  EMLDBG3("  body_parts[%ld] type=%s html=%ld",
+            n, part->content_type, (ULONG)part->is_html);
+      }
       n++;
    }
    n = 0;
    for(attach = message->attachments; attach; attach = attach->next)
    {  EMLDBG4("  attach[%ld] obj=%lx data=%lx len=%ld",
          n, (ULONG)attach, (ULONG)attach->data, attach->datalen);
+      if(attach->content_type)
+      {  EMLDBG3("  attach[%ld] type=%s inline=%ld",
+            n, attach->content_type, (ULONG)attach->is_inline);
+      }
       n++;
    }
 }
@@ -661,6 +911,135 @@ static void EmlTrimHeaderDate(UBYTE *s, long smax)
    }
 }
 
+/* Register decoded inline parts for cid: URL resolution (before HTML render). */
+static void EmlRegisterCidParts(struct EmlFilterData *fd, struct EmailMessage *message)
+{  struct EmailAttachment *attach;
+   struct EmailBodyPart *part;
+   BOOL is_image;
+   BOOL reg_ok;
+   UBYTE *content_id_clean;
+   UBYTE *content_id_reg;
+   long cid_len;
+   UBYTE *content_type;
+   UBYTE *content_type_alloc;
+
+   if(!fd || !message || !fd->eml_url) return;
+
+   if(message->attachments)
+   {  attach = message->attachments;
+      while(attach)
+      {  if(attach->data && attach->datalen > 0)
+         {  is_image = FALSE;
+            if(attach->content_type && attach->content_typelen > 0
+            && strstr(attach->content_type, "image/"))
+            {  is_image = TRUE;
+            }
+            if((attach->is_inline || is_image)
+            && attach->content_id && attach->content_idlen > 0)
+            {  content_id_clean = attach->content_id;
+               cid_len = attach->content_idlen;
+               if(*content_id_clean == '<')
+               {  content_id_clean++;
+                  cid_len--;
+               }
+               if(cid_len > 0 && content_id_clean[cid_len - 1] == '>')
+               {  cid_len--;
+               }
+               content_id_reg = NULL;
+               if(cid_len > 0)
+               {  content_id_reg = (UBYTE *)AllocVec(cid_len + 1, MEMF_CLEAR);
+                  if(content_id_reg)
+                  {  memcpy(content_id_reg, content_id_clean, cid_len);
+                     content_id_reg[cid_len] = '\0';
+                  }
+               }
+               content_type_alloc = NULL;
+               if(attach->content_type && attach->content_typelen > 0)
+               {  content_type = EmlMimeBaseType(attach->content_type,
+                     attach->content_typelen);
+                  if(content_type != attach->content_type)
+                  {  content_type_alloc = content_type;
+                  }
+               }
+               else
+               {  content_type = (UBYTE *)"application/octet-stream";
+               }
+               reg_ok = FALSE;
+               if(content_id_reg)
+               {  reg_ok = Registercidpart(fd->eml_url, content_id_reg,
+                     content_type, attach->data, attach->datalen);
+               }
+               /* Trace exactly what we registered, so the Cidurltask lookup
+                * traces can be cross-referenced against (eml_url, id) keys.
+                * reg=1 means the registry took a copy; reg=0 means either an
+                * existing entry blocked us (reload of the same message) or
+                * the registry rejected the payload. Either way the existing
+                * registry data remains valid for subsequent cid: lookups. */
+               EMLDBG6("EmlRegisterCidParts: attach=%lx eml_url=%s id=%s type=%s len=%ld reg=%ld",
+                  (ULONG)attach,
+                  fd->eml_url ? (char *)fd->eml_url : "(null)",
+                  content_id_reg ? (char *)content_id_reg : "(empty)",
+                  (char *)content_type,
+                  attach->datalen,
+                  (ULONG)reg_ok);
+               if(reg_ok)
+               {  EmlReleaseExecPayload(&attach->data, &attach->datalen);
+                  fd->cid_registered = TRUE;
+               }
+               if(content_type_alloc) FreeVec(content_type_alloc);
+               if(content_id_reg) FreeVec(content_id_reg);
+            }
+         }
+         attach = attach->next;
+      }
+   }
+
+   if(message->body_parts)
+   {  part = message->body_parts;
+      while(part)
+      {  if(part->data && part->datalen > 0
+         && part->content_id && part->content_idlen > 0)
+         {  content_id_clean = part->content_id;
+            cid_len = part->content_idlen;
+            if(*content_id_clean == '<')
+            {  content_id_clean++;
+               cid_len--;
+            }
+            if(cid_len > 0 && content_id_clean[cid_len - 1] == '>')
+            {  cid_len--;
+            }
+            content_id_reg = NULL;
+            if(cid_len > 0)
+            {  content_id_reg = (UBYTE *)AllocVec(cid_len + 1, MEMF_CLEAR);
+               if(content_id_reg)
+               {  memcpy(content_id_reg, content_id_clean, cid_len);
+                  content_id_reg[cid_len] = '\0';
+               }
+            }
+            content_type_alloc = NULL;
+            if(part->content_type && part->content_typelen > 0)
+            {  content_type = EmlMimeBaseType(part->content_type, part->content_typelen);
+               if(content_type != part->content_type)
+               {  content_type_alloc = content_type;
+               }
+            }
+            else
+            {  content_type = (UBYTE *)"application/octet-stream";
+            }
+            if(content_id_reg
+            && Registercidpart(fd->eml_url, content_id_reg, content_type,
+               part->data, part->datalen))
+            {  EmlReleaseExecPayload(&part->data, &part->datalen);
+               fd->cid_registered = TRUE;
+            }
+            if(content_type_alloc) FreeVec(content_type_alloc);
+            if(content_id_reg) FreeVec(content_id_reg);
+         }
+         part = part->next;
+      }
+   }
+}
+
 /* Render email to HTML */
 void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
 {  struct EmailMessage *message;
@@ -704,85 +1083,64 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
       {  len += sprintf(html + len, "Email Message");
       }
       
-      len += sprintf(html + len, 
-         "</TITLE>\n"
-         "<STYLE TYPE=\"text/css\">\n"
-         "<!--\n"
-         "BODY { font-family: Arial, Helvetica, sans-serif; font-size: small; margin: 0; padding: 0; background: #FFFFFF; }\n"
-         ".email-header { background: #FFFFFF; margin: 0; padding: 0; }\n"
-         ".email-header TABLE { width: 100%%; margin: 0; border-collapse: collapse; }\n"
-         ".email-header TD { padding: 2px 4px; vertical-align: top; font-size: x-small; background: #FFFFFF; }\n"
-         ".email-header .label { font-weight: bold; color: #333333; width: 4em; white-space: nowrap; }\n"
-         ".email-header .value { color: #000000; }\n"
-         ".email-header .subject { font-weight: bold; font-size: small; color: #000000; }\n"
-         ".email-header .value A { color: #0066CC; text-decoration: none; }\n"
-         ".email-body { background: #FFFFFF; border: 0; padding: 8px; margin: 4px 0 8px 0; }\n"
-         ".email-body P { margin: 6px 0; line-height: 1.4; color: #333333; }\n"
-         ".email-attachments { background: #FFFFFF; border: 1px solid #CCCCCC; padding: 15px; }\n"
-         ".email-attachments H2 { font-size: 16px; margin: 0 0 10px 0; color: #333333; border-bottom: 1px solid #EEEEEE; padding-bottom: 5px; }\n"
-         ".email-attachments UL { list-style: none; padding: 0; margin: 0; }\n"
-         ".email-attachments LI { padding: 8px; margin: 5px 0; background: #F9F9F9; border-left: 3px solid #0066CC; }\n"
-         ".email-attachments A { color: #0066CC; text-decoration: none; font-weight: bold; }\n"
-         ".email-attachments A:hover { text-decoration: underline; }\n"
-         "//-->\n"
-         "</STYLE>\n"
+      len += sprintf(html + len, "</TITLE>\n");
+      EmlAppendCharsetMeta(html, &len, sizeof(html), message);
+      len += sprintf(html + len,
          "</HEAD>\n"
-         "<BODY TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0"
-         " STYLE=\"margin:0;padding:0;background:#FFFFFF;\">\n"
-         "<TABLE CLASS=\"email-header\" BORDER=2 WIDTH=\"100%%\""
-         " BGCOLOR=\"#FFFFFF\" BORDERCOLOR=\"#888888\""
-         " BORDERCOLORLIGHT=\"#DDDDDD\" BORDERCOLORDARK=\"#555555\""
-         " CELLPADDING=2 CELLSPACING=0>\n");
+         "<BODY BGCOLOR=\"#FFFFFF\" TEXT=\"#000000\""
+         " TOPMARGIN=0 LEFTMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0>\n"
+         "<TABLE BORDER=2 WIDTH=\"100%%\" BGCOLOR=\"#FFFFFF\""
+         " BORDERCOLOR=\"#888888\" CELLPADDING=2 CELLSPACING=0>\n");
 
       if(header->subject && header->subjectlen > 0)
       {  EscapeHtml(escaped, header->subject, header->subjectlen, sizeof(escaped));
          len += sprintf(html + len,
-            "<TR><TD CLASS=\"label\">Subject:</TD>"
-            "<TD CLASS=\"value subject\">%s</TD></TR>\n", escaped);
+            "<TR><TD><FONT SIZE=2><B>Subject:</B></FONT></TD>"
+            "<TD><FONT SIZE=2><B>%s</B></FONT></TD></TR>\n", escaped);
       }
       else
       {  len += sprintf(html + len,
-            "<TR><TD CLASS=\"label\">Subject:</TD>"
-            "<TD CLASS=\"value subject\">(No Subject)</TD></TR>\n");
+            "<TR><TD><FONT SIZE=2><B>Subject:</B></FONT></TD>"
+            "<TD><FONT SIZE=2><B>(No Subject)</B></FONT></TD></TR>\n");
       }
       
       if(header->from && header->fromlen > 0)
       {  long len_before;
          len_before = len;
-         len += sprintf(html + len, "<TR><TD CLASS=\"label\">From:</TD><TD CLASS=\"value\">");
+         len += sprintf(html + len, "<TR><TD><FONT SIZE=2><B>From:</B></FONT></TD><TD><FONT SIZE=2>");
          RenderEmailAddress(header->from, header->fromlen, html, &len, sizeof(html) - len);
          /* Fallback: if no email was rendered, just escape and display the text */
-         if(len == len_before + (long)strlen("<TR><TD CLASS=\"label\">From:</TD><TD CLASS=\"value\">"))
+         if(len == len_before + (long)strlen("<TR><TD><FONT SIZE=2><B>From:</B></FONT></TD><TD><FONT SIZE=2>"))
          {  EscapeHtml(escaped, header->from, header->fromlen, sizeof(escaped));
             len += sprintf(html + len, "%s", escaped);
          }
-         len += sprintf(html + len, "</TD></TR>\n");
+         len += sprintf(html + len, "</FONT></TD></TR>\n");
       }
       
       if(header->to && header->tolen > 0)
       {  long len_before;
          len_before = len;
-         len += sprintf(html + len, "<TR><TD CLASS=\"label\">To:</TD><TD CLASS=\"value\">");
+         len += sprintf(html + len, "<TR><TD><FONT SIZE=2><B>To:</B></FONT></TD><TD><FONT SIZE=2>");
          RenderEmailAddress(header->to, header->tolen, html, &len, sizeof(html) - len);
          /* Fallback: if no email was rendered, just escape and display the text */
-         if(len == len_before + (long)strlen("<TR><TD CLASS=\"label\">To:</TD><TD CLASS=\"value\">"))
+         if(len == len_before + (long)strlen("<TR><TD><FONT SIZE=2><B>To:</B></FONT></TD><TD><FONT SIZE=2>"))
          {  EscapeHtml(escaped, header->to, header->tolen, sizeof(escaped));
             len += sprintf(html + len, "%s", escaped);
          }
-         len += sprintf(html + len, "</TD></TR>\n");
+         len += sprintf(html + len, "</FONT></TD></TR>\n");
       }
       
       if(header->cc && header->cclen > 0)
       {  long len_before;
          len_before = len;
-         len += sprintf(html + len, "<TR><TD CLASS=\"label\">Cc:</TD><TD CLASS=\"value\">");
+         len += sprintf(html + len, "<TR><TD><FONT SIZE=2><B>Cc:</B></FONT></TD><TD><FONT SIZE=2>");
          RenderEmailAddress(header->cc, header->cclen, html, &len, sizeof(html) - len);
          /* Fallback: if no email was rendered, just escape and display the text */
-         if(len == len_before + (long)strlen("<TR><TD CLASS=\"label\">Cc:</TD><TD CLASS=\"value\">"))
+         if(len == len_before + (long)strlen("<TR><TD><FONT SIZE=2><B>Cc:</B></FONT></TD><TD><FONT SIZE=2>"))
          {  EscapeHtml(escaped, header->cc, header->cclen, sizeof(escaped));
             len += sprintf(html + len, "%s", escaped);
          }
-         len += sprintf(html + len, "</TD></TR>\n");
+         len += sprintf(html + len, "</FONT></TD></TR>\n");
       }
       
       if(header->date && header->datelen > 0)
@@ -792,7 +1150,9 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
          datebuf[dlen]='\0';
          EmlTrimHeaderDate(datebuf,sizeof(datebuf));
          EscapeHtml(escaped, datebuf, strlen((char *)datebuf), sizeof(escaped));
-         len += sprintf(html + len, "<TR><TD CLASS=\"label\">Date:</TD><TD CLASS=\"value\">%s</TD></TR>\n", escaped);
+         len += sprintf(html + len,
+            "<TR><TD><FONT SIZE=2><B>Date:</B></FONT></TD>"
+            "<TD><FONT SIZE=2>%s</FONT></TD></TR>\n", escaped);
       }
       
       len += sprintf(html + len, "</TABLE>\n");
@@ -801,6 +1161,18 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
       fd->header_written = TRUE;
    }
    
+   /* Register inline MIME before body HTML (cid: lookups use mail: referer). */
+   Aprintf("EML: Starting CID registration, eml_url=%lx, already_registered=%ld\n",
+      (ULONG)fd->eml_url, (ULONG)fd->cid_registered);
+   if(fd->eml_url && !fd->cid_registered)
+   {
+      EmlRegisterCidParts(fd, message);
+   }
+   else if(!fd->eml_url)
+   {
+      Aprintf("EML: No eml_url - skipping CID registration\n");
+   }
+
    /* Render email body */
    Aprintf("EML: Checking for HTML body: html_part=%lx, text_part=%lx, body_parts=%lx\n",
       (ULONG)message->html_part, (ULONG)message->text_part, (ULONG)message->body_parts);
@@ -848,241 +1220,6 @@ void RenderEmailToHtml(struct EmlFilterData *fd, void *handle)
       else
       {  Aprintf("EML: No HTML or text body part to render\n");
       }
-   }
-   
-   /* Register parts with Content-ID for CID registry (for cid: URL access) */
-   /* Only register once - check if we've already registered */
-   Aprintf("EML: Starting CID registration, eml_url=%lx, already_registered=%ld\n", (ULONG)fd->eml_url, (ULONG)fd->cid_registered);
-   if(fd->eml_url && !fd->cid_registered)
-   {  /* Register inline attachments */
-      if(message->attachments)
-      {  Aprintf("EML: Processing %ld attachments for CID registration\n", message->attachment_count);
-         attach = message->attachments;
-         while(attach)
-         {  Aprintf("EML: Checking attachment: is_inline=%ld, data=%lx, datalen=%ld\n",
-               (ULONG)attach->is_inline, (ULONG)attach->data, attach->datalen);
-            /* Register inline attachments for cid: URL access */
-            /* Also register image attachments with Content-ID even if not explicitly inline */
-            /* Note: Images without Content-ID will use data: URLs instead */
-            if(attach->data && attach->datalen > 0)
-            {  BOOL is_image;
-               is_image = FALSE;
-               if(attach->content_type && attach->content_typelen > 0)
-               {  if(strstr(attach->content_type, "image/"))
-                  {  is_image = TRUE;
-                  }
-               }
-               
-               /* Register if explicitly inline OR if it's an image with Content-ID */
-               /* Only register with CID registry if we have a Content-ID (for cid: URLs) */
-               if((attach->is_inline || is_image) && attach->content_id && attach->content_idlen > 0)
-               {  UBYTE *content_id;
-                  UBYTE *content_id_clean;
-                  UBYTE *content_id_reg;
-                  long cid_len;
-                  UBYTE *content_type;
-                  UBYTE *content_type_alloc;
-                  
-                  /* Clean Content-ID (remove angle brackets if present) for registration
-                   * This ensures lookups will match (HTML uses cid:image001@example.com, not cid:<image001@example.com>) */
-                  content_id = attach->content_id;
-                  content_id_clean = attach->content_id;
-                  cid_len = attach->content_idlen;
-                  Aprintf("EML: Using Content-ID: %.*s\n", (int)attach->content_idlen, attach->content_id);
-                  
-                  if(*content_id_clean == '<')
-                  {  content_id_clean++;
-                     cid_len--;
-                  }
-                  if(cid_len > 0 && content_id_clean[cid_len - 1] == '>')
-                  {  cid_len--;
-                  }
-                  
-                  /* Create cleaned copy for registration */
-                  if(cid_len > 0)
-                  {  content_id_reg = (UBYTE *)AllocVec(cid_len + 1, MEMF_CLEAR);
-                     if(content_id_reg)
-                     {  memcpy(content_id_reg, content_id_clean, cid_len);
-                        content_id_reg[cid_len] = '\0';
-                        Aprintf("EML: Cleaned Content-ID for registration: %s (len=%ld)\n", content_id_reg, cid_len);
-                     }
-                     else
-                     {  content_id_reg = NULL;
-                        Aprintf("EML: ERROR - Failed to allocate cleaned Content-ID\n");
-                     }
-                  }
-                  else
-                  {  content_id_reg = NULL;
-                     Aprintf("EML: ERROR - Invalid Content-ID length after cleaning\n");
-                  }
-                  
-                  /* Get content type (base MIME only for image decoder) */
-                  content_type_alloc = NULL;
-                  if(attach->content_type && attach->content_typelen > 0)
-                  {  content_type = EmlMimeBaseType(attach->content_type, attach->content_typelen);
-                     if(content_type != attach->content_type) content_type_alloc = content_type;
-                     Aprintf("EML: Content-Type: %s\n", content_type);
-                  }
-                  else
-                  {  content_type = "application/octet-stream";
-                     Aprintf("EML: Using default content type\n");
-                  }
-                  
-                  /* Register with CID registry using cleaned Content-ID */
-                  if(content_id_reg)
-                  {  Aprintf("EML: Registering CID part: referer=%s, content_id=%s, content_type=%s, data=%lx, datalen=%ld\n",
-                        fd->eml_url, content_id_reg, content_type, (ULONG)attach->data, attach->datalen);
-                     if(!fd->eml_url || !content_id_reg || !attach->data || attach->datalen <= 0)
-                     {  Aprintf("EML: ERROR - Invalid parameters for Registercidpart!\n");
-                     }
-                     else
-                     {  /* Verify strings are null-terminated */
-                        if(strlen(fd->eml_url) == 0)
-                        {  Aprintf("EML: ERROR - eml_url is empty or not null-terminated!\n");
-                        }
-                        else if(strlen(content_id_reg) == 0)
-                        {  Aprintf("EML: ERROR - content_id is empty or not null-terminated!\n");
-                        }
-                        else
-                        {  Aprintf("EML: Calling Registercidpart...\n");
-                           EMLDBG2("Registercidpart attach data=%lx len=%ld",
-                              (ULONG)attach->data, attach->datalen);
-                           if(Registercidpart(fd->eml_url, content_id_reg, content_type,
-                              attach->data, attach->datalen))
-                           {  /* Registry copied into AWeb pool; release Exec buffer. */
-                              EmlReleaseExecPayload(&attach->data, &attach->datalen);
-                              fd->cid_registered = TRUE;
-                              EMLDBG0("Registercidpart attach: stored in registry");
-                           }
-                        }
-                     }
-                     if(content_type_alloc) FreeVec(content_type_alloc);
-                     FreeVec(content_id_reg);
-                  }
-               }
-               else if(attach->is_inline || is_image)
-               {  /* Image/inline attachment without Content-ID - will use data: URL, no CID registration needed */
-                  Aprintf("EML: Image/inline attachment without Content-ID - will use data: URL\n");
-               }
-               else
-               {  Aprintf("EML: Attachment not inline/image - skipping CID registration\n");
-               }
-            }
-            else
-            {  Aprintf("EML: Attachment missing data\n");
-            }
-            attach = attach->next;
-         }
-      }
-      else
-      {  Aprintf("EML: No attachments to register\n");
-      }
-      
-      /* Register body parts with Content-ID (for multipart/related inline images) */
-      if(message->body_parts)
-      {  Aprintf("EML: Processing body parts for CID registration\n");
-         part = message->body_parts;
-         while(part)
-         {  Aprintf("EML: Body part: content_id=%lx, content_idlen=%ld, data=%lx, datalen=%ld\n",
-               (ULONG)part->content_id, part->content_idlen, (ULONG)part->data, part->datalen);
-            /* Skip parts with null data pointer - these are likely attachments that own the data */
-            if(!part->data || part->datalen <= 0)
-            {  Aprintf("EML: Skipping body part - null data pointer or zero length (likely attachment-owned)\n");
-               part = part->next;
-               continue;
-            }
-            if(part->content_id && part->content_idlen > 0)
-            {  UBYTE *content_id_clean;
-               UBYTE *content_id_reg;
-               long cid_len;
-               UBYTE *content_type;
-               UBYTE *content_type_alloc;
-               
-               /* Clean Content-ID (remove angle brackets if present) for registration */
-               content_id_clean = part->content_id;
-               cid_len = part->content_idlen;
-               if(*content_id_clean == '<')
-               {  content_id_clean++;
-                  cid_len--;
-               }
-               if(cid_len > 0 && content_id_clean[cid_len - 1] == '>')
-               {  cid_len--;
-               }
-               
-               /* Create cleaned copy for registration */
-               if(cid_len > 0)
-               {  content_id_reg = (UBYTE *)AllocVec(cid_len + 1, MEMF_CLEAR);
-                  if(content_id_reg)
-                  {  memcpy(content_id_reg, content_id_clean, cid_len);
-                     content_id_reg[cid_len] = '\0';
-                     Aprintf("EML: Cleaned body part Content-ID for registration: %s (len=%ld)\n", content_id_reg, cid_len);
-                  }
-                  else
-                  {  content_id_reg = NULL;
-                     Aprintf("EML: ERROR - Failed to allocate cleaned Content-ID for body part\n");
-                  }
-               }
-               else
-               {  content_id_reg = NULL;
-                  Aprintf("EML: ERROR - Invalid body part Content-ID length after cleaning\n");
-               }
-               
-               /* Get content type */
-               content_type_alloc = NULL;
-               if(part->content_type && part->content_typelen > 0)
-               {  content_type = EmlMimeBaseType(part->content_type, part->content_typelen);
-                  if(content_type != part->content_type) content_type_alloc = content_type;
-                  Aprintf("EML: Body part Content-Type: %s\n", content_type);
-               }
-               else
-               {  content_type = "application/octet-stream";
-                  Aprintf("EML: Body part using default content type\n");
-               }
-               
-               /* Register with CID registry using cleaned Content-ID */
-               if(content_id_reg)
-               {  Aprintf("EML: Registering body part CID: %s, content_type=%s, data=%lx, datalen=%ld\n",
-                     content_id_reg, content_type, (ULONG)part->data, part->datalen);
-                  if(!fd->eml_url || !content_id_reg || !part->data || part->datalen <= 0)
-                  {  Aprintf("EML: ERROR - Invalid parameters for body part Registercidpart!\n");
-                  }
-                  else
-                  {  /* Verify strings are null-terminated */
-                     if(strlen(fd->eml_url) == 0)
-                     {  Aprintf("EML: ERROR - eml_url is empty or not null-terminated!\n");
-                     }
-                     else if(strlen(content_id_reg) == 0)
-                     {  Aprintf("EML: ERROR - body part content_id is empty or not null-terminated!\n");
-                     }
-                     else
-                     {  Aprintf("EML: Calling Registercidpart for body part...\n");
-                        EMLDBG2("Registercidpart body part data=%lx len=%ld",
-                           (ULONG)part->data, part->datalen);
-                        if(Registercidpart(fd->eml_url, content_id_reg, content_type,
-                           part->data, part->datalen))
-                        {  EmlReleaseExecPayload(&part->data, &part->datalen);
-                           fd->cid_registered = TRUE;
-                           EMLDBG0("Registercidpart body: stored in registry");
-                        }
-                     }
-                  }
-                  if(content_type_alloc) FreeVec(content_type_alloc);
-                  FreeVec(content_id_reg);
-               }
-            }
-            part = part->next;
-         }
-      }
-      else
-      {  Aprintf("EML: No body parts to register\n");
-      }
-      
-   }
-   else if(fd->cid_registered)
-   {  Aprintf("EML: CID already registered - skipping\n");
-   }
-   else
-   {  Aprintf("EML: No eml_url - skipping CID registration\n");
    }
    
    /* Render inline images and HTML attachments in the email body */

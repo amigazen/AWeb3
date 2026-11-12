@@ -7,13 +7,13 @@ MSG_REQUEST_TITLE
 AWeb-kehoite
 ;
 MSG_ABOUT_TITLE
-Tietoa AWebistä
+Tietoa AWebistï¿½
 ;
 MSG_ABOUT_REGNR
-Rekisteröinti #
+Rekisterï¿½inti #
 ;
 MSG_ABOUT_REGTO
-Rekisteröity nimelle
+Rekisterï¿½ity nimelle
 ;
 MSG_ABOUT_SCREENNAME
 Julkisen ruudun nimi
@@ -22,20 +22,20 @@ MSG_ABOUT_PORTNAME
 ARexx-portin nimi
 ;
 MSG_ABOUT_EMAIL
-Sähköposti
+Sï¿½hkï¿½posti
 ;
 MSG_ABOUT_WWW
 WWW
 ;
 MSG_ABOUT_OK
-_Ok
+_OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Rekisteröimätön versio\n\
+Rekisterï¿½imï¿½tï¿½n versio\n\
 
 ;
 MSG_ABOUT_DEMO
-Rekisteröimätön demo versio\n\
+Rekisterï¿½imï¿½tï¿½n demo versio\n\
 
 ;
 MSG_ABOUT_DISTRIBUTED
@@ -49,25 +49,25 @@ Erikoisversio jaettavaksi AmigaOS ohessa\n\
 
 ;
 MSG_QUIT_TEXT
-Oletko varma että haluat sulkea AWebin?
+Oletko varma ettï¿½ haluat sulkea AWebin?
 ;
 MSG_QUIT_OK
-_Ok
+_OK 
 ;
 MSG_QUIT_CANCEL
 Peru
 ;
 MSG_QUIT_WARNING
-VAROITUS: Siirrot keskeytetään!\n\
+VAROITUS: Siirrot keskeytetï¿½ï¿½n!\n\
 \n\
 
 ;
 MSG_DEMO_TEXT
-Tämä on AWebin demoversio,joka ei\n\
+Tï¿½mï¿½ on AWebin demoversio,joka ei\n\
 avaa useampia dokumentti-ikkunoita
 ;
 MSG_DEMO_OK
-_Ok
+_OK 
 ;
 MSG_SCRCLOSE_TEXT
 AWeb ei voi sulkea ruutuaan.\n\
@@ -86,19 +86,19 @@ MSG_NWS_STARTED
 Aloitettu
 ;
 MSG_NWS_LOOKUP
-Etsitään
+Etsitï¿½ï¿½n
 ;
 MSG_NWS_CONNECT
-Yhdistetään
+Yhdistetï¿½ï¿½n
 ;
 MSG_NWS_WAIT
 Odotetaan
 ;
 MSG_NWS_PROCESS
-Käsitellään
+Kï¿½sitellï¿½ï¿½n
 ;
 MSG_NWS_LOGIN
-Kirjaudutaan sisään
+Kirjaudutaan sisï¿½ï¿½n
 ;
 MSG_NWS_CPS
 %ld cps
@@ -107,22 +107,22 @@ MSG_NWS_NEWSGROUP
 Tarkastaa
 ;
 MSG_NWS_UPLOAD
-Lähettää
+Lï¿½hettï¿½ï¿½
 ;
 MSG_AUTH_TITLE
 Tunnistautuminen
 ;
 MSG_AUTH_PROMPT
-Käyttäjätunnus ja salasana osoitteeseen
+Kï¿½yttï¿½jï¿½tunnus ja salasana osoitteeseen
 ;
 MSG_AUTH_USERID
-Käyttäjätunnus
+Kï¿½yttï¿½jï¿½tunnus
 ;
 MSG_AUTH_PASSWORD
 Salasana
 ;
 MSG_AUTH_OK
-_Ok
+_OK 
 ;
 MSG_AUTH_CANCEL
 Peru
@@ -131,10 +131,10 @@ MSG_AUTH_PROMPT_FTP
 Salasana osoitteeseen
 ;
 MSG_AUTH_USERID_FTP
-Käyttäjätunnus
+Kï¿½yttï¿½jï¿½tunnus
 ;
 MSG_AUTH_PROMPT_PROXY
-Käyttäjätunnus ja salasana proxylle
+Kï¿½yttï¿½jï¿½tunnus ja salasana proxylle
 ;
 MSG_FILE_SAVETITLE
 Valitse tallennusnimi
@@ -143,12 +143,12 @@ MSG_FILE_SAVE
 Talleta
 ;
 MSG_FILE_INCTEXT
-Keskeneräinen tiedosto!\n\
+Keskenerï¿½inen tiedosto!\n\
 %s\n\
-Odotettiin: %ld byteä\n\
-Ladattiin : %ld byteä\n\
+Odotettiin: %ld byteï¿½\n\
+Ladattiin : %ld byteï¿½\n\
 \n\
-Valitse OK pitääksesi vajaa tiedosto.
+Valitse OK pitï¿½ï¿½ksesi vajaa tiedosto.
 ;
 MSG_DUMMY_1
 
@@ -159,7 +159,7 @@ Tiedosto:\n\
 on jo olemassa!
 ;
 MSG_FILE_EXISTBUTTONS
-Päälle|Lisää|Uusi nimi|Peru
+Pï¿½ï¿½lle|Lisï¿½ï¿½|Uusi nimi|Peru
 ;
 MSG_FILE_AREXXTITLE
 Valitse ARexx-makro
@@ -174,28 +174,28 @@ MSG_FILE_OPEN
 Avaa
 ;
 MSG_FILE_TEMPTITLE
-Tilapäispolkua ei löydy:\n\
+Tilapï¿½ispolkua ei lï¿½ydy:\n\
 %s\n\
-Käytä T: hakemistoa.
+Kï¿½ytï¿½ T: hakemistoa.
 ;
 MSG_FILE_TEMPBUTTONS
-_Ok
+_OK 
 ;
 MSG_FILE_INCBUTTONS2
-_Ok|Uudestaan|Peru
+_OK |Uudestaan|Peru
 ;
 MSG_FILE_SETTINGSTITLE
 Valitse asetushakemisto
 ;
 MSG_FILE_UPLOADTITLE
-Valitse lähetettävä tiedosto
+Valitse lï¿½hetettï¿½vï¿½ tiedosto
 ;
 MSG_TCP_ENDTCP
-AWeb on pysäytetty.\n\
-Lopetetaanko TCP-yhteys myös?
+AWeb on pysï¿½ytetty.\n\
+Lopetetaanko TCP-yhteys myï¿½s?
 ;
 MSG_TCP_BUTTONS
-Kyllä|Ei
+Kyllï¿½|Ei
 ;
 MSG_STARTUP_FONTS
 Lataan kirjasimia
@@ -204,16 +204,16 @@ MSG_STARTUP_IMAGES
 Lataan GUI-kuvia
 ;
 MSG_STARTUP_CACHE
-Lataan välimuistihakemistoa
+Lataan vï¿½limuistihakemistoa
 ;
 MSG_HOTL_TITLE
 AWeb pikalista
 ;
 MSG_HOTL_ADDLINK
-Lisää linkki
+Lisï¿½ï¿½ linkki
 ;
 MSG_HOTL_ADDGROUP
-Lisää ryhmä
+Lisï¿½ï¿½ ryhmï¿½
 ;
 MSG_HOTL_REMOVE
 Poista
@@ -228,7 +228,7 @@ MSG_HOTL_URL
 _URL
 ;
 MSG_HOTL_NEWGROUP
-Uusi ryhmä
+Uusi ryhmï¿½
 ;
 MSG_HOTL_NEWLINK
 Uusi linkki
@@ -240,10 +240,10 @@ MSG_HOTL_VURLS
 UR_Lit
 ;
 MSG_HOTL_MANAGER
-Järjestä
+Jï¿½rjestï¿½
 ;
 MSG_HOTL_TITLE_MANAGER
-AWeb pikalistajärjestäjä
+AWeb pikalistajï¿½rjestï¿½jï¿½
 ;
 MSG_HOTL_LTYPE
 L_ista
@@ -255,7 +255,7 @@ MSG_HOTL_LTYPE_ALL
 Kaikki
 ;
 MSG_HOTL_LTYPE_GROUPS
-Ryhmät
+Ryhmï¿½t
 ;
 MSG_HOTL_LSORT
 Lajittele
@@ -267,22 +267,22 @@ MSG_HOTL_LSORT_URL
 URL
 ;
 MSG_HOTL_MOVEIN
-_< Sisään
+_< Sisï¿½ï¿½n
 ;
 MSG_HOTL_MOVEOUT
 Ulos _>
 ;
 MSG_HOTL_MOVE
-< Siirrä
+< Siirrï¿½
 ;
 MSG_HOTL_DEL
 Poista
 ;
 MSG_HOTL_WHERE
-Missä
+Missï¿½
 ;
 MSG_HOTL_SHOW
-Näytä
+Nï¿½ytï¿½
 ;
 MSG_HOTL_SORT
 Lajittele
@@ -291,13 +291,13 @@ MSG_HOTL_PARENT
 Ylempi
 ;
 MSG_HOTL_ALL
-Ryhmät
+Ryhmï¿½t
 ;
 MSG_HOTL_ADDENTRY
 + Tietue
 ;
 MSG_HOTL_ADDGROUP2
-+ Ryhmä
++ Ryhmï¿½
 ;
 MSG_HOTL_URLS
 UR_Lit
@@ -309,7 +309,7 @@ MSG_HOTL_SAVE
 Talleta
 ;
 MSG_HOTL_LADD
-Lisää
+Lisï¿½ï¿½
 ;
 MSG_HOTL_FIND
 Etsi
@@ -324,25 +324,25 @@ MSG_HOTL_DEFAULT_TITLE
 ** Uusi linkki **
 ;
 MSG_HOTL_DEFAULT_GROUP
-** Uusi ryhmä **
+** Uusi ryhmï¿½ **
 ;
 MSG_HOTL_TITLE_ALLGROUPS
-Kaikki ryhmät
+Kaikki ryhmï¿½t
 ;
 MSG_HOTL_TITLE_WHERE
-Ryhmät joissa on tämä tietue
+Ryhmï¿½t joissa on tï¿½mï¿½ tietue
 ;
 MSG_HOTL_TITLE_REST
-Määräämättömät tietueet
+Mï¿½ï¿½rï¿½ï¿½mï¿½ttï¿½mï¿½t tietueet
 ;
 MSG_HOTL_TITLE_ALL
 Kaikki tietueet
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
-Pohjatason ryhmät
+Pohjatason ryhmï¿½t
 ;
 MSG_HOTL_LSORT_DATE
-Päiväys
+Pï¿½ivï¿½ys
 ;
 MSG_WHIS_TITLE
 Ikkunahistoria
@@ -354,16 +354,16 @@ MSG_WHIS_WINDOW
 Ikkuna
 ;
 MSG_WHIS_ORDER
-Järjestys
+Jï¿½rjestys
 ;
 MSG_WHIS_DISPLAY
-Näytä
+Nï¿½ytï¿½
 ;
 MSG_WHIS_ORDER_NATURAL
 Luonnollinen
 ;
 MSG_WHIS_ORDER_MAINLINE
-Päälinja
+Pï¿½ï¿½linja
 ;
 MSG_WHIS_ORDER_RETRIEVED
 Haettu
@@ -381,7 +381,7 @@ MSG_CABR_URL
 URL
 ;
 MSG_CABR_DATE
-Päiväys
+Pï¿½ivï¿½ys
 ;
 MSG_CABR_SIZE
 Koko
@@ -396,7 +396,7 @@ MSG_CABR_STATUS
 %ld tiedostoa, %ld kB
 ;
 MSG_CABR_SORTBY
-Lajittelujärjestys
+Lajittelujï¿½rjestys
 ;
 MSG_CABR_OPEN
 Avaa
@@ -424,38 +424,38 @@ Peru
 ;
 MSG_FIXCACHE_WARNING
 VAROITUS!\n\
-Tämä toiminto poistaa kaikki vieraat tiedostot\n\
+Tï¿½mï¿½ toiminto poistaa kaikki vieraat tiedostot\n\
 %s hakemistosta
 ;
 MSG_FIXCACHE_BUTTONS
-_Ok|Peru
+_OK |Peru
 ;
 MSG_FIXCACHE_PROGRESS
 Siistin levypuskuria...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Oletko varma että haluat poistaa\n\
+Oletko varma ettï¿½ haluat poistaa\n\
 kaikki kuvat puskurista?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Oletko varma että haluat poistaa\n\
+Oletko varma ettï¿½ haluat poistaa\n\
 kaikki tiedostot puskurista?
 ;
 MSG_FIXCACHE_ERASE
-Oletko varma että haluat poistaa\n\
+Oletko varma ettï¿½ haluat poistaa\n\
 kaikki kuvat ja tiedostot puskurista?
 ;
 MSG_FIXCACHE_CORRUPT
-Puskurin rekisteriä ei voi lukea tai\n\
+Puskurin rekisteriï¿½ ei voi lukea tai\n\
 se on vanhemmasta AWeb-versiosta.\n\
-Puskuroituja tiedostoja ei voi käyttää.\n\
-Siistitäänkö se nyt?
+Puskuroituja tiedostoja ei voi kï¿½yttï¿½ï¿½.\n\
+Siistitï¿½ï¿½nkï¿½ se nyt?
 ;
 MSG_SEARCH_STRING
 Etsi merkkijonoa
 ;
 MSG_SEARCH_IGNORECASE
-Kirjainkoolla ei väliä
+Kirjainkoolla ei vï¿½liï¿½
 ;
 MSG_SEARCH_SEARCH
 Etsi
@@ -470,10 +470,10 @@ MSG_SEARCH_CANCEL
 Peru
 ;
 MSG_SEARCH_NOTFOUND
-Merkkijonoa ei löytynyt
+Merkkijonoa ei lï¿½ytynyt
 ;
 MSG_SEARCH_OK
-_Ok
+_OK 
 ;
 MSG_POPUP_LOADIMAGE
 Lataa kuva
@@ -488,10 +488,10 @@ MSG_POPUP_DOWNLOADIMAGE
 Hae kuva
 ;
 MSG_POPUP_FLUSHIMAGE
-Tyhjennä kuva
+Tyhjennï¿½ kuva
 ;
 MSG_POPUP_SHOWIMAGE
-Näytä kuva
+Nï¿½ytï¿½ kuva
 ;
 MSG_POPUP_OPENLINK
 Avaa linkki
@@ -509,28 +509,28 @@ MSG_POPUP_DOWNLOADLINK
 Hae linkki
 ;
 MSG_POPUP_ADDLINK
-Lisää linkki pikalistaan
+Lisï¿½ï¿½ linkki pikalistaan
 ;
 MSG_POPUP_RELOADFRAME
-Uudelleenlataa sisältö
+Uudelleenlataa sisï¿½ltï¿½
 ;
 MSG_POPUP_SAVEFRAME
-Tallenna lähdekoodi
+Tallenna lï¿½hdekoodi
 ;
 MSG_POPUP_VIEWFRAME
-Näytä lähdekoodi
+Nï¿½ytï¿½ lï¿½hdekoodi
 ;
 MSG_POPUP_SHOWFRAME
-Näytä erikseen
+Nï¿½ytï¿½ erikseen
 ;
 MSG_POPUP_SEARCHFRAME
-Hae sisällöstä
+Hae sisï¿½llï¿½stï¿½
 ;
 MSG_POPUP_INFOFRAME
 Tietoa
 ;
 MSG_PRINTP_TITLE
-Tulosta määritteet
+Tulosta mï¿½ï¿½ritteet
 ;
 MSG_PRINTP_SCALE
 _Skaalaa (%)
@@ -539,10 +539,10 @@ MSG_PRINTP_PRINTBG
 Tulosta taustat
 ;
 MSG_PRINTP_FORMFEED
-Arkinsyöttö
+Arkinsyï¿½ttï¿½
 ;
 MSG_PRINTP_CENTER
-Keskitä
+Keskitï¿½
 ;
 MSG_PRINTP_PRINT
 Tulosta
@@ -551,13 +551,13 @@ MSG_PRINTP_CANCEL
 Peru
 ;
 MSG_PRINT_NOPRINTER
-Tulostinta ei voi käyttää
+Tulostinta ei voi kï¿½yttï¿½ï¿½
 ;
 MSG_PRINT_OK
-_Ok
+_OK 
 ;
 MSG_PRINT_PROGRESS
-Tulostus käynnissä...
+Tulostus kï¿½ynnissï¿½...
 ;
 MSG_PRINTP_LAYOUTWIDTH
 Asettelun leveys
@@ -572,16 +572,16 @@ MSG_PRINTP_LW_SCREEN
 Ruutu
 ;
 MSG_COOKIE_TITLE
-Evästevaroitus
+Evï¿½stevaroitus
 ;
 MSG_COOKIE_WARNING
-Uusi Netscape eväste asetetaan!
+Uusi Netscape evï¿½ste asetetaan!
 ;
 MSG_COOKIE_NAME
-Evästeen nimi:
+Evï¿½steen nimi:
 ;
 MSG_COOKIE_VALUE
-Evästeen arvo:
+Evï¿½steen arvo:
 ;
 MSG_COOKIE_DOMAIN
 Domainille:
@@ -593,7 +593,7 @@ MSG_COOKIE_COMMENT
 Kommentti:
 ;
 MSG_COOKIE_MAXAGE
-Maksimi-ikä:
+Maksimi-ikï¿½:
 ;
 MSG_COOKIE_EXPIRES
 Vanhenee:
@@ -602,7 +602,7 @@ MSG_COOKIE_ONCE
 Kerran
 ;
 MSG_COOKIE_ACCEPT
-Hyväksy
+Hyvï¿½ksy
 ;
 MSG_COOKIE_NEVER
 Ei koskaan
@@ -611,12 +611,12 @@ MSG_COOKIE_CANCEL
 Peru
 ;
 MSG_COOKIE_SECURE
-AWeb lähettää tämän evästeen takaisin\n\
-vain SUOJATULLA yhteydellä.
+AWeb lï¿½hettï¿½ï¿½ tï¿½mï¿½n evï¿½steen takaisin\n\
+vain SUOJATULLA yhteydellï¿½.
 ;
 MSG_COOKIE_UNSECURE
-AWeb lähettää tämän evästeen takaisin\n\
-myös SUOJAAMATTOMALLA yhteydellä.
+AWeb lï¿½hettï¿½ï¿½ tï¿½mï¿½n evï¿½steen takaisin\n\
+myï¿½s SUOJAAMATTOMALLA yhteydellï¿½.
 ;
 MSG_INFO_TITLE
 Tietoa
@@ -625,7 +625,7 @@ MSG_INFO_FROMCACHE
 Luettu AWeb-puskurista
 ;
 MSG_INFO_XFER
-Lähetys tiedot:
+Lï¿½hetys tiedot:
 ;
 MSG_INFO_META
 Meta-tiedot:
@@ -637,7 +637,7 @@ MSG_INFO_CIPHER
 HTTPS koodaustapa: %s
 ;
 MSG_INFO_SSLLIBRARY
-SSL-kirjasto käytössä: %s
+SSL-kirjasto kï¿½ytï¿½ssï¿½: %s
 ;
 MSG_USERBUTTON_CACHE
 Puskuri
@@ -652,7 +652,7 @@ MSG_AUTHEDIT_TITLE_SERVER
 Palvelin
 ;
 MSG_AUTHEDIT_TITLE_USERID
-Käyttäjätunnus
+Kï¿½yttï¿½jï¿½tunnus
 ;
 MSG_AUTHEDIT_DEL
 Poista
@@ -661,13 +661,13 @@ MSG_AUTHEDIT_SERVER
 Palvelin
 ;
 MSG_AUTHEDIT_USERID
-Käyttäjätunnus
+Kï¿½yttï¿½jï¿½tunnus
 ;
 MSG_AUTHEDIT_PASSWORD
 Salasana
 ;
 MSG_JSPROMPT_OK
-_Ok
+_OK 
 ;
 MSG_JSPROMPT_CANCEL
 _Peru
@@ -676,30 +676,30 @@ MSG_FORMWARN_TITLE
 AWeb-varoitus
 ;
 MSG_FORMWARN_WARNING
-Kaavakkeen tiedot lähetetään\n\
+Kaavakkeen tiedot lï¿½hetetï¿½ï¿½n\n\
 SUOJAAMATTOMAN yhteyden kautta.
 ;
 MSG_FORMWARN_BUTTONS
-_Ok|Peru
+_OK |Peru
 ;
 MSG_MAIL_TITLE
 AWeb-postittajavirhe
 ;
 MSG_MAIL_NOSMTPHOST
-Määrittele SMTP-palvelimesi ensin.\n\
+Mï¿½ï¿½rittele SMTP-palvelimesi ensin.\n\
 Katso Verkko/Posti-asetukset.
 ;
 MSG_MAIL_NOCONNECT
-Ei yhteyttä kohteeseen %s.
+Ei yhteyttï¿½ kohteeseen %s.
 ;
 MSG_MAIL_MAILFAILED
-Viestin lähettäminen epäonnistui.
+Viestin lï¿½hettï¿½minen epï¿½onnistui.
 ;
 MSG_MAIL_BUTTONS
 Uudelleen|Talleta|Peru
 ;
 MSG_MAIL_SAVETITLE
-Talleta epäonnistunut viesti
+Talleta epï¿½onnistunut viesti
 ;
 MSG_MAIL_MAILTO_TITLE
 Vastaanottaja %s
@@ -717,60 +717,60 @@ MSG_MAIL_MESSAGE_BODY
 Viestin runko:
 ;
 MSG_MAIL_EXTRA_HEADERS
-Lisäpostitiedot mukana
+Lisï¿½postitiedot mukana
 ;
 MSG_MAIL_SEND
-Lähetä viesti
+Lï¿½hetï¿½ viesti
 ;
 MSG_MAIL_RESET
-Tyhjennä
+Tyhjennï¿½
 ;
 MSG_MAIL_RETURN
 Takaisin
 ;
 MSG_MAIL_MAIL_SENT_TITLE
-Viesti lähetetty osoitteeseen: %s
+Viesti lï¿½hetetty osoitteeseen: %s
 ;
 MSG_MAIL_MAIL_SENT
-<H1>Viesti lähetetty</H1>\n\
-Sähköpostiviestisi osoitteeseen <B>%s</B> on lähetetty.
+<H1>Viesti lï¿½hetetty</H1>\n\
+Sï¿½hkï¿½postiviestisi osoitteeseen <B>%s</B> on lï¿½hetetty.
 ;
 MSG_NEWS_TITLE
 AWeb-uutislukijavirhe
 ;
 MSG_NEWS_NONNTPHOST
-Määrittele NNTP-isäntäsi ensin.\n\
+Mï¿½ï¿½rittele NNTP-isï¿½ntï¿½si ensin.\n\
 Katso Verkko/Uutiset-asetukset.
 ;
 MSG_NEWS_NOCONNECT
-Ei yhteyttä kohteeseen %s.
+Ei yhteyttï¿½ kohteeseen %s.
 ;
 MSG_NEWS_POSTFAILED
-Artikkelin lähetys epäonnistui.
+Artikkelin lï¿½hetys epï¿½onnistui.
 ;
 MSG_NEWS_BUTTONS
 Uudelleen|Talleta|Peru
 ;
 MSG_NEWS_SAVETITLE
-Talleta epäonnistunut artikkeli
+Talleta epï¿½onnistunut artikkeli
 ;
 MSG_NEWS_NEWS_HEADER
 Uutiset
 ;
 MSG_NEWS_SUBSCRIBED
-Tilatut uutisryhmät
+Tilatut uutisryhmï¿½t
 ;
 MSG_NEWS_NEW_ARTICLES
 %8ld uutta artikkelia
 ;
 MSG_NEWS_CATCH_UP
-Päivitä
+Pï¿½ivitï¿½
 ;
 MSG_NEWS_UNSUBSCRIBE
 Peruuta tilaus
 ;
 MSG_NEWS_OTHER_GROUP
-Muu ryhmä
+Muu ryhmï¿½
 ;
 MSG_NEWS_SUBSCRIBE
 Tilaa
@@ -779,34 +779,34 @@ MSG_NEWS_READ
 Lue
 ;
 MSG_NEWS_SEARCH_FOR_GROUP
-Etsi ryhmä
+Etsi ryhmï¿½
 ;
 MSG_NEWS_SEARCH
 Etsi
 ;
 MSG_NEWS_LONG_DOWNLOAD
-Ensimmäisellä ryhmienhakukerralla ladataan\n\
+Ensimmï¿½isellï¿½ ryhmienhakukerralla ladataan\n\
 palvelimelta kaikkien uutisryhmien nimet.\n\
-Tämä voi kestää useita minuutteja.
+Tï¿½mï¿½ voi kestï¿½ï¿½ useita minuutteja.
 ;
 MSG_NEWS_NO_SUBJECT
 (ei aihetta)
 ;
 MSG_NEWS_LINES
-(%s riviä)
+(%s riviï¿½)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
-Lähetä uusi artikkeli
+Lï¿½hetï¿½ uusi artikkeli
 ;
 MSG_NEWS_GROUP_LIST
-Ryhmälista
+Ryhmï¿½lista
 ;
 MSG_NEWS_ERROR_NO_GROUP
 <h1>Virhe</h1>\n\
-Ryhmää %s ei ole.
+Ryhmï¿½ï¿½ %s ei ole.
 ;
 MSG_NEWS_USE_FRAMES
-Uutiset on määritelty käyttämään frameja
+Uutiset on mï¿½ï¿½ritelty kï¿½yttï¿½mï¿½ï¿½n frameja
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
 Artikkelia %s ei ole<BR>
@@ -815,7 +815,7 @@ MSG_NEWS_FOLLOW_UP
 Kommentoi artikkeliin
 ;
 MSG_NEWS_REPLY
-Vastaa sähköpostina
+Vastaa sï¿½hkï¿½postina
 ;
 MSG_NEWS_SAVE
 Talleta artikkeli
@@ -824,19 +824,19 @@ MSG_NEWS_SUBJECT
 Aihe:
 ;
 MSG_NEWS_NEWSGROUPS
-Uutisryhmät:
+Uutisryhmï¿½t:
 ;
 MSG_NEWS_ARTICLE_BODY
 Artikkelin runko:
 ;
 MSG_NEWS_EXTRA_HEADERS
-Lisä uutistiedot mukana
+Lisï¿½ uutistiedot mukana
 ;
 MSG_NEWS_POST_ARTICLE
-Lähetä artikkeli
+Lï¿½hetï¿½ artikkeli
 ;
 MSG_NEWS_RESET
-Tyhjennä
+Tyhjennï¿½
 ;
 MSG_NEWS_RETURN
 Takaisin
@@ -857,50 +857,50 @@ MSG_NEWS_REPLY_TO_ADDRESS
 Vastausosoite:
 ;
 MSG_NEWS_ARTICLE_POSTED_TITLE
-Artikkeli lähetetty
+Artikkeli lï¿½hetetty
 ;
 MSG_NEWS_ARTICLE_POSTED
-<H1>Artikkeli lähetetty</h1>\n\
-Artikkelisi on lähetetty.
+<H1>Artikkeli lï¿½hetetty</h1>\n\
+Artikkelisi on lï¿½hetetty.
 ;
 MSG_NEWS_DOWNLOAD_TITLE
-Hae uutisryhmälista
+Hae uutisryhmï¿½lista
 ;
 MSG_NEWS_DOWNLOAD_BODY
 <H1>Haen listaa...</H1>\n\
-Haen uutisryhmälistaa. Tämä voi kestää useita minuutteja.
+Haen uutisryhmï¿½listaa. Tï¿½mï¿½ voi kestï¿½ï¿½ useita minuutteja.
 ;
 MSG_NEWS_SEARCH_RESULT
 Haun tulokset
 ;
 MSG_NEWS_FIRST_MATCHING
-Ensimmäiset %ld ryhmää %ld sopivasta uutisryhmänimestä<B>%s</B>
+Ensimmï¿½iset %ld ryhmï¿½ï¿½ %ld sopivasta uutisryhmï¿½nimestï¿½<B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
-Löytyi %ld sopiva uutisryhmänimeä <B>%s</B>
+Lï¿½ytyi %ld sopiva uutisryhmï¿½nimeï¿½ <B>%s</B>
 ;
 MSG_CMDWARN_TITLE
 AWeb-varoitus
 ;
 MSG_CMDWARN_SHELL
-Aikeissa suorittaa shell-käsky:\n\
+Aikeissa suorittaa shell-kï¿½sky:\n\
 %s
 ;
 MSG_CMDWARN_AREXX
-Aikeissa käynnistää ARexx-ohjelma:\n\
+Aikeissa kï¿½ynnistï¿½ï¿½ ARexx-ohjelma:\n\
 %s
 ;
 MSG_CMDWARN_BUTTONS
-_Ok|Peru
+_OK |Peru
 ;
 MSG_SSLWARN_SSL_TITLE
 AWeb-varoitus
 ;
 MSG_SSLWARN_SSL_TEXT
-Suojattua yhteyttä ei voi muodostaa kohteeseen %s:\n\
+Suojattua yhteyttï¿½ ei voi muodostaa kohteeseen %s:\n\
 %s\n\
  \n\
-Käytetäänkö suojaamatonta yhteyttä sensijaan?
+Kï¿½ytetï¿½ï¿½nkï¿½ suojaamatonta yhteyttï¿½ sensijaan?
 ;
 MSG_SSLWARN_SSL_BUTTONS
 Suojaamaton|Peru
@@ -920,37 +920,37 @@ Jos jatkat. tieto salataan (turvassa salakuuntelulta), mutta palvelimen aitoutta
 Haluatko jatkaa?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_Ok|Peru
+_OK |Peru
 ;
 MSG_SSLWARN_SSL_NO_SSL2
-Suojatut yhteydet ovat tuettuja vain käytettäessä AmiSSL tai MiamiSSL-kirjastoja.
+Suojatut yhteydet ovat tuettuja vain kï¿½ytettï¿½essï¿½ AmiSSL tai MiamiSSL-kirjastoja.
 ;
 MSG_UNKMIME_TITLE
-Tuntematon sisältötyyppi
+Tuntematon sisï¿½ltï¿½tyyppi
 ;
 MSG_UNKMIME_TEXT
 Tuntematon tiedosto talletaan\n\
  \n\
 URL:   %s\n\
-Sisältötyyppi:   %s\n\
+Sisï¿½ltï¿½tyyppi:   %s\n\
 Jatke:   %s\n\
  \n\
-Haluat ehkä perua talletuksen nyt, ja ladata tiedoston uudestaan kun olet asettanut näyttäjän tai toiminnon tälle MIME-tyypille selaimen asetuksissa.
+Haluat ehkï¿½ perua talletuksen nyt, ja ladata tiedoston uudestaan kun olet asettanut nï¿½yttï¿½jï¿½n tai toiminnon tï¿½lle MIME-tyypille selaimen asetuksissa.
 ;
 MSG_UNKMIME_BUTTONS
 Talleta|Peru
 ;
 MSG_REQUEST_COPYURL
-Kopioi _URL Leikepöydälle
+Kopioi _URL Leikepï¿½ydï¿½lle
 ;
 MSG_OPENURL_TITLE
 AWeb-kehoite
 ;
 MSG_OPENURL_TEXT
-Syötä avattava URL:
+Syï¿½tï¿½ avattava URL:
 ;
 MSG_OPENURL_BUTTONS
-_Ok|Peru
+_OK |Peru
 ;
 MSG_SAVEIFF_PROGRESS
 Talletan IFF-tiedoston...
@@ -977,10 +977,10 @@ MSG_PROJECT_OPENSEARCH
 E/Hakukoneet
 ;
 MSG_PROJECT_SOURCE
-Näytä lähdekoodi...
+Nï¿½ytï¿½ lï¿½hdekoodi...
 ;
 MSG_PROJECT_SAVEHTML
-S/Tallenna lähdekoodi...
+S/Tallenna lï¿½hdekoodi...
 ;
 MSG_PROJECT_ABOUT
 Tietoa...
@@ -995,7 +995,7 @@ MSG_PROJECT_PRINT
 P/Tulosta...
 ;
 MSG_PROJECT_EDIT
-Muokkaa lähdekoodia...
+Muokkaa lï¿½hdekoodia...
 ;
 MSG_PROJECT_INFO
 Tietoa...
@@ -1037,7 +1037,7 @@ MSG_CONTROL_PREVWINDOW
 ,/Edellinen ikkuna
 ;
 MSG_CONTROL_NOPROXY
-Y/Älä käytä proxya
+Y/ï¿½lï¿½ kï¿½ytï¿½ proxya
 ;
 MSG_CONTROL_RLOAD
 Uudelleenlataa
@@ -1046,22 +1046,22 @@ MSG_CONTROL_RLOADDOC
 R/Nykyinen tiedosto
 ;
 MSG_CONTROL_RLOADIMGS
-Kuvat nykyisessä
+Kuvat nykyisessï¿½
 ;
 MSG_CONTROL_PLAYBGSOUND
-J/Soita taustaääni
+J/Soita taustaï¿½ï¿½ni
 ;
 MSG_CONTROL_COPYURL
 Kopioi URL
 ;
 MSG_CONTROL_PASTEURL
-Liitä URL
+Liitï¿½ URL
 ;
 MSG_CONTROL_COPYBLOCK
 C/Kopioi pala
 ;
 MSG_CONTROL_DRAGGING
-Vetäminen
+Vetï¿½minen
 ;
 MSG_CONTROL_BREAKJS
 X/Katkaise JavaScript
@@ -1091,25 +1091,25 @@ MSG_CACHE_SAVEAUTH
 Tallenna tunnistukset
 ;
 MSG_CACHE_FLUSHAUTH
-Tyhjennä tunnistukset
+Tyhjennï¿½ tunnistukset
 ;
 MSG_CACHE_BROWSER
 Puskuriselain...
 ;
 MSG_CACHE_FLUSH
-Tyhjennä muistista
+Tyhjennï¿½ muistista
 ;
 MSG_CACHE_FLSHIMGSND
-Näyttämättömät kuvat
+Nï¿½yttï¿½mï¿½ttï¿½mï¿½t kuvat
 ;
 MSG_CACHE_FLSHIMGS
 Kaikki kuvat
 ;
 MSG_CACHE_FLSHDOCSND
-Näyttämättömät tiedostot
+Nï¿½yttï¿½mï¿½ttï¿½mï¿½t tiedostot
 ;
 MSG_CACHE_DELETE
-Poista levyltä
+Poista levyltï¿½
 ;
 MSG_CACHE_DELIMGS
 Kaikki kuvat
@@ -1133,7 +1133,7 @@ MSG_NAVIGATE_BACK
 B/Takaisin
 ;
 MSG_NAVIGATE_FWD
-F/Eteenpäin
+F/Eteenpï¿½in
 ;
 MSG_NAVIGATE_HOME
 D/Kotisivu
@@ -1145,13 +1145,13 @@ MSG_HOTLIST_MENU
 Pikalista
 ;
 MSG_HOTLIST_ADDHOT
-A/Lisää pikalistaan
+A/Lisï¿½ï¿½ pikalistaan
 ;
 MSG_HOTLIST_SHOWHOT
-H/Näytä pikalista
+H/Nï¿½ytï¿½ pikalista
 ;
 MSG_HOTLIST_MAINT
-T/Päivitys...
+T/Pï¿½ivitys...
 ;
 MSG_HOTLIST_SAVE
 Talleta pikalista
@@ -1169,10 +1169,10 @@ MSG_HOTLIST_IBHOT
 Muu...
 ;
 MSG_HOTLIST_VIEW
-V/Näytä pikalista...
+V/Nï¿½ytï¿½ pikalista...
 ;
 MSG_HOTLIST_MGR
-T/Pikalistajärjestäjä...
+T/Pikalistajï¿½rjestï¿½jï¿½...
 ;
 MSG_SETTINGS_MENU
 Asetukset
@@ -1220,10 +1220,10 @@ MSG_SETTINGS_BGIMAGES
 Taustakuvat
 ;
 MSG_SETTINGS_BGSOUND
-Taustaäänet
+Taustaï¿½ï¿½net
 ;
 MSG_SETTINGS_SAVEAS
-Talleta asetukset nimellä...
+Talleta asetukset nimellï¿½...
 ;
 MSG_SETTINGS_LOAD
 Lataa asetukset...
@@ -1244,13 +1244,13 @@ MSG_HELP_AWEBFAQ
 AWeb FAQ
 ;
 MSG_HELP_REGISTER
-Registeröinti
+Registerï¿½inti
 ;
 MSG_AREXX_MENU
 ARexx
 ;
 MSG_AREXX_AREXX
-!/Käynnistä ARexx-makro...
+!/Kï¿½ynnistï¿½ ARexx-makro...
 ;
 MSG_ERROR_CANTOPEN
 Tiedostoa %s ei voi avata
@@ -1264,7 +1264,7 @@ AWeb tarvitsee OS 3.0 tai uudemman
 MSG_ERROR_CANTQUIT
 Ei voi sulkea!\n\
 %s\n\
-on vielä käytössä.
+on vielï¿½ kï¿½ytï¿½ssï¿½.
 ;
 MSG_EPART_ERROR
 Virhe
@@ -1273,40 +1273,40 @@ MSG_EPART_RETURL
 haettaessa URLia
 ;
 MSG_EPART_ADDRSCHEME
-Tyypin &quot;%s&quot; osoitetapaa ei tueta AWebin tässä versiossa.
+Tyypin &quot;%s&quot; osoitetapaa ei tueta AWebin tï¿½ssï¿½ versiossa.
 ;
 MSG_EPART_NOLIB
-TCP-pino pitää olla käynnissä ensin
+TCP-pino pitï¿½ï¿½ olla kï¿½ynnissï¿½ ensin
 ;
 MSG_EPART_NOHOST
-Ei voi selvittää isäntänimeä &quot;%s&quot;
+Ei voi selvittï¿½ï¿½ isï¿½ntï¿½nimeï¿½ &quot;%s&quot;
 ;
 MSG_EPART_NOCONNECT
-Ei voi yhdistää kohteeseen &quot;%s&quot;
+Ei voi yhdistï¿½ï¿½ kohteeseen &quot;%s&quot;
 ;
 MSG_EPART_NOFILE
 Ei voi avata tiedostoa &quot;%s&quot;
 ;
 MSG_EPART_XAWEB
-Epäkelpo sisäinen (x-aweb:) nimi &quot;%s&quot;
+Epï¿½kelpo sisï¿½inen (x-aweb:) nimi &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
 Tyhjennetty
 ;
 MSG_EPART_FLUSHED_MSG
-Tätä tiedostoa ei ole enää muistissa
+Tï¿½tï¿½ tiedostoa ei ole enï¿½ï¿½ muistissa
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Tätä tiedostoa ei hakea uudestaan. Lähetä uudestaan kaavake joka tuotti tämän sivun. Huomaa myös että kaavakkeen lähettäminen kahdesti voi aiheuttaa sivuvaikutuksia, kuten kaksinkertainen rekisteröinti.
+Tï¿½tï¿½ tiedostoa ei hakea uudestaan. Lï¿½hetï¿½ uudestaan kaavake joka tuotti tï¿½mï¿½n sivun. Huomaa myï¿½s ettï¿½ kaavakkeen lï¿½hettï¿½minen kahdesti voi aiheuttaa sivuvaikutuksia, kuten kaksinkertainen rekisterï¿½inti.
 ;
 MSG_EPART_NOLOGIN
-Ei voida kirjautua sisään osoitteeseen &quot;%s&quot; tunnuksella &quot;%s&quot;
+Ei voida kirjautua sisï¿½ï¿½n osoitteeseen &quot;%s&quot; tunnuksella &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
 Ei voi ladata AWebLib-modulia &quot;%s&quot; varten.
 ;
 MSG_EPART_NOPROGRAM
-Et ole määritellyt ohjelmaa &quot;%s&quot; osoitetavalle.
+Et ole mï¿½ï¿½ritellyt ohjelmaa &quot;%s&quot; osoitetavalle.
 ;
 MSG_AWEB_EXTWINTITLE
 AWeb-ulkoinen ohjelma
@@ -1315,13 +1315,13 @@ MSG_AWEB_BYTESREAD
 Bytea luettu
 ;
 MSG_AWEB_FORMSUBMIT
-Lähetä
+Lï¿½hetï¿½
 ;
 MSG_AWEB_FORMRESET
-Tyhjennä
+Tyhjennï¿½
 ;
 MSG_AWEB_INDEXPROMPT
-Tämä on hakukelpoinen sisällys. Anna hakusanat:
+Tï¿½mï¿½ on hakukelpoinen sisï¿½llys. Anna hakusanat:
 ;
 MSG_AWEB_NODOCTITLE
 (ei tiedostoa ladattuna)
@@ -1333,7 +1333,7 @@ MSG_AWEB_HOTLISTTITLE
 Pikalista
 ;
 MSG_AWEB_GOPHERINDEX
-Gopher-sisällys
+Gopher-sisï¿½llys
 ;
 MSG_AWEB_GOPHERMENU
 Gopher-valikko
@@ -1348,16 +1348,16 @@ MSG_AWEB_LOOKUP
 Etsin osoitetta %s
 ;
 MSG_AWEB_CONNECT
-Luon %s yhteyttä osoitteeseen %s
+Luon %s yhteyttï¿½ osoitteeseen %s
 ;
 MSG_AWEB_WAITING
-%s pyyntö lähetetty; odotan vastausta
+%s pyyntï¿½ lï¿½hetetty; odotan vastausta
 ;
 MSG_AWEB_TCPSTART
-Muodostan TCP-yhteyttä
+Muodostan TCP-yhteyttï¿½
 ;
 MSG_AWEB_FORMLOCATION
-Lähetä kaavake kohteessa x=%ld, y=%ld
+Lï¿½hetï¿½ kaavake kohteessa x=%ld, y=%ld
 ;
 MSG_AWEB_FORMBUTTON
 Aloita
@@ -1366,10 +1366,10 @@ MSG_AWEB_FRAME_RESIZE
 Muokkaa framekokoa
 ;
 MSG_AWEB_LOGIN
-Kirjaudun sisään osoitteessa %s
+Kirjaudun sisï¿½ï¿½n osoitteessa %s
 ;
 MSG_AWEB_NEWSGROUP
-Tarkastan ryhmää %s
+Tarkastan ryhmï¿½ï¿½ %s
 ;
 MSG_AWEB_NEWSSCAN
 Tarkastan %s (%ld artikkelia)
@@ -1378,11 +1378,11 @@ MSG_AWEB_NEWSSORT
 Lajittelen %s
 ;
 MSG_AWEB_NEWSPOST
-Lähetän artikkelia
+Lï¿½hetï¿½n artikkelia
 ;
 MSG_AWEB_MAILSEND
-Lähetän sähköpostiviestiä
+Lï¿½hetï¿½n sï¿½hkï¿½postiviestiï¿½
 ;
 MSG_AWEB_UPLOAD
-Lähetän tiedostoa
+Lï¿½hetï¿½n tiedostoa
 ;

@@ -68,6 +68,9 @@ extern BOOL Installimgsource(void);
 extern BOOL Installimgcopy(void);
 extern BOOL Installpopup(void);
 extern void Closeopenpopups(void);
+extern BOOL InitBulletFont(void);
+extern void FreeBulletFont(void);
+extern void AwebCloseBrowserFont(struct TextFont *tf);
 extern BOOL Installextprog(void);
 extern BOOL Installnetstatwin(void);
 extern BOOL Installhotlist(void);
@@ -326,6 +329,8 @@ extern struct Library *Openaweblib(UBYTE *name);
 
    /* Open the awebjs library if not already open */
 extern struct Library *Openjslib(void);
+extern struct Library *Openwasmlib(void);
+extern BOOL WasmAvailable(void);
 
    /* Load requester */
 extern void Openloadreq(struct Screen *screen);

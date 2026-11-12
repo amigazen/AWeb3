@@ -35,6 +35,7 @@ static void EmlCommitBodyPart(struct EmlParser *parser, struct EmailBodyPart *pa
 static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end);
 static void FreeEmailBodyPart(struct EmailBodyPart *part, UBYTE *why);
 static BOOL BodyPartInList(struct EmailBodyPart *list, struct EmailBodyPart *part);
+static UBYTE *FindLineEnd(UBYTE *p, UBYTE *end);
 extern UBYTE *DecodeContent(UBYTE *data, long datalen, UBYTE *encoding, long encodinglen, long *outputlen);
 
 #define DupString EmlDupString
@@ -84,11 +85,24 @@ static void EmlLinkBodyPart(struct EmailMessage *message, struct EmailBodyPart *
 
    if(!message || !part) return;
 
+   EMLDBG5("EmlLinkBodyPart: part=%lx html=%ld text=%ld multipart=%ld datalen=%ld",
+      (ULONG)part, (ULONG)part->is_html, (ULONG)part->is_text,
+      (ULONG)part->is_multipart, part->datalen);
+   if(part->content_type)
+   {  EMLDBG2("EmlLinkBodyPart: content-type=%s charset=%s",
+         part->content_type,
+         part->charset ? part->charset : (UBYTE *)"(none)");
+   }
+
    if(part->is_html)
    {  message->html_part = part;
+      EMLDBG2("EmlLinkBodyPart: selected html_part=%lx len=%ld",
+         (ULONG)part, part->datalen);
    }
    else if(part->is_text)
    {  message->text_part = part;
+      EMLDBG2("EmlLinkBodyPart: selected text_part=%lx len=%ld",
+         (ULONG)part, part->datalen);
    }
    else
    {  if(!message->body_parts)
@@ -100,6 +114,69 @@ static void EmlLinkBodyPart(struct EmailMessage *message, struct EmailBodyPart *
          last->next = part;
       }
    }
+}
+
+/* True when p points to the start of a line within a MIME body region. */
+static BOOL EmlAtLineStart(UBYTE *p, UBYTE *region_start)
+{
+   if(p <= region_start) return TRUE;
+   if(p[-1] == '\n') return TRUE;
+   if(p >= region_start + 2 && p[-1] == '\r' && p[-2] == '\n') return TRUE;
+   return FALSE;
+}
+
+/* RFC 2046: boundary delimiter is "--" + boundary, optional "--" close, then
+ * transport-padding (LWSP) + CRLF. We are deliberately lenient about what
+ * follows the closing "--": IMAP delivery, MIME relays, or buggy senders can
+ * leave NULs, 0x80+ bytes, or other garbage between the closing dashes and
+ * the line ending. As long as the line is anchored at a line start, begins
+ * with "--<boundary>" and the character after the boundary (and any
+ * closing "--") is not itself a bchars continuation, we treat it as a valid
+ * boundary. If "--" follows immediately, mark as close. */
+static BOOL EmlIsBchar(UBYTE c)
+{  if(c >= 'A' && c <= 'Z') return TRUE;
+   if(c >= 'a' && c <= 'z') return TRUE;
+   if(c >= '0' && c <= '9') return TRUE;
+   switch(c)
+   {  case '+': case '_': case '-':
+      case ',': case '.': case '/':
+      case ':': case '=': case '?':
+      case '\'': case '(': case ')':
+         return TRUE;
+   }
+   return FALSE;
+}
+
+static BOOL EmlMatchBoundaryLine(UBYTE *p, UBYTE *region_start, UBYTE *end,
+   UBYTE *boundary_str, long boundarylen, BOOL *is_closing)
+{
+   UBYTE *lineend;
+   UBYTE *q;
+
+   if(is_closing) *is_closing = FALSE;
+   if(!p || !boundary_str || boundarylen <= 0) return FALSE;
+   if(!EmlAtLineStart(p, region_start)) return FALSE;
+   if(p + boundarylen > end) return FALSE;
+   if(p[0] != '-' || p[1] != '-') return FALSE;
+   if(strnicmp(p, boundary_str, boundarylen)) return FALSE;
+
+   lineend = FindLineEnd(p, end);
+   q = p + boundarylen;
+
+   /* Detect the closing "--" right after the boundary value. */
+   if(q + 1 < end && q + 1 < lineend && q[0] == '-' && q[1] == '-')
+   {
+      if(is_closing) *is_closing = TRUE;
+      q += 2;
+   }
+
+   /* Anything after the boundary (and optional closing dashes) that is a
+    * boundary-continuation character means we matched a shorter prefix of a
+    * longer boundary value: reject. End-of-buffer, CR/LF, whitespace, or any
+    * other non-bchars byte is acceptable transport-padding/garbage. */
+   if(q < end && q < lineend && EmlIsBchar(*q)) return FALSE;
+
+   return TRUE;
 }
 
 /* Decode and commit a finished part; expand nested multipart (e.g. alternative inside mixed). */
@@ -117,9 +194,30 @@ static void EmlCommitBodyPart(struct EmlParser *parser, struct EmailBodyPart *pa
 
    if(raw_start && raw_end > raw_start)
    {  partlen = raw_end - raw_start;
+      EMLDBG5("EmlCommitBodyPart: part=%lx rawlen=%ld html=%ld text=%ld multipart=%ld",
+         (ULONG)part, partlen, (ULONG)part->is_html, (ULONG)part->is_text,
+         (ULONG)part->is_multipart);
+      if(part->content_type)
+      {  EMLDBG2("EmlCommitBodyPart: content-type=%s encoding=%s",
+            part->content_type,
+            part->content_transfer_encoding ? part->content_transfer_encoding : (UBYTE *)"(none)");
+      }
       partdata = DupString(raw_start, partlen);
       if(partdata)
-      {  decoded = DecodeContent(partdata, partlen,
+      {
+         /* Nested multipart bodies must stay raw; base64/QP would destroy boundaries. */
+         if(part->is_multipart && part->subboundary && part->subboundarylen > 0)
+         {
+            EMLDBG3("EmlCommitBodyPart: nested multipart len=%ld boundary=%.*s",
+               partlen, (int)part->subboundarylen, part->subboundary);
+            parser->current_part = NULL;
+            EmlParseMultipartRegion(parser, partdata, partdata + partlen,
+               part->subboundary, part->subboundarylen);
+            FreeVec(partdata);
+            FreeEmailBodyPart(part, "nested_container");
+            return;
+         }
+         decoded = DecodeContent(partdata, partlen,
             part->content_transfer_encoding,
             part->content_transfer_encodinglen,
             &decodedlen);
@@ -127,9 +225,21 @@ static void EmlCommitBodyPart(struct EmlParser *parser, struct EmailBodyPart *pa
          {  if(part->data) FreeVec(part->data);
             part->data = decoded;
             part->datalen = decodedlen;
+            EMLDBG3("EmlCommitBodyPart: decoded part=%lx data=%lx len=%ld",
+               (ULONG)part, (ULONG)part->data, part->datalen);
+         }
+         else
+         {  EMLDBG1("EmlCommitBodyPart: DecodeContent returned NULL part=%lx",
+               (ULONG)part);
          }
          FreeVec(partdata);
       }
+      else
+      {  EMLDBG1("EmlCommitBodyPart: DupString failed rawlen=%ld", partlen);
+      }
+   }
+   else
+   {  EMLDBG1("EmlCommitBodyPart: no raw payload part=%lx", (ULONG)part);
    }
 
    if(parser->current_attachment && part->data)
@@ -140,25 +250,6 @@ static void EmlCommitBodyPart(struct EmlParser *parser, struct EmailBodyPart *pa
       part->data = NULL;
       part->datalen = 0;
       FreeEmailBodyPart(part, "xfer_to_attach");
-      return;
-   }
-
-   if(part->is_multipart && part->subboundary && part->subboundarylen > 0
-      && part->data && part->datalen > 0)
-   {  UBYTE *nested;
-      long nestedlen;
-
-      nested = part->data;
-      nestedlen = part->datalen;
-      EMLDBG2("EmlCommitBodyPart: nested multipart len=%ld boundary=%s",
-         nestedlen, part->subboundary);
-      part->data = NULL;
-      part->datalen = 0;
-      parser->current_part = NULL;
-      EmlParseMultipartRegion(parser, nested, nested + nestedlen,
-         part->subboundary, part->subboundarylen);
-      FreeVec(nested);
-      FreeEmailBodyPart(part, "nested_container");
       return;
    }
 
@@ -320,7 +411,9 @@ static void ParseHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
    {  UBYTE *boundary;
       UBYTE *p;
       if(value && valuelen > 0)
-      {  /* Check for multipart */
+      {  EMLDBG2("ParseHeader: top content-type=%.*s",
+            (int)valuelen, value);
+         /* Check for multipart */
          if(strstr(value, "multipart"))
          {  parser->message->is_multipart = TRUE;
             /* Extract boundary */
@@ -342,6 +435,9 @@ static void ParseHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
                   if(parser->message->boundary)
                   {  parser->message->boundarylen = p - boundary;
                      parser->in_multipart = TRUE;
+                     EMLDBG2("ParseHeader: top boundary=%.*s",
+                        (int)parser->message->boundarylen,
+                        parser->message->boundary);
                   }
                }
             }
@@ -597,6 +693,8 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
       {  if(part->content_type) FreeVec(part->content_type);
          part->content_type = DupString(value, valuelen);
          if(part->content_type) part->content_typelen = valuelen;
+         EMLDBG3("ParsePartHeader: part=%lx content-type=%.*s",
+            (ULONG)part, (int)valuelen, value);
 
          part->is_multipart = FALSE;
          if(part->subboundary)
@@ -607,16 +705,25 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
          if(strstr(part->content_type, "multipart/"))
          {  part->is_multipart = TRUE;
             EmlExtractBoundary(value, valuelen, &part->subboundary, &part->subboundarylen);
+            EMLDBG3("ParsePartHeader: nested multipart part=%lx boundary=%.*s",
+               (ULONG)part, (int)part->subboundarylen,
+               part->subboundary ? part->subboundary : (UBYTE *)"");
          }
          
          /* Check if HTML or text */
          if(strstr(part->content_type, "text/html"))
          {  part->is_html = TRUE;
             part->is_text = FALSE;
+            parser->current_attachment = NULL;
+            EMLDBG1("ParsePartHeader: part=%lx classified text/html",
+               (ULONG)part);
          }
          else if(strstr(part->content_type, "text/plain"))
          {  part->is_text = TRUE;
             part->is_html = FALSE;
+            parser->current_attachment = NULL;
+            EMLDBG1("ParsePartHeader: part=%lx classified text/plain",
+               (ULONG)part);
          }
          
          /* Extract charset */
@@ -633,6 +740,8 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
                {  if(part->charset) FreeVec(part->charset);
                   part->charset = DupString(p, semicolon - p);
                   if(part->charset) part->charsetlen = semicolon - p;
+                  EMLDBG2("ParsePartHeader: charset=%.*s",
+                     (int)part->charsetlen, part->charset);
                }
             }
          }
@@ -643,14 +752,35 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
       {  if(part->content_transfer_encoding) FreeVec(part->content_transfer_encoding);
          part->content_transfer_encoding = DupString(value, valuelen);
          if(part->content_transfer_encoding) part->content_transfer_encodinglen = valuelen;
+         EMLDBG3("ParsePartHeader: part=%lx encoding=%.*s",
+            (ULONG)part, (int)valuelen, value);
       }
    }
    else if(namelen == 19 && strnicmp(name, "Content-Disposition", 19) == 0)
    {  UBYTE *p;
       UBYTE *filename;
       if(value && valuelen > 0)
-      {  /* Check if this is an attachment */
-         if(strstr(value, "attachment") || strstr(value, "inline"))
+      {  BOOL is_body_text;
+         BOOL make_attach;
+         is_body_text = FALSE;
+         make_attach = FALSE;
+         if(part && part->content_type && part->content_typelen > 0)
+         {
+            if(strstr(part->content_type, "text/html")
+            || strstr(part->content_type, "text/plain"))
+            {  is_body_text = TRUE;
+            }
+         }
+         if(strstr(value, "attachment"))
+         {  make_attach = TRUE;
+         }
+         else if(strstr(value, "inline") && !is_body_text)
+         {  make_attach = TRUE;
+         }
+         EMLDBG5("ParsePartHeader: disposition part=%lx value=%.*s body_text=%ld attach=%ld",
+            (ULONG)part, (int)valuelen, value, (ULONG)is_body_text,
+            (ULONG)make_attach);
+         if(make_attach)
          {  /* Create attachment structure */
             attach = (struct EmailAttachment *)AllocVec(sizeof(struct EmailAttachment), MEMF_CLEAR);
             if(attach)
@@ -699,10 +829,16 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
                   last->next = attach;
                }
                message->attachment_count++;
+               EMLDBG4("ParsePartHeader: attachment=%lx part=%lx inline=%ld count=%ld",
+                  (ULONG)attach, (ULONG)part, (ULONG)attach->is_inline,
+                  message->attachment_count);
                
                /* Mark part as attachment */
                parser->current_attachment = attach;
             }
+         }
+         else if(is_body_text)
+         {  parser->current_attachment = NULL;
          }
       }
    }
@@ -712,12 +848,16 @@ static void ParsePartHeader(struct EmlParser *parser, UBYTE *line, UBYTE *end)
          {  if(parser->current_attachment->content_id) FreeVec(parser->current_attachment->content_id);
             parser->current_attachment->content_id = DupString(value, valuelen);
             if(parser->current_attachment->content_id) parser->current_attachment->content_idlen = valuelen;
+            EMLDBG3("ParsePartHeader: attachment content-id=%.*s attach=%lx",
+               (int)valuelen, value, (ULONG)parser->current_attachment);
          }
          else if(part)
          {  /* Store Content-ID for body parts too (for cid: URL references) */
             if(part->content_id) FreeVec(part->content_id);
             part->content_id = DupString(value, valuelen);
             if(part->content_id) part->content_idlen = valuelen;
+            EMLDBG3("ParsePartHeader: body content-id=%.*s part=%lx",
+               (int)valuelen, value, (ULONG)part);
          }
       }
    }
@@ -736,30 +876,38 @@ static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYT
    long boundarylen;
    BOOL in_part;
    BOOL found_boundary;
+   BOOL is_closing;
    struct EmailBodyPart *finished_part;
 
    if(!parser || !parser->message || !boundary || boundary_rawlen <= 0) return;
    if(!start || !end || end <= start) return;
 
-   if(boundary_rawlen + 3 > sizeof(boundary_str)) return;
-   strcpy(boundary_str, "--");
-   strncat(boundary_str, boundary, boundary_rawlen);
-   boundarylen = boundary_rawlen + 2;
+   if(boundary_rawlen <= 0 || boundary_rawlen + 2 >= (long)sizeof(boundary_str)) return;
+   boundary_str[0]='-';
+   boundary_str[1]='-';
+   memcpy(boundary_str+2,boundary,boundary_rawlen);
+   boundarylen=boundary_rawlen+2;
+   boundary_str[boundarylen]='\0';
 
    p = start;
    in_part = FALSE;
    part_start = NULL;
    finished_part = NULL;
+   is_closing = FALSE;
+   EMLDBG3("EmlParseMultipartRegion: begin len=%ld boundary=%.*s",
+      end - start, (int)boundary_rawlen, boundary);
 
    while(p < end)
    {  found_boundary = FALSE;
+      is_closing = FALSE;
 
-      if(p + boundarylen <= end && *p == '-' && p[1] == '-')
-      {  if(!strnicmp(p, boundary_str, boundarylen))
-         {  found_boundary = TRUE;
+      if(EmlMatchBoundaryLine(p, start, end, boundary_str, boundarylen, &is_closing))
+      {  found_boundary = TRUE;
             boundary_end = p + boundarylen;
+            EMLDBG2("EmlParseMultipartRegion: boundary offset=%ld closing=%ld",
+               p - start, (ULONG)is_closing);
 
-            if(boundary_end + 1 < end && *boundary_end == '-' && boundary_end[1] == '-')
+            if(is_closing)
             {  if(in_part && parser->current_part)
                {  part_end = p;
                   finished_part = parser->current_part;
@@ -790,6 +938,12 @@ static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYT
                if(parser->current_part)
                {  parser->in_part_headers = TRUE;
                   in_part = TRUE;
+                  /* Defensive: clear part_start so end-of-region fallback does
+                   * not reuse a previous part's body start if the headers run
+                   * past end-of-buffer. Set only when empty-line break runs. */
+                  part_start = NULL;
+                  EMLDBG2("EmlParseMultipartRegion: new part=%lx header_offset=%ld",
+                     (ULONG)parser->current_part, p - start);
 
                   while(p < end)
                   {  line = p;
@@ -803,6 +957,8 @@ static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYT
                         }
                         p = lineend;
                         part_start = p;
+                        EMLDBG2("EmlParseMultipartRegion: part body start offset=%ld part=%lx",
+                           p - start, (ULONG)parser->current_part);
                         break;
                      }
 
@@ -816,7 +972,6 @@ static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYT
                   }
                }
             }
-         }
       }
 
       if(!found_boundary)
@@ -824,12 +979,93 @@ static void EmlParseMultipartRegion(struct EmlParser *parser, UBYTE *start, UBYT
       }
    }
 
+   /* End of multipart region without closing boundary: commit any in-progress
+    * part using whatever body we have. Without this, the trailing part (often
+    * the HTML alternative) is lost when senders omit the closing boundary or
+    * when the region was parsed from a single chunk that does not end on a
+    * boundary line. Skip when part_start is NULL — headers never finished, so
+    * there is no body to capture. */
+   if(in_part && parser->current_part && part_start && part_start < end)
+   {
+      EMLDBG4("EmlParseMultipartRegion: end-of-region fallback commit part=%lx part_start_off=%ld end_off=%ld region_len=%ld",
+         (ULONG)parser->current_part,
+         (long)(part_start - start),
+         (long)(end - start),
+         (long)(end - start));
+      EmlCommitBodyPart(parser, parser->current_part, part_start, end);
+      parser->current_part = NULL;
+      parser->current_attachment = NULL;
+   }
+   else
+   {  EMLDBG3("EmlParseMultipartRegion: end-of-region skip commit in_part=%ld current=%lx part_start=%lx",
+         (ULONG)in_part, (ULONG)parser->current_part, (ULONG)part_start);
+   }
+}
+
+/* Dump up to 'showlen' bytes from end of buffer to debug log (printable
+ * substitution for non-text bytes) so we can tell whether the closing
+ * multipart boundary actually exists in the IMAP-delivered payload. */
+static void EmlDumpTail(UBYTE *buf, long buflen, long showlen)
+{
+   UBYTE line[96];
+   UBYTE *p;
+   UBYTE *q;
+   long line_off;
+   long col;
+   long byte_off;
+   UBYTE hi;
+   UBYTE lo;
+   UBYTE c;
+
+   if(!buf || buflen <= 0) return;
+   if(showlen <= 0 || showlen > buflen) showlen = buflen;
+   byte_off = buflen - showlen;
+   p = buf + byte_off;
+   q = buf + buflen;
+   col = 0;
+   line_off = byte_off;
+   while(p < q)
+   {
+      if(col >= (long)sizeof(line) - 6)
+      {
+         line[col] = '\0';
+         EMLDBG2("Tail[%ld..]: %s", line_off, line);
+         col = 0;
+         line_off = byte_off;
+      }
+      c = *p;
+      if(c == '\r') { line[col++] = '\\'; line[col++] = 'r'; }
+      else if(c == '\n') { line[col++] = '\\'; line[col++] = 'n'; }
+      else if(c >= 32 && c < 127) { line[col++] = c; }
+      else
+      {
+         hi = (UBYTE)((c >> 4) & 0xF);
+         lo = (UBYTE)(c & 0xF);
+         line[col++] = '<';
+         line[col++] = (UBYTE)(hi < 10 ? '0' + hi : 'A' + (hi - 10));
+         line[col++] = (UBYTE)(lo < 10 ? '0' + lo : 'A' + (lo - 10));
+         line[col++] = '>';
+      }
+      p++;
+      byte_off++;
+   }
+   if(col > 0)
+   {
+      line[col] = '\0';
+      EMLDBG2("Tail[%ld..end]: %s", line_off, line);
+   }
 }
 
 /* Parse top-level multipart body using message boundary. */
 static void ParseMultipartBody(struct EmlParser *parser)
 {
    if(!parser || !parser->message || !parser->message->boundary) return;
+
+   EMLDBG3("ParseMultipartBody: buffer=%lx current_off=%ld total_off=%ld",
+      (ULONG)parser->buffer,
+      (long)(parser->current - parser->buffer),
+      (long)(parser->end - parser->buffer));
+   EmlDumpTail(parser->buffer, parser->end - parser->buffer, 256);
 
    EmlParseMultipartRegion(parser, parser->current, parser->end,
       parser->message->boundary, parser->message->boundarylen);

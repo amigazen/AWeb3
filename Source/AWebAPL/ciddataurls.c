@@ -30,6 +30,27 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+/* Conditional debug print for the core AWeb build. This file is linked into
+ * AWeb and AWebView, so it must not include aweblib.h/awebplugin.h or call
+ * plugin library stubs: those headers intentionally declare a different API
+ * surface for external aweblib modules. */
+#ifndef CID_DEBUG
+#define CID_DEBUG 1
+#endif
+
+static void Cid_debug(char *fmt,...)
+{
+#if CID_DEBUG
+   va_list args;
+   if(!httpdebug || !fmt) return;
+   va_start(args,fmt);
+   AwebLogV("cid",fmt,args);
+   va_end(args);
+#else
+   (void)fmt;
+#endif
+}
+
 /* Base64 character to value conversion */
 static UBYTE Base64Char(UBYTE c)
 {  if(c >= 'A' && c <= 'Z') return (UBYTE)(c - 'A');
@@ -40,71 +61,67 @@ static UBYTE Base64Char(UBYTE c)
    return (UBYTE)64; /* Invalid */
 }
 
-/* Decode base64 encoded data (for data: URLs) */
+/* Decode base64 encoded data (for data: URLs). */
 static UBYTE *DecodeBase64Data(UBYTE *input, long inputlen, long *outputlen)
 {  UBYTE *output;
    UBYTE *out;
-   UBYTE *in;
-   UBYTE *end;
-   UBYTE c1, c2, c3, c4;
-   long len;
-   
+   long outcap;
+   long i;
+   long state;
+   UBYTE quad[4];
+   UBYTE c;
+   long v;
+
    if(!input || inputlen <= 0)
    {  if(outputlen) *outputlen = 0;
       return NULL;
    }
-   
-   /* Calculate output length (approximately 3/4 of input) */
-   len = (inputlen * 3) / 4 + 1;
-   output = (UBYTE *)Allocmem(len, 0);
+
+   outcap = (inputlen * 3) / 4 + 4;
+   output = (UBYTE *)Allocmem(outcap, 0);
    if(!output)
    {  if(outputlen) *outputlen = 0;
       return NULL;
    }
-   
+
    out = output;
-   in = input;
-   end = input + inputlen;
-   
-   while(in < end - 3)
-   {  /* Skip whitespace */
-      while(in < end && (*in == ' ' || *in == '\t' || *in == '\r' || *in == '\n'))
-      {  in++;
-      }
-      if(in >= end - 3) break;
-      
-      c1 = Base64Char(in[0]);
-      c2 = Base64Char(in[1]);
-      c3 = Base64Char(in[2]);
-      c4 = Base64Char(in[3]);
-      
-      if(c1 >= 64 || c2 >= 64) break;
-      
-      /* Bounds check before writing */
-      if(out >= output + len) break;
-      *out++ = (c1 << 2) | (c2 >> 4);
-      
-      if(c3 >= 64)
-      {  /* Padding found */
+   state = 0;
+   for(i = 0; i < inputlen; i++)
+   {
+      c = input[i];
+      if(c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
+      if(c == '=')
+      {
+         if(state >= 2)
+         {
+            *out++ = (UBYTE)((quad[0] << 2) | (quad[1] >> 4));
+            if(state >= 3)
+            {
+               *out++ = (UBYTE)(((quad[1] & 0x0F) << 4) | (quad[2] >> 2));
+            }
+         }
          break;
       }
-      
-      /* Bounds check before writing */
-      if(out >= output + len) break;
-      *out++ = ((c2 & 0x0F) << 4) | (c3 >> 2);
-      
-      if(c4 >= 64)
-      {  /* Padding found */
-         break;
+      v = (long)Base64Char(c);
+      if(v >= 64) continue;
+      quad[state++] = (UBYTE)v;
+      if(state == 4)
+      {
+         *out++ = (UBYTE)((quad[0] << 2) | (quad[1] >> 4));
+         *out++ = (UBYTE)(((quad[1] & 0x0F) << 4) | (quad[2] >> 2));
+         *out++ = (UBYTE)(((quad[2] & 0x03) << 6) | quad[3]);
+         state = 0;
       }
-      
-      /* Bounds check before writing */
-      if(out >= output + len) break;
-      *out++ = ((c3 & 0x03) << 6) | c4;
-      
-      in += 4;
    }
-   
+   if(state >= 2)
+   {
+      *out++ = (UBYTE)((quad[0] << 2) | (quad[1] >> 4));
+      if(state >= 3)
+      {
+         *out++ = (UBYTE)(((quad[1] & 0x0F) << 4) | (quad[2] >> 2));
+      }
+   }
+
    if(outputlen) *outputlen = out - output;
    return output;
 }
@@ -149,32 +166,49 @@ void Cidurltask(struct Fetchdriver *fd)
    long datalen = 0;
    BOOL error = FALSE;
    BOOL eof = TRUE;
-   
+
    /* Extract Content-ID from URL (skip "cid:" prefix) */
    content_id = fd->name;
-   
+
    /* Get referer URL to find the source document */
    referer = fd->referer;
-   
+
+   /* Unconditional trace: helps diagnose why inline images don't render.
+    * Without referer the CID registry lookup can't succeed; without an id
+    * (the part after "cid:") there is nothing to look up. */
+   Cid_debug("CID: Cidurltask entry referer=%s name=%s",
+      referer ? (char *)referer : "(null)",
+      content_id ? (char *)content_id : "(null)");
+
    if(!content_id || !*content_id)
-   {  error = TRUE;
+   {  Cid_debug("CID: Cidurltask error empty id");
+      error = TRUE;
    }
    else if(!referer || !*referer)
    {  /* No referer - can't look up part */
+      Cid_debug("CID: Cidurltask error empty referer (id=%s)",content_id);
       error = TRUE;
    }
    else
    {  /* Look up part data by Content-ID and referer */
       if(!Findcidpart(referer, content_id, &content_type, &data, &datalen))
       {  error = TRUE;
+         Cid_debug("CID: Cidurltask Findcidpart MISS referer=%s id=%s",
+            referer,content_id);
          if(httpdebug)
          {  AwebLog("cid","Cidurltask: Findcidpart failed referer=%s id=%s",
                referer?referer:(UBYTE *)"(null)",
                content_id?content_id:(UBYTE *)"(null)");
          }
       }
+      else
+      {  Cid_debug("CID: Cidurltask Findcidpart HIT referer=%s id=%s type=%s len=%ld",
+            referer,content_id,
+            content_type ? (char *)content_type : "(null)",
+            datalen);
+      }
    }
-   
+
    if(error)
    {  Tcperror(fd, TCPERR_XAWEB, fd->name);
    }
@@ -183,22 +217,23 @@ void Cidurltask(struct Fetchdriver *fd)
       if(content_type)
       {  Updatetaskattrs(AOURL_Contenttype, content_type, TAG_END);
       }
-      
-      /* Send data directly from RAM (no copy needed)
-       * The CID registry keeps the original data in memory for the document lifetime.
-       * imgsource will use RAM mode (DTST_MEMORY) to render directly from this buffer,
-       * avoiding disk I/O. The registry copy persists in RAM until Unregistercidparts()
-       * is called when the document is closed. */
+
+      /* Deliver CID body via the normal AOURL_Data path. imgsource copies into
+       * its owned ramdata and decodes with DTST_MEMORY; disk cache is not used
+       * (CID URLs are non-cacheable). Registry data stays valid until
+       * Unregistercidparts() when the document closes. */
       if(data && datalen > 0)
-      {  Updatetaskattrs(
+      {  Cid_debug("CID: Cidurltask delivering %ld bytes type=%s",
+            datalen,
+            content_type ? (char *)content_type : "(null)");
+         Updatetaskattrs(
             AOURL_Data, data,
             AOURL_Datalength, datalen,
             TAG_END);
-         /* NOTE: Do NOT free data here - it's owned by the CID registry and will remain
-          * valid for the document lifetime. imgsource will use it directly via RAM mode. */
+         /* Do not free data here - owned by the CID registry for document life. */
       }
    }
-   
+
    Updatetaskattrs(AOTSK_Async, TRUE,
       AOURL_Error, error,
       AOURL_Eof, eof,
@@ -223,7 +258,10 @@ void Dataurltask(struct Fetchdriver *fd)
    UBYTE *semicolon;
    UBYTE *data_str;
    UBYTE *decoded_data = NULL;
+   UBYTE *deliver_data;
+   UBYTE *reg_type;
    long mediatype_len;
+   long deliver_len;
    
    /* fd->name contains the data: URL without the "data:" prefix (stripped in fetch.c)
     * We need to reconstruct the full data: URL string for the registry key */
@@ -311,44 +349,41 @@ void Dataurltask(struct Fetchdriver *fd)
       Tcperror(fd, TCPERR_XAWEB, fd->name);
    }
    else
-   {  
+   {  deliver_data = NULL;
+      deliver_len = 0;
+      reg_type = content_type;
+
       /* Set content type first */
       Updatetaskattrs(AOURL_Contenttype, content_type, TAG_END);
-      
-      /* Register decoded data in unified registry for persistence.
-       * Tie data: URLs to the owning document referer so they are released on document close. */
-      if(data && datalen > 0 && data_uri)
-      {  UBYTE *full_data_url;
-         long full_url_len;
-         
-         /* Reconstruct full data: URL string (fd->name has "data:" prefix stripped) */
-         full_url_len = 5 + strlen(data_uri) + 1; /* "data:" + data_uri + null */
-         full_data_url = (UBYTE *)Allocmem(full_url_len, 0);
-         if(full_data_url)
-         {  strcpy(full_data_url, "data:");
-            strcat(full_data_url, data_uri);
-            Registercidpart(fd->referer, full_data_url, content_type, data, datalen);
-            FREE(full_data_url);
-         }
-         else
-         {  
+
+      if(data && datalen > 0 && fd->referer)
+      {
+         /* Registry owns the payload; deliver that copy (not freed below). */
+         if(Registercidpart(fd->referer, fd->name, content_type, data, datalen))
+         {
+            if(Findcidpart(fd->referer, fd->name, &reg_type, &deliver_data, &deliver_len))
+            {
+               Updatetaskattrs(
+                  AOURL_Data, deliver_data,
+                  AOURL_Datalength, deliver_len,
+                  TAG_END);
+            }
          }
       }
-      
-      /* Deliver to the document; registry already holds its own copy for reuse. */
-      if(data && datalen > 0)
-      {  Updatetaskattrs(
+      else if(data && datalen > 0)
+      {
+         Updatetaskattrs(
             AOURL_Data, data,
             AOURL_Datalength, datalen,
             TAG_END);
       }
-      
+
       Updatetaskattrs(AOTSK_Async, TRUE,
          AOURL_Error, error,
          AOURL_Eof, eof,
          AOURL_Terminate, TRUE,
          TAG_END);
-      
+
       if(content_type_allocated) FREE(content_type_allocated);
       if(mediatype_copy) FREE(mediatype_copy);
       if(decoded_data) FREE(decoded_data);

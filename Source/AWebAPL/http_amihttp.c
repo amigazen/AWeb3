@@ -206,7 +206,7 @@ static BOOL Http4_formwarn(void)
 }
 #endif
 
-static UBYTE Http4DefaultUa[128];
+static UBYTE Http4DefaultUa[256];
 static BOOL Http4DefaultUaInit;
 
 static UBYTE *
@@ -215,21 +215,21 @@ Http4_useragent(void)
 #ifndef DEMOVERSION
    ObtainSemaphore(&prefssema);
    if (prefs.network.spoofid && prefs.network.spoofid[0]) {
-      static UBYTE buf[128];
-      sprintf((char *)buf, "Mozilla/4.0 (compatible; %s)", prefs.network.spoofid);
+      static UBYTE buf[256];
+      /* Match http.c: chooser / prefs value is the full User-Agent string.
+       * Do not wrap non-Mozilla tokens — Anubis challenges any UA containing
+       * "Mozilla", and an Amiga-native spoof must stay Mozilla-free. */
+      strcpy((char *)buf, (char *)prefs.network.spoofid);
       ReleaseSemaphore(&prefssema);
       return buf;
    }
    ReleaseSemaphore(&prefssema);
 #endif
    if (!Http4DefaultUaInit) {
-      /*
-       * Modern Chrome-like UA for AWeb4; many sites (e.g. Google) serve a stub
-       * page to legacy Mozilla/4.0.  Prefs spoof ID still overrides this.
-       */
+      /* Same default as http.c — no Chrome/WebKit tokens (Google mobile/SPA). */
       sprintf((char *)Http4DefaultUa,
-         "Mozilla/5.0 (compatible; AWeb/%s; %s) AppleWebKit/537.36 Chrome/120.0.0.0",
-         awebversion, Awebosversion());
+         "Mozilla/5.0 (%s; compatible; AWeb/%s)",
+         Awebosversion(), awebversion);
       Http4DefaultUaInit = TRUE;
    }
    return Http4DefaultUa;

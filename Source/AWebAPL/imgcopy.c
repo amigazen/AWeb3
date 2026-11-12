@@ -387,6 +387,9 @@ static long Getimgcopy(struct Imgcopy *img,struct Amset *ams)
       {  case AOCDV_Ready:
             PUTATTR(tag,BOOLVAL(img->bitmap));
             break;
+         case AOCDV_Sourcedriver:
+            PUTATTR(tag,img->source);
+            break;
          case AOCDV_Imagebitmap:
             PUTATTR(tag,img->bitmap);
             break;

@@ -649,8 +649,13 @@ static void Parsecookie(UBYTE *cookiespec,UBYTE *orgdomain,UBYTE *orgpath,ULONG 
       /* Domain must not match any "no-cookie" domains */
       if(domain && Nocookie(domain)) domain=NULL;
       if(domain && path)
-      {  if(!orgdomain
+      {  /* Anubis challenge cookies are short-lived bot-wall tokens, not
+          * tracking cookies — accept quietly so pass-challenge can succeed. */
+         if(name && STRNIEQUAL(name,"techaro.lol-anubis-",18))
+            ok=COOKIE_ACCEPT;
+         if(!orgdomain
          || prefs.network.cookies==COOKIES_QUIET
+         || ok==COOKIE_ACCEPT
          || (ok=Knowncookie(domain,path,name))
          || (ok=Askcookie(domain,path,name,value,expires,maxage,comment,secure)))
          {  if(ck=ALLOCSTRUCT(Cookie,1,MEMF_PUBLIC|MEMF_CLEAR))

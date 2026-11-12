@@ -291,9 +291,9 @@ The first release from amigazen project is version 3.6. The goals of this releas
 - "Complete" the features necessary to make a fully standards compatible HTML 4.01 and XHTML 1.1 generation web browser for the Amiga, with CSS 2 and JavaScript 1.5 (ECMAScript 3)
 
 Notable changes in version 3.6 compared to versions 3.5 and 3.4 are:
-- Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5.2 and NDK3.2
+- Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), Cybergraphics (default RTG; optional Picasso96 via `AWEB_USE_P96`), AmiSSL 5.2 and NDK3.2
 - Adding HTTP/1.1, keep-alive connections, chunked encoding and gzip compressed streams 
-- Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ which will be automatically assigned to point to AWeb's PROGDIR: on launch if it does not already exist
+- Renamed the application to simply _AWeb_, not AWeb or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ which will be automatically assigned to point to AWeb's PROGDIR: on launch if it does not already exist
 - Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.27 or later
 - Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
 - With many more features now added in the releases listed below

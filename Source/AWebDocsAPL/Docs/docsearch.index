@@ -26,14 +26,14 @@ F AWeb:docs/bugs.html
 2 AWeb bugs
 F AWeb:docs/history.html
 1 AWeb release history
-2 AWeb-II 3.4
-2 AWeb-II 3.3
-2 AWeb-II 3.2
-2 AWeb-II 3.1
-2 AWeb-II 3.0b (bugfix)
-2 AWeb-II 3.0
-2 AWeb-II 2.1
-2 AWeb-II 2.0, AWeb 1.2b
+2 AWeb 3.4
+2 AWeb 3.3
+2 AWeb 3.2
+2 AWeb 3.1
+2 AWeb 3.0b (bugfix)
+2 AWeb 3.0
+2 AWeb 2.1
+2 AWeb 2.0, AWeb 1.2b
 2 AWeb 1.2
 2 AWeb 1.1
 2 AWeb 1.0
@@ -554,7 +554,7 @@ A viewer
 2 Save and restore
 2 Using other hotlists
 F AWeb:docs/aweb.html
-1 AWeb-II 3.4
+1 AWeb 3.4
 2 Introduction 
 2 Before you begin 
 2 Getting started 

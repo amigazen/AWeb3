@@ -41,6 +41,7 @@ extern struct Library *AwebPluginBase;
 #define EMLDBG3(s,a,b,c)        Aprintf("EML: " s "\n", (a), (b), (c))
 #define EMLDBG4(s,a,b,c,d)      Aprintf("EML: " s "\n", (a), (b), (c), (d))
 #define EMLDBG5(s,a,b,c,d,e)    Aprintf("EML: " s "\n", (a), (b), (c), (d), (e))
+#define EMLDBG6(s,a,b,c,d,e,f)  Aprintf("EML: " s "\n", (a), (b), (c), (d), (e), (f))
 #else
 #define EMLDBG0(s)
 #define EMLDBG1(s,a)
@@ -48,6 +49,7 @@ extern struct Library *AwebPluginBase;
 #define EMLDBG3(s,a,b,c)
 #define EMLDBG4(s,a,b,c,d)
 #define EMLDBG5(s,a,b,c,d,e)
+#define EMLDBG6(s,a,b,c,d,e,f)
 #endif
 
 /* Email header structure */

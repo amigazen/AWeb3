@@ -7,7 +7,8 @@ Building AWeb requires the following prerequisites:
 - SAS/C 6.58 - this can be obtained from archive.org
 - NDK 3.2 Release 4 - this can be obtained from the Hyperion website or from Aminet
 - AmiSSL 5.20 SDK or later - this can be obtained from Aminet
-- P96 SDK - this is included in the ToolKit SDK 
+- Cybergraphics SDK (default RTG backend) - typically available via ToolKit / Aminet
+- P96 SDK - optional alternate RTG backend (included in the ToolKit SDK); enable with `AWEBGFXFLAGS=DEFINE=AWEB_USE_P96`
 - reaction.lib - a compatible reimplementation of this is included in the ToolKit SDK
 
 ## ToolKit
@@ -143,6 +144,19 @@ TODO
 cd Source/AWebAPL
 smake
 ```
+
+### RTG graphics backend (CyberGfx default / Picasso96 optional)
+
+AWeb uses CyberGfx call shapes via `AWebApiAPL/include/awebgfx.h`. The
+**default** build opens `cybergraphics.library`. To build against
+`Picasso96API.library` instead (same sources):
+
+```
+smake AWEBGFXFLAGS=DEFINE=AWEB_USE_P96
+```
+
+Do the same in each plugin directory (GIF/PNG/JFIF/WebP/SVG/PDF). Delete
+`#?.o` when switching backends so objects are not mixed.
 
 Or to build individual targets one by one
 

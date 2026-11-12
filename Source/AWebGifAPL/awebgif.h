@@ -27,7 +27,7 @@
 extern struct Library *SysBase;         /* Defined in startup.c */
 extern struct Library *DOSBase;
 extern struct Library *AwebPluginBase;
-extern struct Library *P96Base;
+extern struct Library *CyberGfxBase;
 
 /* Pointer to our own library base */
 extern struct AwebGifBase *PluginBase;

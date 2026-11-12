@@ -19,6 +19,8 @@
 /* awebgif.c - AWeb gif plugin main */
 
 #include "pluginlib.h"
+struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebgif.h"
 #include <libraries/awebplugin.h>
 #include <proto/awebplugin.h>
@@ -26,12 +28,9 @@
 #include <proto/graphics.h>
 #include <proto/intuition.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
-
 BOOL animate;
 
 /* Library bases */
-struct Library *P96Base;
 struct Library *AwebPluginBase;
 struct Library *DOSBase;
 
@@ -40,7 +39,7 @@ ULONG Initpluginlib(struct AwebGifBase *base)
    GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39);
    IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
-   P96Base=OpenLibrary("Picasso96.library",0);
+   CyberGfxBase=AwebOpenRtgGfx();
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
    /* olsen: I need StrToLong() in the library. */
    DOSBase=OpenLibrary("dos.library",37);
@@ -49,7 +48,7 @@ ULONG Initpluginlib(struct AwebGifBase *base)
 #ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Initpluginlib: base=0x%08lx, GfxBase=0x%08lx, IntuitionBase=0x%08lx\n", (ULONG)base, (ULONG)GfxBase, (ULONG)IntuitionBase);
-      Aprintf("GIF: Initpluginlib: UtilityBase=0x%08lx, P96Base=0x%08lx, AwebPluginBase=0x%08lx\n", (ULONG)UtilityBase, (ULONG)P96Base, (ULONG)AwebPluginBase);
+      Aprintf("GIF: Initpluginlib: UtilityBase=0x%08lx, CyberGfxBase=0x%08lx, AwebPluginBase=0x%08lx\n", (ULONG)UtilityBase, (ULONG)CyberGfxBase, (ULONG)AwebPluginBase);
       Aprintf("GIF: Initpluginlib: DOSBase=0x%08lx, result=%ld\n", (ULONG)DOSBase, result);
    }
 #endif
@@ -63,7 +62,7 @@ void Expungepluginlib(struct AwebGifBase *base)
    if(base->copydriver) 
    {  Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
    }
-   if(P96Base) CloseLibrary(P96Base);
+   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
    if(AwebPluginBase) CloseLibrary(AwebPluginBase);
    if(UtilityBase) CloseLibrary(UtilityBase);
    if(IntuitionBase) CloseLibrary(IntuitionBase);

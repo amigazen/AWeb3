@@ -33,7 +33,7 @@ extern struct AwebWebpBase *PluginBase;
 
 /* Library bases shared between translation units */
 extern struct Library *AwebPluginBase;
-extern struct Library *P96Base;
+extern struct Library *CyberGfxBase;
 extern struct GfxBase *GfxBase;
 
 /* Macro for max function.  SAS/C does not provide max() as a builtin

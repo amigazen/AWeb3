@@ -23,6 +23,13 @@
 __near long __stack=8192;
 const char *stack_cookie = "$STACK: 8192";
 
+#ifdef AWEB4
+/* defprefs.c (AWEB4) calls this; AWeb supplies bulletfont.o instead when linking AWeb4. */
+void AwebCloseBrowserFont(struct TextFont *tf)
+{  if(tf) CloseFont(tf);
+}
+#endif
+
 // Library base pointers - only declare those that don't have proto headers
 // Note: gradientslider.gadget doesn't have a proto file in the Amiga NDK
 // IntuitionBase, LocaleBase, GfxBase are provided by proto headers
@@ -146,7 +153,7 @@ void Lowlevelreq(UBYTE *msg,...)
       es.es_Flags=0;
       es.es_Title="AWebCfg";
       es.es_TextFormat=msg;
-      es.es_GadgetFormat="Ok";
+      es.es_GadgetFormat="OK" ;
       EasyRequestArgs(NULL,&es,NULL,args);
       if(opened)
       {  CloseLibrary(IntuitionBase);

@@ -1,13 +1,24 @@
 # AWeb makefile
 #
 # Invoke with `DEBUG = debug=sf' to compile selected files with debugging.
+#
+# AWEB4FLAGS is DEFINE=AWEB4 by default so "smake aweb4" compiles every object
+# with the flag on the sc command line (not via scoptions). Classic AWeb uses
+# "smake aweb", which re-invokes with AWEB4FLAGS cleared. Shared .o names —
+# delete #?.o when switching between classic and AWeb4.
+
+AWEB4FLAGS=DEFINE=AWEB4
+
+# RTG backend: CyberGfx is the default.  Set AWEBGFXFLAGS=DEFINE=AWEB_USE_P96
+# to build against Picasso96API.library instead (delete #?.o when switching).
+AWEBGFXFLAGS=
 
 #-----------------------------------------------------------------------------
 
 # Generic rule: compile .c → .o
 .c.o:
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $(AWEBGFXFLAGS) $*.c to $*.o
 
 # Dummy header rule (avoid accidental rebuilds)
 .h.h:
@@ -35,49 +46,39 @@ all:        aweblib/awebjs.aweblib
 all:        docs/makeindex
 all:        docs/searchindex
 
-#- AWeb ----------------------------------------------------------------------
+#- AWeb (classic; no AWEB4 define) ------------------------------------------
 
-aweb:       aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
-aweb:       request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
-aweb:       prefs.o defprefs.o
-#  General objects
-aweb:       object.o task.o scroller.o application.o file.o filereq.o editor.o
-aweb:       timer.o
-#  Display related objects
-aweb:       window.o event.o winrexx.o winhis.o frame.o framejs.o
-aweb:       popup.o search.o print.o printwin.o info.o saveiff.o
-#  Secondary window objects
-aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
-#  Url related objects
-aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
-aweb:       local.o httpcch.o http.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
-#  TCP/SSL drivers
-aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
-#  zlib compression library
-aweb:       /zlib/adler32.o /zlib/crc32.o /zlib/deflate.o /zlib/inflate.o /zlib/inftrees.o /zlib/inffast.o /zlib/trees.o /zlib/zutil.o
-#  Source drivers
-aweb:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
-aweb:       soundsource.o docext.o
-#  Copy drivers
-aweb:       copydriver.o document.o imgcopy.o soundcopy.o docjs.o
-#  Document objects
-aweb:       parse.o markdown.o html.o frameset.o body.o link.o map.o area.o form.o
-aweb:       element.o break.o text.o ruler.o bullet.o table.o name.o css.o
-aweb:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
-aweb:       hidden.o filefield.o
-#  Font rendering support
-aweb:       ttengine.o
-#  Link
-aweb:       aweb.lnk
+aweb:
+    @echo "        Building classic AWeb (AWEB4FLAGS cleared)..."
+    @smake AWEB4FLAGS= aweb_link
+
+aweb_link:  aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
+aweb_link:  request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
+aweb_link:  prefs.o defprefs.o
+aweb_link:  object.o task.o scroller.o application.o file.o filereq.o editor.o
+aweb_link:  timer.o
+aweb_link:  window.o event.o winrexx.o winhis.o frame.o framejs.o
+aweb_link:  popup.o search.o print.o printwin.o info.o saveiff.o
+aweb_link:  netstat.o hotlist.o whiswin.o cabrowse.o
+aweb_link:  url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
+aweb_link:  local.o httpcch.o http.o anubis.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
+aweb_link:  tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
+aweb_link:  /zlib/adler32.o /zlib/crc32.o /zlib/deflate.o /zlib/inflate.o /zlib/inftrees.o /zlib/inffast.o /zlib/trees.o /zlib/zutil.o
+aweb_link:  sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
+aweb_link:  soundsource.o docext.o
+aweb_link:  copydriver.o document.o imgcopy.o soundcopy.o docjs.o
+aweb_link:  parse.o markdown.o html.o frameset.o body.o link.o map.o area.o form.o
+aweb_link:  element.o break.o text.o ruler.o bullet.o table.o name.o css.o
+aweb_link:  field.o input.o checkbox.o radio.o select.o textarea.o button.o
+aweb_link:  hidden.o filefield.o
+aweb_link:  ttengine.o bulletfont.o awebutf8.o
+aweb_link:  aweb.lnk
     slink with aweb.lnk
 
 #-----------------------------------------------------------------------------
 
-# AWeb 4: amihttp.library HTTP stack + AWEB4 UI features (define=AWEB4=1).
-# Non-HTTP TLS (gemini, mail, …) still uses amissl.c via awebtcp.c.
-# Run "smake aweb4_opts" first (or "smake aweb4", which depends on it) to
-# activate scoptions.aweb4.  After amihttp "smake headers", Include_H may
-# also be on include: via SDK:Include_h.
+# AWeb 4: same dependency graph as classic aweb, with amihttp + Wasm.
+# DEFINE=AWEB4 comes from AWEB4FLAGS on every sc line (default above).
 
 aweb4:       aweb.o aweblog.o locale.o memory.o version.o boopsi.o support.o
 aweb4:       request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
@@ -88,7 +89,7 @@ aweb4:       window.o event.o winrexx.o winhis.o frame.o framejs.o
 aweb4:       popup.o search.o print.o printwin.o info.o saveiff.o
 aweb4:       netstat.o hotlist.o whiswin.o cabrowse.o
 aweb4:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
-aweb4:       local.o httpcch.o http_amihttp.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
+aweb4:       local.o httpcch.o http_amihttp.o anubis.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o jsonparse.o
 aweb4:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
 aweb4:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
 aweb4:       soundsource.o docext.o
@@ -97,7 +98,8 @@ aweb4:       parse.o markdown.o html.o frameset.o body.o link.o map.o area.o for
 aweb4:       element.o break.o text.o ruler.o bullet.o table.o name.o css.o
 aweb4:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
 aweb4:       hidden.o filefield.o
-aweb4:       ttengine.o
+aweb4:       ttengine.o bulletfont.o awebutf8.o
+aweb4:       wasmrun.o wasmjs.o
 aweb4:       aweb4.lnk
     slink with aweb4.lnk
 
@@ -105,19 +107,27 @@ aweb4:       aweb4.lnk
 
 author.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: $*.c to $*.o
 
 aweb.o:     aweb.c aweb.h url.h application.h window.h profile.h source.h frame.h startup.h task.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
+
+wasmrun.o:  wasmrun.c aweb.h wasmlib.h wasmrun.h wasm.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $(AWEB4FLAGS) DEFINE=AWEB4 $*.c to $*.o
+
+wasmjs.o:   wasmjs.c aweb.h wasmlib.h wasmjs.h wasm.h jslib.h frame.h fetch.h url.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $(AWEB4FLAGS) DEFINE=AWEB4 $*.c to $*.o
 
 aweblog.o:  aweblog.c aweblog.h aweb.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 awebamitcp.o: awebamitcp.c
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: $*.c to $*.o
 
 awebgst:    gst.c
     @echo "        Compiling gst.c..."
@@ -125,60 +135,72 @@ awebgst:    gst.c
 
 awebtcp.o:  awebtcp.c awebtcp.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c to $*.o
 
 amissl.o:   amissl.c aweb.h task.h awebssl.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: idir=sslinclude: MemorySize=h ppbuf=32768 IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: idir=sslinclude: MemorySize=h ppbuf=32768 IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
 
 framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h url.h winhis.h timer.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 xhrjs.o:    xhrjs.c aweb.h frame.h frprivate.h fetch.h url.h jslib.h xhrjs.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 jsonparse.o: jsonparse.c aweb.h arexx.h jsonparse.h
 
 httpcch.o:  httpcch.c aweb.h httpcch.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h httpcch.h /zlib/zlib.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: idir=sslinclude: $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: idir=sslinclude: $*.c to $*.o
+
+anubis.o:   anubis.c aweb.h anubis.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 http_amihttp.o: http_amihttp.c aweb.h awebssl.h fetchdriver.h form.h httpcch.h task.h tcperr.h url.h
     @echo "        Compiling $*.c..."
-    @sc DEFINE=AWEB4=1 idir=httpinclude: $*.c to $*.o
+    @sc $(AWEB4FLAGS) DEFINE=AWEB4 idir=httpinclude: $*.c to $*.o
 
 locale.o: aweb.cd
    catcomp aweb.cd cfile locale.h objfile locale.o
 
 nameserv.o: nameserv.c aweb.h awebtcp.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: $*.c to $*.o
 
 object.o:   object.c aweb.h object.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 print.o:    print.c aweb.h print.h window.h frame.h printwin.h application.h winhis.h
     @echo "        Compiling $*.c..."
-    @sc $(DEBUG) $*.c to $*.o
+    @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 tcp.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: $*.c to $*.o
+    @sc $(AWEB4FLAGS) idir=netinclude: $*.c to $*.o
 
-ttengine.o:      ttengine.c ttengine.h aweb.h
+ttengine.o:      ttengine.c ttengine.h aweb.h awebutf8.h bulletfont.h
     @echo "        Compiling ttengine.c..."
-    @sc idir=SDK:Include_h ttengine.c OBJNAME=ttengine.o
+    @sc $(AWEB4FLAGS) idir=SDK:Include_h ttengine.c OBJNAME=ttengine.o
+
+bulletfont.o:    bulletfont.c bulletfont.h aweb.h awebutf8.h
+    @echo "        Compiling bulletfont.c..."
+    @sc $(DEBUG) $(AWEB4FLAGS) bulletfont.c to bulletfont.o
+
+awebutf8.o:      awebutf8.c awebutf8.h aweb.h
+    @echo "        Compiling awebutf8.c..."
+    @sc $(DEBUG) $(AWEB4FLAGS) awebutf8.c to awebutf8.o
 
 version.o:  version.c aweb.h
     @echo "        Compiling version.c..."
-    @sc strsect=code version.c to version.o
+    @sc $(AWEB4FLAGS) strsect=code version.c to version.o
 
 versionview.o:  version.c aweb.h
     @echo "        Compiling version.c (LOCALONLY)..."
@@ -222,7 +244,7 @@ awebview:       popup.o search.o print.o printwin.o info.o saveiff.o
 awebview:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
 awebview:       urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o httpcch.o fetchview.o mime.o
-awebview:       local.o httpview.o xawebview.o ciddataurls.o cidregistry.o
+awebview:       local.o httpview.o anubis.o xawebview.o ciddataurls.o cidregistry.o
 #  TCP/SSL drivers (compiled with LOCALONLY)
 awebview:       tcpview.o tcperr.o nameservview.o authorview.o
 awebview:       awebtcpview.o awebamitcpview.o amisslview.o
@@ -238,6 +260,7 @@ awebview:       parse.o markdown.o html.o body.o frameset.o link.o map.o area.o 
 awebview:       element.o break.o text.o ruler.o bullet.o table.o name.o
 awebview:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
 awebview:       hidden.o filefield.o
+awebview:       bulletfont.o awebutf8.o
 #  Link
 awebview:       awebview.lnk
     slink with awebview.lnk
@@ -600,12 +623,12 @@ regexp/pcre.o:   regexp/pcre.c regexp/pcre.h regexp/internal.h regexp/config.h r
 
 markdown.o: markdown.c aweb.h html.h application.h docprivate.h
    @echo "        Compiling $*.c..."
-   @sc $(DEBUG) $*.c
+   @sc $(DEBUG) $(AWEB4FLAGS) $*.c to $*.o
 
 # Ensure docprivate.h changes rebuild all dependent objects
-parse.o:     parse.c docprivate.h
+parse.o:     parse.c docprivate.h awebutf8.h
 document.o:  document.c docprivate.h
-html.o:      html.c docprivate.h
+html.o:      html.c docprivate.h anubis.h
 css.o:       css.c docprivate.h
 body.o:      body.c docprivate.h
 docext.o:    docext.c docprivate.h

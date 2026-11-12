@@ -19,6 +19,8 @@
 /* jfifcopy.c - AWebjfif copydriver */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebjfif.h"
 #include <libraries/awebplugin.h>
 #include <exec/types.h>
@@ -29,7 +31,6 @@
 #include <graphics/scale.h>
 #include <intuition/intuition.h>
 #include <intuition/screens.h>
-#include <libraries/Picasso96.h>
 #include <utility/tagitem.h>
 #include <utility/utility.h>
 #include <datatypes/pictureclass.h>
@@ -75,7 +76,6 @@
 #include <reaction/reaction_author.h>
 
 #include <proto/awebplugin.h>
-#include <proto/Picasso96.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -91,7 +91,6 @@
 #include <proto/timer.h>
 #include <proto/wb.h>
 
-extern struct Library *P96Base;
 
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
@@ -185,11 +184,14 @@ static void Newbitmap(struct Jfifcopy *jc,struct BitMap *bitmap)
    {  ULONG src_isp96;
       ULONG arch_depth;
       src_isp96=0UL;
-      if(P96Base && p96GetBitMapAttr(bitmap,P96BMA_ISP96))
+      if(GetBitMapAttr(bitmap,BMA_FLAGS)&BMF_STANDARD)
+      {  src_isp96=0UL;
+      }
+      else if(CyberGfxBase && GetCyberMapAttr(bitmap,CYBRMATTR_ISCYBERGFX))
       {  src_isp96=1UL;
       }
-      if(P96Base && src_isp96)
-      {  depth=(short)p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
+      if(CyberGfxBase && src_isp96)
+      {  depth=(short)GetCyberMapAttr(bitmap,CYBRMATTR_DEPTH);
       }
       else
       {  arch_depth=GetBitMapAttr(bitmap,BMA_DEPTH);

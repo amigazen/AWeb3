@@ -30,6 +30,7 @@
 #include "object.h"
 #include "jslib.h"
 #include "xhrjs.h"
+#include "wasmjs.h"
 #include <time.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -186,7 +187,7 @@ static void Methodalert(struct Jcontext *jc)
          if(text=ALLOCTYPE(UBYTE,l,0))
          {  strcpy(text,head);
             strcat(text,prompt);
-            Syncrequest("AWeb JavaScript alert",text,"_Ok",0);
+            Syncrequest("AWeb JavaScript alert",text,"_OK ",0);
             FREE(text);
             Refreshevents();
          }
@@ -206,7 +207,7 @@ static void Methodconfirm(struct Jcontext *jc)
          if(text=ALLOCTYPE(UBYTE,l,0))
          {  strcpy(text,head);
             strcat(text,prompt);
-            result=BOOLVAL(Syncrequest("AWeb JavaScript confirm",text,"_Ok|_Cancel",0));
+            result=BOOLVAL(Syncrequest("AWeb JavaScript confirm",text,"_OK |_Cancel",0));
             FREE(text);
             Refreshevents();
          }
@@ -1044,6 +1045,12 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
          {  Addxhrconstructor(amj->jc,fr->jobject);
             fr->flags|=FRMF_JSXHRCTR;
          }
+#ifdef AWEB4
+         if(!(fr->flags&FRMF_JSWASMCTR))
+         {  Addwasmjs(amj->jc,fr->jobject);
+            fr->flags|=FRMF_JSWASMCTR;
+         }
+#endif
          if(jv=Jproperty(amj->jc,fr->jobject,"navigator"))
          {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
             Jasgobject(amj->jc,jv,(struct Jobject *)Agetattr(Aweb(),AOAPP_Jnavigator));
@@ -1080,7 +1087,7 @@ void Clearjframe(struct Frame *fr)
    static UBYTE *except[]={ "closed", "opener", NULL };
    if(fr->jobject)
    {  Clearjobject(fr->jobject,except);
-      fr->flags&=~(FRMF_JSIMAGECTR|FRMF_JSOPTIONCTR|FRMF_JSXHRCTR);
+      fr->flags&=~(FRMF_JSIMAGECTR|FRMF_JSOPTIONCTR|FRMF_JSXHRCTR|FRMF_JSWASMCTR);
    }
    if(fr->jframes)
    {  Disposejobject(fr->jframes);
@@ -1171,8 +1178,11 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
       }
       if(!jc) jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
       if(jc) Jsetfeedback(jc,Feedback);
-      /* Caller passed &element->jobject (e.g. awebonclick): do not substitute window
-       * when *jthisp is still NULL after Ajsetup(copy) above — that breaks this.onclick. */
+      /* Caller passed &element->jobject (e.g. awebonclick).  Do not substitute the
+       * window object when *jthisp is still NULL — that makes this.onclick resolve
+       * on the wrong object.  Returning FALSE here also cancelled the default
+       * action (form submit, checkbox toggle) for controls that have no
+       * Jsetup yet, so allow the default instead. */
       if(jthisp)
       {
          if(*jthisp)
@@ -1181,7 +1191,7 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
          }
          else
          {
-            return FALSE;
+            return TRUE;
          }
       }
       else if(fr && fr->jobject)

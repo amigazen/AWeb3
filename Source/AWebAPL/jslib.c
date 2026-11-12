@@ -805,7 +805,7 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
                StartMember,ButtonObject,
                   GA_ID,1,
                   GA_RelVerify,TRUE,
-                  GA_Text,"_Ok",
+                  GA_Text,"_OK ",
                EndMember,
                CHILD_WeightedWidth,0,
                CHILD_NominalSize,TRUE,

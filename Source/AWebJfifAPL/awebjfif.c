@@ -19,27 +19,24 @@
 /* awebjfif.c - AWeb jfif plugin main */
 
 #include "pluginlib.h"
+struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebjfif.h"
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
-
 #include <proto/awebplugin.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
-
 /* Library base variables */
 struct Library *DOSBase;
 struct Library *GfxBase;
 struct Library *UtilityBase;
-struct Library *P96Base;
 struct Library *AwebPluginBase;
 
 ULONG Initpluginlib(struct AwebJfifBase *base)
 {  DOSBase=OpenLibrary("dos.library",39);
    GfxBase=OpenLibrary("graphics.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
-   P96Base=OpenLibrary("Picasso96.library",0);
+   CyberGfxBase=AwebOpenRtgGfx();
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
    return (ULONG)(DOSBase && GfxBase && UtilityBase && AwebPluginBase);
 }
@@ -47,7 +44,7 @@ ULONG Initpluginlib(struct AwebJfifBase *base)
 void Expungepluginlib(struct AwebJfifBase *base)
 {  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
    if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
-   if(P96Base) CloseLibrary(P96Base);
+   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
    if(AwebPluginBase) CloseLibrary(AwebPluginBase);
    if(UtilityBase) CloseLibrary(UtilityBase);
    if(GfxBase) CloseLibrary(GfxBase);

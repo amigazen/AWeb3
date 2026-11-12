@@ -27,6 +27,8 @@
 #include "arexx.h"
 #include "task.h"
 #include "filereq.h"
+static struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include <datatypes/datatypesclass.h>
 #include <datatypes/pictureclass.h>
 #include <datatypes/soundclass.h>
@@ -68,7 +70,6 @@
 #include <workbench/startup.h>
 #include <workbench/workbench.h>
 #include <workbench/icon.h>
-#include <libraries/Picasso96.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_author.h>
 
@@ -79,8 +80,6 @@
 #include <proto/graphics.h>
 #include <proto/iffparse.h>
 #include <proto/icon.h>
-#include <proto/Picasso96.h>
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,9 +108,6 @@
 #include <proto/timer.h>
 #include <proto/utility.h>
 #include <proto/wb.h>
-#include <proto/Picasso96.h>
-
-
 /*------------------------------------------------------------------------*/
 
 #ifndef NETDEMO
@@ -148,8 +144,9 @@ struct Saveiff
 #define SIFT_CYBER8     2
 #define SIFT_CYBERDEEP  3
 
-#define SIFF_P96        0x0001   /* Picasso96 library opened */
+#define SIFF_CGFX        0x0001   /* CyberGfx/RTG library opened */
 #define SIFF_NOICON     0x0002   /* Don't save icon */
+
 
 #define AOSIF_Dummy        AOBJ_DUMMYTAG(AOTP_SAVEIFF)
 
@@ -329,13 +326,7 @@ static BOOL Savepart(struct Saveiff *sif)
          }
       }
       else if(sif->type==SIFT_CYBERDEEP)
-      {  /* For deep color, read pixels one by one and convert to RGB */
-         for(pixel=0;ok && pixel<sif->w;pixel++)
-         {  ULONG color=p96ReadPixel(sif->rp,pixel,y);
-            sif->rbuf[pixel*3]=(color>>16)&0xFF;     /* Red */
-            sif->rbuf[pixel*3+1]=(color>>8)&0xFF;    /* Green */
-            sif->rbuf[pixel*3+2]=color&0xFF;         /* Blue */
-         }
+      {  ReadPixelArray(sif->rbuf,0,0,3*sif->w,sif->rp,0,y,sif->w,1,RECTFMT_RGB);
          for(rgb=0;ok && rgb<3;rgb++)
          {  rmask=0x01;
             for(bit=0;ok && bit<8;bit++)
@@ -483,7 +474,7 @@ static long Setsaveiff(struct Saveiff *sif,struct Amset *ams)
          AOPRW_Width,sif->w,
          AOPRW_Height,IFFWINH,
          AOPRW_Layoutheight,sif->h,
-         AOPRW_Turboprint,P96Base!=NULL,
+         AOPRW_Turboprint,CyberGfxBase!=NULL,
          TAG_END);
       sif->rp=(struct RastPort *)Agetattr(sif->prwin,AOWIN_Rastport);
       Asetattrs(sif->prwin,
@@ -565,8 +556,8 @@ static struct Saveiff *Newsaveiff(struct Amset *ams)
    {  Aaddchild(Aweb(),sif,AOREL_APP_USE_SCREEN);
       screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
       if(!screen) goto err;
-      if(P96Base=OpenLibrary("Picasso96API.library",0))
-      {  sif->flags|=SIFF_P96;
+      if(CyberGfxBase=AwebOpenRtgGfx())
+      {  sif->flags|=SIFF_CGFX;
       }
       Setsaveiff(sif,ams);
       sif->vp=&screen->ViewPort;
@@ -575,9 +566,9 @@ static struct Saveiff *Newsaveiff(struct Amset *ams)
       if(GetBitMapAttr(sif->rp->BitMap,BMA_FLAGS)&BMF_STANDARD)
       {  sif->type=SIFT_STANDARD;
       }
-      else if(P96Base)
-      {  if(p96GetBitMapAttr(sif->rp->BitMap,P96BMA_ISP96))
-         {  if(p96GetBitMapAttr(sif->rp->BitMap,P96BMA_DEPTH)>8)
+      else if(CyberGfxBase)
+      {  if(GetCyberMapAttr(sif->rp->BitMap,CYBRMATTR_ISCYBERGFX))
+         {  if(GetCyberMapAttr(sif->rp->BitMap,CYBRMATTR_DEPTH)>8)
             {  sif->type=SIFT_CYBERDEEP;
                if(!(sif->rbuf=ALLOCTYPE(UBYTE,3*sif->w,0))) goto err;
                if(!(sif->wbuf=ALLOCTYPE(UBYTE,3*sif->w16,MEMF_CLEAR))) goto err;
@@ -612,7 +603,10 @@ static void Disposesaveiff(struct Saveiff *sif)
    if(sif->iobuf) FREE(sif->iobuf);
    if(sif->temprp.BitMap) FreeBitMap(sif->temprp.BitMap);
    if(sif->name) FREE(sif->name);
-         if(sif->flags&SIFF_P96) CloseLibrary(P96Base);
+   if(sif->flags&SIFF_CGFX)
+   {  AwebCloseRtgGfx(CyberGfxBase);
+      CyberGfxBase=NULL;
+   }
    if(sif->wait) Replyarexxcmd(sif->wait);
    Amethodas(AOTP_OBJECT,sif,AOM_DISPOSE);
 }

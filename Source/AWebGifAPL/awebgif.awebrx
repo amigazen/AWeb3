@@ -60,7 +60,7 @@ if args='' then do
 
       call writeln tf,"<table border width=100% bgcolor=#aaccaa><tr><td>"
       call writeln tf,"<form action='x-aweb:rexx/"called"'>"
-      call writeln tf,"This form configures AWeb-II to use the <strong> AWeb GIF plugin</strong>."
+      call writeln tf,"This form configures AWeb to use the <strong> AWeb GIF plugin</strong>."
       call writeln tf,"<input type=hidden name=defprogress value="progress">"
       call writeln tf,"<input type=hidden name=defloops value="loops">"
       call writeln tf,"<ol><li>Select the required modes of operation "

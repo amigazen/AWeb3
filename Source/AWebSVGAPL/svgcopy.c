@@ -37,7 +37,8 @@ struct Svgcopy
    struct Aobject *copy;
    struct BitMap *bitmap;
    UBYTE *mask;
-   long width,height;
+   long width,height;       /* decoded viewBox / raster size              */
+   long swidth,sheight;     /* host layout box (AOCDV_Width/Height), or 0 */
    USHORT flags;
 };
 
@@ -68,27 +69,98 @@ static void Clipcopy(long *x, long *dx, long *w, long minx, long maxx)
    }
 }
 
-/* Blit the (rows-)slice of our bitmap onto the framebuffer. */
+/* Layout box to paint into: host AOCDV size wins over the decoded
+ * viewBox so emoji em-squares and CSS-sized icons are not blitted at
+ * natural 72×72 (and so a 16×16 clip of an unscaled 72² bitmap does
+ * not sample only the transparent margin). */
+static void Layoutsize(struct Svgcopy *sc, long *dw, long *dh)
+{  *dw=sc->swidth>0?sc->swidth:sc->copydriver.aow;
+   *dh=sc->sheight>0?sc->sheight:sc->copydriver.aoh;
+   if(*dw<1) *dw=sc->width;
+   if(*dh<1) *dh=sc->height;
+   if(*dw<1) *dw=1;
+   if(*dh<1) *dh=1;
+}
+
+/* Blit onto the framebuffer.  When the layout box differs from the
+ * decoded SVG bitmap, BitMapScale into that box. */
 static void Renderrows(struct Svgcopy *sc, struct Coords *coo,
    long minx, long miny, long maxx, long maxy, long minrow, long maxrow)
 {  long x,y,dx,dy,w,h;
+   long dw,dh;
+   struct BitMap *srcbm;
+   long srcw,srch;
+
+   (void)minrow;
+   (void)maxrow;
    coo=Clipcoords(sc->copydriver.cframe,coo);
-   if(coo && coo->rp && sc->bitmap)
-   {  x=sc->copydriver.aox+coo->dx;
-      y=sc->copydriver.aoy+coo->dy+minrow;
+   if(coo && coo->rp && sc->bitmap && sc->width>0 && sc->height>0)
+   {  srcbm=sc->bitmap;
+      srcw=sc->width;
+      srch=sc->height;
+      Layoutsize(sc,&dw,&dh);
+      sc->copydriver.aow=dw;
+      sc->copydriver.aoh=dh;
+
+      x=sc->copydriver.aox+coo->dx;
+      y=sc->copydriver.aoy+coo->dy;
       dx=0;
-      dy=minrow;
-      w=sc->width;
-      h=maxrow-minrow+1;
+      dy=0;
+      w=dw;
+      h=dh;
       Clipcopy(&x,&dx,&w,coo->minx,coo->maxx);
       Clipcopy(&y,&dy,&h,coo->miny,coo->maxy);
       Clipcopy(&x,&dx,&w,minx+coo->dx,maxx+coo->dx);
       Clipcopy(&y,&dy,&h,miny+coo->dy,maxy+coo->dy);
       if(w>0 && h>0)
-      {  if(sc->mask)
-            BltMaskBitMapRastPort(sc->bitmap,dx,dy,coo->rp,x,y,w,h,0xe0,sc->mask);
+      {  if(dw==srcw && dh==srch)
+         {  if(sc->mask)
+               BltMaskBitMapRastPort(srcbm,dx,dy,coo->rp,x,y,w,h,0xe0,sc->mask);
+            else
+               BltBitMapRastPort(srcbm,dx,dy,coo->rp,x,y,w,h,0xc0);
+         }
          else
-            BltBitMapRastPort(sc->bitmap,dx,dy,coo->rp,x,y,w,h,0xc0);
+         {  /* Scale the visible source rectangle into the clipped dest. */
+            struct BitMap *tbm;
+            struct BitScaleArgs bsa={0};
+            long sx,sy,sw,sh;
+            ULONG depth;
+
+            sx=(long)((ULONG)dx*(ULONG)srcw/(ULONG)dw);
+            sy=(long)((ULONG)dy*(ULONG)srch/(ULONG)dh);
+            sw=(long)((ULONG)w*(ULONG)srcw/(ULONG)dw);
+            sh=(long)((ULONG)h*(ULONG)srch/(ULONG)dh);
+            if(sw<1) sw=1;
+            if(sh<1) sh=1;
+            if(sx+sw>srcw) sw=srcw-sx;
+            if(sy+sh>srch) sh=srch-sy;
+            depth=GetBitMapAttr(srcbm,BMA_DEPTH);
+            tbm=NULL;
+            if(sw>0 && sh>0)
+               tbm=AllocBitMap(w,h,depth,BMF_MINPLANES|BMF_DISPLAYABLE,srcbm);
+            if(tbm)
+            {  bsa.bsa_SrcX=sx;
+               bsa.bsa_SrcY=sy;
+               bsa.bsa_SrcWidth=sw;
+               bsa.bsa_SrcHeight=sh;
+               bsa.bsa_DestX=0;
+               bsa.bsa_DestY=0;
+               bsa.bsa_XSrcFactor=sw;
+               bsa.bsa_XDestFactor=w;
+               bsa.bsa_YSrcFactor=sh;
+               bsa.bsa_YDestFactor=h;
+               bsa.bsa_SrcBitMap=srcbm;
+               bsa.bsa_DestBitMap=tbm;
+               bsa.bsa_Flags=0;
+               BitMapScale(&bsa);
+               BltBitMapRastPort(tbm,0,0,coo->rp,x,y,w,h,0xc0);
+               FreeBitMap(tbm);
+            }
+            else if(sc->mask)
+               BltMaskBitMapRastPort(srcbm,dx,dy,coo->rp,x,y,w,h,0xe0,sc->mask);
+            else
+               BltBitMapRastPort(srcbm,dx,dy,coo->rp,x,y,w,h,0xc0);
+         }
       }
    }
    Unclipcoords(coo);
@@ -106,6 +178,8 @@ static struct Svgcopy *Newcopy(struct Amset *amset)
    sc->mask=NULL;
    sc->width=0;
    sc->height=0;
+   sc->swidth=0;
+   sc->sheight=0;
    sc->flags=0;
    Setcopy(sc,amset);
    return sc;
@@ -120,21 +194,27 @@ static void Disposecopy(struct Svgcopy *sc)
 }
 
 static ULONG Measurecopy(struct Svgcopy *sc, struct Ammeasure *ammeasure)
-{  if(sc->bitmap && (sc->flags&SVGCF_READY))
-   {  sc->copydriver.aow=sc->width;
-      sc->copydriver.aoh=sc->height;
+{  long dw,dh;
+   if(sc->bitmap && (sc->flags&SVGCF_READY))
+   {  /* Intrinsic for the host is the decoded size; aow follows the
+       * requested layout box when the owner set AOCDV_Width/Height. */
+      Layoutsize(sc,&dw,&dh);
+      sc->copydriver.aow=dw;
+      sc->copydriver.aoh=dh;
       if(ammeasure->ammr)
-      {  ammeasure->ammr->width=sc->copydriver.aow;
-         ammeasure->ammr->minwidth=sc->copydriver.aow;
+      {  ammeasure->ammr->width=sc->width>0?sc->width:dw;
+         ammeasure->ammr->minwidth=ammeasure->ammr->width;
       }
    }
    return 0;
 }
 
 static ULONG Layoutcopy(struct Svgcopy *sc, struct Amlayout *amlayout)
-{  if(sc->bitmap && (sc->flags&SVGCF_READY))
-   {  sc->copydriver.aow=sc->width;
-      sc->copydriver.aoh=sc->height;
+{  long dw,dh;
+   if(sc->bitmap && (sc->flags&SVGCF_READY))
+   {  Layoutsize(sc,&dw,&dh);
+      sc->copydriver.aow=dw;
+      sc->copydriver.aoh=dh;
    }
    (void)amlayout;
    return 0;
@@ -189,6 +269,15 @@ static ULONG Setcopy(struct Svgcopy *sc, struct Amset *amset)
             else
             {  sc->flags&=~SVGCF_DISPLAYED;
             }
+            break;
+         case AOCDV_Width:
+            /* Owner layout box (emoji em-square, CSS width).  0 clears. */
+            sc->swidth=(long)tag->ti_Data;
+            if(sc->swidth>0) sc->copydriver.aow=sc->swidth;
+            break;
+         case AOCDV_Height:
+            sc->sheight=(long)tag->ti_Data;
+            if(sc->sheight>0) sc->copydriver.aoh=sc->sheight;
             break;
          case AOSVG_Bitmap:
             sc->bitmap=(struct BitMap *)tag->ti_Data;

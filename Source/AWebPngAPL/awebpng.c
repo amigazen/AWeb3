@@ -19,6 +19,8 @@
 /* awebpng.c - AWeb png plugin main */
 
 #include "pluginlib.h"
+struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebpng.h"
 #include <libraries/awebplugin.h>
 #include <proto/awebplugin.h>
@@ -26,7 +28,6 @@
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
 #ifdef DEBUG_PLUGINS
 #include <proto/lowlevel.h>
 #endif
@@ -111,7 +112,6 @@ void PngLog(const char *facility,const char *fmt,...)
 
 
 /* Library bases */
-struct Library *P96Base;
 struct Library *AwebPluginBase;
 struct GfxBase *GfxBase;
 
@@ -119,7 +119,7 @@ ULONG Initpluginlib(struct AwebPngBase *base)
 {  GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
    DosBase=OpenLibrary("dos.library",37);
-   P96Base=OpenLibrary("Picasso96.library",0);
+   CyberGfxBase=AwebOpenRtgGfx();
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
 #ifdef DEBUG_PLUGINS
    LowLevelBase=OpenLibrary("lowlevel.library",40);
@@ -145,7 +145,7 @@ void Expungepluginlib(struct AwebPngBase *base)
    /* Release the shared libpng allocation pool created lazily by the
     * malloc() wrapper in pngsource.c. */
    Pngsource_freepool();
-   if(P96Base) CloseLibrary(P96Base);
+   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
 #ifdef DEBUG_PLUGINS
    if(LowLevelBase) CloseLibrary(LowLevelBase);
 #endif

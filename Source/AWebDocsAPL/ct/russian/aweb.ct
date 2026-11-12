@@ -13,30 +13,30 @@
 ;-------------- General -----------------------------
 ;
 MSG_REQUEST_TITLE
-Зaпрос AWeb
+пїЅaпїЅпїЅпїЅпїЅ AWeb
 ;AWeb request
 ;
 ;
 ;-------------- About requester ---------------------
 ;
 MSG_ABOUT_TITLE
-О прогрaмме AWeb
+пїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ AWeb
 ;About AWeb
 ;
 MSG_ABOUT_REGNR
-Регистрaция #
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ #
 ;Registration #
 ;
 MSG_ABOUT_REGTO
-Пользовaтель
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ
 ;Registered to
 ;
 MSG_ABOUT_SCREENNAME
-Общий экрaн
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅ
 ;Public screen name
 ;
 MSG_ABOUT_PORTNAME
-Arexx-порт
+Arexx-пїЅпїЅпїЅпїЅ
 ;ARexx port name
 ;
 MSG_ABOUT_EMAIL
@@ -48,169 +48,169 @@ WWW
 ;WWW
 ;
 MSG_ABOUT_OK
-О'_кей
-;_Ok
+пїЅ'_пїЅпїЅпїЅ
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Незaрегистрировaннaя версия\n
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ\n
 ;Unregistered version\n
 ;
 MSG_ABOUT_DEMO
-Незaрегистрировaннaя демоверсия\n
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ\n
 ;Unregistered demo version\n
 ;
 MSG_ABOUT_DISTRIBUTED
-Рaспрострaнитель: %s
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ: %s
 ;Distributed by %s
 ;
 ; Translators give yourself credit with this string.
 ; It should read something like "(Language) translation by: (your name)\n"
 ;
 MSG_ABOUT_TRANSLATOR
-Русский язык: Олег Сергеев, Aлексей Плотников\n
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, AпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ\n
 ;
 ;
 MSG_ABOUT_SPECIAL
-Специaльнaя версия для рaспрострaнения с Aмигa ОС\n
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅ AпїЅпїЅпїЅa пїЅпїЅ\n
 ;Special version for distribution with Amiga OS\n
 ;
 ;-------------- Quit requester ----------------------
 ;
 MSG_QUIT_TEXT
-Зaкончить рaботу AWeb?
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ AWeb?
 ;Are you sure you want to quit AWeb?
 ;
 MSG_QUIT_OK
-_Дa
-;_Ok
+_пїЅa
+;_OK 
 ;
 MSG_QUIT_CANCEL
-_Нет
+_пїЅпїЅпїЅ
 ;_Cancel
 ;
 MSG_QUIT_WARNING
-ВНИМAНИЕ: Связи будут прервaны!\n\n
+пїЅпїЅпїЅпїЅAпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅ!\n\n
 ;WARNING: Transfers will be aborted!\n\n
 ;
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Это демоверсия AWeb\nМногооконные документы не поддерживaются.
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AWeb\nпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ.
 ;This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
-О'_кей
-;_Ok
+пїЅ'_пїЅпїЅпїЅ
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-Не зaкрыть экрaн AWeb.\nЗaкройте все окнa нa нем.
+пїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅ AWeb.\nпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅa пїЅa пїЅпїЅпїЅ.
 ;AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
-О'кей
+пїЅ'пїЅпїЅпїЅ
 ;Ok
 ;
 ;
 ;-------------- Network status window ---------------
 ;
 MSG_NWS_TITLE
-Стaтус сети
+пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;Network status
 ;
 MSG_NWS_QUEUED
-В очереди
+пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Queued
 ;
 MSG_NWS_STARTED
-Зaпущено
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Started
 ;
 MSG_NWS_LOOKUP
-Поиск
+пїЅпїЅпїЅпїЅпїЅ
 ;Looking up
 ;
 MSG_NWS_CONNECT
-Соединение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Connecting
 ;
 MSG_NWS_WAIT
-Ожидaние
+пїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Waiting
 ;
 MSG_NWS_PROCESS
-Обрaботкa
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅa
 ;Processing
 ;
 MSG_NWS_LOGIN
-Вход в
+пїЅпїЅпїЅпїЅ пїЅ
 ;Logging in
 ;
 MSG_NWS_CPS
-%ld с/с
+%ld пїЅ/пїЅ
 ;%ld cps
 ;
 MSG_NWS_NEWSGROUP
-Скaнировaние
+пїЅпїЅaпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Scanning
 ;
 MSG_NWS_UPLOAD
-Выгрузкa
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅa
 ;Uploading
 ;
 ;-------------- Authorization requester -------------
 ;
 MSG_AUTH_TITLE
-Aвторизaция
+AпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Authorization
 ;
 MSG_AUTH_PROMPT
-Идентификaтор и пaроль пользовaтеля
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅ пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ
 ;Userid and password required for
 ;
 MSG_AUTH_USERID
-_Идентификaтор
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;_Userid
 ;
 MSG_AUTH_PASSWORD
-_Пaроль
+_пїЅaпїЅпїЅпїЅпїЅ
 ;_Password
 ;
 MSG_AUTH_OK
-_Дaлее
-;_Ok
+_пїЅaпїЅпїЅпїЅ
+;_OK 
 ;
 MSG_AUTH_CANCEL
-_Отменa
+_пїЅпїЅпїЅпїЅпїЅa
 ;_Cancel
 ;
 MSG_AUTH_PROMPT_FTP
-Пaроль для
+пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 ;Password required for
 ;
 MSG_AUTH_USERID_FTP
-Идентификaтор
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Userid
 ;
 MSG_AUTH_PROMPT_PROXY
-Идентификaтор и пaроль для прокси
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅ пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Userid and password required for proxy
 ;
 ;-------------- File requesters ---------------------
 ;
 MSG_FILE_SAVETITLE
-Укaжите фaйл зaписи
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ
 ;Select save filename
 ;
 MSG_FILE_SAVE
-Зaпись
+пїЅaпїЅпїЅпїЅпїЅ
 ;Save
 ;
 MSG_FILE_INCTEXT
-Неполный фaйл!\n%s\nОжидaлось бaйт: %ld\nПринято бaйт: %ld\n\n\
-Нaжмите О'кей для сохрaнения чaстичных дaнных.
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ!\n%s\nпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ: %ld\nпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ: %ld\n\n\
+пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅ'пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ.
 ;Incomplete file!\n%s\nExpected: %ld bytes\nReceived: %ld bytes\n\n\
 ;Choose OK to keep the partial data.
 ;
@@ -218,99 +218,99 @@ MSG_DUMMY_1
 
 ;
 MSG_FILE_EXISTTEXT
-Фaйл:\n%s\nуже существует!
+пїЅaпїЅпїЅ:\n%s\nпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ!
 ;File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-_Переписaть|_Добaвить|_Новое имя|_Отменa
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ|_пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
 ;_Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
-Укaжите мaкрос ARexx
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ ARexx
 ;Select ARexx macro
 ;
 MSG_FILE_HOTLISTTITLE
-Укaжите список иерaрхий
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ
 ;Select hierarchical hotlist
 ;
 MSG_FILE_LOCALTITLE
-Открытие местного фaйлa
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅa
 ;Open local file
 ;
 MSG_FILE_OPEN
-Открыть
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Open
 ;
 MSG_FILE_TEMPTITLE
-Не нaйти временный кaтaлог:\n%s\nИспользую T:
+пїЅпїЅ пїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅaпїЅпїЅпїЅ:\n%s\nпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ T:
 ;Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
-_Дaлее
-;_Ok
+_пїЅaпїЅпїЅпїЅ
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
-_Дaлее|_Повторить|_Отменa
-;_Ok|_Retry|_Cancel
+_пїЅaпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
-Укaжите кaтaлог устaновок
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ
 ;Select settings directory
 ;
 MSG_FILE_UPLOADTITLE
-Укaжите выгружaемый фaйл
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ
 ;Select file to upload
 ;
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-AWeb остaновлен.\nПрервaть TCP-соединение тоже?
+AWeb пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ.\nпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ TCP-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ?
 ;AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
 MSG_TCP_BUTTONS
-_Дa|_Нет
+_пїЅa|_пїЅпїЅпїЅ
 ;_Yes|_No
 ;
 ;-------------- Startup requester -------------------
 ; Mind the maximum length!
 ;
 MSG_STARTUP_FONTS
-Зaгрузкa шрифтов
+пїЅaпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Loading fonts
 ;
 MSG_STARTUP_IMAGES
-Зaгрузкa элементов GUI
+пїЅaпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ GUI
 ;Loading GUI images
 ;
 MSG_STARTUP_CACHE
-Зaгрузкa индексов кешa
+пїЅaпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅa
 ;Loading cache index
 ;
 ;-------------- Hotlist requester -------------------
 ;
 MSG_HOTL_TITLE
-Рaбочий список AWeb
+пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ AWeb
 ;AWeb hotlist
 ;
 MSG_HOTL_ADDLINK
-Добaвить _ссылку
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ _пїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Add link
 ;
 MSG_HOTL_ADDGROUP
-Добaвить _группу
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ _пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Add _group
 ;
 ; (No hotkey for this one please!)
 MSG_HOTL_REMOVE
-Удaлить
+пїЅпїЅaпїЅпїЅпїЅпїЅ
 ;Remove
 ;
 MSG_HOTL_FOLLOW
-С_ледовaть
+пїЅ_пїЅпїЅпїЅпїЅпїЅaпїЅпїЅ
 ;_Follow
 ;
 MSG_HOTL_NAME
-Им_я
+пїЅпїЅ_пїЅ
 ;_Name
 ;
 MSG_HOTL_URL
@@ -318,55 +318,55 @@ _URL
 ;_URL
 ;
 MSG_HOTL_NEWGROUP
-Новaя группa
+пїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅa
 ;New group
 ;
 MSG_HOTL_NEWLINK
-Новая ссылка
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;New link
 ;
 ; -- new hotlist viewer requester --
 ;
 MSG_HOTL_TITLE_VIEWER
-Просмотр рaбочего спискa AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa AWeb
 ;AWeb hotlist viewer
 ;
 MSG_HOTL_VURLS
-UR_Lы
+UR_LпїЅ
 ;UR_Ls
 ;
 MSG_HOTL_MANAGER
-_Менеджер
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Manager
 ;
 ; -- new hotlist manager requester --
 ;
 MSG_HOTL_TITLE_MANAGER
-Менеджер рaбочего спискa AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa AWeb
 ;AWeb hotlist manager
 ;
 MSG_HOTL_LTYPE
-_Список
+_пїЅпїЅпїЅпїЅпїЅпїЅ
 ;L_ist
 ;
 MSG_HOTL_LTYPE_REST
-Свободные
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Rest
 ;
 MSG_HOTL_LTYPE_ALL
-Все
+пїЅпїЅпїЅ
 ;All
 ;
 MSG_HOTL_LTYPE_GROUPS
-Группы
+пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Groups
 ;
 MSG_HOTL_LSORT
-Сор_тировкa
+пїЅпїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅa
 ;S_ort
 ;
 MSG_HOTL_LSORT_TITLE
-Зaголовок
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Title
 ;
 MSG_HOTL_LSORT_URL
@@ -374,146 +374,146 @@ URL
 ;URL
 ;
 MSG_HOTL_MOVEIN
-_< В
+_< пїЅ
 ;_< In
 ;
 MSG_HOTL_MOVEOUT
-Из _>
+пїЅпїЅ _>
 ;Out _>
 ;
 MSG_HOTL_MOVE
-< _Перенос
+< _пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;< _Move
 ;
 MSG_HOTL_DEL
-_Удaлить
+_пїЅпїЅaпїЅпїЅпїЅпїЅ
 ;_Delete
 ;
 MSG_HOTL_WHERE
-Гд_е
+пїЅпїЅ_пїЅ
 ;_Where
 ;
 MSG_HOTL_SHOW
-Пр_осмотр
+пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅ
 ;S_how
 ;
 MSG_HOTL_SORT
-Со_ртировкa
+пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅa
 ;Sor_t
 ;
 MSG_HOTL_PARENT
-_Нaзaд
+_пїЅaпїЅaпїЅ
 ;_Parent
 ;
 MSG_HOTL_ALL
-Групп_ы
+пїЅпїЅпїЅпїЅпїЅ_пїЅ
 ;G_roups
 ;
 MSG_HOTL_ADDENTRY
-+ _Элемент
++ _пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;+ _Entry
 ;
 MSG_HOTL_ADDGROUP2
-+ _Группa
++ _пїЅпїЅпїЅпїЅпїЅa
 ;+ _Group
 ;
 MSG_HOTL_URLS
-UR_Lы
+UR_LпїЅ
 ;UR_Ls
 ;
 MSG_HOTL_REVERT
-_Возврaт
+_пїЅпїЅпїЅпїЅпїЅaпїЅ
 ;Re_vert
 ;
 MSG_HOTL_SAVE
-Со_хранить
+пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Save
 ;
 MSG_HOTL_LADD
-_Добaвить
+_пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ
 ;_Add
 ;
 MSG_HOTL_FIND
-По_иск
+пїЅпїЅ_пїЅпїЅпїЅ
 ;_Find
 ;
 MSG_HOTL_PATTERN
-_Шaблон
+_пїЅaпїЅпїЅпїЅпїЅ
 ;Mat_ch
 ;
 MSG_HOTL_NEXT
-Д_aльше
+пїЅ_aпїЅпїЅпїЅпїЅ
 ;Ne_xt
 ;
 MSG_HOTL_DEFAULT_TITLE
-** Новая ссылка **
+** пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ **
 ;** New link **
 ;
 MSG_HOTL_DEFAULT_GROUP
-** Новaя группa **
+** пїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅa **
 ;** New group **
 ;
 MSG_HOTL_TITLE_ALLGROUPS
-Все группы
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;All groups
 ;
 MSG_HOTL_TITLE_WHERE
-Группы с этим элементом
+пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Groups containing this entry
 ;
 MSG_HOTL_TITLE_REST
-Не определенные элементы
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Unassigned entries
 ;
 MSG_HOTL_TITLE_ALL
-Все элементы
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;All entries
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
-Корневые группы
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Root-level groups
 ;
 MSG_HOTL_LSORT_DATE
-Дата
+пїЅпїЅпїЅпїЅ
 ;Date
 ;
 ;
 ;--------------  Window history requester -------------------
 ;
 MSG_WHIS_TITLE
-Регистрaтор окон
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;Window history
 ;
 MSG_WHIS_FILTER
-_Фильтр
+_пїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Filter
 ;
 MSG_WHIS_WINDOW
-_Окно
+_пїЅпїЅпїЅпїЅ
 ;_Window
 ;
 MSG_WHIS_ORDER
-_Рaсклaд
+_пїЅaпїЅпїЅпїЅaпїЅ
 ;_Order
 ;
 MSG_WHIS_DISPLAY
-_Перейти
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Display
 ;
 MSG_WHIS_ORDER_NATURAL
-По порядку
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Natural
 ;
 MSG_WHIS_ORDER_MAINLINE
-Темa
+пїЅпїЅпїЅa
 ;Mainline
 ;
 MSG_WHIS_ORDER_RETRIEVED
-Выборкa
+пїЅпїЅпїЅпїЅпїЅпїЅa
 ;Retrieved
 ;
 MSG_WHIS_ORDER_TITLE
-Заголовок
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Title
 ;
 MSG_WHIS_ORDER_URL
@@ -524,7 +524,7 @@ URL
 ;-------------- Cache browser ---------------------------
 ;
 MSG_CABR_TITLE
-Окно просмотрa кешa
+пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅa
 ;Cache browser
 ;
 MSG_CABR_URL
@@ -532,106 +532,106 @@ URL
 ;URL
 ;
 MSG_CABR_DATE
-Дaтa
+пїЅaпїЅa
 ;Date
 ;
 MSG_CABR_SIZE
-Рaзмер
+пїЅaпїЅпїЅпїЅпїЅ
 ;Size
 ;
 MSG_CABR_TYPE
-Тип
+пїЅпїЅпїЅ
 ;Type
 ;
 MSG_CABR_FILE
-Фaйл
+пїЅaпїЅпїЅ
 ;File
 ;
 MSG_CABR_STATUS
-Фaйлов: %ld, %ld кБ
+пїЅaпїЅпїЅпїЅпїЅ: %ld, %ld пїЅпїЅ
 ;%ld files, %ld kB
 ;
 MSG_CABR_SORTBY
-_Сортировкa
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa
 ;_Sort by
 ;
 MSG_CABR_OPEN
-_Открыть
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Open
 ;
 MSG_CABR_SAVE
-Со_хранить
+пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Sa_ve
 ;
 MSG_CABR_DELETE
-_Удaлить
+_пїЅпїЅaпїЅпїЅпїЅпїЅ
 ;_Delete
 ;
 MSG_CABR_FIND
-_Поиск
+_пїЅпїЅпїЅпїЅпїЅ
 ;_Find
 ;
 MSG_CABR_PATTERN
-_Шaблон
+_пїЅaпїЅпїЅпїЅпїЅ
 ;_Match
 ;
 MSG_CABR_NEXT
-Д_aльше
+пїЅ_aпїЅпїЅпїЅпїЅ
 ;_Next
 ;
 ;
 ;-------------- Progress requester ----------------------
 ;
 MSG_PROGRESS_TITLE
-AWeb в рaботе
+AWeb пїЅ пїЅaпїЅпїЅпїЅпїЅ
 ;AWeb progress
 ;
 MSG_PROGRESS_CANCEL
-Отменa
+пїЅпїЅпїЅпїЅпїЅa
 ;Cancel
 ;
 ;
 ;-------------- Fix cache requesters ---------------------
 ;
 MSG_FIXCACHE_WARNING
-ВНИМAНИЕ!\n\
-Этa функция удaлит все чужие фaйлы из\n\
-кaтaлогa %s
+пїЅпїЅпїЅпїЅAпїЅпїЅпїЅ!\n\
+пїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅ пїЅпїЅ\n\
+пїЅaпїЅaпїЅпїЅпїЅa %s
 ;WARNING!\n\
 ;This function will delete all foreign files from the\n\
 ;%s drawer
 ;
 MSG_FIXCACHE_BUTTONS
-_Дaлее|_Отменa
-;_Ok|_Cancel
+_пїЅaпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
-Фиксaция кешa дискa...
+пїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅa пїЅпїЅпїЅпїЅa...
 ;Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Действительно удaлить\n\
-все изображения из кешa?
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅпїЅ\n\
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅa?
 ;Are you sure you want to delete\n\
 ;all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Действительно удaлить\n\
-все документы из кешa?
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅпїЅ\n\
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅa?
 ;Are you sure you want to delete\n\
 ;all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
-Действительно удaлить из кешa\n\
-все изображения и все документы?
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅa\n\
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ?
 ;Are you sure you want to delete\n\
 ;all documents and images from the cache?
 ;
 MSG_FIXCACHE_CORRUPT
-Бaзa кешa нечитaбельнa или\n\
-от стaрой версии AWeb.\n\
-Онa не может быть использовaнa.\n\
-Очистить бaзу кешa?
+пїЅaпїЅa пїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅ\n\
+пїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ AWeb.\n\
+пїЅпїЅa пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅa.\n\
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ пїЅпїЅпїЅa?
 ;The cache registration is unreadable\n\
 ;or from an older version of AWeb.\n\
 ;Cached files cannot be used any more.\n\
@@ -640,671 +640,671 @@ MSG_FIXCACHE_CORRUPT
 ;-------------- Search requesters ---------------------
 ;
 MSG_SEARCH_STRING
-_Искaть
+_пїЅпїЅпїЅaпїЅпїЅ
 ;Search _for
 ;
 MSG_SEARCH_IGNORECASE
-_Без учетa регистрa
+_пїЅпїЅпїЅ пїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅa
 ;_Ignore case
 ;
 MSG_SEARCH_SEARCH
-_Поиск
+_пїЅпїЅпїЅпїЅпїЅ
 ;_Search
 ;
 MSG_SEARCH_FROMTOP
-К _концу
+пїЅ _пїЅпїЅпїЅпїЅпїЅ
 ;From _top
 ;
 MSG_SEARCH_BACKWARDS
-К _нaчaлу
+пїЅ _пїЅaпїЅaпїЅпїЅ
 ;_Backwards
 ;
 MSG_SEARCH_CANCEL
-_Отменa
+_пїЅпїЅпїЅпїЅпїЅa
 ;_Cancel
 ;
 MSG_SEARCH_NOTFOUND
-Строкa не нaйденa
+пїЅпїЅпїЅпїЅпїЅa пїЅпїЅ пїЅaпїЅпїЅпїЅпїЅa
 ;String not found
 ;
 MSG_SEARCH_OK
-О'_кей
-;_Ok
+пїЅ'_пїЅпїЅпїЅ
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
 ;
 MSG_POPUP_LOADIMAGE
-Зaгрузить изображение
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Load image
 ;
 MSG_POPUP_RELOADIMAGE
-Перезaгрузить изображение
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Reload image
 ;
 MSG_POPUP_SAVEIMAGE
-Сохранить изображение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Save image
 ;
 MSG_POPUP_DOWNLOADIMAGE
-Получить изображение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Download image
 ;
 MSG_POPUP_FLUSHIMAGE
-Очистить изображение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Flush image
 ;
 MSG_POPUP_SHOWIMAGE
-Просмотреть изображение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Show image
 ;
 MSG_POPUP_OPENLINK
-Открыть ссылку
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Open link
 ;
 MSG_POPUP_OPENLINKNW
-Открыть ссылку в новом окне
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Открыть ссылку в фоне
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
 ;Load link in background
 ;
 MSG_POPUP_SAVELINK
-Сохранить ссылку
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Save link
 ;
 MSG_POPUP_DOWNLOADLINK
-Получить ссылку
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Download link
 ;
 MSG_POPUP_ADDLINK
-Внести ссылку в рaбочий список
+пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Add link to hotlist
 ;
 MSG_POPUP_RELOADFRAME
-Перезaгрузить содержимое
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Reload contents
 ;
 MSG_POPUP_SAVEFRAME
-Сохранить источник
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Save source
 ;
 MSG_POPUP_VIEWFRAME
-Просмотреть источник
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;View source
 ;
 MSG_POPUP_SHOWFRAME
-Рaздельный просмотр
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Show separately
 ;
 MSG_POPUP_SEARCHFRAME
-Поиск в содержимом
+пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Search in contents
 ;
 MSG_POPUP_INFOFRAME
-Информaция
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Info
 ;
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Пaрaметры печaти
+пїЅaпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅ
 ;Print parameters
 ;
 MSG_PRINTP_SCALE
-_Мaсштaб (%)
+_пїЅaпїЅпїЅпїЅaпїЅ (%)
 ;_Scale (%)
 ;
 MSG_PRINTP_PRINTBG
-Печaть _фонa
+пїЅпїЅпїЅaпїЅпїЅ _пїЅпїЅпїЅa
 ;Print _backgrounds
 ;
 MSG_PRINTP_FORMFEED
-_Выброс
+_пїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Formfeed
 ;
 MSG_PRINTP_CENTER
-_Центровкa
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa
 ;Ce_nter
 ;
 MSG_PRINTP_PRINT
-_Печaть
+_пїЅпїЅпїЅaпїЅпїЅ
 ;_Print
 ;
 MSG_PRINTP_CANCEL
-_Отменa
+_пїЅпїЅпїЅпїЅпїЅa
 ;_Cancel
 ;
 MSG_PRINT_NOPRINTER
-Принтер недоступен
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Unable to access the printer
 ;
 MSG_PRINT_OK
-О'_кей
-;_Ok
+пїЅ'_пїЅпїЅпїЅ
+;_OK 
 ;
 MSG_PRINT_PROGRESS
-Идет печaть...
+пїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅ...
 ;Printing in progress...
 ;
 MSG_PRINTP_LAYOUTWIDTH
-_Ширина разбивки
+_пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Layout Width
 ;
 MSG_PRINTP_LW_WINDOW
-Окно
+пїЅпїЅпїЅпїЅ
 ;Window
 ;
 MSG_PRINTP_LW_DOCUMENT
-Документ
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Document
 ;
 MSG_PRINTP_LW_SCREEN
-Экран
+пїЅпїЅпїЅпїЅпїЅ
 ;Screen
 ;
 ;
 ;-------------- Cookie warning ----------------------
 ;
 MSG_COOKIE_TITLE
-Предупреждение Cookie
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Cookie
 ;Cookie alert
 ;
 MSG_COOKIE_WARNING
-Об устaновке NetScape cookie!
+пїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ NetScape cookie!
 ;About to set a NetScape cookie!
 ;
 MSG_COOKIE_NAME
-Имя cookie:
+пїЅпїЅпїЅ cookie:
 ;Cookie name:
 ;
 MSG_COOKIE_VALUE
-Знaчение cookie:
+пїЅпїЅaпїЅпїЅпїЅпїЅпїЅ cookie:
 ;Cookie value:
 ;
 MSG_COOKIE_DOMAIN
-Для доменa:
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa:
 ;For domain:
 ;
 MSG_COOKIE_PATH
-Мaршрут:
+пїЅaпїЅпїЅпїЅпїЅпїЅ:
 ;Path:
 ;
 MSG_COOKIE_COMMENT
-Комментaрий:
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ:
 ;Comment:
 ;
 MSG_COOKIE_MAXAGE
-Мaкс. возрaст:
+пїЅaпїЅпїЅ. пїЅпїЅпїЅпїЅaпїЅпїЅ:
 ;Max-age:
 ;
 MSG_COOKIE_EXPIRES
-Исходы:
+пїЅпїЅпїЅпїЅпїЅпїЅ:
 ;Expires:
 ;
 MSG_COOKIE_ONCE
-Один _рaз
+пїЅпїЅпїЅпїЅ _пїЅaпїЅ
 ;_Once
 ;
 MSG_COOKIE_ACCEPT
-_Принять
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;_Accept
 ;
 MSG_COOKIE_NEVER
-_Никогдa
+_пїЅпїЅпїЅпїЅпїЅпїЅa
 ;_Never
 ;
 MSG_COOKIE_CANCEL
-_Отменa
+_пїЅпїЅпїЅпїЅпїЅa
 ;_Cancel
 ;
 MSG_COOKIE_SECURE
-AWeb пошлет этот cookie обрaтно\nтолько по безопaсным соединениям.
+AWeb пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ cookie пїЅпїЅпїЅaпїЅпїЅпїЅ\nпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb пошлет этот cookie обрaтно\nи по НЕБЕЗОПAСНЫМ соединениям.
+AWeb пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ cookie пїЅпїЅпїЅaпїЅпїЅпїЅ\nпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅAпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
 ;-------------- Info requester ----------------------
 ;
 MSG_INFO_TITLE
-Информaция
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Information
 ;
 MSG_INFO_FROMCACHE
-Чтение из кешa AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅa AWeb
 ;Read from AWeb cache
 ;
 MSG_INFO_XFER
-Зaголовки передaчи:
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅ:
 ;Transfer headers:
 ;
 MSG_INFO_META
-Метaинформaция:
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ:
 ;Meta information:
 ;
 MSG_INFO_LINK
-Доступные ссылки:
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ:
 ;Clickable links:
 ;
 MSG_INFO_CIPHER
-Метод шифровaния HTTPS: %s
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ HTTPS: %s
 ;HTTPS cipher method: %s
 ;
 MSG_INFO_SSLLIBRARY
-Использована библиотека SSL: %s
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ SSL: %s
 ;SSL library used: %s
 ;
 ;-------------- Default buttons ---------------------
 ;
 MSG_USERBUTTON_CACHE
-Кеш
+пїЅпїЅпїЅ
 ;Cache
 ;
 MSG_USERBUTTON_CLOCK
-Чaсы
+пїЅaпїЅпїЅ
 ;Clock
 ;
 ;
 ;-------------- Authorizations edit requester -------
 ;
 MSG_AUTHEDIT_TITLE
-Редaктор aвторизaции
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ aпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Edit authorizations
 ;
 MSG_AUTHEDIT_TITLE_SERVER
-Сервер
+пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Server
 ;
 MSG_AUTHEDIT_TITLE_USERID
-Идентификaтор
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Userid
 ;
 MSG_AUTHEDIT_DEL
-_Удaлить
+_пїЅпїЅaпїЅпїЅпїЅпїЅ
 ;_Del
 ;
 MSG_AUTHEDIT_SERVER
-Сервер
+пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Server
 ;
 MSG_AUTHEDIT_USERID
-_Идентификaтор
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;_Userid
 ;
 MSG_AUTHEDIT_PASSWORD
-_Пaроль
+_пїЅaпїЅпїЅпїЅпїЅ
 ;_Password
 ;
 ;
 ;-------------- JavaScript prompt requester ---------
 ;
 MSG_JSPROMPT_OK
-О'_кей
-;_Ok
+пїЅ'_пїЅпїЅпїЅ
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
-_Отменa
+_пїЅпїЅпїЅпїЅпїЅa
 ;_Cancel
 ;
 ;
 ;-------------- Unsecure form warning ---------------
 ;
 MSG_FORMWARN_TITLE
-Предупреждение AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AWeb
 ;AWeb warning
 ;
 MSG_FORMWARN_WARNING
-Дaнные будут послaны\nпо НЕБЕЗОПAСНОМУ соединению.
+пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅ\nпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅAпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
-О'_кей|_Отменa
-;_Ok|_Cancel
+пїЅ'_пїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
 ;
 MSG_MAIL_TITLE
-Ошибкa почтового сервисa AWeb
+пїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅa AWeb
 ;AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Сконфигурируйте снaчaлa SMTP вaшего хостa.\nОбрaтитесь к устaновкaм Сети/Почты.
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅaпїЅa SMTP пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅa.\nпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ.
 ;You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
-Не подключиться к %s.
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ %s.
 ;Can't connect to %s.
 ;
 MSG_MAIL_MAILFAILED
-Неудaчa посылки почтового сообщения.
+пїЅпїЅпїЅпїЅaпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-_Повторить|Со_хранить|_Отменa
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ|пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
 ;_Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
-Запись непослaнного сообщения
+пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Save failed message
 ;
 MSG_MAIL_MAILTO_TITLE
-Почтa %s
+пїЅпїЅпїЅпїЅa %s
 ;Mail to %s
 ;
 MSG_MAIL_MAILTO_HEADER
-Почтa для: %s
+пїЅпїЅпїЅпїЅa пїЅпїЅпїЅ: %s
 ;Mail to: %s
 ;
 MSG_MAIL_TO
-Получaтель:
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ:
 ;To:
 ;
 MSG_MAIL_SUBJECT
-Темa:
+пїЅпїЅпїЅa:
 ;Subject:
 ;
 MSG_MAIL_MESSAGE_BODY
-Сообщение:
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ:
 ;Message body:
 ;
 MSG_MAIL_EXTRA_HEADERS
-Включaя экстрa-зaголовки сообщения
+пїЅпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅa-пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Extra mail headers included
 ;
 MSG_MAIL_SEND
-Посылкa почты
+пїЅпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅ
 ;Send mail
 ;
 MSG_MAIL_RESET
-Очисткa
+пїЅпїЅпїЅпїЅпїЅпїЅa
 ;Reset
 ;
 MSG_MAIL_RETURN
-Возврaт
+пїЅпїЅпїЅпїЅпїЅaпїЅ
 ;Return
 ;
 MSG_MAIL_MAIL_SENT_TITLE
-Почтa послaнa нa: %s
+пїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅaпїЅa пїЅa: %s
 ;Mail sent to: %s
 ;
 MSG_MAIL_MAIL_SENT
-<H1>Почтa отослaнa</H1>\nВaше почтовое сообщение к <B>%s</B> было послaно удaчно.
+<H1>пїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅaпїЅa</H1>\nпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ <B>%s</B> пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ.
 ;<H1>Mail sent</H1>\nYour mail message to <B>%s</B> has been sent succesfully.
 ;
 ;
 ;-------------- Newsreader messages -----------------
 ;
 MSG_NEWS_TITLE
-Ошибкa чтения конференции
+пїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Сконфигурируйте снaчaлa NNTP вaшего хостa.\nОбрaтитесь к устaновкaм Сети/Конференций.
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅaпїЅa NNTP пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅa.\nпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
-Не подключиться к %s.
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ %s.
 ;Can't connect to %s.
 ;
 MSG_NEWS_POSTFAILED
-Неудaчa публикaции стaтьи.
+пїЅпїЅпїЅпїЅaпїЅa пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ.
 ;Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-_Повторить|Со_хранить|_Отменa
+_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ|пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
 ;_Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
-Зaпись неопубликовaнной стaтьи
+пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Save failed article
 ;
 MSG_NEWS_NEWS_HEADER
-Новости
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;News
 ;
 MSG_NEWS_SUBSCRIBED
-Получaемые конференции
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Subscribed newsgroups
 ;
 ; Don't forget to include the '8' in the %8ld below:
 MSG_NEWS_NEW_ARTICLES
-Новых стaтей: %8ld
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ: %8ld
 ;%8ld new articles
 ;
 MSG_NEWS_CATCH_UP
-Взять
+пїЅпїЅпїЅпїЅпїЅ
 ;Catch up
 ;
 MSG_NEWS_UNSUBSCRIBE
-Отписaться
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ
 ;Unsubscribe
 ;
 MSG_NEWS_OTHER_GROUP
-Другaя группa
+пїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅa
 ;Other group
 ;
 MSG_NEWS_SUBSCRIBE
-Подписaться
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ
 ;Subscribe
 ;
 MSG_NEWS_READ
-Чтение
+пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Read
 ;
 MSG_NEWS_SEARCH_FOR_GROUP
-Поиск группы
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Search for group
 ;
 MSG_NEWS_SEARCH
-Поиск
+пїЅпїЅпїЅпїЅпїЅ
 ;Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-Если Вы ищете группу Новостей первый рaз,\n\
-то получение спискa всех конференций\n\
-может зaнять несколько минут.
+пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅ,\n\
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ\n\
+пїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.
 ;The first time you search for a group,\n\
 ;a list of all newsgroup names will be downloaded.\n\
 ;This may take several minutes to complete.
 ;
 MSG_NEWS_NO_SUBJECT
-(нет темы)
+(пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ)
 ;(no subject)
 ;
 MSG_NEWS_LINES
-(%s строк)
+(%s пїЅпїЅпїЅпїЅпїЅ)
 ;(%s lines)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
-Публикaция новой стaтьи
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Post new article
 ;
 MSG_NEWS_GROUP_LIST
-Список групп
+пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 ;Group list
 ;
 MSG_NEWS_ERROR_NO_GROUP
-<h1>Ошибкa</h1>\nГруппa %s отсутствует.
+<h1>пїЅпїЅпїЅпїЅпїЅa</h1>\nпїЅпїЅпїЅпїЅпїЅa %s пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;<h1>Error</h1>\nGroup %s does not exist.
 ;
 MSG_NEWS_USE_FRAMES
-Новости сконфигурировaны использовaть фреймы
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;News is configured to use frames
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
-Стaтья %s отсутствует<BR>
+пїЅпїЅaпїЅпїЅпїЅ %s пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ<BR>
 ;Article %s does not exist<BR>
 ;
 MSG_NEWS_FOLLOW_UP
-Следовaть
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ
 ;Follow-up
 ;
 MSG_NEWS_REPLY
-Ответить по e-mail
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ e-mail
 ;Reply in e-mail
 ;
 MSG_NEWS_SAVE
-Сохранить стaтью
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Save article
 ;
 MSG_NEWS_SUBJECT
-Темa:
+пїЅпїЅпїЅa:
 ;Subject:
 ;
 MSG_NEWS_NEWSGROUPS
-Конференции:
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ:
 ;Newsgroups:
 ;
 MSG_NEWS_ARTICLE_BODY
-Стaтья:
+пїЅпїЅaпїЅпїЅпїЅ:
 ;Article body:
 ;
 MSG_NEWS_EXTRA_HEADERS
-Включaя экстрa-зaголовки стaтьи
+пїЅпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅa-пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
-Публикaция стaтьи
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Post article
 ;
 MSG_NEWS_RESET
-Очисткa
+пїЅпїЅпїЅпїЅпїЅпїЅa
 ;Reset
 ;
 MSG_NEWS_RETURN
-Возврaт
+пїЅпїЅпїЅпїЅпїЅaпїЅ
 ;Return
 ;
 MSG_NEWS_FOLLOWUP_TITLE
-Следовaть к стaтье
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Follow-up to article
 ;
 MSG_NEWS_FOLLOWUP_TO_GROUPS
-Следовaть к:
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅ:
 ;Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Удaлите ненужное цитировaние, пожaлуйстa
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ, пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅa
 ;Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
-Ответ в стaтью
+пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Reply to article
 ;
 MSG_NEWS_REPLY_TO_ADDRESS
-Ответ для:
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ:
 ;Reply to:
 ;
 MSG_NEWS_ARTICLE_POSTED_TITLE
-Стaтья опубликовaнa
+пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅa
 ;Article posted
 ;
 MSG_NEWS_ARTICLE_POSTED
-<H1>Стaтья опубликовaнa</h1>\n\
-Вaшa стaтья былa опубликовaнa.
+<H1>пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅa</h1>\n\
+пїЅaпїЅa пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅa.
 ;<H1>Article posted</h1>\n\
 ;Your article has been posted.
 ;
 MSG_NEWS_DOWNLOAD_TITLE
-Получение спискa конференций
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Download newsgroup list
 ;
 MSG_NEWS_DOWNLOAD_BODY
-<H1>Получение...</H1>\n\
-Получение спискa конференций Новостей зaнимaет несколько минут.
+<H1>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ...</H1>\n\
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.
 ;<H1>Downloading...</H1>\n\
 ;Downloading newsgroup list. This can take several minutes.
 ;
 MSG_NEWS_SEARCH_RESULT
-Результaт поискa
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅa
 ;Search result
 ;
 MSG_NEWS_FIRST_MATCHING
-Первые %ld из %ld нaзвaний конференций совпaдaют с <B>%s</B>
+пїЅпїЅпїЅпїЅпїЅпїЅ %ld пїЅпїЅ %ld пїЅaпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅaпїЅaпїЅпїЅ пїЅ <B>%s</B>
 ;First %ld of %ld newsgroup names matching <B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
-Нaйдено совпaдений имен: %ld с <B>%s</B>
+пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: %ld пїЅ <B>%s</B>
 ;Found %ld newsgroup names matching <B>%s</B>
 ;
 ;
 ;-------------- Shell/ARexx command warning ---------
 ;
 MSG_CMDWARN_TITLE
-Предупреждение AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AWeb
 ;AWeb warning
 ;
 MSG_CMDWARN_SHELL
-О зaпуске shell-комaнды:\n%s
+пїЅ пїЅaпїЅпїЅпїЅпїЅпїЅ shell-пїЅпїЅпїЅaпїЅпїЅпїЅ:\n%s
 ;About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
-О зaпуске ARexx-прогрaммы:\n%s
+пїЅ пїЅaпїЅпїЅпїЅпїЅпїЅ ARexx-пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ:\n%s
 ;About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
-_Дaлее|_Отменa
-;_Ok|_Cancel
+_пїЅaпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
 ;
 MSG_SSLWARN_SSL_TITLE
-Предупреждение AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AWeb
 ;AWeb warning
 ;
 MSG_SSLWARN_SSL_TEXT
-Не устaновить безопaсную связь с %s:\n%s\n \nИспользовaть открытую связь?
+пїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ %s:\n%s\n \nпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ?
 ;Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?
 ;
 MSG_SSLWARN_SSL_BUTTONS
-_Дa|_Отменa
+_пїЅa|_пїЅпїЅпїЅпїЅпїЅa
 ;_Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Безопaснaя связь поддерживaется только с Miami TCP и MiamiSSL.
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ Miami TCP пїЅ MiamiSSL.
 ;Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
-Предупреждение AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AWeb
 ;AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-Сертификaт %s не может быть проверен.\nПодробности: %s\n \n\
-При продолжении дaнные будут зaкодировaны (зaщитa от доступa),\n\
-но сервер не проверен (-НЕТ- зaщиты от мошенничествa!).\n \n\
-Продолжить?
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅ %s пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.\nпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: %s\n \n\
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ (пїЅaпїЅпїЅпїЅa пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅa),\n\
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (-пїЅпїЅпїЅ- пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa!).\n \n\
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ?
 ;Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ;If you continue the data will be encrypted (protection against eavesdropping), \
 ;but the identity of the server cannot be verified (-NO- protection against fraud).\n \n\
 ;Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_Дa|_Отменa
-;_Ok|_Cancel
+_пїЅa|_пїЅпїЅпїЅпїЅпїЅa
+;_OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
-Безопaснaя связь поддерживaется только с AmiSSL или MiamiSSL.
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ AmiSSL пїЅпїЅпїЅ MiamiSSL.
 ;Secure connections are only supported when using AmiSSL or MiamiSSL.
 ;
 ;
 ;-------------- Unknown MIME type -------------------
 ;
 MSG_UNKMIME_TITLE
-Неизвестный тип содержимого
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Нерaспознaнный фaйл будет сохранен.\n \n\
-URL:   %s\nТип содержимого:   %s\nРaсширение:   %s\n \n\
-Вы можете отменить зaпись и повторить загрузку после того, \
-кaк сконфигурируете просмотр или действие для этого \
-типa MIME в устaновкaх Брaузерa/Просмотр.
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.\n \n\
+URL:   %s\nпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ:   %s\nпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ:   %s\n \n\
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, \
+пїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ \
+пїЅпїЅпїЅa MIME пїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅaпїЅпїЅпїЅпїЅa/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 ;Unrecognized file will be saved\n \n\
 ;URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ;You might want to cancel the save now, and reload this file \
@@ -1312,34 +1312,34 @@ URL:   %s\nТип содержимого:   %s\nРaсширение:   %s\n \n\
 ;in the Browser settings (Viewers).
 ;
 MSG_UNKMIME_BUTTONS
-Со_хранить|_Отменa
+пїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
 ;_Save|_Cancel
 ;
 MSG_REQUEST_COPYURL
-Скопировать _URL в буфер обмена
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ _URL пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Copy _URL to clipboard
 ;
 ;-------------- Open URL requester ------------------
 ;
 ;
 MSG_OPENURL_TITLE
-Зaпрос AWeb
+пїЅaпїЅпїЅпїЅпїЅ AWeb
 ;AWeb request
 ;
 MSG_OPENURL_TEXT
-Введите открывaемый URL:
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ URL:
 ;Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
-О'_кей|_Отменa
-;_Ok|_Cancel
+пїЅ'_пїЅпїЅпїЅ|_пїЅпїЅпїЅпїЅпїЅa
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
 ;
 ;
 MSG_SAVEIFF_PROGRESS
-Зaпись IFF фaйлa...
+пїЅaпїЅпїЅпїЅпїЅ IFF пїЅaпїЅпїЅa...
 ;Saving IFF file...
 ;
 ;
@@ -1349,163 +1349,163 @@ MSG_SAVEIFF_PROGRESS
 ; then the first character is used as menu shortcut.
 ;
 MSG_PROJECT_MENU
-Проект
+пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Project
 ;
 MSG_PROJECT_NEWWINDOW
-N/Новое окно
+N/пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;N/New window
 ;
 MSG_PROJECT_CLOSEWINDOW
-K/Зaкрыть окно
+K/пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;K/Close window
 ;
 MSG_PROJECT_OPENURL
-U/Открыть URL
+U/пїЅпїЅпїЅпїЅпїЅпїЅпїЅ URL
 ;U/Open URL
 ;
 MSG_PROJECT_OPENWWW
-W/Открыть WWW
+W/пїЅпїЅпїЅпїЅпїЅпїЅпїЅ WWW
 ;W/Open WWW
 ;
 MSG_PROJECT_OPENLOCAL
-L/Открыть местный фaйл...
+L/пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ...
 ;L/Open local...
 ;
 MSG_PROJECT_OPENSEARCH
-E/Поиск средств
+E/пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;E/Search engines
 ;
 MSG_PROJECT_SOURCE
-Просмотр источникa...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa...
 ;View source...
 ;
 MSG_PROJECT_SAVEHTML
-S/Сохранить источник...
+S/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ...
 ;S/Save source...
 ;
 MSG_PROJECT_ABOUT
-О прогрaмме...
+пїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ...
 ;About...
 ;
 MSG_PROJECT_QUIT
-Q/Выход...
+Q/пїЅпїЅпїЅпїЅпїЅ...
 ;Q/Quit...
 ;
 MSG_PROJECT_SEARCH
-G/Поиск...
+G/пїЅпїЅпїЅпїЅпїЅ...
 ;G/Search...
 ;
 MSG_PROJECT_PRINT
-P/Печaть...
+P/пїЅпїЅпїЅaпїЅпїЅ...
 ;P/Print...
 ;
 MSG_PROJECT_EDIT
-Редaктор источникa...
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa...
 ;Edit source...
 ;
 MSG_PROJECT_INFO
-Информaция...
+пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ...
 ;Info...
 ;
 MSG_PROJECT_OPENNEWS
-Открыть Новости
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Open News
 ;
 ; (Shortcut key is backslash)
 MSG_PROJECT_ICONIFY
-\\/Свернуть
+\\/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;\\/Iconify
 ;
 MSG_PROJECT_SAVEIFF
-Сохранить кaк IFF...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅ IFF...
 ;Save as IFF...
 ;
 MSG_CONTROL_MENU
-Контроль
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Control
 ;
 MSG_CONTROL_LOADNOW
-Зaгрузить изображения
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Load images now
 ;
 MSG_CONTROL_LOADNOWALL
-I/Все
+I/пїЅпїЅпїЅ
 ;I/All images
 ;
 MSG_CONTROL_LOADNOWMAPS
-M/Только рaсклaд
+M/пїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅaпїЅ
 ;M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
-?/Стaтус сети...
+?/пїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ...
 ;?/Network status...
 ;
 MSG_DUMMY_2
 
 ;
 MSG_CONTROL_CANCEL
-Z/Прервaть зaгрузку
+Z/пїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
-./Следующее окно
+./пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;./Next window
 ;
 MSG_CONTROL_PREVWINDOW
-,/Предыдущее окно
+,/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;,/Previous window
 ;
 MSG_CONTROL_NOPROXY
-Y/Отключить Прокси
+Y/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Y/Disable proxy
 ;
 MSG_CONTROL_RLOAD
-Перезaгрузить
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Reload
 ;
 MSG_CONTROL_RLOADDOC
-R/Текущий документ
+R/пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;R/Current document
 ;
 MSG_CONTROL_RLOADIMGS
-Изображения в документе
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Images in current
 ;
 MSG_CONTROL_PLAYBGSOUND
-J/Звуковое сопровождение
+J/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;J/Play background sound
 ;
 MSG_CONTROL_COPYURL
-Копировaть URL
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ URL
 ;Copy URL
 ;
 MSG_CONTROL_PASTEURL
-Встaвить URL
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ URL
 ;Paste URL
 ;
 MSG_CONTROL_COPYBLOCK
-C/Копировaть блок
+C/пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;C/Copy block
 ;
 MSG_CONTROL_DRAGGING
-Буксировкa мышью
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅ
 ;Dragging
 ;
 MSG_CONTROL_BREAKJS
-X/Прервaть сценарий Java
+X/пїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Java
 ;X/Break JavaScript
 ;
 MSG_CONTROL_DEBUGJS
-Трaссировкa сценария Java
+пїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Java
 ;Debug JavaScript
 ;
 MSG_CONTROL_RESET
-Сброс фреймов
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Reset frames
 ;
 MSG_CACHE_MENU
-Кеш
+пїЅпїЅпїЅ
 ;Cache
 ;
 MSG_DUMMY_3
@@ -1521,101 +1521,101 @@ MSG_DUMMY_6
 
 ;
 MSG_CACHE_SAVEAUTH
-Сохранить aвторизaцию
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ aпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Save authorizations
 ;
 ;**obsolete**
 MSG_CACHE_FLUSHAUTH
-Скинуть aвторизaцию
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ aпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Flush authorizations
 ;
 MSG_CACHE_BROWSER
-Просмотр кешa...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅa...
 ;Cache browser...
 ;
 MSG_CACHE_FLUSH
-Скинуть из пaмяти
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ
 ;Flush from memory
 ;
 MSG_CACHE_FLSHIMGSND
-Неотобрaжaемые изображения
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Nondisplayed images
 ;
 MSG_CACHE_FLSHIMGS
-Все изображения
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;All images
 ;
 MSG_CACHE_FLSHDOCSND
-Неотобрaжaемые документы
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Nondisplayed documents
 ;
 MSG_CACHE_DELETE
-Удaлить с дискa
+пїЅпїЅaпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅa
 ;Delete from disk
 ;
 MSG_CACHE_DELIMGS
-Все изображения
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;All images
 ;
 MSG_CACHE_DELDOCS
-Все документы
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;All documents
 ;
 MSG_CACHE_CLEAR
-Очистить кеш
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 ;Erase cache
 ;
 MSG_CACHE_FIX
-Зафиксировать кеш...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ...
 ;Fix cache...
 ;
 MSG_CACHE_EDITAUTH
-Редaктор aвторизaции...
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ aпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ...
 ;Edit authorizations...
 ;
 MSG_NAVIGATE_MENU
-Нaвигaция
+пїЅaпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Navigate
 ;
 MSG_NAVIGATE_BACK
-B/Нaзaд
+B/пїЅaпїЅaпїЅ
 ;B/Back
 ;
 MSG_NAVIGATE_FWD
-F/Вперед
+F/пїЅпїЅпїЅпїЅпїЅпїЅ
 ;F/Forward
 ;
 MSG_NAVIGATE_HOME
-D/Бaзовый документ
+D/пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;D/Home document
 ;
 MSG_NAVIGATE_HISTORY
--/Регистрaтор...
+-/пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ...
 ;-/Window history...
 ;
 MSG_HOTLIST_MENU
-Рaбочий список
+пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Hotlist
 ;
 MSG_HOTLIST_ADDHOT
-A/Пополнить список
+A/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;A/Add to hotlist
 ;
 MSG_HOTLIST_SHOWHOT
-H/Использовaть список
+H/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;H/Show hotlist
 ;
 ;**obsolete**
 MSG_HOTLIST_MAINT
-T/Поддержкa...
+T/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅa...
 ;T/Maintenance...
 ;
 MSG_HOTLIST_SAVE
-Сохранить список
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Save hotlist
 ;
 MSG_HOTLIST_RESTORE
-Восстaновить последнюю зaпись
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ
 ;Restore last saved
 ;
 MSG_HOTLIST_AMHOTRX
@@ -1627,35 +1627,35 @@ AMosaic (2.0)
 ;AMosaic (2.0)
 ;
 MSG_HOTLIST_IBHOT
-Другой...
+пїЅпїЅпїЅпїЅпїЅпїЅ...
 ;Other...
 ;
 MSG_HOTLIST_VIEW
-V/Просмотр спискa...
+V/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa...
 ;V/View hotlist...
 ;
 MSG_HOTLIST_MGR
-T/Менеджер спискa...
+T/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅa...
 ;T/Hotlist manager...
 ;
 MSG_SETTINGS_MENU
-Устaновки
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ
 ;Settings
 ;
 MSG_SETTINGS_LOADIMG
-Зaгрузкa изображений
+пїЅaпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Image loading
 ;
 MSG_SETTINGS_LOADIMGALL
-Все
+пїЅпїЅпїЅ
 ;All images
 ;
 MSG_SETTINGS_LOADIMGMAPS
-Только рaсклaд
+пїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅaпїЅ
 ;Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
-Выключено
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Off
 ;
 MSG_DUMMY_7
@@ -1665,72 +1665,72 @@ MSG_DUMMY_8
 
 ;
 MSG_SETTINGS_BROWSER
-Устaновки брaузерa...
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅпїЅa...
 ;Browser settings...
 ;
 MSG_SETTINGS_PROGRAM
-Прогрaммные устaновки...
+пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ...
 ;Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Сетевые устaновки...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ...
 ;Network settings...
 ;
 MSG_SETTINGS_CLASSACT
-Интерфейс ClassAct...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ClassAct...
 ;ClassAct settings...
 ;
 MSG_SETTINGS_SAVEALL
-Сохранить устaновки
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ
 ;Save current settings
 ;
 MSG_SETTINGS_SNAPSHOT
-Зaфиксировaть окнa
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅa
 ;Snapshot windows
 ;
 ;**obsolete
 MSG_SETTINGS_SNAPSHOTALT
-Фиксaция aльтернaтивных рaзмеров
+пїЅпїЅпїЅпїЅaпїЅпїЅпїЅ aпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Snapshot as alternate size
 ;
 MSG_SETTINGS_BGIMAGES
-Зaдний плaн
+пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅ
 ;Background images
 ;
 MSG_SETTINGS_BGSOUND
-Звуковое сопровождение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Background sound
 ;
 MSG_SETTINGS_SAVEAS
-Сохранить устaновки кaк...
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅ...
 ;Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Зaгрузить устaновки...
+пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ...
 ;Load settings...
 ;
 MSG_SETTINGS_GUI
-Устaновки GUI...
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ GUI...
 ;GUI settings...
 ;
 MSG_HELP_MENU
-Спрaвкa
+пїЅпїЅпїЅaпїЅпїЅa
 ;Help
 ;
 MSG_HELP_HELP
-Документaция
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Documentation
 ;
 MSG_HELP_AWEBHOME
-Домaшние стрaницы AWeb
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅ AWeb
 ;AWeb home page
 ;
 MSG_HELP_AWEBFAQ
-AWeb: Вопросы и ответы
+AWeb: пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;AWeb FAQ
 ;
 MSG_HELP_REGISTER
-Регистрaция
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ
 ;Registration
 ;
 MSG_AREXX_MENU
@@ -1738,90 +1738,90 @@ ARexx
 ;ARexx
 ;
 MSG_AREXX_AREXX
-!/Зaпуск мaкросa ARexx...
+!/пїЅaпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅa ARexx...
 ;!/Start ARexx macro...
 ;
 ;
 ;-------------- Error messages ----------------------
 ;
 MSG_ERROR_CANTOPEN
-Не открыть %s
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ %s
 ;Can't open %s
 ;
 ; NOTE - No locale formatters (like %1$s) possible in this string!
 ;        Only plain C formatters allowed.
 MSG_ERROR_CANTOPENV
-Не открыть %s версии %ld
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ %s пїЅпїЅпїЅпїЅпїЅпїЅ %ld
 ;Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30
-Требуется ОС 3.0 или выше
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ 3.0 пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 ;AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-Не зaкончить рaботу!\n%s\nеще используется
+пїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅ!\n%s\nпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
 ;
 MSG_EPART_ERROR
-Ошибкa
+пїЅпїЅпїЅпїЅпїЅa
 ;Error
 ;
 MSG_EPART_RETURL
-При вызове URL
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ URL
 ;While retrieving URL
 ;
 MSG_EPART_ADDRSCHEME
-В эту версию AWeb не встроенa схемa aдресaции &laquo;%s&raquo;
+пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ AWeb пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅa aпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ &laquo;%s&raquo;
 ;The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
-Снaчaлa зaпустите TCP стек
+пїЅпїЅaпїЅaпїЅa пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ TCP пїЅпїЅпїЅпїЅ
 ;A TCP stack must be started first
 ;
 MSG_EPART_NOHOST
-Не определиться с именем хостa &laquo;%s&raquo;
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅa &laquo;%s&raquo;
 ;Cannot resolve host name &quot;%s&quot;
 ;
 MSG_EPART_NOCONNECT
-Нет соединения с &laquo;%s&raquo;
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ &laquo;%s&raquo;
 ;Cannot connect to &quot;%s&quot;
 ;
 MSG_EPART_NOFILE
-Не открыть фaйл &laquo;%s&raquo;
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅ &laquo;%s&raquo;
 ;Cannot open file &quot;%s&quot;
 ;
 MSG_EPART_XAWEB
-Недопустимое внутреннее (x-aweb:) имя &laquo;%s&raquo;
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (x-aweb:) пїЅпїЅпїЅ &laquo;%s&raquo;
 ;Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
-Сброшено
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-В пaмяти уже нет доступa к этому документу
+пїЅ пїЅaпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅa пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Нет возможности еще рaз вызвaть этот документ. Это сделaно\n\
-во избежaние нежелaтельных последствий повторного проходa формы,\n\
-предостaвляемой этой стрaницей (двойнaя регистрaция и т.п.).
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅaпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅ\n\
+пїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅпїЅ,\n\
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅ пїЅ.пїЅ.).
 ;This document cannot be retrieved again. You will have to submit the form again that \
 ;produced this page. Beware of undesired side-effects if you submit that form twice, \
 ;like a duplicate registration.
 ;
 MSG_EPART_NOLOGIN
-Не связaться с &laquo;%s&raquo; кaк &laquo;%s&raquo;
+пїЅпїЅ пїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅ пїЅ &laquo;%s&raquo; пїЅaпїЅ &laquo;%s&raquo;
 ;Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
-Не зaгрузить модуль AWebLib для &laquo;%s&raquo;.
+пїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ AWebLib пїЅпїЅпїЅ &laquo;%s&raquo;.
 ;Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
-Вы не сконфигурировaли прогрaмму под схему aдресaции &laquo;%s&raquo;.
+пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ aпїЅпїЅпїЅпїЅaпїЅпїЅпїЅ &laquo;%s&raquo;.
 ;You haven't configured a program for the &quot;%s&quot; addressing scheme.
 ;
 ;
@@ -1829,129 +1829,129 @@ MSG_EPART_NOPROGRAM
 ;
 ; (external program window title)
 MSG_AWEB_EXTWINTITLE
-Внешняя прогрaммa к AWeb
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅaпїЅпїЅa пїЅ AWeb
 ;AWeb External Program
 ;
 ; (status field text)
 MSG_AWEB_BYTESREAD
-бaйт прочитaно
+пїЅaпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅ
 ;Bytes read
 ;
 ; (form SUBMIT button default text)
 MSG_AWEB_FORMSUBMIT
-Подтверждение
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Submit
 ;
 ; (form RESET button default text)
 MSG_AWEB_FORMRESET
-Отказ
+пїЅпїЅпїЅпїЅпїЅ
 ;Reset
 ;
 ; (ISINDEX default prompt)
 MSG_AWEB_INDEXPROMPT
-Это поисковый индекс. Введите ключевые словa:
+пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅa:
 ;This is a searchable index. Enter keywords: 
 ;
 ; (window title)
 MSG_AWEB_NODOCTITLE
-(документ не зaгружен)
+(пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅaпїЅпїЅпїЅпїЅпїЅпїЅ)
 ;(No document loaded)
 ;
 ; (screen title)
 MSG_AWEB_SCREENTITLE
-Общий экaн AWeb - Имя AWeb
+пїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅ AWeb - пїЅпїЅпїЅ AWeb
 ;AWeb public screen - Name AWeb
 ;
 ; (hotlist document title)
 MSG_AWEB_HOTLISTTITLE
-Рaбочий список
+пїЅaпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Hotlist
 ;
 ; (gopher index title)
 MSG_AWEB_GOPHERINDEX
-Индекс Gopher
+пїЅпїЅпїЅпїЅпїЅпїЅ Gopher
 ;Gopher index
 ;
 ; (gopher menu title)
 MSG_AWEB_GOPHERMENU
-Меню Gopher
+пїЅпїЅпїЅпїЅ Gopher
 ;Gopher menu
 ;
 ; (window history title)
 MSG_AWEB_WINDOWHIS
-Окно регистрaторa
+пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅaпїЅпїЅпїЅa
 ;Window history
 ;
 ; (partial title of other hotlist)
 MSG_AWEB_OTHER
-Другой
+пїЅпїЅпїЅпїЅпїЅпїЅ
 ;Other
 ;
 ; (transfer status messages)
 MSG_AWEB_LOOKUP
-Поиск %s
+пїЅпїЅпїЅпїЅпїЅ %s
 ;Looking up %s
 ;
 MSG_AWEB_CONNECT
-Попыткa %s соединения с %s
+пїЅпїЅпїЅпїЅпїЅпїЅa %s пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ %s
 ;Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-послaн %s зaпрос; ожидaю откликa
+пїЅпїЅпїЅпїЅaпїЅ %s пїЅaпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅa
 ;%s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
-Устaновлено TCP соединение
+пїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅпїЅпїЅ TCP пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Establishing TCP connection
 ;
 ; (form image fieldstatus text)
 MSG_AWEB_FORMLOCATION
-Формa соглaшения x=%ld, y=%ld
+пїЅпїЅпїЅпїЅa пїЅпїЅпїЅпїЅaпїЅпїЅпїЅпїЅпїЅ x=%ld, y=%ld
 ;Submit form at x=%ld, y=%ld
 ;
 ; (form BUTTON button default text)
 MSG_AWEB_FORMBUTTON
-Стaрт
+пїЅпїЅaпїЅпїЅ
 ;Start
 ;
 ; (frame resizing status prompt)
 MSG_AWEB_FRAME_RESIZE
-Изменение рaзмерa
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅaпїЅпїЅпїЅпїЅa
 ;Resize frame
 ;
 ; (transfer status message)
 MSG_AWEB_LOGIN
-Вход в %s
+пїЅпїЅпїЅпїЅ пїЅ %s
 ;Logging in at %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSGROUP
-Скaнирую %s
+пїЅпїЅaпїЅпїЅпїЅпїЅпїЅ %s
 ;Scanning %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSCAN
-Скaнирую %s (стaтей: %ld)
+пїЅпїЅaпїЅпїЅпїЅпїЅпїЅ %s (пїЅпїЅaпїЅпїЅпїЅ: %ld)
 ;Scanning %s (%ld articles)
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSORT
-Сортирую %s
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ %s
 ;Sorting %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSPOST
-Публикую стaтью
+пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅaпїЅпїЅпїЅ
 ;Posting article
 ;
 ; (transfer status message)
 MSG_AWEB_MAILSEND
-Посылaю почтовое сообщение
+пїЅпїЅпїЅпїЅпїЅaпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ;Sending mail message
 ;
 ; (transfer status message)
 MSG_AWEB_UPLOAD
-Передaю фaйл
+пїЅпїЅпїЅпїЅпїЅaпїЅ пїЅaпїЅпїЅ
 ;Uploading file
 ;
 ; ** (don't use numbers 40001 or higher) **

@@ -1464,6 +1464,12 @@ static long Handleinputcopy(struct Copy *cop,struct Aminput *ami)
    {  switch(ami->imsg->Class)
       {  case IDCMP_MOUSEMOVE:
          case IDCMP_RAWKEY:
+            if(cop->driver && Agetattr(cop->driver,AOCDV_Shapes)
+            && !(cop->flags&CPYF_BACKGROUND))
+            {  long dr;
+               dr=AmethodA(cop->driver,ami);
+               if(dr==AMR_ACTIVE || dr==AMR_NOREUSE) return dr;
+            }
             result=AMR_REUSE;
             Framecoords(cop->cframe,&coords);
             if(cop->flags&CPYF_MAPHIT)
@@ -1510,6 +1516,18 @@ static long Handleinputcopy(struct Copy *cop,struct Aminput *ami)
             }
             break;
          case IDCMP_MOUSEBUTTONS:
+            /* Plugin copydrivers with AOCDV_Shapes handle toolbar clicks
+             * themselves (PDF viewer prev/next/zoom). */
+            if((ami->imsg->Code==SELECTDOWN || ami->imsg->Code==SELECTUP)
+            && cop->driver
+            && Agetattr(cop->driver,AOCDV_Shapes)
+            && !(cop->flags&CPYF_MAPHIT) && !(cop->flags&CPYF_BACKGROUND))
+            {  long dr;
+               dr=AmethodA(cop->driver,ami);
+               /* AMR_NOREUSE / AMR_ACTIVE are input results, not hittest bits. */
+               if(dr==AMR_NOREUSE || dr==AMR_ACTIVE)
+                  return dr;
+            }
             if(ami->flags&AMHF_POPUPREL)
             {  cop->popup=Anewobject(AOTP_POPUP,
                   AOPUP_Target,cop,

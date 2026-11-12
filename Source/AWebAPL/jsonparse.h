@@ -21,8 +21,6 @@
 #ifndef JSONPARSE_H
 #define JSONPARSE_H
 
-struct Arexxcmd;  /* Forward declaration */
-
 /* Extract value(s) from JSON data by dot-separated path.
  *
  * data     - JSON string to parse

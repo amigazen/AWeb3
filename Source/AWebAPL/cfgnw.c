@@ -71,9 +71,14 @@ static UBYTE *starttcphelplabels[2];
 static UBYTE *endtcphelplabels[2];
 static UBYTE *caverifylabels[4];
 static UBYTE *qhdrhelplabels[7];
-static UBYTE *spoofidlabels[10]=
-{  "(AWeb)","Mozilla/3.01","Mozilla/4.0","Mozilla/5.0","Mozilla/6.0",
-   "MSIE/4.0","MSIE/5.0","MSIE/5.5","MSIE/6.0",NULL
+static UBYTE *spoofidlabels[13]=
+{  "(AWeb default)",
+   "Mozilla/5.0 (compatible; AWeb/3.6; AmigaOS 3.2)",
+   "Mozilla/5.0 (compatible; AWeb/3.6) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+   /* No "Mozilla" token: Anubis serves metarefresh instead of JS PoW. */
+   "AWeb/3.6 (AmigaOS Compatible)",
+   "Mozilla/5.0","Mozilla/4.0","Mozilla/3.01",
+   "MSIE/6.0","MSIE/5.5","MSIE/5.0","MSIE/4.0",NULL
 };
 
 static void *winobject=NULL;

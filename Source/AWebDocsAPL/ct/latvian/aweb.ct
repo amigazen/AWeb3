@@ -13,7 +13,7 @@
 ;-------------- General -----------------------------
 ;
 MSG_REQUEST_TITLE
-AWeb ziòojums
+AWeb ziï¿½ojums
 ;AWeb request
 ;
 ;
@@ -24,15 +24,15 @@ Par AWeb
 ;About AWeb
 ;
 MSG_ABOUT_REGNR
-Reìistrâcija #
+Reï¿½istrï¿½cija #
 ;Registration #
 ;
 MSG_ABOUT_REGTO
-Lietotâjs
+Lietotï¿½js
 ;Registered to
 ;
 MSG_ABOUT_SCREENNAME
-Publiskâ ekrâna nosaukums
+Publiskï¿½ ekrï¿½na nosaukums
 ;Public screen name
 ;
 MSG_ABOUT_PORTNAME
@@ -49,29 +49,29 @@ WWW
 ;
 MSG_ABOUT_OK
 _Labi
-;_Ok
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Nereìistrçta versija\n
+Nereï¿½istrï¿½ta versija\n
 ;Unregistered version\n
 ;
 MSG_ABOUT_DEMO
-Nereìistrçta demonstrâcijas versija\n
+Nereï¿½istrï¿½ta demonstrï¿½cijas versija\n
 ;Unregistered demo version\n
 ;
 MSG_ABOUT_DISTRIBUTED
-Izplatîtâjs: %s
+Izplatï¿½tï¿½js: %s
 ;Distributed by %s
 ;
 ; Translators give yourself credit with this string.
 ; It should read something like "(Language) translation by: (your name)\n"
 ;
 MSG_ABOUT_TRANSLATOR
-Latvieðu valoda: Martins Ierags\n
+Latvieï¿½u valoda: Martins Ierags\n
 ;
 ;
 MSG_ABOUT_SPECIAL
-Versija izplatîðanai kopâ ar Amiga OS\n
+Versija izplatï¿½ï¿½anai kopï¿½ ar Amiga OS\n
 ;Special version for distribution with Amiga OS\n
 ;
 ;-------------- Quit requester ----------------------
@@ -81,32 +81,32 @@ Beigt darbu ar AWeb?
 ;Are you sure you want to quit AWeb?
 ;
 MSG_QUIT_OK
-_Jâ
-;_Ok
+_Jï¿½
+;_OK 
 ;
 MSG_QUIT_CANCEL
-_Nç
+_Nï¿½
 ;_Cancel
 ;
 MSG_QUIT_WARNING
-UZMANÎBU: Sakari tiks pârtraukti!\n\n
+UZMANï¿½BU: Sakari tiks pï¿½rtraukti!\n\n
 ;WARNING: Transfers will be aborted!\n\n
 ;
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-AWeb demonstrâcijas versija.\nVairâki logi vienlaicîgi nevar tikt atvçrti.
+AWeb demonstrï¿½cijas versija.\nVairï¿½ki logi vienlaicï¿½gi nevar tikt atvï¿½rti.
 ;This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
 _Labi
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-AWeb nevar aizvçrt.\nLûdzu aizveriet visus logus.
+AWeb nevar aizvï¿½rt.\nLï¿½dzu aizveriet visus logus.
 ;AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
@@ -117,11 +117,11 @@ Labi
 ;-------------- Network status window ---------------
 ;
 MSG_NWS_TITLE
-Tîkla status
+Tï¿½kla status
 ;Network status
 ;
 MSG_NWS_QUEUED
-Rindâ
+Rindï¿½
 ;Queued
 ;
 MSG_NWS_STARTED
@@ -129,7 +129,7 @@ Palaists
 ;Started
 ;
 MSG_NWS_LOOKUP
-Meklç
+Meklï¿½
 ;Looking up
 ;
 MSG_NWS_CONNECT
@@ -141,11 +141,11 @@ Gaida
 ;Waiting
 ;
 MSG_NWS_PROCESS
-Apstrâdâ
+Apstrï¿½dï¿½
 ;Processing
 ;
 MSG_NWS_LOGIN
-Pieteikðanâs
+Pieteikï¿½anï¿½s
 ;Logging in
 ;
 MSG_NWS_CPS
@@ -153,21 +153,21 @@ MSG_NWS_CPS
 ;%ld cps
 ;
 MSG_NWS_NEWSGROUP
-Skençðana
+Skenï¿½ï¿½ana
 ;Scanning
 ;
 MSG_NWS_UPLOAD
-Augðupielâde
+Augï¿½upielï¿½de
 ;Uploading
 ;
 ;-------------- Authorization requester -------------
 ;
 MSG_AUTH_TITLE
-Autorizâcija
+Autorizï¿½cija
 ;Authorization
 ;
 MSG_AUTH_PROMPT
-Lietotâja identifikators un parole
+Lietotï¿½ja identifikators un parole
 ;Userid and password required for
 ;
 MSG_AUTH_USERID
@@ -180,7 +180,7 @@ _Parole
 ;
 MSG_AUTH_OK
 _Labi
-;_Ok
+;_OK 
 ;
 MSG_AUTH_CANCEL
 _Atclet
@@ -201,16 +201,16 @@ Proxy identifikators un parole
 ;-------------- File requesters ---------------------
 ;
 MSG_FILE_SAVETITLE
-Norâdiet saglabâjamâ faila nosaukumu
+Norï¿½diet saglabï¿½jamï¿½ faila nosaukumu
 ;Select save filename
 ;
 MSG_FILE_SAVE
-Saglabât
+Saglabï¿½t
 ;Save
 ;
 MSG_FILE_INCTEXT
-Nepilnîgs fails!\n%s\nNepiecieðami %ld baiti\nSaòemti %ld baiti\n\n\
-Apstipriniet, lai saglabâtu nepilnîgu failu.
+Nepilnï¿½gs fails!\n%s\nNepiecieï¿½ami %ld baiti\nSaï¿½emti %ld baiti\n\n\
+Apstipriniet, lai saglabï¿½tu nepilnï¿½gu failu.
 ;Incomplete file!\n%s\nExpected: %ld bytes\nReceived: %ld bytes\n\n\
 ;Choose OK to keep the partial data.
 ;
@@ -218,78 +218,78 @@ MSG_DUMMY_1
 
 ;
 MSG_FILE_EXISTTEXT
-Fails:\n%s\neksistç!
+Fails:\n%s\neksistï¿½!
 ;File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-_Pârrakstît|Pie_vienot|_Jauns nosaukums|_Atcelt
+_Pï¿½rrakstï¿½t|Pie_vienot|_Jauns nosaukums|_Atcelt
 ;_Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
-Norâdiet ARexx makrosu
+Norï¿½diet ARexx makrosu
 ;Select ARexx macro
 ;
 MSG_FILE_HOTLISTTITLE
-Norâdiet hierarhisko sarakstu
+Norï¿½diet hierarhisko sarakstu
 ;Select hierarchical hotlist
 ;
 MSG_FILE_LOCALTITLE
-Atvçrt lokâlo failu
+Atvï¿½rt lokï¿½lo failu
 ;Open local file
 ;
 MSG_FILE_OPEN
-Atvçrt
+Atvï¿½rt
 ;Open
 ;
 MSG_FILE_TEMPTITLE
-Nevar atrast pagaidu katalogu:\n%s\nIzmantoðu T:
+Nevar atrast pagaidu katalogu:\n%s\nIzmantoï¿½u T:
 ;Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
 _Labi
-;_Ok
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
-_Labi|At_kârtot|_Atcelt
-;_Ok|_Retry|_Cancel
+_Labi|At_kï¿½rtot|_Atcelt
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
-Norâdiet opciju katalogu
+Norï¿½diet opciju katalogu
 ;Select settings directory
 ;
 MSG_FILE_UPLOADTITLE
-Norâdiet augðupielâdçjamo failu
+Norï¿½diet augï¿½upielï¿½dï¿½jamo failu
 ;Select file to upload
 ;
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-Darbs ar AWeb pârtraukts.\nPârtraukt TCP konekciju?
+Darbs ar AWeb pï¿½rtraukts.\nPï¿½rtraukt TCP konekciju?
 ;AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
 MSG_TCP_BUTTONS
-_Jâ|_Nç
+_Jï¿½|_Nï¿½
 ;_Yes|_No
 ;
 ;-------------- Startup requester -------------------
 ; Mind the maximum length!
 ;
 MSG_STARTUP_FONTS
-Fontu ielâde
+Fontu ielï¿½de
 ;Loading fonts
 ;
 MSG_STARTUP_IMAGES
-GUI elementu ielâde
+GUI elementu ielï¿½de
 ;Loading GUI images
 ;
 MSG_STARTUP_CACHE
-Krâtuves indeksu ielâde
+Krï¿½tuves indeksu ielï¿½de
 ;Loading cache index
 ;
 ;-------------- Hotlist requester -------------------
 ;
 MSG_HOTL_TITLE
-AWeb iecienîtâkâs saites
+AWeb iecienï¿½tï¿½kï¿½s saites
 ;AWeb hotlist
 ;
 MSG_HOTL_ADDLINK
@@ -302,7 +302,7 @@ Pievienot grupu
 ;
 ; (No hotkey for this one please!)
 MSG_HOTL_REMOVE
-Izdzçst
+Izdzï¿½st
 ;Remove
 ;
 MSG_HOTL_FOLLOW
@@ -328,7 +328,7 @@ Jauna saite
 ; -- new hotlist viewer requester --
 ;
 MSG_HOTL_TITLE_VIEWER
-AWeb iecienîtâkâs saites
+AWeb iecienï¿½tï¿½kï¿½s saites
 ;AWeb hotlist viewer
 ;
 MSG_HOTL_VURLS
@@ -336,13 +336,13 @@ UR_L'i
 ;UR_Ls
 ;
 MSG_HOTL_MANAGER
-_Menedþeris
+_Menedï¿½eris
 ;_Manager
 ;
 ; -- new hotlist manager requester --
 ;
 MSG_HOTL_TITLE_MANAGER
-AWeb iecienîtâko saitu menedþeris
+AWeb iecienï¿½tï¿½ko saitu menedï¿½eris
 ;AWeb hotlist manager
 ;
 MSG_HOTL_LTYPE
@@ -350,7 +350,7 @@ _Saraksts
 ;L_ist
 ;
 MSG_HOTL_LTYPE_REST
-Brîvie
+Brï¿½vie
 ;Rest
 ;
 MSG_HOTL_LTYPE_ALL
@@ -362,7 +362,7 @@ Grupas
 ;Groups
 ;
 MSG_HOTL_LSORT
-Sakârt_ojums
+Sakï¿½rt_ojums
 ;S_ort
 ;
 MSG_HOTL_LSORT_TITLE
@@ -374,19 +374,19 @@ URL
 ;URL
 ;
 MSG_HOTL_MOVEIN
-_< Iekðâ
+_< Iekï¿½ï¿½
 ;_< In
 ;
 MSG_HOTL_MOVEOUT
-Ârâ _>
+ï¿½rï¿½ _>
 ;Out _>
 ;
 MSG_HOTL_MOVE
-< _Pârvietot
+< _Pï¿½rvietot
 ;< _Move
 ;
 MSG_HOTL_DEL
-_Dzçst
+_Dzï¿½st
 ;_Delete
 ;
 MSG_HOTL_WHERE
@@ -394,15 +394,15 @@ K_ur
 ;_Where
 ;
 MSG_HOTL_SHOW
-S_katît
+S_katï¿½t
 ;S_how
 ;
 MSG_HOTL_SORT
-Sakâr_tojums
+Sakï¿½r_tojums
 ;Sor_t
 ;
 MSG_HOTL_PARENT
-_Iepriekðçjais
+_Iepriekï¿½ï¿½jais
 ;_Parent
 ;
 MSG_HOTL_ALL
@@ -426,7 +426,7 @@ Atgrie_zt
 ;Re_vert
 ;
 MSG_HOTL_SAVE
-_Saglabât
+_Saglabï¿½t
 ;_Save
 ;
 MSG_HOTL_LADD
@@ -434,15 +434,15 @@ Pie_vienot
 ;_Add
 ;
 MSG_HOTL_FIND
-_Meklçt
+_Meklï¿½t
 ;_Find
 ;
 MSG_HOTL_PATTERN
-Ða_blons
+ï¿½a_blons
 ;Mat_ch
 ;
 MSG_HOTL_NEXT
-Tâ_lâk
+Tï¿½_lï¿½k
 ;Ne_xt
 ;
 MSG_HOTL_DEFAULT_TITLE
@@ -458,7 +458,7 @@ Visas grupas
 ;All groups
 ;
 MSG_HOTL_TITLE_WHERE
-Grupas ar ðo elementu
+Grupas ar ï¿½o elementu
 ;Groups containing this entry
 ;
 MSG_HOTL_TITLE_REST
@@ -470,7 +470,7 @@ Visi elementi
 ;All entries
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
-Saknes-lîmeòa grupas
+Saknes-lï¿½meï¿½a grupas
 ;Root-level groups
 ;
 MSG_HOTL_LSORT_DATE
@@ -481,7 +481,7 @@ Datums
 ;--------------  Window history requester -------------------
 ;
 MSG_WHIS_TITLE
-Logu reìistrators
+Logu reï¿½istrators
 ;Window history
 ;
 MSG_WHIS_FILTER
@@ -493,19 +493,19 @@ _Logs
 ;_Window
 ;
 MSG_WHIS_ORDER
-_Kârtîba
+_Kï¿½rtï¿½ba
 ;_Order
 ;
 MSG_WHIS_DISPLAY
-_Parâdît
+_Parï¿½dï¿½t
 ;_Display
 ;
 MSG_WHIS_ORDER_NATURAL
-Pçc kârtas
+Pï¿½c kï¿½rtas
 ;Natural
 ;
 MSG_WHIS_ORDER_MAINLINE
-Tçma
+Tï¿½ma
 ;Mainline
 ;
 MSG_WHIS_ORDER_RETRIEVED
@@ -524,7 +524,7 @@ URL
 ;-------------- Cache browser ---------------------------
 ;
 MSG_CABR_TITLE
-Krâtuves pârlûkotâjs
+Krï¿½tuves pï¿½rlï¿½kotï¿½js
 ;Cache browser
 ;
 MSG_CABR_URL
@@ -536,7 +536,7 @@ Datums
 ;Date
 ;
 MSG_CABR_SIZE
-Izmçrs
+Izmï¿½rs
 ;Size
 ;
 MSG_CABR_TYPE
@@ -552,38 +552,38 @@ MSG_CABR_STATUS
 ;%ld files, %ld kB
 ;
 MSG_CABR_SORTBY
-_Kârtot pçc
+_Kï¿½rtot pï¿½c
 ;_Sort by
 ;
 MSG_CABR_OPEN
-_Atvçrt
+_Atvï¿½rt
 ;_Open
 ;
 MSG_CABR_SAVE
-Sa_glabât
+Sa_glabï¿½t
 ;Sa_ve
 ;
 MSG_CABR_DELETE
-_Dzçst
+_Dzï¿½st
 ;_Delete
 ;
 MSG_CABR_FIND
-_Meklçt
+_Meklï¿½t
 ;_Find
 ;
 MSG_CABR_PATTERN
-Ða_blons
+ï¿½a_blons
 ;_Match
 ;
 MSG_CABR_NEXT
-_Nâkoðais
+_Nï¿½koï¿½ais
 ;_Next
 ;
 ;
 ;-------------- Progress requester ----------------------
 ;
 MSG_PROGRESS_TITLE
-AWeb darbîbâ
+AWeb darbï¿½bï¿½
 ;AWeb progress
 ;
 MSG_PROGRESS_CANCEL
@@ -594,8 +594,8 @@ Atcelt
 ;-------------- Fix cache requesters ---------------------
 ;
 MSG_FIXCACHE_WARNING
-UZMANÎBU!\n\
-Funkcija dzçð visus nepiederîgos failus no\n\
+UZMANï¿½BU!\n\
+Funkcija dzï¿½ï¿½ visus nepiederï¿½gos failus no\n\
 %s kataloga
 ;WARNING!\n\
 ;This function will delete all foreign files from the\n\
@@ -603,35 +603,35 @@ Funkcija dzçð visus nepiederîgos failus no\n\
 ;
 MSG_FIXCACHE_BUTTONS
 _Labi|_Atcelt
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
-Nofiksç diska krâtuvi...
+Nofiksï¿½ diska krï¿½tuvi...
 ;Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Vai izdzçst visus\n\
-attçlus no krâtuves?
+Vai izdzï¿½st visus\n\
+attï¿½lus no krï¿½tuves?
 ;Are you sure you want to delete\n\
 ;all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Vai izdzçst visus\n\
-dokumentus no krâtuves?
+Vai izdzï¿½st visus\n\
+dokumentus no krï¿½tuves?
 ;Are you sure you want to delete\n\
 ;all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
-Vai izdzçst visus\n\
-attçlus un dokumentus no krâtuves?
+Vai izdzï¿½st visus\n\
+attï¿½lus un dokumentus no krï¿½tuves?
 ;Are you sure you want to delete\n\
 ;all documents and images from the cache?
 ;
 MSG_FIXCACHE_CORRUPT
-Krâtuve nav nolasâma vai\n\
-ir no vecâkas AWeb versijas.\n\
-Tâ nevar tikt izmantota.\n\
-Vai izdzçst to?
+Krï¿½tuve nav nolasï¿½ma vai\n\
+ir no vecï¿½kas AWeb versijas.\n\
+Tï¿½ nevar tikt izmantota.\n\
+Vai izdzï¿½st to?
 ;The cache registration is unreadable\n\
 ;or from an older version of AWeb.\n\
 ;Cached files cannot be used any more.\n\
@@ -640,23 +640,23 @@ Vai izdzçst to?
 ;-------------- Search requesters ---------------------
 ;
 MSG_SEARCH_STRING
-_Meklçt
+_Meklï¿½t
 ;Search _for
 ;
 MSG_SEARCH_IGNORECASE
-_Ignorçt lielos, mazos burtus
+_Ignorï¿½t lielos, mazos burtus
 ;_Ignore case
 ;
 MSG_SEARCH_SEARCH
-M_eklçt
+M_eklï¿½t
 ;_Search
 ;
 MSG_SEARCH_FROMTOP
-_No sâkuma
+_No sï¿½kuma
 ;From _top
 ;
 MSG_SEARCH_BACKWARDS
-_Uz sâkumu
+_Uz sï¿½kumu
 ;_Backwards
 ;
 MSG_SEARCH_CANCEL
@@ -669,95 +669,95 @@ Teksts nav atrasts
 ;
 MSG_SEARCH_OK
 _Labi
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
 ;
 MSG_POPUP_LOADIMAGE
-Ielâdçt attçlu
+Ielï¿½dï¿½t attï¿½lu
 ;Load image
 ;
 MSG_POPUP_RELOADIMAGE
-Pârlâdçt attçlu
+Pï¿½rlï¿½dï¿½t attï¿½lu
 ;Reload image
 ;
 MSG_POPUP_SAVEIMAGE
-Saglabât attçlu
+Saglabï¿½t attï¿½lu
 ;Save image
 ;
 MSG_POPUP_DOWNLOADIMAGE
-Lejupielâdçt attçlu
+Lejupielï¿½dï¿½t attï¿½lu
 ;Download image
 ;
 MSG_POPUP_FLUSHIMAGE
-Dzçst attçlu
+Dzï¿½st attï¿½lu
 ;Flush image
 ;
 MSG_POPUP_SHOWIMAGE
-Apskatîties attçlu
+Apskatï¿½ties attï¿½lu
 ;Show image
 ;
 MSG_POPUP_OPENLINK
-Atvçrt saiti
+Atvï¿½rt saiti
 ;Open link
 ;
 MSG_POPUP_OPENLINKNW
-Atvçrt saiti jaunâ logâ
+Atvï¿½rt saiti jaunï¿½ logï¿½
 ;Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Atvçrt saiti fonâ
+Atvï¿½rt saiti fonï¿½
 ;Load link in background
 ;
 MSG_POPUP_SAVELINK
-Saglabât saiti
+Saglabï¿½t saiti
 ;Save link
 ;
 MSG_POPUP_DOWNLOADLINK
-Lejupielâdçt saiti
+Lejupielï¿½dï¿½t saiti
 ;Download link
 ;
 MSG_POPUP_ADDLINK
-Pievienot saiti iecienîtâkajâm saitçm
+Pievienot saiti iecienï¿½tï¿½kajï¿½m saitï¿½m
 ;Add link to hotlist
 ;
 MSG_POPUP_RELOADFRAME
-Pârlâdçt saturu
+Pï¿½rlï¿½dï¿½t saturu
 ;Reload contents
 ;
 MSG_POPUP_SAVEFRAME
-Saglabât HTML kodu
+Saglabï¿½t HTML kodu
 ;Save source
 ;
 MSG_POPUP_VIEWFRAME
-Apskatîties HTML kodu
+Apskatï¿½ties HTML kodu
 ;View source
 ;
 MSG_POPUP_SHOWFRAME
-Atdalîta skatîðanâs
+Atdalï¿½ta skatï¿½ï¿½anï¿½s
 ;Show separately
 ;
 MSG_POPUP_SEARCHFRAME
-Meklçt saturâ
+Meklï¿½t saturï¿½
 ;Search in contents
 ;
 MSG_POPUP_INFOFRAME
-Informâcija
+Informï¿½cija
 ;Info
 ;
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Drukâðanas parametri
+Drukï¿½ï¿½anas parametri
 ;Print parameters
 ;
 MSG_PRINTP_SCALE
-_Mçrogs (%)
+_Mï¿½rogs (%)
 ;_Scale (%)
 ;
 MSG_PRINTP_PRINTBG
-Drukât _fonu
+Drukï¿½t _fonu
 ;Print _backgrounds
 ;
 MSG_PRINTP_FORMFEED
@@ -765,11 +765,11 @@ _Formas padeve
 ;_Formfeed
 ;
 MSG_PRINTP_CENTER
-_Centrçðana
+_Centrï¿½ï¿½ana
 ;Ce_nter
 ;
 MSG_PRINTP_PRINT
-_Drukât
+_Drukï¿½t
 ;_Print
 ;
 MSG_PRINTP_CANCEL
@@ -782,14 +782,14 @@ Printers nav pieejams
 ;
 MSG_PRINT_OK
 _Labi
-;_Ok
+;_OK 
 ;
 MSG_PRINT_PROGRESS
-Printçju...
+Printï¿½ju...
 ;Printing in progress...
 ;
 MSG_PRINTP_LAYOUTWIDTH
-_Platuma izkârtojums
+_Platuma izkï¿½rtojums
 ;_Layout Width
 ;
 MSG_PRINTP_LW_WINDOW
@@ -801,18 +801,18 @@ Dokuments
 ;Document
 ;
 MSG_PRINTP_LW_SCREEN
-Ekrâns
+Ekrï¿½ns
 ;Screen
 ;
 ;
 ;-------------- Cookie warning ----------------------
 ;
 MSG_COOKIE_TITLE
-Cookie brîdinâjums
+Cookie brï¿½dinï¿½jums
 ;Cookie alert
 ;
 MSG_COOKIE_WARNING
-NetScape cookie iestâdîðana!
+NetScape cookie iestï¿½dï¿½ï¿½ana!
 ;About to set a NetScape cookie!
 ;
 MSG_COOKIE_NAME
@@ -820,19 +820,19 @@ Cookie nosaukums:
 ;Cookie name:
 ;
 MSG_COOKIE_VALUE
-Cookie vçrtîba:
+Cookie vï¿½rtï¿½ba:
 ;Cookie value:
 ;
 MSG_COOKIE_DOMAIN
-Domçns:
+Domï¿½ns:
 ;For domain:
 ;
 MSG_COOKIE_PATH
-Ceïð:
+Ceï¿½ï¿½:
 ;Path:
 ;
 MSG_COOKIE_COMMENT
-Komentârs:
+Komentï¿½rs:
 ;Comment:
 ;
 MSG_COOKIE_MAXAGE
@@ -848,7 +848,7 @@ Vien_reiz
 ;_Once
 ;
 MSG_COOKIE_ACCEPT
-_Pieòemt
+_Pieï¿½emt
 ;_Accept
 ;
 MSG_COOKIE_NEVER
@@ -860,48 +860,48 @@ _Atcelt
 ;_Cancel
 ;
 MSG_COOKIE_SECURE
-AWeb nosûtîs atpakaï ðo cookie\ntikai pa droðu konekciju.
+AWeb nosï¿½tï¿½s atpakaï¿½ ï¿½o cookie\ntikai pa droï¿½u konekciju.
 ;AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb nosûtîs atpakaï ðo cookie\narî pa nedroðu konekciju.
+AWeb nosï¿½tï¿½s atpakaï¿½ ï¿½o cookie\narï¿½ pa nedroï¿½u konekciju.
 ;AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
 ;-------------- Info requester ----------------------
 ;
 MSG_INFO_TITLE
-Informâcija
+Informï¿½cija
 ;Information
 ;
 MSG_INFO_FROMCACHE
-Lasa no AWeb krâtuves
+Lasa no AWeb krï¿½tuves
 ;Read from AWeb cache
 ;
 MSG_INFO_XFER
-Pârsûtîðanas headers:
+Pï¿½rsï¿½tï¿½ï¿½anas headers:
 ;Transfer headers:
 ;
 MSG_INFO_META
-Meta informâcija:
+Meta informï¿½cija:
 ;Meta information:
 ;
 MSG_INFO_LINK
-Pieïaujamie saiti:
+Pieï¿½aujamie saiti:
 ;Clickable links:
 ;
 MSG_INFO_CIPHER
-HTTPS ðifrçðanas metode: %s
+HTTPS ï¿½ifrï¿½ï¿½anas metode: %s
 ;HTTPS cipher method: %s
 ;
 MSG_INFO_SSLLIBRARY
-Izmantota SSL bibliotçka: %s
+Izmantota SSL bibliotï¿½ka: %s
 ;SSL library used: %s
 ;
 ;-------------- Default buttons ---------------------
 ;
 MSG_USERBUTTON_CACHE
-Krâtuve
+Krï¿½tuve
 ;Cache
 ;
 MSG_USERBUTTON_CLOCK
@@ -912,7 +912,7 @@ Pulkstenis
 ;-------------- Authorizations edit requester -------
 ;
 MSG_AUTHEDIT_TITLE
-Autorizâcijas redaktors
+Autorizï¿½cijas redaktors
 ;Edit authorizations
 ;
 MSG_AUTHEDIT_TITLE_SERVER
@@ -924,7 +924,7 @@ Identifikators
 ;Userid
 ;
 MSG_AUTHEDIT_DEL
-_Dzçst
+_Dzï¿½st
 ;_Del
 ;
 MSG_AUTHEDIT_SERVER
@@ -944,7 +944,7 @@ _Parole
 ;
 MSG_JSPROMPT_OK
 _Labi
-;_Ok
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
 _Atcelt
@@ -954,121 +954,121 @@ _Atcelt
 ;-------------- Unsecure form warning ---------------
 ;
 MSG_FORMWARN_TITLE
-AWeb brîdinâjums
+AWeb brï¿½dinï¿½jums
 ;AWeb warning
 ;
 MSG_FORMWARN_WARNING
-Dati tiks sûtîti\npa nedroðu konekciju.
+Dati tiks sï¿½tï¿½ti\npa nedroï¿½u konekciju.
 ;Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
 _Labi|_Atcelt
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
 ;
 MSG_MAIL_TITLE
-AWeb pasta kïûda
+AWeb pasta kï¿½ï¿½da
 ;AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Nokonfigurçjiet sava hosta SMTP.\nSkatîties zem Tîkls/E-pasts opcijas.
+Nokonfigurï¿½jiet sava hosta SMTP.\nSkatï¿½ties zem Tï¿½kls/E-pasts opcijas.
 ;You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
-Nevar pieslçgties pie %s.
+Nevar pieslï¿½gties pie %s.
 ;Can't connect to %s.
 ;
 MSG_MAIL_MAILFAILED
-Neizdevâs nosûtît pastu.
+Neizdevï¿½s nosï¿½tï¿½t pastu.
 ;Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-At_kârtot|_Saglabât|_Atclet
+At_kï¿½rtot|_Saglabï¿½t|_Atclet
 ;_Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
-Nenosûtîta maila saglabâðana
+Nenosï¿½tï¿½ta maila saglabï¿½ï¿½ana
 ;Save failed message
 ;
 MSG_MAIL_MAILTO_TITLE
-Vçstule uz %s
+Vï¿½stule uz %s
 ;Mail to %s
 ;
 MSG_MAIL_MAILTO_HEADER
-Vçstule: %s
+Vï¿½stule: %s
 ;Mail to: %s
 ;
 MSG_MAIL_TO
-Saòçmçjs:
+Saï¿½ï¿½mï¿½js:
 ;To:
 ;
 MSG_MAIL_SUBJECT
-Tçma:
+Tï¿½ma:
 ;Subject:
 ;
 MSG_MAIL_MESSAGE_BODY
-Vçstules saturs:
+Vï¿½stules saturs:
 ;Message body:
 ;
 MSG_MAIL_EXTRA_HEADERS
-Iekïaut ekstra-hederus vçstulç
+Iekï¿½aut ekstra-hederus vï¿½stulï¿½
 ;Extra mail headers included
 ;
 MSG_MAIL_SEND
-Maila nosûtîðana
+Maila nosï¿½tï¿½ï¿½ana
 ;Send mail
 ;
 MSG_MAIL_RESET
-Atjaunoðana
+Atjaunoï¿½ana
 ;Reset
 ;
 MSG_MAIL_RETURN
-Atgrieðana
+Atgrieï¿½ana
 ;Return
 ;
 MSG_MAIL_MAIL_SENT_TITLE
-Vçstule sûtîta uz %s
+Vï¿½stule sï¿½tï¿½ta uz %s
 ;Mail sent to: %s
 ;
 MSG_MAIL_MAIL_SENT
-<H1>Vçstule nosûtîta</H1>\nJûsu vçstule veiksmîgi nosûtîta <B>%s</B>.
+<H1>Vï¿½stule nosï¿½tï¿½ta</H1>\nJï¿½su vï¿½stule veiksmï¿½gi nosï¿½tï¿½ta <B>%s</B>.
 ;<H1>Mail sent</H1>\nYour mail message to <B>%s</B> has been sent succesfully.
 ;
 ;
 ;-------------- Newsreader messages -----------------
 ;
 MSG_NEWS_TITLE
-AWeb ziòu lasîtâja kïûda
+AWeb ziï¿½u lasï¿½tï¿½ja kï¿½ï¿½da
 ;AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Nokonfigurçjiet sava hosta NNTP.\nSkatîties zem Tîkls/Ziòu grupas.
+Nokonfigurï¿½jiet sava hosta NNTP.\nSkatï¿½ties zem Tï¿½kls/Ziï¿½u grupas.
 ;You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
-Nevar pieslçgties pie %s.
+Nevar pieslï¿½gties pie %s.
 ;Can't connect to %s.
 ;
 MSG_NEWS_POSTFAILED
-Neizdevâs ievietot ziòu.
+Neizdevï¿½s ievietot ziï¿½u.
 ;Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-At_kârtot|_Saglabât|_Atcelt
+At_kï¿½rtot|_Saglabï¿½t|_Atcelt
 ;_Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
-Neievietotas ziòas saglabâðana
+Neievietotas ziï¿½as saglabï¿½ï¿½ana
 ;Save failed article
 ;
 MSG_NEWS_NEWS_HEADER
-Ziòas
+Ziï¿½as
 ;News
 ;
 MSG_NEWS_SUBSCRIBED
-Parakstîtâs ziòu grupas
+Parakstï¿½tï¿½s ziï¿½u grupas
 ;Subscribed newsgroups
 ;
 ; Don't forget to include the '8' in the %8ld below:
@@ -1081,7 +1081,7 @@ Novilkt
 ;Catch up
 ;
 MSG_NEWS_UNSUBSCRIBE
-Atrakstîties
+Atrakstï¿½ties
 ;Unsubscribe
 ;
 MSG_NEWS_OTHER_GROUP
@@ -1089,39 +1089,39 @@ Cita grupa
 ;Other group
 ;
 MSG_NEWS_SUBSCRIBE
-Parakstîties
+Parakstï¿½ties
 ;Subscribe
 ;
 MSG_NEWS_READ
-Lasît
+Lasï¿½t
 ;Read
 ;
 MSG_NEWS_SEARCH_FOR_GROUP
-Grupas meklçðana
+Grupas meklï¿½ï¿½ana
 ;Search for group
 ;
 MSG_NEWS_SEARCH
-Meklçt
+Meklï¿½t
 ;Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-Ja meklçjat ziòu grupu pirmo reizi,\n\
-tad visu ziòu grupu saraksta iegûðana\n\
-var aizòemt vairâkas minûtes.
+Ja meklï¿½jat ziï¿½u grupu pirmo reizi,\n\
+tad visu ziï¿½u grupu saraksta iegï¿½ï¿½ana\n\
+var aizï¿½emt vairï¿½kas minï¿½tes.
 ;The first time you search for a group,\n\
 ;a list of all newsgroup names will be downloaded.\n\
 ;This may take several minutes to complete.
 ;
 MSG_NEWS_NO_SUBJECT
-(nav tçmas)
+(nav tï¿½mas)
 ;(no subject)
 ;
 MSG_NEWS_LINES
- (%s rindiòas)
+ (%s rindiï¿½as)
 ;(%s lines)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
-Publicçt jaunu ziòu
+Publicï¿½t jaunu ziï¿½u
 ;Post new article
 ;
 MSG_NEWS_GROUP_LIST
@@ -1129,35 +1129,35 @@ Grupu saraksts
 ;Group list
 ;
 MSG_NEWS_ERROR_NO_GROUP
-<h1>Kïûda</h1>\nGrupa %s neeksistç.
+<h1>Kï¿½ï¿½da</h1>\nGrupa %s neeksistï¿½.
 ;<h1>Error</h1>\nGroup %s does not exist.
 ;
 MSG_NEWS_USE_FRAMES
-Ziòas lasîtâjs nokonfigurçts ar freimiem
+Ziï¿½as lasï¿½tï¿½js nokonfigurï¿½ts ar freimiem
 ;News is configured to use frames
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
-Raksts %s neeksistç<BR>
+Raksts %s neeksistï¿½<BR>
 ;Article %s does not exist<BR>
 ;
 MSG_NEWS_FOLLOW_UP
-Atvçrt
+Atvï¿½rt
 ;Follow-up
 ;
 MSG_NEWS_REPLY
-Atbildçt pa e-pastu
+Atbildï¿½t pa e-pastu
 ;Reply in e-mail
 ;
 MSG_NEWS_SAVE
-Saglabât rakstu
+Saglabï¿½t rakstu
 ;Save article
 ;
 MSG_NEWS_SUBJECT
-Tçma:
+Tï¿½ma:
 ;Subject:
 ;
 MSG_NEWS_NEWSGROUPS
-Ziòu grupa:
+Ziï¿½u grupa:
 ;Newsgroups:
 ;
 MSG_NEWS_ARTICLE_BODY
@@ -1165,11 +1165,11 @@ Raksts:
 ;Article body:
 ;
 MSG_NEWS_EXTRA_HEADERS
-Iekïaut extra-headerus rakstâ
+Iekï¿½aut extra-headerus rakstï¿½
 ;Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
-Raksta publicçðana
+Raksta publicï¿½ï¿½ana
 ;Post article
 ;
 MSG_NEWS_RESET
@@ -1181,130 +1181,130 @@ Atjaunot
 ;Return
 ;
 MSG_NEWS_FOLLOWUP_TITLE
-Atvçrt rakstu
+Atvï¿½rt rakstu
 ;Follow-up to article
 ;
 MSG_NEWS_FOLLOWUP_TO_GROUPS
-Atvçrt:
+Atvï¿½rt:
 ;Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Lûdzu izdzçðat nevajadzîgos citâtus
+Lï¿½dzu izdzï¿½ï¿½at nevajadzï¿½gos citï¿½tus
 ;Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
-Atbildçt rakstam
+Atbildï¿½t rakstam
 ;Reply to article
 ;
 MSG_NEWS_REPLY_TO_ADDRESS
-Atbildçt:
+Atbildï¿½t:
 ;Reply to:
 ;
 MSG_NEWS_ARTICLE_POSTED_TITLE
-Raksts nopublicçts
+Raksts nopublicï¿½ts
 ;Article posted
 ;
 MSG_NEWS_ARTICLE_POSTED
-<H1>Raksts nopublicçts</h1>\n\
-Jûsu raksts nopublicçts.
+<H1>Raksts nopublicï¿½ts</h1>\n\
+Jï¿½su raksts nopublicï¿½ts.
 ;<H1>Article posted</h1>\n\
 ;Your article has been posted.
 ;
 MSG_NEWS_DOWNLOAD_TITLE
-Lejupielâdçt ziòu grupu sarakstu
+Lejupielï¿½dï¿½t ziï¿½u grupu sarakstu
 ;Download newsgroup list
 ;
 MSG_NEWS_DOWNLOAD_BODY
-<H1>Lejupielâde...</H1>\n\
-Ziòu grupu lejupielâde aizòem vairâkas minûtes.
+<H1>Lejupielï¿½de...</H1>\n\
+Ziï¿½u grupu lejupielï¿½de aizï¿½em vairï¿½kas minï¿½tes.
 ;<H1>Downloading...</H1>\n\
 ;Downloading newsgroup list. This can take several minutes.
 ;
 MSG_NEWS_SEARCH_RESULT
-Meklçðanas rezultâti
+Meklï¿½ï¿½anas rezultï¿½ti
 ;Search result
 ;
 MSG_NEWS_FIRST_MATCHING
-Pirmie %ld no %ld rakstu nosaukumiem sakrît ar<B>%s</B>
+Pirmie %ld no %ld rakstu nosaukumiem sakrï¿½t ar<B>%s</B>
 ;First %ld of %ld newsgroup names matching <B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
-Atrasti %ld ziòu grupu nosaukumi, kas satur <B>%s</B>
+Atrasti %ld ziï¿½u grupu nosaukumi, kas satur <B>%s</B>
 ;Found %ld newsgroup names matching <B>%s</B>
 ;
 ;
 ;-------------- Shell/ARexx command warning ---------
 ;
 MSG_CMDWARN_TITLE
-AWeb brîdinâjums
+AWeb brï¿½dinï¿½jums
 ;AWeb warning
 ;
 MSG_CMDWARN_SHELL
-Par shell komandas palaiðanu:\n%s
+Par shell komandas palaiï¿½anu:\n%s
 ;About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
-Par ARexx programmas palaiðanu:\n%s
+Par ARexx programmas palaiï¿½anu:\n%s
 ;About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
 _Labi|_Atcelt
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
 ;
 MSG_SSLWARN_SSL_TITLE
-AWeb brîdinâjums
+AWeb brï¿½dinï¿½jums
 ;AWeb warning
 ;
 MSG_SSLWARN_SSL_TEXT
-Nevar izveidot droðu konekciju ar %s:\n%s\n \nIzmantot nedroðu konekciju?
+Nevar izveidot droï¿½u konekciju ar %s:\n%s\n \nIzmantot nedroï¿½u konekciju?
 ;Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?
 ;
 MSG_SSLWARN_SSL_BUTTONS
-_Jâ|_Nç
+_Jï¿½|_Nï¿½
 ;_Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Droðu konekciju nodroðina tikai Miami TCP un MiamiSSL.
+Droï¿½u konekciju nodroï¿½ina tikai Miami TCP un MiamiSSL.
 ;Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
-AWeb brîdinâjums
+AWeb brï¿½dinï¿½jums
 ;AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-Sertifikâts %s nevar tikt pârbaudîts.\nDetaïas: %s\n \n\
-Ja turpinâsiet, dati tiks nokodçti (aizsardzîba pret piekïûðanu),\n\
-bet serveri nevar pârbaudît (-NAV- aizsardzîbas pret krâpðanu!).\n \n\
-Turpinât?
+Sertifikï¿½ts %s nevar tikt pï¿½rbaudï¿½ts.\nDetaï¿½as: %s\n \n\
+Ja turpinï¿½siet, dati tiks nokodï¿½ti (aizsardzï¿½ba pret piekï¿½ï¿½ï¿½anu),\n\
+bet serveri nevar pï¿½rbaudï¿½t (-NAV- aizsardzï¿½bas pret krï¿½pï¿½anu!).\n \n\
+Turpinï¿½t?
 ;Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ;If you continue the data will be encrypted (protection against eavesdropping), \
 ;but the identity of the server cannot be verified (-NO- protection against fraud).\n \n\
 ;Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_Jâ|_Nç
-;_Ok|_Cancel
+_Jï¿½|_Nï¿½
+;_OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
-Droðu konekciju nodroðina tikai Miami TCP vai MiamiSSL.
+Droï¿½u konekciju nodroï¿½ina tikai Miami TCP vai MiamiSSL.
 ;Secure connections are only supported when using AmiSSL or MiamiSSL.
 ;
 ;
 ;-------------- Unknown MIME type -------------------
 ;
 MSG_UNKMIME_TITLE
-Nezinâma tipa saturs
+Nezinï¿½ma tipa saturs
 ;Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Neatpazîts fails tiks saglabâts.\n \n\
-URL:   %s\nTipa bûtîba:   %s\nPaplaðinâjums:   %s\n \n\
-Varat atcelt saglabâðanu un atkârtot to pçc tam, \
-kad nokonfigurçsiet ðî MIME tipa darbîbu \
-pârlûkprogrammas opcijâs.
+Neatpazï¿½ts fails tiks saglabï¿½ts.\n \n\
+URL:   %s\nTipa bï¿½tï¿½ba:   %s\nPaplaï¿½inï¿½jums:   %s\n \n\
+Varat atcelt saglabï¿½ï¿½anu un atkï¿½rtot to pï¿½c tam, \
+kad nokonfigurï¿½siet ï¿½ï¿½ MIME tipa darbï¿½bu \
+pï¿½rlï¿½kprogrammas opcijï¿½s.
 ;Unrecognized file will be saved\n \n\
 ;URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ;You might want to cancel the save now, and reload this file \
@@ -1312,18 +1312,18 @@ pârlûkprogrammas opcijâs.
 ;in the Browser settings (Viewers).
 ;
 MSG_UNKMIME_BUTTONS
-_Saglabât|_Atcelt
+_Saglabï¿½t|_Atcelt
 ;_Save|_Cancel
 ;
 MSG_REQUEST_COPYURL
-Iekopçt _URL starpliktuvç
+Iekopï¿½t _URL starpliktuvï¿½
 ;Copy _URL to clipboard
 ;
 ;-------------- Open URL requester ------------------
 ;
 ;
 MSG_OPENURL_TITLE
-AWeb ziòojums
+AWeb ziï¿½ojums
 ;AWeb request
 ;
 MSG_OPENURL_TEXT
@@ -1332,14 +1332,14 @@ Ievadiet saites URL:
 ;
 MSG_OPENURL_BUTTONS
 _Labi|_Atclet
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
 ;
 ;
 MSG_SAVEIFF_PROGRESS
-Saglabâ IFF failu...
+Saglabï¿½ IFF failu...
 ;Saving IFF file...
 ;
 ;
@@ -1357,31 +1357,31 @@ N/Jauns logs
 ;N/New window
 ;
 MSG_PROJECT_CLOSEWINDOW
-K/Aizvçrt logu
+K/Aizvï¿½rt logu
 ;K/Close window
 ;
 MSG_PROJECT_OPENURL
-U/Atvçrt URL
+U/Atvï¿½rt URL
 ;U/Open URL
 ;
 MSG_PROJECT_OPENWWW
-W/Atvçrt WWW
+W/Atvï¿½rt WWW
 ;W/Open WWW
 ;
 MSG_PROJECT_OPENLOCAL
-L/Atvçrt lokâlu failu...
+L/Atvï¿½rt lokï¿½lu failu...
 ;L/Open local...
 ;
 MSG_PROJECT_OPENSEARCH
-E/Meklçðanas ierîces
+E/Meklï¿½ï¿½anas ierï¿½ces
 ;E/Search engines
 ;
 MSG_PROJECT_SOURCE
-Skatîties kodu...
+Skatï¿½ties kodu...
 ;View source...
 ;
 MSG_PROJECT_SAVEHTML
-S/Saglabât kodu...
+S/Saglabï¿½t kodu...
 ;S/Save source...
 ;
 MSG_PROJECT_ABOUT
@@ -1393,32 +1393,32 @@ Q/Beigt...
 ;Q/Quit...
 ;
 MSG_PROJECT_SEARCH
-G/Meklçt...
+G/Meklï¿½t...
 ;G/Search...
 ;
 MSG_PROJECT_PRINT
-P/Drukât...
+P/Drukï¿½t...
 ;P/Print...
 ;
 MSG_PROJECT_EDIT
-Rediìçt kodu...
+Rediï¿½ï¿½t kodu...
 ;Edit source...
 ;
 MSG_PROJECT_INFO
-Informâcija...
+Informï¿½cija...
 ;Info...
 ;
 MSG_PROJECT_OPENNEWS
-Atvçrt ziòu grupas
+Atvï¿½rt ziï¿½u grupas
 ;Open News
 ;
 ; (Shortcut key is backslash)
 MSG_PROJECT_ICONIFY
-\\/Ikonificçt
+\\/Ikonificï¿½t
 ;\\/Iconify
 ;
 MSG_PROJECT_SAVEIFF
-Saglabât kâ IFF...
+Saglabï¿½t kï¿½ IFF...
 ;Save as IFF...
 ;
 MSG_CONTROL_MENU
@@ -1426,7 +1426,7 @@ Kontrole
 ;Control
 ;
 MSG_CONTROL_LOADNOW
-Ielâdçt attçlus
+Ielï¿½dï¿½t attï¿½lus
 ;Load images now
 ;
 MSG_CONTROL_LOADNOWALL
@@ -1434,78 +1434,78 @@ I/Visus
 ;I/All images
 ;
 MSG_CONTROL_LOADNOWMAPS
-M/Tikai izmçrus
+M/Tikai izmï¿½rus
 ;M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
-?/Tîkla status...
+?/Tï¿½kla status...
 ;?/Network status...
 ;
 MSG_DUMMY_2
 
 ;
 MSG_CONTROL_CANCEL
-Z/Pârtraukt ielâdi
+Z/Pï¿½rtraukt ielï¿½di
 ;Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
-./Nâkoðais logs
+./Nï¿½koï¿½ais logs
 ;./Next window
 ;
 MSG_CONTROL_PREVWINDOW
-,/Iepriekðçjais logs
+,/Iepriekï¿½ï¿½jais logs
 ;,/Previous window
 ;
 MSG_CONTROL_NOPROXY
-Y/Atslçgt proxy
+Y/Atslï¿½gt proxy
 ;Y/Disable proxy
 ;
 MSG_CONTROL_RLOAD
-Pârlâdçt
+Pï¿½rlï¿½dï¿½t
 ;Reload
 ;
 MSG_CONTROL_RLOADDOC
-R/Tekoðo dokumentu
+R/Tekoï¿½o dokumentu
 ;R/Current document
 ;
 MSG_CONTROL_RLOADIMGS
-Attçlus dokumentâ
+Attï¿½lus dokumentï¿½
 ;Images in current
 ;
 MSG_CONTROL_PLAYBGSOUND
-J/Skaòa fonâ
+J/Skaï¿½a fonï¿½
 ;J/Play background sound
 ;
 MSG_CONTROL_COPYURL
-Kopçt URL
+Kopï¿½t URL
 ;Copy URL
 ;
 MSG_CONTROL_PASTEURL
-Ielîmçt URL
+Ielï¿½mï¿½t URL
 ;Paste URL
 ;
 MSG_CONTROL_COPYBLOCK
-C/Kopçt bloku
+C/Kopï¿½t bloku
 ;C/Copy block
 ;
 MSG_CONTROL_DRAGGING
-Iezîmçt ar peli
+Iezï¿½mï¿½t ar peli
 ;Dragging
 ;
 MSG_CONTROL_BREAKJS
-X/Pârtraukt JavaScript
+X/Pï¿½rtraukt JavaScript
 ;X/Break JavaScript
 ;
 MSG_CONTROL_DEBUGJS
-Trasçt JavaScript
+Trasï¿½t JavaScript
 ;Debug JavaScript
 ;
 MSG_CONTROL_RESET
-Pârlâdçt freimus
+Pï¿½rlï¿½dï¿½t freimus
 ;Reset frames
 ;
 MSG_CACHE_MENU
-Krâtuve
+Krï¿½tuve
 ;Cache
 ;
 MSG_DUMMY_3
@@ -1521,40 +1521,40 @@ MSG_DUMMY_6
 
 ;
 MSG_CACHE_SAVEAUTH
-Saglabât autorizâciju
+Saglabï¿½t autorizï¿½ciju
 ;Save authorizations
 ;
 ;**obsolete**
 MSG_CACHE_FLUSHAUTH
-Nomest autorizâciju
+Nomest autorizï¿½ciju
 ;Flush authorizations
 ;
 MSG_CACHE_BROWSER
-Krâtuves pârlûks...
+Krï¿½tuves pï¿½rlï¿½ks...
 ;Cache browser...
 ;
 MSG_CACHE_FLUSH
-Izmest no atmiòas
+Izmest no atmiï¿½as
 ;Flush from memory
 ;
 MSG_CACHE_FLSHIMGSND
-Nerâdâmos attçlus
+Nerï¿½dï¿½mos attï¿½lus
 ;Nondisplayed images
 ;
 MSG_CACHE_FLSHIMGS
-Visus attçlus
+Visus attï¿½lus
 ;All images
 ;
 MSG_CACHE_FLSHDOCSND
-Nerâdâmos dokumentus
+Nerï¿½dï¿½mos dokumentus
 ;Nondisplayed documents
 ;
 MSG_CACHE_DELETE
-Dzçst no diska
+Dzï¿½st no diska
 ;Delete from disk
 ;
 MSG_CACHE_DELIMGS
-Visus attçlus
+Visus attï¿½lus
 ;All images
 ;
 MSG_CACHE_DELDOCS
@@ -1562,27 +1562,27 @@ Visus dokumentus
 ;All documents
 ;
 MSG_CACHE_CLEAR
-Attîrît krâtuvi
+Attï¿½rï¿½t krï¿½tuvi
 ;Erase cache
 ;
 MSG_CACHE_FIX
-Nofiksçt krâtuvi..
+Nofiksï¿½t krï¿½tuvi..
 ;Fix cache...
 ;
 MSG_CACHE_EDITAUTH
-Autorizâcijas redaktors...
+Autorizï¿½cijas redaktors...
 ;Edit authorizations...
 ;
 MSG_NAVIGATE_MENU
-Navigâcija
+Navigï¿½cija
 ;Navigate
 ;
 MSG_NAVIGATE_BACK
-B/Atpakaï
+B/Atpakaï¿½
 ;B/Back
 ;
 MSG_NAVIGATE_FWD
-F/Uz priekðu
+F/Uz priekï¿½u
 ;F/Forward
 ;
 MSG_NAVIGATE_HOME
@@ -1590,11 +1590,11 @@ D/Pirmdokuments
 ;D/Home document
 ;
 MSG_NAVIGATE_HISTORY
--/Reìistrators
+-/Reï¿½istrators
 ;-/Window history...
 ;
 MSG_HOTLIST_MENU
-Iecienîtâkâs saites
+Iecienï¿½tï¿½kï¿½s saites
 ;Hotlist
 ;
 MSG_HOTLIST_ADDHOT
@@ -1602,20 +1602,20 @@ A/Pievienot sarakstam
 ;A/Add to hotlist
 ;
 MSG_HOTLIST_SHOWHOT
-H/Parâdît sarakstu
+H/Parï¿½dï¿½t sarakstu
 ;H/Show hotlist
 ;
 ;**obsolete**
 MSG_HOTLIST_MAINT
-T/Uzturçðana...
+T/Uzturï¿½ï¿½ana...
 ;T/Maintenance...
 ;
 MSG_HOTLIST_SAVE
-Saglabât sarakstu
+Saglabï¿½t sarakstu
 ;Save hotlist
 ;
 MSG_HOTLIST_RESTORE
-Atgriezt pçdçjo saglabâto
+Atgriezt pï¿½dï¿½jo saglabï¿½to
 ;Restore last saved
 ;
 MSG_HOTLIST_AMHOTRX
@@ -1635,7 +1635,7 @@ V/Saraksta apskats...
 ;V/View hotlist...
 ;
 MSG_HOTLIST_MGR
-T/Saraksta menedþeris...
+T/Saraksta menedï¿½eris...
 ;T/Hotlist manager...
 ;
 MSG_SETTINGS_MENU
@@ -1643,7 +1643,7 @@ Opcijas
 ;Settings
 ;
 MSG_SETTINGS_LOADIMG
-Attçlu ielâde
+Attï¿½lu ielï¿½de
 ;Image loading
 ;
 MSG_SETTINGS_LOADIMGALL
@@ -1651,11 +1651,11 @@ Visi
 ;All images
 ;
 MSG_SETTINGS_LOADIMGMAPS
-Tikai izmçri
+Tikai izmï¿½ri
 ;Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
-Atslçgts
+Atslï¿½gts
 ;Off
 ;
 MSG_DUMMY_7
@@ -1665,7 +1665,7 @@ MSG_DUMMY_8
 
 ;
 MSG_SETTINGS_BROWSER
-Pârlûkprogrammas opcijas...
+Pï¿½rlï¿½kprogrammas opcijas...
 ;Browser settings...
 ;
 MSG_SETTINGS_PROGRAM
@@ -1673,7 +1673,7 @@ Programmas opcijas...
 ;Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Tîkla opcijas...
+Tï¿½kla opcijas...
 ;Network settings...
 ;
 MSG_SETTINGS_CLASSACT
@@ -1681,32 +1681,32 @@ ClassAct interfeiss...
 ;ClassAct settings...
 ;
 MSG_SETTINGS_SAVEALL
-Saglabât opcijas
+Saglabï¿½t opcijas
 ;Save current settings
 ;
 MSG_SETTINGS_SNAPSHOT
-Nofiksçt logu
+Nofiksï¿½t logu
 ;Snapshot windows
 ;
 ;**obsolete
 MSG_SETTINGS_SNAPSHOTALT
-Nofiksçt alternatîvâ izmçrâ
+Nofiksï¿½t alternatï¿½vï¿½ izmï¿½rï¿½
 ;Snapshot as alternate size
 ;
 MSG_SETTINGS_BGIMAGES
-Fona attçls
+Fona attï¿½ls
 ;Background images
 ;
 MSG_SETTINGS_BGSOUND
-Fona skaòa
+Fona skaï¿½a
 ;Background sound
 ;
 MSG_SETTINGS_SAVEAS
-Saglabât opcijas kâ...
+Saglabï¿½t opcijas kï¿½...
 ;Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Ielâdçt opcijas...
+Ielï¿½dï¿½t opcijas...
 ;Load settings...
 ;
 MSG_SETTINGS_GUI
@@ -1714,15 +1714,15 @@ GUI opcijas...
 ;GUI settings...
 ;
 MSG_HELP_MENU
-Palîdzîba
+Palï¿½dzï¿½ba
 ;Help
 ;
 MSG_HELP_HELP
-Dokumentâcija
+Dokumentï¿½cija
 ;Documentation
 ;
 MSG_HELP_AWEBHOME
-AWeb mâjas lapa
+AWeb mï¿½jas lapa
 ;AWeb home page
 ;
 MSG_HELP_AWEBFAQ
@@ -1730,7 +1730,7 @@ AWeb FAQ
 ;AWeb FAQ
 ;
 MSG_HELP_REGISTER
-Reìistrâcija
+Reï¿½istrï¿½cija
 ;Registration
 ;
 MSG_AREXX_MENU
@@ -1738,34 +1738,34 @@ ARexx
 ;ARexx
 ;
 MSG_AREXX_AREXX
-!/Startçt ARexx makrosu...
+!/Startï¿½t ARexx makrosu...
 ;!/Start ARexx macro...
 ;
 ;
 ;-------------- Error messages ----------------------
 ;
 MSG_ERROR_CANTOPEN
-Nevar atvçrt %s
+Nevar atvï¿½rt %s
 ;Can't open %s
 ;
 ; NOTE - No locale formatters (like %1$s) possible in this string!
 ;        Only plain C formatters allowed.
 MSG_ERROR_CANTOPENV
-Nevar atvçrt %s versija %ld
+Nevar atvï¿½rt %s versija %ld
 ;Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30
-AWeb nepiecieðama OS 3.0 vai jaunâka
+AWeb nepiecieï¿½ama OS 3.0 vai jaunï¿½ka
 ;AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-Nevar beigt darbu!\n%s\nprogramma tiek vçl izmantota
+Nevar beigt darbu!\n%s\nprogramma tiek vï¿½l izmantota
 ;Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
 ;
 MSG_EPART_ERROR
-Kïûda
+Kï¿½ï¿½da
 ;Error
 ;
 MSG_EPART_RETURL
@@ -1773,11 +1773,11 @@ Atverot URL
 ;While retrieving URL
 ;
 MSG_EPART_ADDRSCHEME
-Ðajâ AWeb versijâ nav adresâcijas shçma &quot;%s&quot;
+ï¿½ajï¿½ AWeb versijï¿½ nav adresï¿½cijas shï¿½ma &quot;%s&quot;
 ;The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
-Sâkumâ startçjiet TCP steku
+Sï¿½kumï¿½ startï¿½jiet TCP steku
 ;A TCP stack must be started first
 ;
 MSG_EPART_NOHOST
@@ -1789,11 +1789,11 @@ Nevar izveidot konekciju ar &quot;%s&quot;
 ;Cannot connect to &quot;%s&quot;
 ;
 MSG_EPART_NOFILE
-Nevar atvçrt failu &quot;%s&quot;
+Nevar atvï¿½rt failu &quot;%s&quot;
 ;Cannot open file &quot;%s&quot;
 ;
 MSG_EPART_XAWEB
-Nepieïaujama iekðejâ (x-aweb:) nosaukums &quot;%s&quot;
+Nepieï¿½aujama iekï¿½ejï¿½ (x-aweb:) nosaukums &quot;%s&quot;
 ;Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
@@ -1801,27 +1801,27 @@ Nomesti
 ;Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-Dokuments vairs neatrodas atmiòâ
+Dokuments vairs neatrodas atmiï¿½ï¿½
 ;This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Nav iespçjams atkârtoti izsaukt dokumentu. Neiespçjami,\n\
-lai izvairîtos no nevçlamâm sekâm atkârtoti ieejot formâ,\n\
-ko piedâvâ dokuments (dubulta reìistrçðanâs, utml.).
+Nav iespï¿½jams atkï¿½rtoti izsaukt dokumentu. Neiespï¿½jami,\n\
+lai izvairï¿½tos no nevï¿½lamï¿½m sekï¿½m atkï¿½rtoti ieejot formï¿½,\n\
+ko piedï¿½vï¿½ dokuments (dubulta reï¿½istrï¿½ï¿½anï¿½s, utml.).
 ;This document cannot be retrieved again. You will have to submit the form again that \
 ;produced this page. Beware of undesired side-effects if you submit that form twice, \
 ;like a duplicate registration.
 ;
 MSG_EPART_NOLOGIN
-Nevar pieteikties pie &quot;%s&quot; kâ &quot;%s&quot;
+Nevar pieteikties pie &quot;%s&quot; kï¿½ &quot;%s&quot;
 ;Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
-Nevar ielâdçt AWebLib moduli priekð &quot;%s&quot;.
+Nevar ielï¿½dï¿½t AWebLib moduli priekï¿½ &quot;%s&quot;.
 ;Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
-Neesat nokonfigurçjuði programmu zem adresâcijas shçmas &quot;%s&quot;.
+Neesat nokonfigurï¿½juï¿½i programmu zem adresï¿½cijas shï¿½mas &quot;%s&quot;.
 ;You haven't configured a program for the &quot;%s&quot; addressing scheme.
 ;
 ;
@@ -1829,17 +1829,17 @@ Neesat nokonfigurçjuði programmu zem adresâcijas shçmas &quot;%s&quot;.
 ;
 ; (external program window title)
 MSG_AWEB_EXTWINTITLE
-AWeb ârçjâ programma
+AWeb ï¿½rï¿½jï¿½ programma
 ;AWeb External Program
 ;
 ; (status field text)
 MSG_AWEB_BYTESREAD
-Baiti nolasîti
+Baiti nolasï¿½ti
 ;Bytes read
 ;
 ; (form SUBMIT button default text)
 MSG_AWEB_FORMSUBMIT
-Apstiprinât
+Apstiprinï¿½t
 ;Submit
 ;
 ; (form RESET button default text)
@@ -1849,22 +1849,22 @@ Atteikt
 ;
 ; (ISINDEX default prompt)
 MSG_AWEB_INDEXPROMPT
-Tas ir meklçðanas indekss. Ievadiet atslçgas vârdu:
+Tas ir meklï¿½ï¿½anas indekss. Ievadiet atslï¿½gas vï¿½rdu:
 ;This is a searchable index. Enter keywords:
 ;
 ; (window title)
 MSG_AWEB_NODOCTITLE
-(dokuments nav ielâdçts)
+(dokuments nav ielï¿½dï¿½ts)
 ;(No document loaded)
 ;
 ; (screen title)
 MSG_AWEB_SCREENTITLE
-AWeb publiskais ekrâns - AWeb nosaukums
+AWeb publiskais ekrï¿½ns - AWeb nosaukums
 ;AWeb public screen - Name AWeb
 ;
 ; (hotlist document title)
 MSG_AWEB_HOTLISTTITLE
-Iecienîtâkie saiti
+Iecienï¿½tï¿½kie saiti
 ;Hotlist
 ;
 ; (gopher index title)
@@ -1874,12 +1874,12 @@ Gopher indekss
 ;
 ; (gopher menu title)
 MSG_AWEB_GOPHERMENU
-Gopher izvçlne
+Gopher izvï¿½lne
 ;Gopher menu
 ;
 ; (window history title)
 MSG_AWEB_WINDOWHIS
-Reìistrâcijas logs
+Reï¿½istrï¿½cijas logs
 ;Window history
 ;
 ; (partial title of other hotlist)
@@ -1889,15 +1889,15 @@ Cits
 ;
 ; (transfer status messages)
 MSG_AWEB_LOOKUP
-Meklç %s
+Meklï¿½ %s
 ;Looking up %s
 ;
 MSG_AWEB_CONNECT
-%s mçìinâjums konektçties ar %s
+%s mï¿½ï¿½inï¿½jums konektï¿½ties ar %s
 ;Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-%s pieprasîjums nosûtîts; gaidâm atbildi
+%s pieprasï¿½jums nosï¿½tï¿½ts; gaidï¿½m atbildi
 ;%s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
@@ -1906,7 +1906,7 @@ Izveidojam TCP konekciju
 ;
 ; (form image fieldstatus text)
 MSG_AWEB_FORMLOCATION
-Apstiprinâðanas forma x=%ld, y=%ld
+Apstiprinï¿½ï¿½anas forma x=%ld, y=%ld
 ;Submit form at x=%ld, y=%ld
 ;
 ; (form BUTTON button default text)
@@ -1916,42 +1916,42 @@ Starts
 ;
 ; (frame resizing status prompt)
 MSG_AWEB_FRAME_RESIZE
-Freima izmçra maiòa
+Freima izmï¿½ra maiï¿½a
 ;Resize frame
 ;
 ; (transfer status message)
 MSG_AWEB_LOGIN
-Pieteikðanâs pie %s
+Pieteikï¿½anï¿½s pie %s
 ;Logging in at %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSGROUP
-Skençju %s
+Skenï¿½ju %s
 ;Scanning %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSCAN
-Skençju %s (%ld rakstu(s))
+Skenï¿½ju %s (%ld rakstu(s))
 ;Scanning %s (%ld articles)
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSORT
-Kârtoju %s
+Kï¿½rtoju %s
 ;Sorting %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSPOST
-Publicçju rakstu
+Publicï¿½ju rakstu
 ;Posting article
 ;
 ; (transfer status message)
 MSG_AWEB_MAILSEND
-Sûtu pastu
+Sï¿½tu pastu
 ;Sending mail message
 ;
 ; (transfer status message)
 MSG_AWEB_UPLOAD
-Augðupielâdçju failu
+Augï¿½upielï¿½dï¿½ju failu
 ;Uploading file
 ;
 ; ** (don't use numbers 40001 or higher) **

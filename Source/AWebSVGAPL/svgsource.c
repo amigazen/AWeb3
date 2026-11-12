@@ -42,6 +42,8 @@
  *     colormaps. */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebsvg.h"
 #include "xmlparse.h"
 #include "ezlists.h"
@@ -59,14 +61,11 @@
 #include <proto/utility.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
-#include <libraries/Picasso96.h>
-#include <proto/Picasso96.h>
 #include <devices/timer.h>
 #include <proto/lowlevel.h>
 
 #include <string.h>
 
-extern struct Library *P96Base;
 extern struct Library *LowLevelBase;
 
 /* Forward decls (provided by awebplugin.library) */
@@ -122,8 +121,8 @@ extern long Updatetaskattrs(ULONG tag,...);
  * the compound fill, degrading to the previous overpaint behaviour. */
 #define MAX_SUBPATHS_PER_PATH  128
 
-#define DECOF_P96MAP       0x0004
-#define DECOF_P96DEEP      0x0008
+#define DECOF_CYBERMAP       0x0004
+#define DECOF_CYBERDEEP      0x0008
 
 /* Quality flags - which expensive per-pixel rendering paths the
  * current decoder is allowed to take.  Defaults are picked
@@ -374,9 +373,8 @@ struct Decoder
    USHORT decflags;
    struct Iddef *idtable[IDTABLE_SIZE];
    LONG usedepth;              /* recursion guard for <use> elements */
-   UBYTE *chunky;              /* R8G8B8 row scratch for p96WritePixelArray */
+   UBYTE *chunky;              /* R8G8B8 framebuffer for deep RTG */
    long chunkybpr;
-   struct RenderInfo ri;
    short currentpen;           /* last SetAPen value, -1 if unset */
    /* Deferred <text> rendering accumulator.  Populated by Rendertext()
     * during the DOM walk and replayed via SvgTextRenderAll() once the
@@ -573,7 +571,7 @@ static void Decidequality(struct Decoder *dec)
 
    /* Quality is meaningful only on P96 deep destinations - the
     * palette path is averaged-colour only regardless. */
-   if(!(dec->decflags & DECOF_P96DEEP)) q = 0;
+   if(!(dec->decflags & DECOF_CYBERDEEP)) q = 0;
 
    /* Count gradients in the document so we can scale the budget by
     * how much the gradient evaluator will actually be exercised. */
@@ -1027,7 +1025,7 @@ static BOOL Parsecolor(const UBYTE *str, ULONG *rgb, BOOL *enabled, UBYTE *alpha
  * elides duplicates so a long run of same-coloured shapes only ever
  * pokes the rastport once. */
 static void Setpen(struct Decoder *dec, UBYTE pen)
-{  if(dec->decflags&DECOF_P96DEEP) return;
+{  if(dec->decflags&DECOF_CYBERDEEP) return;
    if(dec->currentpen==(short)pen) return;
    SetAPen(&dec->rp,pen);
    dec->currentpen=(short)pen;
@@ -1644,7 +1642,7 @@ static void Fillspan(struct Decoder *dec, LONG x0, LONG x1, LONG y,
 
    can_blend=(BOOL)((dec->quality & QF_ALPHA_BLEND) != 0);
 
-   if(dec->decflags&DECOF_P96DEEP)
+   if(dec->decflags&DECOF_CYBERDEEP)
    {  p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x0*3UL;
 
       if(pctx->has_grad && pctx->grad)
@@ -1731,7 +1729,7 @@ static void Fillspan(struct Decoder *dec, LONG x0, LONG x1, LONG y,
 static void Plotpixel_rgb(struct Decoder *dec, LONG x, LONG y, ULONG rgb)
 {  UBYTE *p;
    if(x<0 || x>=dec->bmw || y<0 || y>=dec->bmh) return;
-   if(dec->decflags&DECOF_P96DEEP)
+   if(dec->decflags&DECOF_CYBERDEEP)
    {  p=dec->chunky + (ULONG)y*(ULONG)dec->chunkybpr + (ULONG)x*3UL;
       p[0]=(UBYTE)((rgb>>16)&0xff);
       p[1]=(UBYTE)((rgb>>8)&0xff);
@@ -1744,7 +1742,7 @@ static void Plotpixel_rgb(struct Decoder *dec, LONG x, LONG y, ULONG rgb)
 
 static void Drawline_rgb(struct Decoder *dec, LONG x0, LONG y0, LONG x1, LONG y1, ULONG rgb)
 {  LONG dx,dy,sx,sy,err,e2;
-   if(dec->decflags&DECOF_P96DEEP)
+   if(dec->decflags&DECOF_CYBERDEEP)
    {  dx=(x1>x0)?(x1-x0):(x0-x1);
       dy=(y1>y0)?(y1-y0):(y0-y1);
       sx=(x0<x1)?1:-1;
@@ -3965,7 +3963,7 @@ static void Buildfillctx(struct Paintctx *pctx, struct Decoder *dec,
     * the destination is P96 deep AND the adaptive quality tier
     * approved this gradient type.  Otherwise the renderer falls
     * back to the averaged colour already in rs->fillrgb. */
-   if(rs->fillgrad && (dec->decflags&DECOF_P96DEEP))
+   if(rs->fillgrad && (dec->decflags&DECOF_CYBERDEEP))
    {  struct Gradient *g=rs->fillgrad;
       USHORT need = (g->type==GRAD_TYPE_RADIAL) ? QF_GRAD_RADIAL : QF_GRAD_LINEAR;
       if((dec->quality & need) && Buildpaintctx(pctx,rs,g,bb))
@@ -4783,17 +4781,16 @@ static void Parsertask(void *userdata)
     * otherwise fall back to an 8-bit palette bitmap. */
    {  ULONG depth=8;
       ULONG bytes_per_pixel=1;
-      if(P96Base && ss->friendbitmap
-      && p96GetBitMapAttr(ss->friendbitmap,P96BMA_ISP96))
-      {  depth=p96GetBitMapAttr(ss->friendbitmap,P96BMA_DEPTH);
-         dec.bitmap=p96AllocBitMap(bmw,bmh,depth,
-            BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,ss->friendbitmap,RGBFB_NONE);
-         if(dec.bitmap && p96GetBitMapAttr(dec.bitmap,P96BMA_ISP96))
-         {  dec.decflags|=DECOF_P96MAP;
-            if(depth>8) dec.decflags|=DECOF_P96DEEP;
+      if(AwebScreenIsRtg(dec.screen) && AwebFriendIsRtg(ss->friendbitmap))
+      {  depth=AwebFriendDepth(ss->friendbitmap);
+         dec.bitmap=AwebAllocRtgBitMap(bmw,bmh,depth,
+            BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,ss->friendbitmap);
+         if(dec.bitmap && GetCyberMapAttr(dec.bitmap,CYBRMATTR_ISCYBERGFX))
+         {  dec.decflags|=DECOF_CYBERMAP;
+            if(depth>8) dec.decflags|=DECOF_CYBERDEEP;
          }
          else
-         {  if(dec.bitmap) { p96FreeBitMap(dec.bitmap); dec.bitmap=NULL; }
+         {  if(dec.bitmap) { AwebFreeRtgBitMap(dec.bitmap); dec.bitmap=NULL; }
          }
       }
       if(!dec.bitmap)
@@ -4827,7 +4824,7 @@ static void Parsertask(void *userdata)
     * a bitmap that is not yet owned by the source object.  PNG and
     * JFIF announce their memory only after their source bitmap is
     * wired up, and the SVG plugin must follow the same ordering. */
-   if(dec.decflags&DECOF_P96DEEP)
+   if(dec.decflags&DECOF_CYBERDEEP)
    {  /* Allocate one R8G8B8 framebuffer for the entire SVG and write
        * into it directly from every drawing primitive.  At the end
        * of Parsertask we hand the whole thing to p96WritePixelArray
@@ -4845,9 +4842,6 @@ static void Parsertask(void *userdata)
        * white is what every Inkscape / Wikimedia file expects to
        * see through the unpainted parts of an icon. */
       memset(dec.chunky,0xff,(size_t)dec.chunkybpr*(size_t)bmh);
-      dec.ri.Memory=dec.chunky;
-      dec.ri.BytesPerRow=dec.chunkybpr;
-      dec.ri.RGBFormat=RGBFB_R8G8B8;
    }
    else
    {  dec.currentpen=-1;
@@ -4860,7 +4854,7 @@ static void Parsertask(void *userdata)
    }
 
    /* Pick the adaptive rendering quality tier now that we know both
-    * the destination capabilities (DECOF_P96DEEP) and the document
+    * the destination capabilities (DECOF_CYBERDEEP) and the document
     * geometry (bmw/bmh, gradient population in the id table).  Does
     * the first-call benchmark on demand. */
    Decidequality(&dec);
@@ -4904,8 +4898,9 @@ static void Parsertask(void *userdata)
     * bitmap in a single RTG call.  Every drawing primitive above
     * wrote straight into dec.chunky, so this is the only time the
     * Picasso96 driver is touched for the whole frame. */
-   if(dec.decflags&DECOF_P96DEEP)
-   {  p96WritePixelArray(&dec.ri,0,0,&dec.rp,0,0,bmw,bmh);
+   if(dec.decflags&DECOF_CYBERDEEP)
+   {  WritePixelArray(dec.chunky,0,0,(UWORD)dec.chunkybpr,
+         &dec.rp,0,0,(UWORD)bmw,(UWORD)bmh,RECTFMT_RGB);
    }
 
    /* Render all accumulated <text> runs via ttengine.library.  This
@@ -4960,8 +4955,8 @@ cleanup:
    SVGLOG(("SVG: Parsertask cleanup\n"));
    if(dec.chunky) FreeVec(dec.chunky);
    if(dec.bitmap)
-   {  if(P96Base && p96GetBitMapAttr(dec.bitmap,P96BMA_ISP96))
-         p96FreeBitMap(dec.bitmap);
+   {  if(CyberGfxBase && GetCyberMapAttr(dec.bitmap,CYBRMATTR_ISCYBERGFX))
+         AwebFreeRtgBitMap(dec.bitmap);
       else
          FreeBitMap(dec.bitmap);
    }
@@ -5172,8 +5167,8 @@ static void Releaseimage(struct Svgsource *ss)
 {  short i;
    Anotifyset(ss->source,AOSVG_Bitmap,NULL,TAG_END);
    if(ss->bitmap)
-   {  if(P96Base && p96GetBitMapAttr(ss->bitmap,P96BMA_ISP96))
-         p96FreeBitMap(ss->bitmap);
+   {  if(CyberGfxBase && GetCyberMapAttr(ss->bitmap,CYBRMATTR_ISCYBERGFX))
+         AwebFreeRtgBitMap(ss->bitmap);
       else
          FreeBitMap(ss->bitmap);
       ss->bitmap=NULL;

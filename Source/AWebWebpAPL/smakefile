@@ -19,11 +19,15 @@
 ## webplib/smakefile for the per-source-file rules.
 
 # Compiler and flags
+# RTG backend: CyberGfx default. Override with AWEBGFXFLAGS=DEFINE=AWEB_USE_P96
+AWEBGFXFLAGS=
+
 CC=sc
 CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
         OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4\
-        INCLUDEDIR=webplib\
-        define CPU="68020" cpu=68020
+        INCLUDEDIR=SDK:Include_h INCLUDEDIR=webplib\
+        define CPU="68020" cpu=68020 $(AWEBGFXFLAGS)
+
 
 # Linker and flags
 LN=slink

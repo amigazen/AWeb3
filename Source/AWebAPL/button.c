@@ -125,13 +125,16 @@ static struct TextFont *Getbuttonfont(struct Button *but)
 
 /* Perform the actions for clicking the button */
 static void Clickbutton(struct Button *but,BOOL js)
-{  switch(but->type)
+{  BOOL allow;
+   switch(but->type)
    {  case BUTTP_SUBMIT:
-         if(!js || Runjavascriptwith(but->cframe,awebonclick,&but->jobject,but->form))
-         {  /* Only submit if button is inside a form */
-            if(but->form)
-            {  Amethod(but->form,AFO_SUBMIT,but,0,0);
-            }
+         /* Skip the onclick probe when this button has no JS object yet.
+          * A FALSE return used to cancel the native submit entirely. */
+         allow=TRUE;
+         if(js && but->jobject)
+            allow=Runjavascriptwith(but->cframe,awebonclick,&but->jobject,but->form);
+         if(allow && but->form)
+         {  Amethod(but->form,AFO_SUBMIT,but,0,0);
          }
          break;
       case BUTTP_RESET:

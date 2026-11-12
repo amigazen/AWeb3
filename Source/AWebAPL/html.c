@@ -54,6 +54,8 @@
 #include "application.h"
 #include "jslib.h"
 #include "frprivate.h"
+#include "copyprivate.h"
+#include "anubis.h"
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -2260,6 +2262,39 @@ static void Docsetloadstatus(struct Document *doc,UBYTE *msg,UBYTE *url)
    Asetattrs(doc->win,AOWIN_Status,buf,TAG_END);
 }
 
+/* Solve Anubis fast/slow PoW and queue clientpull to pass-challenge.
+ * Called from Doeof once the document (including waiting stylesheets) is done.
+ * Safe to call more than once; no-ops if a pull is already queued. */
+static void Html_tryanubis(struct Document *doc)
+{  UBYTE *anubispull;
+   UBYTE *pageurl;
+   struct Copy *cop;
+   struct Buffer *srcbuf;
+   void *urlobj;
+
+   if(!doc) return;
+   anubispull=NULL;
+   cop=doc->copy?(struct Copy *)doc->copy:NULL;
+   if(doc->clientpull || (cop && cop->clientpull)) return;
+   if(!doc->source || !(srcbuf=&doc->source->buf)->buffer || srcbuf->length<=0)
+      return;
+
+   pageurl=NULL;
+   urlobj=NULL;
+   if(doc->source->source)
+      urlobj=(void *)Agetattr(doc->source->source,AOSRC_Url);
+   if(urlobj)
+      pageurl=(UBYTE *)Agetattr(urlobj,AOURL_Url);
+
+   anubispull=Anubis_clientpull(srcbuf->buffer,srcbuf->length,pageurl);
+   if(!anubispull) return;
+
+   if(doc->clientpull) FREE(doc->clientpull);
+   doc->clientpull=anubispull;
+   Asetattrs(doc->copy,AOURL_Clientpull,anubispull,TAG_END);
+   Docsetloadstatus(doc,(UBYTE *)"Passing Anubis check",pageurl);
+}
+
 /*** <BASE> ***/
 static BOOL Dobase(struct Document *doc,struct Tagattr *ta)
 {  UBYTE *base=NULL,*target=NULL;
@@ -2422,11 +2457,6 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
 {  UBYTE *rel=NULL,*title=NULL,*href;
    void *url=NULL;
    UBYTE *extcss;
-   BOOL thirdpartycss;
-   UBYTE *csshost;
-   long csshostlen;
-   UBYTE *docdomain;
-   long docdomainlen;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_REL:
@@ -2452,31 +2482,10 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       {  AwebLog("css", "Dolink: Found stylesheet link, href=%s, reload=%d, existing stylesheet=%p",
                 urlstr ? (char *)urlstr : "NULL", isReload ? 1 : 0, doc->cssstylesheet);
       }
-      /* Block third-party CSS. AWeb targets an HTML4-era web where same-site CSS is typical;
-       * modern third-party CSS (e.g. Google Fonts) is mostly @font-face and can be expensive
-       * to fetch/parse while adding no value to our renderer. */
-      thirdpartycss = FALSE;
-      docdomain = doc->jdomain;
-      csshost = NULL;
-      csshostlen = 0;
-      if(docdomain && *docdomain)
-      {  docdomainlen = (long)strlen((char *)docdomain);
-         Getjspart(url, UJP_HOST, &csshost, &csshostlen);
-         if(csshost && csshostlen > 0)
-         {  if(!SameSiteHost(docdomain, docdomainlen, csshost, csshostlen))
-            {  thirdpartycss = TRUE;
-            }
-         }
-      }
-      if(thirdpartycss)
-      {  if(httpdebug)
-         {  AwebLog("css", "Dolink: Blocking third-party stylesheet: dochost=%s, srchost=%.*s, url=%s",
-                   docdomain ? (char *)docdomain : "NULL",
-                   (int)csshostlen, csshost ? (char *)csshost : "",
-                   urlstr ? (char *)urlstr : "NULL");
-         }
-         return TRUE;
-      }
+      /* Third-party stylesheets must load.  Many HTML4-era sites put Bootswatch
+       * / CDN CSS on a separate host; blocking cross-host CSS left only a small
+       * same-origin sheet and pages looked completely unstyled.  Script
+       * third-party policy stays separate. */
       /* Try to load external CSS */
       extcss = Finddocext(doc,url,isReload);
       if(extcss)
@@ -7691,6 +7700,9 @@ static void Doeof(struct Document *doc)
       Dobr(doc,&dummyta);
       Asetattrs(doc->body,AOBDY_End,TRUE,TAG_END);
    }
+
+   /* Techaro Anubis JS PoW pages: solve after parse completes (CSS included). */
+   Html_tryanubis(doc);
 }
 
 /*---------------------------------------------------------------------*/

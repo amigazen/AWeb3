@@ -12,30 +12,30 @@
 ;-------------- General -----------------------------
 ;
 MSG_REQUEST_TITLE
-AWeb kérdezõ
+AWeb kï¿½rdezï¿½
 ;AWeb request
 ;
 ;
 ;-------------- About requester ---------------------
 ;
 MSG_ABOUT_TITLE
-Az AWebrõl
+Az AWebrï¿½l
 ;About AWeb
 ;
 MSG_ABOUT_REGNR
-Regisztrációs szám:
+Regisztrï¿½ciï¿½s szï¿½m:
 ;Registration #
 ;
 MSG_ABOUT_REGTO
-Regisztrálva
+Regisztrï¿½lva
 ;Registered to
 ;
 MSG_ABOUT_SCREENNAME
-Publikus képernyõ neve
+Publikus kï¿½pernyï¿½ neve
 ;Public screen name
 ;
 MSG_ABOUT_PORTNAME
-ARexx port név
+ARexx port nï¿½v
 ;ARexx port name
 ;
 MSG_ABOUT_EMAIL
@@ -47,16 +47,16 @@ WWW
 ;WWW
 ;
 MSG_ABOUT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
-Nem regisztrált változat\n\
+Nem regisztrï¿½lt vï¿½ltozat\n\
 
 ;Unregistered version\n
 ;
 MSG_ABOUT_DEMO
-Nem regisztrált demo változat\n\
+Nem regisztrï¿½lt demo vï¿½ltozat\n\
 
 ;Unregistered demo version\n
 ;
@@ -72,26 +72,26 @@ MSG_ABOUT_TRANSLATOR
 ;
 ;
 MSG_ABOUT_SPECIAL
-Különleges Amiga OS változat\n\
+Kï¿½lï¿½nleges Amiga OS vï¿½ltozat\n\
 
 ;Special version for distribution with Amiga OS\n
 ;
 ;-------------- Quit requester ----------------------
 ;
 MSG_QUIT_TEXT
-Biztosan ki akarsz lépni az AWebbõl?
+Biztosan ki akarsz lï¿½pni az AWebbï¿½l?
 ;Are you sure you want to quit AWeb?
 ;
 MSG_QUIT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_QUIT_CANCEL
-_Mégsem
+_Mï¿½gsem
 ;_Cancel
 ;
 MSG_QUIT_WARNING
-FIGYELEM! Az átvitel megszakad!\n\
+FIGYELEM! Az ï¿½tvitel megszakad!\n\
 \n\
 
 ;WARNING: Transfers will be aborted!\n\n
@@ -99,20 +99,20 @@ FIGYELEM! Az átvitel megszakad!\n\
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Ez az AWeb demo változata,\n\
-amely nem támogatja több ablak kezelését
+Ez az AWeb demo vï¿½ltozata,\n\
+amely nem tï¿½mogatja tï¿½bb ablak kezelï¿½sï¿½t
 ;This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-Az AWeb nem tudja bezárni képernyõjét.\n\
-Kérlek, zárj be minden ablakot.
+Az AWeb nem tudja bezï¿½rni kï¿½pernyï¿½jï¿½t.\n\
+Kï¿½rlek, zï¿½rj be minden ablakot.
 ;AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
@@ -123,35 +123,35 @@ Ok
 ;-------------- Network status window ---------------
 ;
 MSG_NWS_TITLE
-Hálózat állapota
+Hï¿½lï¿½zat ï¿½llapota
 ;Network status
 ;
 MSG_NWS_QUEUED
-Sorbanállás
+Sorbanï¿½llï¿½s
 ;Queued
 ;
 MSG_NWS_STARTED
-Elindítva
+Elindï¿½tva
 ;Started
 ;
 MSG_NWS_LOOKUP
-Keresés
+Keresï¿½s
 ;Looking up
 ;
 MSG_NWS_CONNECT
-Csatlakozás
+Csatlakozï¿½s
 ;Connecting
 ;
 MSG_NWS_WAIT
-Várakozás
+Vï¿½rakozï¿½s
 ;Waiting
 ;
 MSG_NWS_PROCESS
-Feldolgozás
+Feldolgozï¿½s
 ;Processing
 ;
 MSG_NWS_LOGIN
-Bejelentkezés
+Bejelentkezï¿½s
 ;Logging in
 ;
 MSG_NWS_CPS
@@ -159,55 +159,55 @@ MSG_NWS_CPS
 ;%ld cps
 ;
 MSG_NWS_NEWSGROUP
-Vizsgálat
+Vizsgï¿½lat
 ;Scanning
 ;
 MSG_NWS_UPLOAD
-Feltöltés
+Feltï¿½ltï¿½s
 ;Uploading
 ;
 ;-------------- Authorization requester -------------
 ;
 MSG_AUTH_TITLE
-Engedélyezés
+Engedï¿½lyezï¿½s
 ;Authorization
 ;
 MSG_AUTH_PROMPT
-Ehhez felhasználói név és jelszó szükséges
+Ehhez felhasznï¿½lï¿½i nï¿½v ï¿½s jelszï¿½ szï¿½ksï¿½ges
 ;Userid and password required for
 ;
 MSG_AUTH_USERID
-_Felhasználói név
+_Felhasznï¿½lï¿½i nï¿½v
 ;_Userid
 ;
 MSG_AUTH_PASSWORD
-_Jelszó
+_Jelszï¿½
 ;_Password
 ;
 MSG_AUTH_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_AUTH_CANCEL
-_Mégsem
+_Mï¿½gsem
 ;_Cancel
 ;
 MSG_AUTH_PROMPT_FTP
-Jelszó szükséges hozzá
+Jelszï¿½ szï¿½ksï¿½ges hozzï¿½
 ;Password required for
 ;
 MSG_AUTH_USERID_FTP
-Felhasználói azonosító
+Felhasznï¿½lï¿½i azonosï¿½tï¿½
 ;Userid
 ;
 MSG_AUTH_PROMPT_PROXY
-A proxyhoz felhasználói azonosító és jelszó szükséges
+A proxyhoz felhasznï¿½lï¿½i azonosï¿½tï¿½ ï¿½s jelszï¿½ szï¿½ksï¿½ges
 ;Userid and password required for proxy
 ;
 ;-------------- File requesters ---------------------
 ;
 MSG_FILE_SAVETITLE
-Válassz állománynevet a mentéshez
+Vï¿½lassz ï¿½llomï¿½nynevet a mentï¿½shez
 ;Select save filename
 ;
 MSG_FILE_SAVE
@@ -215,12 +215,12 @@ Ment
 ;Save
 ;
 MSG_FILE_INCTEXT
-Hiányos állomány!\n\
+Hiï¿½nyos ï¿½llomï¿½ny!\n\
 %s\n\
-%ld byte-ot vártam,\n\
-%ld byte érkezett.\n\
+%ld byte-ot vï¿½rtam,\n\
+%ld byte ï¿½rkezett.\n\
 \n\
-Válaszd az OK-t, ha meg akarod tartani.
+Vï¿½laszd az OK-t, ha meg akarod tartani.
 ;Incomplete file!\n%s\nExpected: %ld bytes\nReceived: %ld bytes\n\n\
 ;Choose OK to keep the partial data.
 ;
@@ -228,25 +228,25 @@ MSG_DUMMY_1
 
 ;
 MSG_FILE_EXISTTEXT
-Ez az állomány:\n\
+Ez az ï¿½llomï¿½ny:\n\
 %s\n\
-már létezik!
+mï¿½r lï¿½tezik!
 ;File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-_Felülír|_Hozzáfûz|_Új név|_Mégsem
+_Felï¿½lï¿½r|_Hozzï¿½fï¿½z|_ï¿½j nï¿½v|_Mï¿½gsem
 ;_Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
-Válassz ARexx makrót
+Vï¿½lassz ARexx makrï¿½t
 ;Select ARexx macro
 ;
 MSG_FILE_HOTLISTTITLE
-Válassz hierarchikus kedvenc-listát
+Vï¿½lassz hierarchikus kedvenc-listï¿½t
 ;Select hierarchical hotlist
 ;
 MSG_FILE_LOCALTITLE
-Helyi állomány megnyitása
+Helyi ï¿½llomï¿½ny megnyitï¿½sa
 ;Open local file
 ;
 MSG_FILE_OPEN
@@ -254,31 +254,31 @@ Megnyit
 ;Open
 ;
 MSG_FILE_TEMPTITLE
-Nem találom ezt az átmeneti elérési útvonalat:\n\
+Nem talï¿½lom ezt az ï¿½tmeneti elï¿½rï¿½si ï¿½tvonalat:\n\
 %s\n\
-A T:-t használom helyette.
+A T:-t hasznï¿½lom helyette.
 ;Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
-_Ok|_Újra|_Mégsem
-;_Ok|_Retry|_Cancel
+_OK |_ï¿½jra|_Mï¿½gsem
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
-Válaszd ki a beállításokat tartalmazó könyvtárat
+Vï¿½laszd ki a beï¿½llï¿½tï¿½sokat tartalmazï¿½ kï¿½nyvtï¿½rat
 ;Select settings directory
 ;
 MSG_FILE_UPLOADTITLE
-Válaszd ki az elküldeni kívánt állományokat
+Vï¿½laszd ki az elkï¿½ldeni kï¿½vï¿½nt ï¿½llomï¿½nyokat
 ;Select file to upload
 ;
 ;-------------- TCP close requester -----------------
 ;
 MSG_TCP_ENDTCP
-Az AWebet megállítottad.\n\
+Az AWebet megï¿½llï¿½tottad.\n\
 Bontsam le a TCP kapcsolatot is?
 ;AWeb is stopped.\nShould the TCP connection be terminated too?
 ;
@@ -290,15 +290,15 @@ _Igen|_Nem
 ; Mind the maximum length!
 ;
 MSG_STARTUP_FONTS
-Betûtípusok töltése
+Betï¿½tï¿½pusok tï¿½ltï¿½se
 ;Loading fonts
 ;
 MSG_STARTUP_IMAGES
-GUI képeinek töltése
+GUI kï¿½peinek tï¿½ltï¿½se
 ;Loading GUI images
 ;
 MSG_STARTUP_CACHE
-Cache index töltése
+Cache index tï¿½ltï¿½se
 ;Loading cache index
 ;
 ;-------------- Hotlist requester -------------------
@@ -308,24 +308,24 @@ AWeb kedvencek
 ;AWeb hotlist
 ;
 MSG_HOTL_ADDLINK
-_Hivatkozást hozzáad
+_Hivatkozï¿½st hozzï¿½ad
 ;_Add link
 ;
 MSG_HOTL_ADDGROUP
-_Csoportot hozzáad
+_Csoportot hozzï¿½ad
 ;Add _group
 ;
 ; (No hotkey for this one please!)
 MSG_HOTL_REMOVE
-Eltávolít
+Eltï¿½volï¿½t
 ;Remove
 ;
 MSG_HOTL_FOLLOW
-_Követ
+_Kï¿½vet
 ;_Follow
 ;
 MSG_HOTL_NAME
-_Név
+_Nï¿½v
 ;_Name
 ;
 MSG_HOTL_URL
@@ -333,17 +333,17 @@ _URL
 ;_URL
 ;
 MSG_HOTL_NEWGROUP
-Új csoport
+ï¿½j csoport
 ;New group
 ;
 MSG_HOTL_NEWLINK
-Új hivatkozás
+ï¿½j hivatkozï¿½s
 ;New link
 ;
 ; -- new hotlist viewer requester --
 ;
 MSG_HOTL_TITLE_VIEWER
-AWeb kedvencek böngészõ
+AWeb kedvencek bï¿½ngï¿½szï¿½
 ;AWeb hotlist viewer
 ;
 MSG_HOTL_VURLS
@@ -351,13 +351,13 @@ UR_L-ek
 ;UR_Ls
 ;
 MSG_HOTL_MANAGER
-_Szervezõ
+_Szervezï¿½
 ;_Manager
 ;
 ; -- new hotlist manager requester --
 ;
 MSG_HOTL_TITLE_MANAGER
-AWeb kedvencek szervezõ
+AWeb kedvencek szervezï¿½
 ;AWeb hotlist manager
 ;
 MSG_HOTL_LTYPE
@@ -365,7 +365,7 @@ L_ista
 ;L_ist
 ;
 MSG_HOTL_LTYPE_REST
-Maradék
+Maradï¿½k
 ;Rest
 ;
 MSG_HOTL_LTYPE_ALL
@@ -381,7 +381,7 @@ S_orbarak
 ;S_ort
 ;
 MSG_HOTL_LSORT_TITLE
-Cím
+Cï¿½m
 ;Title
 ;
 MSG_HOTL_LSORT_URL
@@ -401,7 +401,7 @@ MSG_HOTL_MOVE
 ;< _Move
 ;
 MSG_HOTL_DEL
-_Töröl
+_Tï¿½rï¿½l
 ;_Delete
 ;
 MSG_HOTL_WHERE
@@ -417,7 +417,7 @@ Sor_barak
 ;Sor_t
 ;
 MSG_HOTL_PARENT
-_Szülõ
+_Szï¿½lï¿½
 ;_Parent
 ;
 MSG_HOTL_ALL
@@ -425,7 +425,7 @@ Cs_oportok
 ;G_roups
 ;
 MSG_HOTL_ADDENTRY
-+ _Bejegyzés
++ _Bejegyzï¿½s
 ;+ _Entry
 ;
 MSG_HOTL_ADDGROUP2
@@ -437,7 +437,7 @@ UR_L-ek
 ;UR_Ls
 ;
 MSG_HOTL_REVERT
-_Visszatér
+_Visszatï¿½r
 ;Re_vert
 ;
 MSG_HOTL_SAVE
@@ -445,7 +445,7 @@ _Ment
 ;_Save
 ;
 MSG_HOTL_LADD
-_Hozzáad
+_Hozzï¿½ad
 ;_Add
 ;
 MSG_HOTL_FIND
@@ -457,15 +457,15 @@ I_lleszt
 ;Mat_ch
 ;
 MSG_HOTL_NEXT
-Kö_vetkezõ
+Kï¿½_vetkezï¿½
 ;Ne_xt
 ;
 MSG_HOTL_DEFAULT_TITLE
-** Új hivatkozás **
+** ï¿½j hivatkozï¿½s **
 ;** New link **
 ;
 MSG_HOTL_DEFAULT_GROUP
-** Új csoport **
+** ï¿½j csoport **
 ;** New group **
 ;
 MSG_HOTL_TITLE_ALLGROUPS
@@ -473,19 +473,19 @@ Minden csoport
 ;All groups
 ;
 MSG_HOTL_TITLE_WHERE
-E bejegyzést tartalmazó csoportok
+E bejegyzï¿½st tartalmazï¿½ csoportok
 ;Groups containing this entry
 ;
 MSG_HOTL_TITLE_REST
-Hivatkozás nélküli bejegyzések
+Hivatkozï¿½s nï¿½lkï¿½li bejegyzï¿½sek
 ;Unassigned entries
 ;
 MSG_HOTL_TITLE_ALL
-Minden bejegyzés
+Minden bejegyzï¿½s
 ;All entries
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
-Gyökérszintû csoportok
+Gyï¿½kï¿½rszintï¿½ csoportok
 ;Root-level groups
 ;
 MSG_HOTL_LSORT_DATE
@@ -496,11 +496,11 @@ MSG_HOTL_LSORT_DATE
 ;--------------  Window history requester -------------------
 ;
 MSG_WHIS_TITLE
-Ablak visszatekintés
+Ablak visszatekintï¿½s
 ;Window history
 ;
 MSG_WHIS_FILTER
-_Szûrõ
+_Szï¿½rï¿½
 ;_Filter
 ;
 MSG_WHIS_WINDOW
@@ -512,15 +512,15 @@ _Sorrend
 ;_Order
 ;
 MSG_WHIS_DISPLAY
-_Megjelenítés
+_Megjelenï¿½tï¿½s
 ;_Display
 ;
 MSG_WHIS_ORDER_NATURAL
-Természetes
+Termï¿½szetes
 ;Natural
 ;
 MSG_WHIS_ORDER_MAINLINE
-Fõvonal
+Fï¿½vonal
 ;Mainline
 ;
 MSG_WHIS_ORDER_RETRIEVED
@@ -528,7 +528,7 @@ Visszahozott
 ;Retrieved
 ;
 MSG_WHIS_ORDER_TITLE
-Cím
+Cï¿½m
 ;Title
 ;
 MSG_WHIS_ORDER_URL
@@ -539,7 +539,7 @@ URL
 ;-------------- Cache browser ---------------------------
 ;
 MSG_CABR_TITLE
-Cache böngészõ
+Cache bï¿½ngï¿½szï¿½
 ;Cache browser
 ;
 MSG_CABR_URL
@@ -547,27 +547,27 @@ URL
 ;URL
 ;
 MSG_CABR_DATE
-Dátum
+Dï¿½tum
 ;Date
 ;
 MSG_CABR_SIZE
-Méret
+Mï¿½ret
 ;Size
 ;
 MSG_CABR_TYPE
-Típus
+Tï¿½pus
 ;Type
 ;
 MSG_CABR_FILE
-Állomány
+ï¿½llomï¿½ny
 ;File
 ;
 MSG_CABR_STATUS
-%ld állomány, %ld kB
+%ld ï¿½llomï¿½ny, %ld kB
 ;%ld files, %ld kB
 ;
 MSG_CABR_SORTBY
-_Sorbarakva ez alapján:
+_Sorbarakva ez alapjï¿½n:
 ;_Sort by
 ;
 MSG_CABR_OPEN
@@ -579,7 +579,7 @@ M_ent
 ;Sa_ve
 ;
 MSG_CABR_DELETE
-_Töröl
+_Tï¿½rï¿½l
 ;_Delete
 ;
 MSG_CABR_FIND
@@ -587,11 +587,11 @@ _Keres
 ;_Find
 ;
 MSG_CABR_PATTERN
-_Hasonlít
+_Hasonlï¿½t
 ;_Match
 ;
 MSG_CABR_NEXT
-_Következô
+_Kï¿½vetkezï¿½
 ;_Next
 ;
 ;
@@ -602,7 +602,7 @@ AWeb folyamat
 ;AWeb progress
 ;
 MSG_PROGRESS_CANCEL
-Mégsem
+Mï¿½gsem
 ;Cancel
 ;
 ;
@@ -610,42 +610,42 @@ Mégsem
 ;
 MSG_FIXCACHE_WARNING
 FIGYELEM!\n\
-Ez a mûvelet minden idegen állományt letöröl ebbõl a könyvtárból:\n\
+Ez a mï¿½velet minden idegen ï¿½llomï¿½nyt letï¿½rï¿½l ebbï¿½l a kï¿½nyvtï¿½rbï¿½l:\n\
 %s!
 ;WARNING!\n\
 ;This function will delete all foreign files from the\n\
 ;%s drawer
 ;
 MSG_FIXCACHE_BUTTONS
-_Ok|_Mégsem
-;_Ok|_Cancel
+_OK |_Mï¿½gsem
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
-Kijavítom a lemez cache-t...
+Kijavï¿½tom a lemez cache-t...
 ;Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Biztosan törölni szeretnél\n\
-minden képet a cache-bõl?
+Biztosan tï¿½rï¿½lni szeretnï¿½l\n\
+minden kï¿½pet a cache-bï¿½l?
 ;Are you sure you want to delete\n\
 ;all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Biztosan törölni szeretnél\n\
-minden dokumentumot a cache-bõl?
+Biztosan tï¿½rï¿½lni szeretnï¿½l\n\
+minden dokumentumot a cache-bï¿½l?
 ;Are you sure you want to delete\n\
 ;all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
-Biztosan törölni szeretnél minden\n\
-képet és dokumentumot a cache-bõl?
+Biztosan tï¿½rï¿½lni szeretnï¿½l minden\n\
+kï¿½pet ï¿½s dokumentumot a cache-bï¿½l?
 ;Are you sure you want to delete\n\
 ;all documents and images from the cache?
 ;
 MSG_FIXCACHE_CORRUPT
-A cache tartalomjegyzék olvashatatlan\n\
-vagy egy korábbi AWeb változatból származik.\n\
-A cache-elt állományokat nem lehet felhasználni.\n\
+A cache tartalomjegyzï¿½k olvashatatlan\n\
+vagy egy korï¿½bbi AWeb vï¿½ltozatbï¿½l szï¿½rmazik.\n\
+A cache-elt ï¿½llomï¿½nyokat nem lehet felhasznï¿½lni.\n\
 Rendet rakhatok?
 ;The cache registration is unreadable\n\
 ;or from an older version of AWeb.\n\
@@ -655,11 +655,11 @@ Rendet rakhatok?
 ;-------------- Search requesters ---------------------
 ;
 MSG_SEARCH_STRING
-K_eresés
+K_eresï¿½s
 ;Search _for
 ;
 MSG_SEARCH_IGNORECASE
-_Kis/nagybetû mindegy
+_Kis/nagybetï¿½ mindegy
 ;_Ignore case
 ;
 MSG_SEARCH_SEARCH
@@ -667,94 +667,94 @@ Ke_res
 ;_Search
 ;
 MSG_SEARCH_FROMTOP
-_Felülrõl
+_Felï¿½lrï¿½l
 ;From _top
 ;
 MSG_SEARCH_BACKWARDS
-_Hátrafelé
+_Hï¿½trafelï¿½
 ;_Backwards
 ;
 MSG_SEARCH_CANCEL
-_Mégsem
+_Mï¿½gsem
 ;_Cancel
 ;
 MSG_SEARCH_NOTFOUND
-Nem találom a szöveget
+Nem talï¿½lom a szï¿½veget
 ;String not found
 ;
 MSG_SEARCH_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
 ;
 MSG_POPUP_LOADIMAGE
-Képet tölt
+Kï¿½pet tï¿½lt
 ;Load image
 ;
 MSG_POPUP_RELOADIMAGE
-Képet újratölt
+Kï¿½pet ï¿½jratï¿½lt
 ;Reload image
 ;
 MSG_POPUP_SAVEIMAGE
-Képet elment
+Kï¿½pet elment
 ;Save image
 ;
 MSG_POPUP_DOWNLOADIMAGE
-Képet letölt
+Kï¿½pet letï¿½lt
 ;Download image
 ;
 MSG_POPUP_FLUSHIMAGE
-Képet eltávolít
+Kï¿½pet eltï¿½volï¿½t
 ;Flush image
 ;
 MSG_POPUP_SHOWIMAGE
-Képet megmutat
+Kï¿½pet megmutat
 ;Show image
 ;
 MSG_POPUP_OPENLINK
-Hivatkozást megnyit
+Hivatkozï¿½st megnyit
 ;Open link
 ;
 MSG_POPUP_OPENLINKNW
-Hivatkozást megnyit új ablakban
+Hivatkozï¿½st megnyit ï¿½j ablakban
 ;Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Hivatkozást letölt a háttérben
+Hivatkozï¿½st letï¿½lt a hï¿½ttï¿½rben
 ;Load link in background
 ;
 MSG_POPUP_SAVELINK
-Hivatkozást elment
+Hivatkozï¿½st elment
 ;Save link
 ;
 MSG_POPUP_DOWNLOADLINK
-Hivatkozást letölt
+Hivatkozï¿½st letï¿½lt
 ;Download link
 ;
 MSG_POPUP_ADDLINK
-Hivatkozást hozzáad a kedvencekhez
+Hivatkozï¿½st hozzï¿½ad a kedvencekhez
 ;Add link to hotlist
 ;
 MSG_POPUP_RELOADFRAME
-Tartalmat újratölt
+Tartalmat ï¿½jratï¿½lt
 ;Reload contents
 ;
 MSG_POPUP_SAVEFRAME
-Forrást elment
+Forrï¿½st elment
 ;Save source
 ;
 MSG_POPUP_VIEWFRAME
-Forrást megmutat
+Forrï¿½st megmutat
 ;View source
 ;
 MSG_POPUP_SHOWFRAME
-Megmutat külön oldalon
+Megmutat kï¿½lï¿½n oldalon
 ;Show separately
 ;
 MSG_POPUP_SEARCHFRAME
-Keresés a tartalomban
+Keresï¿½s a tartalomban
 ;Search in contents
 ;
 MSG_POPUP_INFOFRAME
@@ -764,23 +764,23 @@ Info
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Paramétereket nyomtat
+Paramï¿½tereket nyomtat
 ;Print parameters
 ;
 MSG_PRINTP_SCALE
-_Megnyújt (%)
+_Megnyï¿½jt (%)
 ;_Scale (%)
 ;
 MSG_PRINTP_PRINTBG
-Há_ttereket nyomtat
+Hï¿½_ttereket nyomtat
 ;Print _backgrounds
 ;
 MSG_PRINTP_FORMFEED
-_Lapadagoló
+_Lapadagolï¿½
 ;_Formfeed
 ;
 MSG_PRINTP_CENTER
-Kö_zépen
+Kï¿½_zï¿½pen
 ;Ce_nter
 ;
 MSG_PRINTP_PRINT
@@ -788,19 +788,19 @@ _Nyomtat
 ;_Print
 ;
 MSG_PRINTP_CANCEL
-_Mégsem
+_Mï¿½gsem
 ;_Cancel
 ;
 MSG_PRINT_NOPRINTER
-Nem találom a nyomtatót
+Nem talï¿½lom a nyomtatï¿½t
 ;Unable to access the printer
 ;
 MSG_PRINT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_PRINT_PROGRESS
-Nyomtatás folyamatban...
+Nyomtatï¿½s folyamatban...
 ;Printing in progress...
 ;
 MSG_PRINTP_LAYOUTWIDTH
@@ -823,11 +823,11 @@ MSG_PRINTP_LW_SCREEN
 ;-------------- Cookie warning ----------------------
 ;
 MSG_COOKIE_TITLE
-Cookie figyelmeztetés
+Cookie figyelmeztetï¿½s
 ;Cookie alert
 ;
 MSG_COOKIE_WARNING
-NetScape cookie létrehozás!
+NetScape cookie lï¿½trehozï¿½s!
 ;About to set a NetScape cookie!
 ;
 MSG_COOKIE_NAME
@@ -835,7 +835,7 @@ A cookie neve:
 ;Cookie name:
 ;
 MSG_COOKIE_VALUE
-A cookie értéke:
+A cookie ï¿½rtï¿½ke:
 ;Cookie value:
 ;
 MSG_COOKIE_DOMAIN
@@ -843,11 +843,11 @@ A domain:
 ;For domain:
 ;
 MSG_COOKIE_PATH
-Útvonal:
+ï¿½tvonal:
 ;Path:
 ;
 MSG_COOKIE_COMMENT
-Megjegyzés:
+Megjegyzï¿½s:
 ;Comment:
 ;
 MSG_COOKIE_MAXAGE
@@ -855,7 +855,7 @@ Max. kor:
 ;Max-age:
 ;
 MSG_COOKIE_EXPIRES
-Lejár:
+Lejï¿½r:
 ;Expires:
 ;
 MSG_COOKIE_ONCE
@@ -871,44 +871,44 @@ _Soha
 ;_Never
 ;
 MSG_COOKIE_CANCEL
-_Mégsem
+_Mï¿½gsem
 ;_Cancel
 ;
 MSG_COOKIE_SECURE
-Az AWeb ezt a cookie-t csak biztonságos kapcsolaton\n\
-keresztül küldi vissza.
+Az AWeb ezt a cookie-t csak biztonsï¿½gos kapcsolaton\n\
+keresztï¿½l kï¿½ldi vissza.
 ;AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-Az AWeb ezt a cookie-t NEM biztonságos kapcsolatokon\n\
-keresztül is visszaküldi.
+Az AWeb ezt a cookie-t NEM biztonsï¿½gos kapcsolatokon\n\
+keresztï¿½l is visszakï¿½ldi.
 ;AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
 ;-------------- Info requester ----------------------
 ;
 MSG_INFO_TITLE
-Információ
+Informï¿½ciï¿½
 ;Information
 ;
 MSG_INFO_FROMCACHE
-AWeb cache-bõl olvasva
+AWeb cache-bï¿½l olvasva
 ;Read from AWeb cache
 ;
 MSG_INFO_XFER
-Átvitel fejléc:
+ï¿½tvitel fejlï¿½c:
 ;Transfer headers:
 ;
 MSG_INFO_META
-Meta információ:
+Meta informï¿½ciï¿½:
 ;Meta information:
 ;
 MSG_INFO_LINK
-Kattintható hivatkozások:
+Kattinthatï¿½ hivatkozï¿½sok:
 ;Clickable links:
 ;
 MSG_INFO_CIPHER
-HTTPS rejtjelezõ módszer: %s
+HTTPS rejtjelezï¿½ mï¿½dszer: %s
 ;HTTPS cipher method: %s
 ;
 MSG_INFO_SSLLIBRARY
@@ -922,121 +922,121 @@ Cache
 ;Cache
 ;
 MSG_USERBUTTON_CLOCK
-Óra
+ï¿½ra
 ;Clock
 ;
 ;
 ;-------------- Authorizations edit requester -------
 ;
 MSG_AUTHEDIT_TITLE
-Azonosítókat módosít
+Azonosï¿½tï¿½kat mï¿½dosï¿½t
 ;Edit authorizations
 ;
 MSG_AUTHEDIT_TITLE_SERVER
-Kiszolgáló
+Kiszolgï¿½lï¿½
 ;Server
 ;
 MSG_AUTHEDIT_TITLE_USERID
-Felhasználónév
+Felhasznï¿½lï¿½nï¿½v
 ;Userid
 ;
 MSG_AUTHEDIT_DEL
-_Töröl
+_Tï¿½rï¿½l
 ;_Del
 ;
 MSG_AUTHEDIT_SERVER
-Kiszolgáló
+Kiszolgï¿½lï¿½
 ;Server
 ;
 MSG_AUTHEDIT_USERID
-_Felhasználó
+_Felhasznï¿½lï¿½
 ;_Userid
 ;
 MSG_AUTHEDIT_PASSWORD
-_Jelszó
+_Jelszï¿½
 ;_Password
 ;
 ;
 ;-------------- JavaScript prompt requester ---------
 ;
 MSG_JSPROMPT_OK
-_Ok
-;_Ok
+_OK 
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
-_Mégsem
+_Mï¿½gsem
 ;_Cancel
 ;
 ;
 ;-------------- Unsecure form warning ---------------
 ;
 MSG_FORMWARN_TITLE
-AWeb figyelmeztetés
+AWeb figyelmeztetï¿½s
 ;AWeb warning
 ;
 MSG_FORMWARN_WARNING
-Az adatok nem biztonságos kapcsolaton\n\
-át lesznek elküldve.
+Az adatok nem biztonsï¿½gos kapcsolaton\n\
+ï¿½t lesznek elkï¿½ldve.
 ;Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
-_Ok|_Mégsem
-;_Ok|_Cancel
+_OK |_Mï¿½gsem
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
 ;
 MSG_MAIL_TITLE
-AWeb levelezõ hiba
+AWeb levelezï¿½ hiba
 ;AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Elõször be kell állítanod az SMTP hostod\n\
-a Hálózat/Levelezés beállításoknál.
+Elï¿½szï¿½r be kell ï¿½llï¿½tanod az SMTP hostod\n\
+a Hï¿½lï¿½zat/Levelezï¿½s beï¿½llï¿½tï¿½soknï¿½l.
 ;You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
-Nem tudom felvenni a kapcsolatot a címmel: %s.
+Nem tudom felvenni a kapcsolatot a cï¿½mmel: %s.
 ;Can't connect to %s.
 ;
 MSG_MAIL_MAILFAILED
-Nem sikerült elküldeni a levelet.
+Nem sikerï¿½lt elkï¿½ldeni a levelet.
 ;Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-_Újra|_Ment|_Mégsem
+_ï¿½jra|_Ment|_Mï¿½gsem
 ;_Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
-Sikertelen üzenet mentése
+Sikertelen ï¿½zenet mentï¿½se
 ;Save failed message
 ;
 MSG_MAIL_MAILTO_TITLE
-Levél %s számára
+Levï¿½l %s szï¿½mï¿½ra
 ;Mail to %s
 ;
 MSG_MAIL_MAILTO_HEADER
-Levél %s számára
+Levï¿½l %s szï¿½mï¿½ra
 ;Mail to: %s
 ;
 MSG_MAIL_TO
-Címzett:
+Cï¿½mzett:
 ;To:
 ;
 MSG_MAIL_SUBJECT
-Tárgy:
+Tï¿½rgy:
 ;Subject:
 ;
 MSG_MAIL_MESSAGE_BODY
-Üzenet:
+ï¿½zenet:
 ;Message body:
 ;
 MSG_MAIL_EXTRA_HEADERS
-Extra levélfejlécekkel
+Extra levï¿½lfejlï¿½cekkel
 ;Extra mail headers included
 ;
 MSG_MAIL_SEND
-Levelet elküld
+Levelet elkï¿½ld
 ;Send mail
 ;
 MSG_MAIL_RESET
@@ -1048,12 +1048,12 @@ Vissza
 ;Return
 ;
 MSG_MAIL_MAIL_SENT_TITLE
-Levél elküldve: %s
+Levï¿½l elkï¿½ldve: %s
 ;Mail sent to: %s
 ;
 MSG_MAIL_MAIL_SENT
-<H1>Levél elküldve</H1>\n\
-Leveledet <B>%s</B> számára sikeresen elküldtem.
+<H1>Levï¿½l elkï¿½ldve</H1>\n\
+Leveledet <B>%s</B> szï¿½mï¿½ra sikeresen elkï¿½ldtem.
 ;<H1>Mail sent</H1>\nYour mail message to <B>%s</B> has been sent succesfully.
 ;
 ;
@@ -1064,24 +1064,24 @@ AWeb newsreader hiba
 ;AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Elõbb be kell állítanod az NNTP host-od\n\
-a Hálózat/News beállításoknál.
+Elï¿½bb be kell ï¿½llï¿½tanod az NNTP host-od\n\
+a Hï¿½lï¿½zat/News beï¿½llï¿½tï¿½soknï¿½l.
 ;You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
-Nem tudom felvenni a kapcsolatot ezzel a címmel: %s.
+Nem tudom felvenni a kapcsolatot ezzel a cï¿½mmel: %s.
 ;Can't connect to %s.
 ;
 MSG_NEWS_POSTFAILED
-A cikk elküldése nem sikerült.
+A cikk elkï¿½ldï¿½se nem sikerï¿½lt.
 ;Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-_Újra|_Ment|Mégs_em
+_ï¿½jra|_Ment|Mï¿½gs_em
 ;_Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
-Sikertelen cikk mentése
+Sikertelen cikk mentï¿½se
 ;Save failed article
 ;
 MSG_NEWS_NEWS_HEADER
@@ -1089,16 +1089,16 @@ News
 ;News
 ;
 MSG_NEWS_SUBSCRIBED
-Elõfizetett hírcsoportok
+Elï¿½fizetett hï¿½rcsoportok
 ;Subscribed newsgroups
 ;
 ; Don't forget to include the '8' in the %8ld below:
 MSG_NEWS_NEW_ARTICLES
-%8ld új cikk
+%8ld ï¿½j cikk
 ;%8ld new articles
 ;
 MSG_NEWS_CATCH_UP
-Félbeszakít
+Fï¿½lbeszakï¿½t
 ;Catch up
 ;
 MSG_NEWS_UNSUBSCRIBE
@@ -1106,7 +1106,7 @@ Leiratkozik
 ;Unsubscribe
 ;
 MSG_NEWS_OTHER_GROUP
-Újabb csoport
+ï¿½jabb csoport
 ;Other group
 ;
 MSG_NEWS_SUBSCRIBE
@@ -1118,23 +1118,23 @@ Olvas
 ;Read
 ;
 MSG_NEWS_SEARCH_FOR_GROUP
-Csoport keresése
+Csoport keresï¿½se
 ;Search for group
 ;
 MSG_NEWS_SEARCH
-Keresés
+Keresï¿½s
 ;Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-Ha elsõ alkalommal keresel egy csoportot,\n\
-az összes hírcsoport nevét le kell tölteni.\n\
-Ez akár több percig is eltarthat.
+Ha elsï¿½ alkalommal keresel egy csoportot,\n\
+az ï¿½sszes hï¿½rcsoport nevï¿½t le kell tï¿½lteni.\n\
+Ez akï¿½r tï¿½bb percig is eltarthat.
 ;The first time you search for a group,\n\
 ;a list of all newsgroup names will be downloaded.\n\
 ;This may take several minutes to complete.
 ;
 MSG_NEWS_NO_SUBJECT
-(nincs tárgy)
+(nincs tï¿½rgy)
 ;(no subject)
 ;
 MSG_NEWS_LINES
@@ -1142,7 +1142,7 @@ MSG_NEWS_LINES
 ;(%s lines)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
-Új cikk postázása
+ï¿½j cikk postï¿½zï¿½sa
 ;Post new article
 ;
 MSG_NEWS_GROUP_LIST
@@ -1151,47 +1151,47 @@ Csoportlista
 ;
 MSG_NEWS_ERROR_NO_GROUP
 <h1>Hiba</h1>\n\
-%s nevû csoport nem létezik.
+%s nevï¿½ csoport nem lï¿½tezik.
 ;<h1>Error</h1>\nGroup %s does not exist.
 ;
 MSG_NEWS_USE_FRAMES
-Keretek használata bekapcsolva
+Keretek hasznï¿½lata bekapcsolva
 ;News is configured to use frames
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
-%s nevû cikk nem létezik<BR>
+%s nevï¿½ cikk nem lï¿½tezik<BR>
 ;Article %s does not exist<BR>
 ;
 MSG_NEWS_FOLLOW_UP
-Következõ
+Kï¿½vetkezï¿½
 ;Follow-up
 ;
 MSG_NEWS_REPLY
-Válasz e-mailben
+Vï¿½lasz e-mailben
 ;Reply in e-mail
 ;
 MSG_NEWS_SAVE
-Cikk mentése
+Cikk mentï¿½se
 ;Save article
 ;
 MSG_NEWS_SUBJECT
-Tárgy:
+Tï¿½rgy:
 ;Subject:
 ;
 MSG_NEWS_NEWSGROUPS
-Hírcsoportok:
+Hï¿½rcsoportok:
 ;Newsgroups:
 ;
 MSG_NEWS_ARTICLE_BODY
-Cikk szövege:
+Cikk szï¿½vege:
 ;Article body:
 ;
 MSG_NEWS_EXTRA_HEADERS
-Extra news fejlécet tartalmaz
+Extra news fejlï¿½cet tartalmaz
 ;Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
-Cikk elküldése
+Cikk elkï¿½ldï¿½se
 ;Post article
 ;
 MSG_NEWS_RESET
@@ -1203,119 +1203,119 @@ Vissza
 ;Return
 ;
 MSG_NEWS_FOLLOWUP_TITLE
-Követés a cikkhez
+Kï¿½vetï¿½s a cikkhez
 ;Follow-up to article
 ;
 MSG_NEWS_FOLLOWUP_TO_GROUPS
-Követés ide:
+Kï¿½vetï¿½s ide:
 ;Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Kérlek, töröld le a felesleges idézett sorokat
+Kï¿½rlek, tï¿½rï¿½ld le a felesleges idï¿½zett sorokat
 ;Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
-Válasz a cikkre
+Vï¿½lasz a cikkre
 ;Reply to article
 ;
 MSG_NEWS_REPLY_TO_ADDRESS
-Válasz:
+Vï¿½lasz:
 ;Reply to:
 ;
 MSG_NEWS_ARTICLE_POSTED_TITLE
-Cikk postázva
+Cikk postï¿½zva
 ;Article posted
 ;
 MSG_NEWS_ARTICLE_POSTED
-<H1>Cikk elpostázva</h1>\n\
-A cikkedet elküldtem.
+<H1>Cikk elpostï¿½zva</h1>\n\
+A cikkedet elkï¿½ldtem.
 ;<H1>Article posted</h1>\n\
 ;Your article has been posted.
 ;
 MSG_NEWS_DOWNLOAD_TITLE
-A hírcsoportok listájának letöltése
+A hï¿½rcsoportok listï¿½jï¿½nak letï¿½ltï¿½se
 ;Download newsgroup list
 ;
 MSG_NEWS_DOWNLOAD_BODY
-<H1>Letöltés...</H1>\n\
-Letöltöm a hírcsoportok listáját. Ez eltarthat néhány percig.
+<H1>Letï¿½ltï¿½s...</H1>\n\
+Letï¿½ltï¿½m a hï¿½rcsoportok listï¿½jï¿½t. Ez eltarthat nï¿½hï¿½ny percig.
 ;<H1>Downloading...</H1>\n\
 ;Downloading newsgroup list. This can take several minutes.
 ;
 MSG_NEWS_SEARCH_RESULT
-Keresés eredménye
+Keresï¿½s eredmï¿½nye
 ;Search result
 ;
 MSG_NEWS_FIRST_MATCHING
-Az elsõ %ld a(z) %ld közül megfelel ehhez: <B>%s</B>
+Az elsï¿½ %ld a(z) %ld kï¿½zï¿½l megfelel ehhez: <B>%s</B>
 ;First %ld of %ld newsgroup names matching <B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
-%ld hírcsoport nevet találtam, amely megfelel ennek: <B>%s</B>
+%ld hï¿½rcsoport nevet talï¿½ltam, amely megfelel ennek: <B>%s</B>
 ;Found %ld newsgroup names matching <B>%s</B>
 ;
 ;
 ;-------------- Shell/ARexx command warning ---------
 ;
 MSG_CMDWARN_TITLE
-AWeb figyelmeztetés
+AWeb figyelmeztetï¿½s
 ;AWeb warning
 ;
 MSG_CMDWARN_SHELL
-Végre fogom hajtani ezt a shell parancsot:\n\
+Vï¿½gre fogom hajtani ezt a shell parancsot:\n\
 %s
 ;About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
-El fogom indítani ezt az ARexx programot:\n\
+El fogom indï¿½tani ezt az ARexx programot:\n\
 %s
 ;About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
-_Ok|_Mégsem
-;_Ok|_Cancel
+_OK |_Mï¿½gsem
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
 ;
 MSG_SSLWARN_SSL_TITLE
-AWeb figyelmeztetés
+AWeb figyelmeztetï¿½s
 ;AWeb warning
 ;
 MSG_SSLWARN_SSL_TEXT
-Nem tudok biztonságos kapcsolatot létrehozni ezzel a címmel: %s:\n\
+Nem tudok biztonsï¿½gos kapcsolatot lï¿½trehozni ezzel a cï¿½mmel: %s:\n\
 %s\n\
  \n\
-Használjak helyette nem biztonságosat?
+Hasznï¿½ljak helyette nem biztonsï¿½gosat?
 ;Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?
 ;
 MSG_SSLWARN_SSL_BUTTONS
-_Nem biztonságos|_Mégsem
+_Nem biztonsï¿½gos|_Mï¿½gsem
 ;_Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Biztonságos kapcsolat csak a Miami TCP programmal és a MiamiSSL modullal lehetséges.
+Biztonsï¿½gos kapcsolat csak a Miami TCP programmal ï¿½s a MiamiSSL modullal lehetsï¿½ges.
 ;Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
-AWeb figyelmeztetés
+AWeb figyelmeztetï¿½s
 ;AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-%s igazolása nem ellenõrizhetõ.\n\
-Részletesen: %s\n\
+%s igazolï¿½sa nem ellenï¿½rizhetï¿½.\n\
+Rï¿½szletesen: %s\n\
  \n\
-Ha folytatod, az adatot titkosítom, de a kiszolgálót nem lehet azonosítani (NINCS csalás elleni védelem).\n\
+Ha folytatod, az adatot titkosï¿½tom, de a kiszolgï¿½lï¿½t nem lehet azonosï¿½tani (NINCS csalï¿½s elleni vï¿½delem).\n\
  \n\
-Folytatni kívánod?
+Folytatni kï¿½vï¿½nod?
 ;Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ;If you continue the data will be encrypted (protection against eavesdropping), \
 ;but the identity of the server cannot be verified (-NO- protection against fraud).\n \n\
 ;Do you want to continue?
 ;
 MSG_SSLWARN_CERT_BUTTONS
-_Ok|_Mégsem
-;_Ok|_Cancel
+_OK |_Mï¿½gsem
+;_OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
 
@@ -1329,13 +1329,13 @@ Ismeretlen tartalom
 ;Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Ismeretlen állomány elmentése\n\
+Ismeretlen ï¿½llomï¿½ny elmentï¿½se\n\
  \n\
 URL:   %s\n\
-Tartalom típusa:   %s\n\
-Kiterjesztés:   %s\n\
+Tartalom tï¿½pusa:   %s\n\
+Kiterjesztï¿½s:   %s\n\
  \n\
-Talán vissza szeretnéd vonni a mentési utasítást, és miután bekonfiguráltad a megjelenítõt/történést ehhez a MIME típushoz (Böngészõ beálítások/Megjelenítõk), újra letöltheted.
+Talï¿½n vissza szeretnï¿½d vonni a mentï¿½si utasï¿½tï¿½st, ï¿½s miutï¿½n bekonfigurï¿½ltad a megjelenï¿½tï¿½t/tï¿½rtï¿½nï¿½st ehhez a MIME tï¿½pushoz (Bï¿½ngï¿½szï¿½ beï¿½lï¿½tï¿½sok/Megjelenï¿½tï¿½k), ï¿½jra letï¿½ltheted.
 ;Unrecognized file will be saved\n \n\
 ;URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ;You might want to cancel the save now, and reload this file \
@@ -1343,7 +1343,7 @@ Talán vissza szeretnéd vonni a mentési utasítást, és miután bekonfiguráltad a me
 ;in the Browser settings (Viewers).
 ;
 MSG_UNKMIME_BUTTONS
-_Ment|Mé_gsem
+_Ment|Mï¿½_gsem
 ;_Save|_Cancel
 ;
 MSG_REQUEST_COPYURL
@@ -1354,23 +1354,23 @@ MSG_REQUEST_COPYURL
 ;
 ;
 MSG_OPENURL_TITLE
-AWeb kérés
+AWeb kï¿½rï¿½s
 ;AWeb request
 ;
 MSG_OPENURL_TEXT
-Írd be a megnyitni kívánt URL nevét:
+ï¿½rd be a megnyitni kï¿½vï¿½nt URL nevï¿½t:
 ;Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
-_Ok|_Mégsem
-;_Ok|_Cancel
+_OK |_Mï¿½gsem
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
 ;
 ;
 MSG_SAVEIFF_PROGRESS
-IFF állomány mentése...
+IFF ï¿½llomï¿½ny mentï¿½se...
 ;Saving IFF file...
 ;
 ;
@@ -1384,35 +1384,35 @@ Projekt
 ;Project
 ;
 MSG_PROJECT_NEWWINDOW
-N/Új ablak
+N/ï¿½j ablak
 ;N/New window
 ;
 MSG_PROJECT_CLOSEWINDOW
-K/Ablak bezására
+K/Ablak bezï¿½sï¿½ra
 ;K/Close window
 ;
 MSG_PROJECT_OPENURL
-U/URL megnyitása
+U/URL megnyitï¿½sa
 ;U/Open URL
 ;
 MSG_PROJECT_OPENWWW
-W/WWW megnyitása
+W/WWW megnyitï¿½sa
 ;W/Open WWW
 ;
 MSG_PROJECT_OPENLOCAL
-L/Helyi állomány megnyitása...
+L/Helyi ï¿½llomï¿½ny megnyitï¿½sa...
 ;L/Open local...
 ;
 MSG_PROJECT_OPENSEARCH
-E/Keresõmotorok
+E/Keresï¿½motorok
 ;E/Search engines
 ;
 MSG_PROJECT_SOURCE
-Forrást megmutat...
+Forrï¿½st megmutat...
 ;View source...
 ;
 MSG_PROJECT_SAVEHTML
-S/Forrást elment...
+S/Forrï¿½st elment...
 ;S/Save source...
 ;
 MSG_PROJECT_ABOUT
@@ -1420,7 +1420,7 @@ Info...
 ;About...
 ;
 MSG_PROJECT_QUIT
-Q/Kilépés...
+Q/Kilï¿½pï¿½s...
 ;Q/Quit...
 ;
 MSG_PROJECT_SEARCH
@@ -1432,7 +1432,7 @@ P/Nyomtat...
 ;P/Print...
 ;
 MSG_PROJECT_EDIT
-Forrást módosít...
+Forrï¿½st mï¿½dosï¿½t...
 ;Edit source...
 ;
 MSG_PROJECT_INFO
@@ -1440,51 +1440,51 @@ Info...
 ;Info...
 ;
 MSG_PROJECT_OPENNEWS
-Hírek
+Hï¿½rek
 ;Open News
 ;
 ; (Shortcut key is backslash)
 MSG_PROJECT_ICONIFY
-\\/Ikonállapot
+\\/Ikonï¿½llapot
 ;\\/Iconify
 ;
 MSG_PROJECT_SAVEIFF
-Mentés IFF-ként...
+Mentï¿½s IFF-kï¿½nt...
 ;Save as IFF...
 ;
 MSG_CONTROL_MENU
-Vezérlés
+Vezï¿½rlï¿½s
 ;Control
 ;
 MSG_CONTROL_LOADNOW
-Képek töltése most
+Kï¿½pek tï¿½ltï¿½se most
 ;Load images now
 ;
 MSG_CONTROL_LOADNOWALL
-I/Minden kép
+I/Minden kï¿½p
 ;I/All images
 ;
 MSG_CONTROL_LOADNOWMAPS
-M/Csak a kapcsolókat
+M/Csak a kapcsolï¿½kat
 ;M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
-?/Hálózat állapota...
+?/Hï¿½lï¿½zat ï¿½llapota...
 ;?/Network status...
 ;
 MSG_DUMMY_2
 
 ;
 MSG_CONTROL_CANCEL
-Z/Töltést megszakít
+Z/Tï¿½ltï¿½st megszakï¿½t
 ;Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
-./Következõ ablak
+./Kï¿½vetkezï¿½ ablak
 ;./Next window
 ;
 MSG_CONTROL_PREVWINDOW
-,/Elõzõ ablak
+,/Elï¿½zï¿½ ablak
 ;,/Previous window
 ;
 MSG_CONTROL_NOPROXY
@@ -1492,23 +1492,23 @@ Y/Proxy-t kikapcsol
 ;Y/Disable proxy
 ;
 MSG_CONTROL_RLOAD
-Újratölt
+ï¿½jratï¿½lt
 ;Reload
 ;
 MSG_CONTROL_RLOADDOC
-R/Aktuális dokumentum
+R/Aktuï¿½lis dokumentum
 ;R/Current document
 ;
 MSG_CONTROL_RLOADIMGS
-Képek az aktuálisban
+Kï¿½pek az aktuï¿½lisban
 ;Images in current
 ;
 MSG_CONTROL_PLAYBGSOUND
-J/Háttérhangot lejátszik
+J/Hï¿½ttï¿½rhangot lejï¿½tszik
 ;J/Play background sound
 ;
 MSG_CONTROL_COPYURL
-URL-t másol
+URL-t mï¿½sol
 ;Copy URL
 ;
 MSG_CONTROL_PASTEURL
@@ -1516,15 +1516,15 @@ URL-t beilleszt
 ;Paste URL
 ;
 MSG_CONTROL_COPYBLOCK
-C/Blokkot másol
+C/Blokkot mï¿½sol
 ;C/Copy block
 ;
 MSG_CONTROL_DRAGGING
-Vonszolás
+Vonszolï¿½s
 ;Dragging
 ;
 MSG_CONTROL_BREAKJS
-X/JavaScriptet megszakít
+X/JavaScriptet megszakï¿½t
 ;X/Break JavaScript
 ;
 MSG_CONTROL_DEBUGJS
@@ -1532,7 +1532,7 @@ JavaScript debug
 ;Debug JavaScript
 ;
 MSG_CONTROL_RESET
-Keretek alapállapotba
+Keretek alapï¿½llapotba
 ;Reset frames
 ;
 MSG_CACHE_MENU
@@ -1552,28 +1552,28 @@ MSG_DUMMY_6
 
 ;
 MSG_CACHE_SAVEAUTH
-Azonosítókat elment
+Azonosï¿½tï¿½kat elment
 ;Save authorizations
 ;
 ;**obsolete**
 MSG_CACHE_FLUSHAUTH
-Azonosítókat elfelejt
+Azonosï¿½tï¿½kat elfelejt
 ;Flush authorizations
 ;
 MSG_CACHE_BROWSER
-Cache böngészõ...
+Cache bï¿½ngï¿½szï¿½...
 ;Cache browser...
 ;
 MSG_CACHE_FLUSH
-Memóriából eltávolít
+Memï¿½riï¿½bï¿½l eltï¿½volï¿½t
 ;Flush from memory
 ;
 MSG_CACHE_FLSHIMGSND
-Nem mutatott képeket
+Nem mutatott kï¿½peket
 ;Nondisplayed images
 ;
 MSG_CACHE_FLSHIMGS
-Minden képet
+Minden kï¿½pet
 ;All images
 ;
 MSG_CACHE_FLSHDOCSND
@@ -1581,11 +1581,11 @@ Nem mutatott dokumentumot
 ;Nondisplayed documents
 ;
 MSG_CACHE_DELETE
-Törlés lemezrõl
+Tï¿½rlï¿½s lemezrï¿½l
 ;Delete from disk
 ;
 MSG_CACHE_DELIMGS
-Minden képet
+Minden kï¿½pet
 ;All images
 ;
 MSG_CACHE_DELDOCS
@@ -1593,19 +1593,19 @@ Minden dokumentumot
 ;All documents
 ;
 MSG_CACHE_CLEAR
-Cache törlése
+Cache tï¿½rlï¿½se
 ;Erase cache
 ;
 MSG_CACHE_FIX
-Cache javítása
+Cache javï¿½tï¿½sa
 ;Fix cache...
 ;
 MSG_CACHE_EDITAUTH
-Azonosítók módosítása...
+Azonosï¿½tï¿½k mï¿½dosï¿½tï¿½sa...
 ;Edit authorizations...
 ;
 MSG_NAVIGATE_MENU
-Navigálás
+Navigï¿½lï¿½s
 ;Navigate
 ;
 MSG_NAVIGATE_BACK
@@ -1613,7 +1613,7 @@ B/Vissza
 ;B/Back
 ;
 MSG_NAVIGATE_FWD
-F/Elõre
+F/Elï¿½re
 ;F/Forward
 ;
 MSG_NAVIGATE_HOME
@@ -1621,7 +1621,7 @@ D/Startoldal
 ;D/Home document
 ;
 MSG_NAVIGATE_HISTORY
--/Ablak visszatekintés...
+-/Ablak visszatekintï¿½s...
 ;-/Window history...
 ;
 MSG_HOTLIST_MENU
@@ -1629,7 +1629,7 @@ Kedvencek
 ;Hotlist
 ;
 MSG_HOTLIST_ADDHOT
-A/Hozzáad a kedvencekhez
+A/Hozzï¿½ad a kedvencekhez
 ;A/Add to hotlist
 ;
 MSG_HOTLIST_SHOWHOT
@@ -1638,7 +1638,7 @@ H/Kedvenceket megmutat
 ;
 ;**obsolete**
 MSG_HOTLIST_MAINT
-T/Kezelés...
+T/Kezelï¿½s...
 ;T/Maintenance...
 ;
 MSG_HOTLIST_SAVE
@@ -1646,7 +1646,7 @@ Kedvenceket elment
 ;Save hotlist
 ;
 MSG_HOTLIST_RESTORE
-Utoljára elmentett
+Utoljï¿½ra elmentett
 ;Restore last saved
 ;
 MSG_HOTLIST_AMHOTRX
@@ -1658,7 +1658,7 @@ AMosaic (2.0)
 ;AMosaic (2.0)
 ;
 MSG_HOTLIST_IBHOT
-Egyéb...
+Egyï¿½b...
 ;Other...
 ;
 MSG_HOTLIST_VIEW
@@ -1666,23 +1666,23 @@ V/Kedvenceket megmutat...
 ;V/View hotlist...
 ;
 MSG_HOTLIST_MGR
-T/Kedvencek szervezõ...
+T/Kedvencek szervezï¿½...
 ;T/Hotlist manager...
 ;
 MSG_SETTINGS_MENU
-Beállítások
+Beï¿½llï¿½tï¿½sok
 ;Settings
 ;
 MSG_SETTINGS_LOADIMG
-Képek töltése
+Kï¿½pek tï¿½ltï¿½se
 ;Image loading
 ;
 MSG_SETTINGS_LOADIMGALL
-Minden kép
+Minden kï¿½p
 ;All images
 ;
 MSG_SETTINGS_LOADIMGMAPS
-Csak a kapcsolók
+Csak a kapcsolï¿½k
 ;Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
@@ -1696,60 +1696,60 @@ MSG_DUMMY_8
 
 ;
 MSG_SETTINGS_BROWSER
-Böngészõ beállítások...
+Bï¿½ngï¿½szï¿½ beï¿½llï¿½tï¿½sok...
 ;Browser settings...
 ;
 MSG_SETTINGS_PROGRAM
-Program beállítások...
+Program beï¿½llï¿½tï¿½sok...
 ;Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Hálózati beállítások...
+Hï¿½lï¿½zati beï¿½llï¿½tï¿½sok...
 ;Network settings...
 ;
 MSG_SETTINGS_CLASSACT
-ClassAct beállítások...
+ClassAct beï¿½llï¿½tï¿½sok...
 ;ClassAct settings...
 ;
 MSG_SETTINGS_SAVEALL
-Beállítások mentése
+Beï¿½llï¿½tï¿½sok mentï¿½se
 ;Save current settings
 ;
 MSG_SETTINGS_SNAPSHOT
-Ablakok pozíciójának megjegyzése
+Ablakok pozï¿½ciï¿½jï¿½nak megjegyzï¿½se
 ;Snapshot windows
 ;
 ;**obsolete
 MSG_SETTINGS_SNAPSHOTALT
-Alternatív méretként megjegyez
+Alternatï¿½v mï¿½retkï¿½nt megjegyez
 ;Snapshot as alternate size
 ;
 MSG_SETTINGS_BGIMAGES
-Hátterek
+Hï¿½tterek
 ;Background images
 ;
 MSG_SETTINGS_BGSOUND
-Háttérhang
+Hï¿½ttï¿½rhang
 ;Background sound
 ;
 MSG_SETTINGS_SAVEAS
-Beállítások mentése másként...
+Beï¿½llï¿½tï¿½sok mentï¿½se mï¿½skï¿½nt...
 ;Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Beállítások betöltése...
+Beï¿½llï¿½tï¿½sok betï¿½ltï¿½se...
 ;Load settings...
 ;
 MSG_SETTINGS_GUI
-GUI beállítások...
+GUI beï¿½llï¿½tï¿½sok...
 ;GUI settings...
 ;
 MSG_HELP_MENU
-Segítség
+Segï¿½tsï¿½g
 ;Help
 ;
 MSG_HELP_HELP
-Dokumentáció
+Dokumentï¿½ciï¿½
 ;Documentation
 ;
 MSG_HELP_AWEBHOME
@@ -1761,7 +1761,7 @@ AWeb GyIK
 ;AWeb FAQ
 ;
 MSG_HELP_REGISTER
-Regisztráció
+Regisztrï¿½ciï¿½
 ;Registration
 ;
 MSG_AREXX_MENU
@@ -1769,7 +1769,7 @@ ARexx
 ;ARexx
 ;
 MSG_AREXX_AREXX
-!/ARexx makró futtatása...
+!/ARexx makrï¿½ futtatï¿½sa...
 ;!/Start ARexx macro...
 ;
 ;
@@ -1782,17 +1782,17 @@ Nem tudom megnyitni: %s
 ; NOTE - No locale formatters (like %1$s) possible in this string!
 ;        Only plain C formatters allowed.
 MSG_ERROR_CANTOPENV
-Nem tudom megnyitni %s %ld változatát
+Nem tudom megnyitni %s %ld vï¿½ltozatï¿½t
 ;Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30
-Az AWeb futtatásához min. OS 3.0-ra van szükség
+Az AWeb futtatï¿½sï¿½hoz min. OS 3.0-ra van szï¿½ksï¿½g
 ;AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-Nem tudok kilépni!\n\
+Nem tudok kilï¿½pni!\n\
 %s\n\
-még használatban van.
+mï¿½g hasznï¿½latban van.
 ;Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
@@ -1802,57 +1802,57 @@ Hiba
 ;Error
 ;
 MSG_EPART_RETURL
-Az URL keresése közben
+Az URL keresï¿½se kï¿½zben
 ;While retrieving URL
 ;
 MSG_EPART_ADDRSCHEME
-A(z) &quot;%s&quot; címmódot az AWeb e változata még nem tartalmazza.
+A(z) &quot;%s&quot; cï¿½mmï¿½dot az AWeb e vï¿½ltozata mï¿½g nem tartalmazza.
 ;The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
-Elõbb el kell indítani egy TCP stack programot.
+Elï¿½bb el kell indï¿½tani egy TCP stack programot.
 ;A TCP stack must be started first
 ;
 MSG_EPART_NOHOST
-Nem tudom meghatározni ezt a host nevet: &quot;%s&quot;
+Nem tudom meghatï¿½rozni ezt a host nevet: &quot;%s&quot;
 ;Cannot resolve host name &quot;%s&quot;
 ;
 MSG_EPART_NOCONNECT
-Nem tudok kapcsolatot létrehozni ezzel a címmel: &quot;%s&quot;
+Nem tudok kapcsolatot lï¿½trehozni ezzel a cï¿½mmel: &quot;%s&quot;
 ;Cannot connect to &quot;%s&quot;
 ;
 MSG_EPART_NOFILE
-Nem tudom megnyitni az állományt: &quot;%s&quot;
+Nem tudom megnyitni az ï¿½llomï¿½nyt: &quot;%s&quot;
 ;Cannot open file &quot;%s&quot;
 ;
 MSG_EPART_XAWEB
-Hibás belsõ (x-aweb:) név: &quot;%s&quot;
+Hibï¿½s belsï¿½ (x-aweb:) nï¿½v: &quot;%s&quot;
 ;Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
-Kitörölve
+Kitï¿½rï¿½lve
 ;Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-Ez a dokumentum nincs többé a memóriában
+Ez a dokumentum nincs tï¿½bbï¿½ a memï¿½riï¿½ban
 ;This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Ezt a dokumentumot nem lehet visszahozni a memóriából. Ehelyett újra ki kell töltened a kérdõívet, amely hatására ez elõjött. Vigyázz, ennek káros mellékhatásai is lehetnek, hiszen ha kétszer töltöd ki a kérdõívet, lehet hogy pl. kétszer regisztrálsz valamit stb.
+Ezt a dokumentumot nem lehet visszahozni a memï¿½riï¿½bï¿½l. Ehelyett ï¿½jra ki kell tï¿½ltened a kï¿½rdï¿½ï¿½vet, amely hatï¿½sï¿½ra ez elï¿½jï¿½tt. Vigyï¿½zz, ennek kï¿½ros mellï¿½khatï¿½sai is lehetnek, hiszen ha kï¿½tszer tï¿½ltï¿½d ki a kï¿½rdï¿½ï¿½vet, lehet hogy pl. kï¿½tszer regisztrï¿½lsz valamit stb.
 ;This document cannot be retrieved again. You will have to submit the form again that \
 ;produced this page. Beware of undesired side-effects if you submit that form twice, \
 ;like a duplicate registration.
 ;
 MSG_EPART_NOLOGIN
-Nem tudok belépni ezen a helyen: &quot;%s&quot;  &quot;%s&quot; adatokkal.
+Nem tudok belï¿½pni ezen a helyen: &quot;%s&quot;  &quot;%s&quot; adatokkal.
 ;Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
-Nem tudom megnyitni az AWebLib modult a következõhöz: &quot;%s&quot;.
+Nem tudom megnyitni az AWebLib modult a kï¿½vetkezï¿½hï¿½z: &quot;%s&quot;.
 ;Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
-Nem állítottad be a programot a következõ címzési módhoz: &quot;%s&quot;.
+Nem ï¿½llï¿½tottad be a programot a kï¿½vetkezï¿½ cï¿½mzï¿½si mï¿½dhoz: &quot;%s&quot;.
 ;You haven't configured a program for the &quot;%s&quot; addressing scheme.
 ;
 ;
@@ -1860,7 +1860,7 @@ Nem állítottad be a programot a következõ címzési módhoz: &quot;%s&quot;.
 ;
 ; (external program window title)
 MSG_AWEB_EXTWINTITLE
-AWeb Külsõ Program
+AWeb Kï¿½lsï¿½ Program
 ;AWeb External Program
 ;
 ; (status field text)
@@ -1870,27 +1870,27 @@ Byte beolvasva
 ;
 ; (form SUBMIT button default text)
 MSG_AWEB_FORMSUBMIT
-Elküld
+Elkï¿½ld
 ;Submit
 ;
 ; (form RESET button default text)
 MSG_AWEB_FORMRESET
-Töröl
+Tï¿½rï¿½l
 ;Reset
 ;
 ; (ISINDEX default prompt)
 MSG_AWEB_INDEXPROMPT
-Ez egy kereshetõ index. Add meg a kulcsszavakat:
+Ez egy kereshetï¿½ index. Add meg a kulcsszavakat:
 ;This is a searchable index. Enter keywords: 
 ;
 ; (window title)
 MSG_AWEB_NODOCTITLE
-(Nincs betöltött dokumentum)
+(Nincs betï¿½ltï¿½tt dokumentum)
 ;(No document loaded)
 ;
 ; (screen title)
 MSG_AWEB_SCREENTITLE
-AWeb publikus képernyõ - AWeb
+AWeb publikus kï¿½pernyï¿½ - AWeb
 ;AWeb public screen - Name AWeb
 ;
 ; (hotlist document title)
@@ -1905,39 +1905,39 @@ Gopher index
 ;
 ; (gopher menu title)
 MSG_AWEB_GOPHERMENU
-Gopher menü
+Gopher menï¿½
 ;Gopher menu
 ;
 ; (window history title)
 MSG_AWEB_WINDOWHIS
-Ablak visszatekintés
+Ablak visszatekintï¿½s
 ;Window history
 ;
 ; (partial title of other hotlist)
 MSG_AWEB_OTHER
-Egyéb
+Egyï¿½b
 ;Other
 ;
 ; (transfer status messages)
 MSG_AWEB_LOOKUP
-%s keresése
+%s keresï¿½se
 ;Looking up %s
 ;
 MSG_AWEB_CONNECT
-%s kapcsolat létrehozása a következõ hellyel: %s
+%s kapcsolat lï¿½trehozï¿½sa a kï¿½vetkezï¿½ hellyel: %s
 ;Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-%s kérelem elküldve, várom a választ
+%s kï¿½relem elkï¿½ldve, vï¿½rom a vï¿½laszt
 ;%s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
-TCP kapcsolat létrehozása
+TCP kapcsolat lï¿½trehozï¿½sa
 ;Establishing TCP connection
 ;
 ; (form image fieldstatus text)
 MSG_AWEB_FORMLOCATION
-Kérdõív elküldése x=%ld, y=%ld
+Kï¿½rdï¿½ï¿½v elkï¿½ldï¿½se x=%ld, y=%ld
 ;Submit form at x=%ld, y=%ld
 ;
 ; (form BUTTON button default text)
@@ -1947,42 +1947,42 @@ Start
 ;
 ; (frame resizing status prompt)
 MSG_AWEB_FRAME_RESIZE
-Keret átméretezése
+Keret ï¿½tmï¿½retezï¿½se
 ;Resize frame
 ;
 ; (transfer status message)
 MSG_AWEB_LOGIN
-Becsatlakozás a következõ helyre: %s
+Becsatlakozï¿½s a kï¿½vetkezï¿½ helyre: %s
 ;Logging in at %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSGROUP
-%s vizsgálata
+%s vizsgï¿½lata
 ;Scanning %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSCAN
-%s vizsgálata (%ld cikk)
+%s vizsgï¿½lata (%ld cikk)
 ;Scanning %s (%ld articles)
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSORT
-%s sorbarendezése
+%s sorbarendezï¿½se
 ;Sorting %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSPOST
-Cikk postázása
+Cikk postï¿½zï¿½sa
 ;Posting article
 ;
 ; (transfer status message)
 MSG_AWEB_MAILSEND
-Levél küldése
+Levï¿½l kï¿½ldï¿½se
 ;Sending mail message
 ;
 ; (transfer status message)
 MSG_AWEB_UPLOAD
-Állomány feltöltése
+ï¿½llomï¿½ny feltï¿½ltï¿½se
 ;Uploading file
 ;
 ; ** (don't use numbers 40001 or higher) **

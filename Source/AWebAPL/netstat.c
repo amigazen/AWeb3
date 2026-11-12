@@ -723,6 +723,7 @@ void Setnetstatdim(short x,short y,short w,short h)
 
 void Cancelnetstatall(void)
 {  Cancel(TRUE);
+   CloseIdleKeepAliveConnections();
 }
 
 void Gettransfers(struct Arexxcmd *ac,UBYTE *stem)

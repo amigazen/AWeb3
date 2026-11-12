@@ -36,7 +36,7 @@ WWW
 ;
 MSG_ABOUT_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_ABOUT_UNREGISTERED
 Neregistrirana verzija\n
@@ -64,7 +64,7 @@ Zelis li stvarno izaci iz AWeb-a?
 ;
 MSG_QUIT_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_QUIT_CANCEL
 O_dustani
@@ -80,7 +80,7 @@ Ovo je demo verzija AWeb-a\nNije moguce otvoriti vise prozora od jednom
 ;
 MSG_DEMO_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_SCRCLOSE_TEXT
 AWeb ne moze zatvoriti svoj ekran.\nMolim zatvori sve prozore.
@@ -152,7 +152,7 @@ S_ifra
 ;
 MSG_AUTH_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_AUTH_CANCEL
 O_dustani
@@ -216,11 +216,11 @@ Ne mogu pronaci trenutnu putanju:\n%s\nKoristim T:.
 ;
 MSG_FILE_TEMPBUTTONS
 _OK
-; _Ok
+; _OK 
 ;
 MSG_FILE_INCBUTTONS2
 _OK|_Ponovi|O_dustani
-; _Ok|_Retry|_Cancel
+; _OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
 Izaberi ladicu za opcije
@@ -544,7 +544,7 @@ PANJA!\nOva funkcija ce izbrisati sve nepoznate fileove iz\n%s ladice
 ;
 MSG_FIXCACHE_BUTTONS
 _OK|O_dustani
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
 Cistim kes na disku...
@@ -596,7 +596,7 @@ String nije pronadjen
 ;
 MSG_SEARCH_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_POPUP_LOADIMAGE
 Ucitaj sliku
@@ -704,7 +704,7 @@ Ne mogu pristupiti stampacu
 ;
 MSG_PRINT_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_PRINT_PROGRESS
 Stampam...
@@ -852,7 +852,7 @@ _Sifra
 ;
 MSG_JSPROMPT_OK
 _OK
-; _Ok
+; _OK 
 ;
 MSG_JSPROMPT_CANCEL
 O_dustani
@@ -868,7 +868,7 @@ Podaci iz ovog form-a ce biti\nposlani preko NESIGURNE veze.
 ;
 MSG_FORMWARN_BUTTONS
 _OK|O_dustani
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_MAIL_TITLE
 Greska u AWeb-ovom maileru
@@ -1136,7 +1136,7 @@ Pokretanje ARexz programa:\n%s
 ;
 MSG_CMDWARN_BUTTONS
 _Nastavi|O_dustani
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_SSLWARN_SSL_TITLE
 Upozorenje
@@ -1164,7 +1164,7 @@ Ne mogu provjeriti ovjeru za %s.\nDetalji: %s\n \nAko zelis nastaviti podaci ce 
 ;
 MSG_SSLWARN_CERT_BUTTONS
 _Nastavi|O_dustani
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
 Sigurne veze su podrzane samo kod upotrebe AmiSSL-a ili MiamiSSL-a.
@@ -1196,7 +1196,7 @@ Upisi URL koji zelis otvoriti:
 ;
 MSG_OPENURL_BUTTONS
 _OK|O_dustani
-; _Ok|_Cancel
+; _OK |_Cancel
 ;
 MSG_SAVEIFF_PROGRESS
 Snimam IFF file...

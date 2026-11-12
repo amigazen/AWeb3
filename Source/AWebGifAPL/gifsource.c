@@ -19,19 +19,19 @@
 /* gifsource.c - AWeb gif plugin sourcedriver */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebgif.h"
 /* max() macro is defined in awebgif.h */
 #include <string.h>
 #include <stdlib.h>
 #include "ezlists.h"
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <intuition/intuitionbase.h>
 #include <datatypes/pictureclass.h>
 #include <proto/awebplugin.h>
-#include <proto/Picasso96.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -40,7 +40,6 @@
 #include <proto/dos.h>
 
 /* External library base */
-extern struct Library *P96Base;
 extern struct Library *AwebPluginBase;
 
 /* Workaround for missing AOSDV_Displayed, not part of plugin API */
@@ -120,6 +119,7 @@ struct Gifsource
 #define GIFSF_NOANIMATE    0x0040   /* Animation prohibited */
 #define GIFSF_TIMERWAIT    0x0080   /* Timer is running */
 #define GIFSF_LOWPRI       0x0100   /* Run decoder at low pri */
+#define GIFSF_RTGSCREEN    0x0200   /* Screen mode is RTG (AwebScreenIsRtg) */
 
 /*--------------------------------------------------------------------*/
 /* Memory accounting helpers                                          */
@@ -233,7 +233,6 @@ struct Decoder
    UBYTE *chunky;                   /* Row of chunky pixels */
    struct RastPort saverp;          /* Accumulating save of previous frames */
    UBYTE *savemask;                 /* Accumulating save of transparent mask */
-   struct RenderInfo renderinfo;    /* P96 render info for RGB mode */
 };
 
 /* Decoder flags: */
@@ -241,8 +240,8 @@ struct Decoder
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_TRANSPARENT  0x0004   /* Transparent gif */
 #define DECOF_INTERLACED   0x0008   /* Interlaced gif */
-#define DECOF_CYBERMAP     0x0010   /* Bitmap is P96 */
-#define DECOF_CYBERDEEP    0x0020   /* Bitmap is P96 >8 bits */
+#define DECOF_CYBERMAP     0x0010   /* Bitmap is RTG (CyberGfx/P96) */
+#define DECOF_CYBERDEEP    0x0020   /* Bitmap is RTG >8 bits */
 #define DECOF_ANIMFRAME    0x0040   /* This is a new animation frame */
 #define DECOF_SAVEPREVIOUS 0x0080   /* Save the previous image's bitmap */
 
@@ -699,23 +698,8 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       }
       else
       {  if(decoder->flags&DECOF_CYBERDEEP)
-         {  UBYTE *fillbuf;
-            struct RenderInfo fillri;
-            long y,x;
-            ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
-            if(fillbuf=(UBYTE *)AllocMem(decoder->width*3,MEMF_CLEAR))
-            {  for(x=0;x<decoder->width;x++)
-               {  memmove(fillbuf+3*x,(UBYTE *)(&bgcolor),3);
-               }
-               fillri.Memory=fillbuf;
-               fillri.BytesPerRow=decoder->width*3;
-               fillri.RGBFormat=RGBFB_R8G8B8;
-               for(y=0;y<decoder->height;y++)
-               {  p96WritePixelArray(&fillri,0,0,
-                     &decoder->rp,0,y,decoder->width,1);
-               }
-               FreeMem(fillbuf,decoder->width*3);
-            }
+         {  FillPixelArray(&decoder->rp,0,0,decoder->width,decoder->height,
+               decoder->colorrgb[decoder->background]>>8);
          }
          else
          {  SetRast(&decoder->rp,Allocatepen(decoder,decoder->background));
@@ -754,8 +738,8 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       {  trow=decoder->mask+row*decoder->maskw;
          if(mergemask)
          {  if(decoder->flags&DECOF_CYBERDEEP)
-            {  p96ReadPixelArray(&decoder->renderinfo,0,0,
-                  &decoder->rp,decoder->ileft,row,decoder->iwidth,1);
+            {  ReadPixelArray(decoder->chunky,0,0,3*decoder->width,
+                  &decoder->rp,decoder->ileft,row,decoder->iwidth,1,RECTFMT_RGB);
             }
             else
             {  ReadPixelLine8(&decoder->rp,decoder->ileft,row,decoder->iwidth,
@@ -796,8 +780,8 @@ static BOOL Buildgifimage(struct Decoder *decoder)
          }
       }
       if(decoder->flags&DECOF_CYBERDEEP)
-      {  p96WritePixelArray(&decoder->renderinfo,0,0,
-            &decoder->rp,decoder->ileft,row,decoder->iwidth,1);
+      {  WritePixelArray(decoder->chunky,0,0,3*decoder->width,
+            &decoder->rp,decoder->ileft,row,decoder->iwidth,1,RECTFMT_RGB);
       }
       else
       {  WritePixelLine8(&decoder->rp,decoder->ileft,row,decoder->iwidth,
@@ -844,23 +828,9 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       case 2:  /* restore to background */
          if(decoder->saverp.BitMap)
          {  if(decoder->flags&DECOF_CYBERDEEP)
-            {  UBYTE *fillbuf;
-               struct RenderInfo fillri;
-               long y,x;
-               ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
-               if(fillbuf=(UBYTE *)AllocMem(decoder->iwidth*3,MEMF_CLEAR))
-               {  for(x=0;x<decoder->iwidth;x++)
-                  {  memmove(fillbuf+3*x,(UBYTE *)(&bgcolor),3);
-                  }
-                  fillri.Memory=fillbuf;
-                  fillri.BytesPerRow=decoder->iwidth*3;
-                  fillri.RGBFormat=RGBFB_R8G8B8;
-                  for(y=0;y<decoder->iheight;y++)
-                  {  p96WritePixelArray(&fillri,0,0,
-                        &decoder->saverp,decoder->ileft,decoder->itop+y,decoder->iwidth,1);
-                  }
-                  FreeMem(fillbuf,decoder->iwidth*3);
-               }
+            {  FillPixelArray(&decoder->saverp,decoder->ileft,decoder->itop,
+                  decoder->iwidth,decoder->iheight,
+                  decoder->colorrgb[decoder->background]>>8);
             }
             else
             {  SetAPen(&decoder->saverp,Allocatepen(decoder,decoder->background));
@@ -1028,41 +998,41 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    {  Aprintf("GIF: Parsegifimage: Allocating bitmap, width=%ld, height=%ld\n", decoder->width, decoder->height);
    }
 #endif
-   if(P96Base && decoder->source->friendbitmap
-   && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
-   {  /* Same policy as PNG: never p96GetBitMapAttr(P96BMA_DEPTH) on a classic
-       * screen friend BitMap — can deadlock. Non-P96 friend → classic master below. */
-      decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
+   if((decoder->source->flags&GIFSF_RTGSCREEN)
+      && AwebFriendIsRtg(decoder->source->friendbitmap))
+   {  /* CyberGfx: do not GetCyberMapAttr() the screen friend (mixed
+       * P96 screens).  P96 builds still require ISP96 on friend first. */
+      decoder->depth=AwebFriendDepth(decoder->source->friendbitmap);
       #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Parsegifimage: P96 depth=%ld, friendbitmap=0x%08lx\n", decoder->depth, (ULONG)decoder->source->friendbitmap);
+      {  Aprintf("GIF: Parsegifimage: RTG depth=%ld, friendbitmap=0x%08lx\n", decoder->depth, (ULONG)decoder->source->friendbitmap);
       }
       #endif
-      decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,decoder->depth,
-         BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
-      if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
+      decoder->bitmap=AwebAllocRtgBitMap(decoder->width,decoder->height,decoder->depth,
+         BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap);
+      if(decoder->bitmap && GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
       {  decoder->flags|=DECOF_CYBERMAP;
          if(decoder->depth>8)
          {  decoder->flags|=DECOF_CYBERDEEP;
          }
          #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
-         {  Aprintf("GIF: Parsegifimage: P96 bitmap allocated, flags=0x%04x\n", decoder->flags);
+         {  Aprintf("GIF: Parsegifimage: RTG bitmap allocated, flags=0x%04x\n", decoder->flags);
          }
          #endif
       }
-      else
-      {  #ifdef DEBUG_PLUGINS
-         if(AwebPluginBase)
-      {  Aprintf("GIF: Parsegifimage: P96 bitmap allocation failed, bitmap=0x%08lx\n", (ULONG)decoder->bitmap);
-         }
-         #endif
+      else if(decoder->bitmap)
+      {  /* Alloc succeeded but not a CyberGfx BitMap.  Only free when we
+          * know the screen is CyberGfx (RTGSCREEN); FreeBitMap on a
+          * Picasso96 BitMap can hang.  Under RTGSCREEN, FreeBitMap is safe. */
+         AwebFreeRtgBitMap(decoder->bitmap);
+         decoder->bitmap=NULL;
       }
    }
-   else
+   if(!decoder->bitmap)
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Parsegifimage: Allocating standard bitmap, P96Base=0x%08lx, friendbitmap=0x%08lx\n", (ULONG)P96Base, (ULONG)(decoder->source ? decoder->source->friendbitmap : 0));
+      {  Aprintf("GIF: Parsegifimage: Allocating standard bitmap, CyberGfxBase=0x%08lx, friendbitmap=0x%08lx\n", (ULONG)CyberGfxBase, (ULONG)(decoder->source ? decoder->source->friendbitmap : 0));
       }
       #endif
       /* Non-displayable planar master, NULL friend: planes may live in Fast RAM
@@ -1091,7 +1061,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
 #endif
    if(decoder->flags&DECOF_TRANSPARENT)
    {  if(decoder->flags&DECOF_CYBERMAP)
-      {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
+      {  decoder->maskw=GetCyberMapAttr(decoder->bitmap,CYBRMATTR_WIDTH)/8;
       }
       else
       {  decoder->maskw=decoder->bitmap->BytesPerRow;
@@ -1122,7 +1092,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
          decoder->mask=NULL;
       }
       if(decoder->bitmap)
-      {  FreeBitMap(decoder->bitmap);
+      {  AwebFreeRtgBitMap(decoder->bitmap);
          decoder->bitmap=NULL;
       }
       return FALSE;
@@ -1134,7 +1104,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
     * ReportSourceMemory() can sum across every animation frame in
     * gs->images without having to recompute from p96 attributes
     * under the semaphore.  Note: maskw is already in bytes (see
-    * the P96BMA_WIDTH/8 and BytesPerRow assignments above), so the
+    * the CYBRMATTR_WIDTH/8 and BytesPerRow assignments above), so the
     * mask byte count is maskw*height with no further division. */
    gi->bytes=
       (long)((ULONG)decoder->width*(ULONG)decoder->height
@@ -1169,11 +1139,6 @@ static BOOL Parsegifimage(struct Decoder *decoder)
       }
       if((decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC)))
       {  if(decoder->flags&DECOF_CYBERDEEP)
-         {  /* Initialize RenderInfo for RGB mode */
-            decoder->renderinfo.Memory=decoder->chunky;
-            decoder->renderinfo.BytesPerRow=decoder->chunkyw;
-            decoder->renderinfo.RGBFormat=RGBFB_R8G8B8;
-         }
          #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
    {  Aprintf("GIF: Parsegifimage: Calling Buildgifimage\n");
@@ -1346,7 +1311,11 @@ static void Startdecoder(struct Gifsource *gs)
          AOAPP_Screen,&screen,
          AOAPP_Colormap,&gs->colormap,
          TAG_END);
-      if(screen) gs->friendbitmap=screen->RastPort.BitMap;
+      if(screen)
+      {  gs->friendbitmap=screen->RastPort.BitMap;
+         if(AwebScreenIsRtg(screen)) gs->flags|=GIFSF_RTGSCREEN;
+         else gs->flags&=~GIFSF_RTGSCREEN;
+      }
       if(gs->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,Decodetask,
          AOTSK_Name,"AWebGif decoder",
@@ -1366,7 +1335,7 @@ static void Releaseimage(struct Gifsource *gs)
    Anotifyset(gs->source,AOGIF_Bitmap,NULL,TAG_END);
    ObtainSemaphore(&gs->sema);
    while(gi=REMHEAD(&gs->images))
-   {  if(gi->bitmap) FreeBitMap(gi->bitmap);
+   {  if(gi->bitmap) AwebFreeRtgBitMap(gi->bitmap);
       if(gi->mask) FreeVec(gi->mask);
       FreeVec(gi);
    }

@@ -23,6 +23,9 @@
 /* Pointer to our own library base */
 extern struct AwebJfifBase *PluginBase;
 
+/* Library bases */
+extern struct Library *CyberGfxBase;
+
 /* Declarations of the OO dispatcher functions */
 extern __saveds __asm ULONG Dispatchsource(
    register __a0 struct Aobject *,

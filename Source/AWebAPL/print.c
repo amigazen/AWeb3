@@ -25,6 +25,8 @@
 #include "printwin.h"
 #include "winhis.h"
 #include "print.h"
+static struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include <datatypes/datatypesclass.h>
 #include <datatypes/pictureclass.h>
 #include <datatypes/soundclass.h>
@@ -72,7 +74,6 @@
 #include <workbench/startup.h>
 #include <workbench/workbench.h>
 #include <workbench/icon.h>
-#include <libraries/Picasso96.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_author.h>
 #include <reaction/reaction_macros.h>
@@ -112,8 +113,6 @@
 #include <proto/window.h>
 #include <proto/layout.h>
 #include <proto/label.h>
-#include <proto/Picasso96.h>
-
 #ifndef NETDEMO
 
 /*------------------------------------------------------------------------*/
@@ -155,7 +154,6 @@ static short scale=100;
 static USHORT flags=PRTF_FORMFEED|PRTF_BACKGROUND;
 
 static struct Library *AwebPrintBase;
-struct Library *P96Base;
 
 /*---------------------------------------------------------------------*/
 
@@ -218,15 +216,13 @@ static void Startprintdoc(struct Print *prt)
    prt->rp=(struct RastPort *)Agetattr(prt->prwin,AOWIN_Rastport);
    prt->cmap=screen->ViewPort.ColorMap;
    prt->screenmode=GetVPModeID(&screen->ViewPort);
-   P96Base=OpenLibrary("Picasso96API.library",0);
-   if(!P96Base || !p96GetModeIDAttr(prt->screenmode,P96IDA_ISP96))
+   CyberGfxBase=AwebOpenRtgGfx();
+   if(!CyberGfxBase || !IsCyberModeID(prt->screenmode))
    {  /* Get aspect ratio right for old hardware 1:2 screens */
       prt->screenmode=HIRES|LACE;
    }
-   if(P96Base)
-   {  CloseLibrary(P96Base);
-      P96Base=NULL;
-   }
+   AwebCloseRtgGfx(CyberGfxBase);
+   CyberGfxBase=NULL;
    if(!Finddimensions(prt)) goto err;
    Asetattrs(prt->prwin,
       AOPRW_Height,prt->printheight,

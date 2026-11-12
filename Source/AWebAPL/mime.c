@@ -182,10 +182,18 @@ BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
    if(STRNIEQUAL(type,"text/",5))
    {  p=data;
       end=p+length;
-      /* Ignore leading nullbytes */
+      /* Ignore leading nullbytes.  Allow UTF-8 / high bytes — Isprint is
+       * Latin-1/ASCII only and rejected developer.amigaos3.net's "text/html;
+       * charset=UTF-8" once the ❤️ footer (or any non-ASCII) appeared in the
+       * first buffer, which dropped the type and forced classic HTML. */
       while(p<end && !*p) p++;
-      while(p<end && (Isprint(*p) || Isspace(*p))) p++;
-      if(p<end) ok=FALSE;
+      while(p<end)
+      {  if(*p=='\0')
+         {  ok=FALSE;
+            break;
+         }
+         p++;
+      }
    }
    else if(length>0 && STRNIEQUAL(type,"image/",6))
    {  static UBYTE gif87asig[]={ 'G','I','F','8','7','a' };

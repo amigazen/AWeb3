@@ -521,7 +521,9 @@ __asm __saveds void doStartupstate(register __d0 ULONG state)
 __asm __saveds void doStartuplevel(register __d0 long ready,register __d1 long total)
 {  long level;
    if(loadreqwin)
-   {  level=ready*(loadreqmax-loadreqmin)/total+loadreqmin;
+   {  if(total<1) total=1;
+      if(ready<0) ready=0;
+      level=ready*(loadreqmax-loadreqmin)/total+loadreqmin;
       Setgadgetattrs(loadreqfg,loadreqwin,NULL,FUELGAUGE_Level,level,TAG_END);
    }
 }

@@ -298,13 +298,50 @@ static void Channelheader(struct Fetchdriver *fd,UBYTE *header)
    }
    else if(STRNIEQUAL(header,"Content-Type:",13))
    {  if(!prefs.network.ignoremime)
-      {  UBYTE *p,*q;
+      {  UBYTE mimetype[32];
+         UBYTE charsetval[24];
+         UBYTE *p,*q,*r;
+         UBYTE qq;
+         long l;
+         BOOL have_charset=FALSE;
+         
+         mimetype[0]='\0';
+         charsetval[0]='\0';
          for(p=header+13;*p && isspace(*p);p++);
-         q=strchr(p,';');
-         if(q) *q='\0';
-         if(strlen(p)>31) p[31]='\0';
+         for(q=p;*q && !isspace(*q) && *q!=';';q++);
+         qq=*q;
+         *q='\0';
+         l=q-p;
+         if(qq && STRNIEQUAL(p,"TEXT/",5))
+         {  for(q++;*q && !STRNIEQUAL(q,"CHARSET=",8);q++);
+            if(*q)
+            {  q+=8;
+               while(*q && isspace(*q)) q++;
+               if(*q=='"')
+               {  q++;
+                  for(r=q;*r && *r!='"';r++);
+                  *r='\0';
+               }
+               else
+               {  for(r=q;*r && !isspace(*r);r++);
+                  *r='\0';
+               }
+               strncpy(charsetval,q,sizeof(charsetval)-1);
+               charsetval[sizeof(charsetval)-1]='\0';
+               have_charset=TRUE;
+            }
+         }
+         if(l>31) p[31]='\0';
+         strcpy(mimetype,p);
+         if(have_charset && charsetval[0])
+         {  l=(long)strlen(mimetype);
+            if(l>0 && l+10+(long)strlen(charsetval)<(long)sizeof(mimetype))
+            {  strcat(mimetype,"; charset=");
+               strcat(mimetype,charsetval);
+            }
+         }
          Updatetaskattrs(
-            AOURL_Contenttype,p,
+            AOURL_Contenttype,mimetype,
             TAG_END);
       }
    }
@@ -749,6 +786,22 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOPROGRAM;
       }
    }
+   else if(STRNIEQUAL(fch->name,"MAIL:",5))
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/mail.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=fch->name;
+         fch->flags|=FCHF_NETSLOT;
+         Asetattrs(fch->url,
+            AOURL_Cacheable,FALSE,
+            AOURL_Volatile,TRUE,
+            TAG_END);
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
+   }
    else if(STRNIEQUAL(fch->name,"NEWS:",5) || STRNIEQUAL(fch->name,"NNTP://",7))
    {  if(fch->fdbase=Openaweblib("AWeb:aweblib/news.aweblib"))
       {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
@@ -926,13 +979,15 @@ static BOOL Startdriver(struct Fetch *fch)
    fch->fd->prefs=&prefs;
    fch->fd->prefssema=&prefssema;
    /* Include referer only if it is not localhost, and if not browsing anonymously.
-    * But: if target is x-aweb:, mailto:, or cid:, always include referer. */
+    * But: if target is x-aweb:, mailto:, mail:, cid:, or data:, always include referer. */
    fch->fd->referer=fch->referer;
    ObtainSemaphore(&prefssema);
    if(fch->fd->referer
    && !STRNIEQUAL(fch->name,"X-AWEB:",7)
    && !STRNIEQUAL(fch->name,"MAILTO:",7)
-   && !STRNIEQUAL(fch->name,"CID:",4))
+   && !STRNIEQUAL(fch->name,"MAIL:",5)
+   && !STRNIEQUAL(fch->name,"CID:",4)
+   && !STRNIEQUAL(fch->name,"DATA:",5))
    {  if(STRNIEQUAL(fch->fd->referer,"FILE://",7)
       || STRNIEQUAL(fch->fd->referer,"X-AWEB:",7)) fch->fd->referer=NULL;
       if(!prefs.network.referer) fch->fd->referer=NULL;

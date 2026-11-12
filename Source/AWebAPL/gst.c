@@ -100,8 +100,6 @@
 #include <intuition/gadgetclass.h>
 #include <intuition/icclass.h>
 
-#include <libraries/Picasso96.h>
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -144,7 +142,6 @@
 #include <proto/layers.h>
 #include <proto/radiobutton.h>
 #include <proto/virtual.h>
-#include <proto/Picasso96.h>
 #include <proto/drawlist.h>
 #include <proto/penmap.h>
 #include <proto/bitmap.h>

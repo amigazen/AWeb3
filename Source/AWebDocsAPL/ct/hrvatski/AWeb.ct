@@ -48,7 +48,7 @@ WWW
 ;
 MSG_ABOUT_OK
 _U redu
-;_Ok
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
 Neregistrirana verzija\n
@@ -66,7 +66,7 @@ Distribuira %s
 ; It should read something like "(Language) translation by: (your name)\n"
 ;
 MSG_ABOUT_TRANSLATOR
-Hrvatski prijevod: Ninoslav Buðak\n
+Hrvatski prijevod: Ninoslav Buï¿½ak\n
 ;
 ;
 MSG_ABOUT_SPECIAL
@@ -76,36 +76,36 @@ Posebna verzija za distibuciju uz AmigaOS\n
 ;-------------- Quit requester ----------------------
 ;
 MSG_QUIT_TEXT
-Jeste li sigurni da ¾elite izaæi iz AWeb-a?
+Jeste li sigurni da ï¿½elite izaï¿½i iz AWeb-a?
 ;Are you sure you want to quit AWeb?
 ;
 MSG_QUIT_OK
 _U redu
-;_Ok
+;_OK 
 ;
 MSG_QUIT_CANCEL
 _Odustani
 ;_Cancel
 ;
 MSG_QUIT_WARNING
-UPOZORENJE: Prijenosi æe biti prekinuti!\n\n
+UPOZORENJE: Prijenosi ï¿½e biti prekinuti!\n\n
 ;WARNING: Transfers will be aborted!\n\n
 ;
 ;-------------- Demoversion requester ---------------
 ;
 MSG_DEMO_TEXT
-Ovo je demo verzija AWeb-a\nnije podr¾ano vi¹e prozora za dokumente
+Ovo je demo verzija AWeb-a\nnije podrï¿½ano viï¿½e prozora za dokumente
 ;This is the demo version of AWeb\nmultiple document windows are not supported
 ;
 MSG_DEMO_OK
 _U redu
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
 ;
 MSG_SCRCLOSE_TEXT
-AWeb ne mo¾e zatvoriti svoj screen.\nZatvorite sve prozore, molim.
+AWeb ne moï¿½e zatvoriti svoj screen.\nZatvorite sve prozore, molim.
 ;AWeb can't close its screen.\nPlease close all windows.
 ;
 MSG_SCRCLOSE_OK
@@ -116,19 +116,19 @@ U redu
 ;-------------- Network status window ---------------
 ;
 MSG_NWS_TITLE
-Stanje mre¾e
+Stanje mreï¿½e
 ;Network status
 ;
 MSG_NWS_QUEUED
-Na èekanju
+Na ï¿½ekanju
 ;Queued
 ;
 MSG_NWS_STARTED
-Zapoèeto
+Zapoï¿½eto
 ;Started
 ;
 MSG_NWS_LOOKUP
-Tra¾im
+Traï¿½im
 ;Looking up
 ;
 MSG_NWS_CONNECT
@@ -136,11 +136,11 @@ Spajam se
 ;Connecting
 ;
 MSG_NWS_WAIT
-Èekam
+ï¿½ekam
 ;Waiting
 ;
 MSG_NWS_PROCESS
-Obraðujem
+Obraï¿½ujem
 ;Processing
 ;
 MSG_NWS_LOGIN
@@ -152,11 +152,11 @@ MSG_NWS_CPS
 ;%ld cps
 ;
 MSG_NWS_NEWSGROUP
-Pretra¾ujem
+Pretraï¿½ujem
 ;Scanning
 ;
 MSG_NWS_UPLOAD
-©aljem
+ï¿½aljem
 ;Uploading
 ;
 ;-------------- Authorization requester -------------
@@ -166,11 +166,11 @@ Autorizacija
 ;Authorization
 ;
 MSG_AUTH_PROMPT
-Korisnièko ime i lozinka trebaju za
+Korisniï¿½ko ime i lozinka trebaju za
 ;Userid and password required for
 ;
 MSG_AUTH_USERID
-_Korisnièko ime
+_Korisniï¿½ko ime
 ;_Userid
 ;
 MSG_AUTH_PASSWORD
@@ -179,7 +179,7 @@ _Lozinka
 ;
 MSG_AUTH_OK
 _U redu
-;_Ok
+;_OK 
 ;
 MSG_AUTH_CANCEL
 _Odustani
@@ -190,11 +190,11 @@ Lozinka treba za
 ;Password required for
 ;
 MSG_AUTH_USERID_FTP
-Korisnièko ime
+Korisniï¿½ko ime
 ;Userid
 ;
 MSG_AUTH_PROMPT_PROXY
-Korisnièko ime i lozinka trebaju za proxy
+Korisniï¿½ko ime i lozinka trebaju za proxy
 ;Userid and password required for proxy
 ;
 ;-------------- File requesters ---------------------
@@ -208,7 +208,7 @@ Snimi
 ;Save
 ;
 MSG_FILE_INCTEXT
-Nepotpuna datoteka!\n%s\nOèekivano: %ld byteova\nPrimljeno: %ld byteova\n\nIzaberite 'U redu' da biste saèuvali nepotpunu datoteku.
+Nepotpuna datoteka!\n%s\nOï¿½ekivano: %ld byteova\nPrimljeno: %ld byteova\n\nIzaberite 'U redu' da biste saï¿½uvali nepotpunu datoteku.
 ;Incomplete file!\n%s\nExpected: %ld bytes\nReceived: %ld bytes\n\n\
 ;Choose OK to keep the partial data.
 ;
@@ -216,11 +216,11 @@ MSG_DUMMY_1
 ?
 ;
 MSG_FILE_EXISTTEXT
-Datoteka:\n%s\nveæ postoji!
+Datoteka:\n%s\nveï¿½ postoji!
 ;File:\n%s\nalready exists!
 ;
 MSG_FILE_EXISTBUTTONS
-_Prebri¹i|_Dodaj|_Novi naziv|_Odustani
+_Prebriï¿½i|_Dodaj|_Novi naziv|_Odustani
 ;_Overwrite|_Append|_New name|_Cancel
 ;
 MSG_FILE_AREXXTITLE
@@ -240,16 +240,16 @@ Otvori
 ;Open
 ;
 MSG_FILE_TEMPTITLE
-Ne mogu naæi privremenu putanju:\n%s\nUpotrijebljen T: umjesto nje.
+Ne mogu naï¿½i privremenu putanju:\n%s\nUpotrijebljen T: umjesto nje.
 ;Can't find temporary path:\n%s\nUse T: instead.
 ;
 MSG_FILE_TEMPBUTTONS
 _U redu
-;_Ok
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
 _U redu|_Ponovi|_Odustani
-;_Ok|_Retry|_Cancel
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
 Izaberi direktorij za postavke
@@ -273,15 +273,15 @@ _Da|_Ne
 ; Mind the maximum length!
 ;
 MSG_STARTUP_FONTS
-Uèitavam fontove
+Uï¿½itavam fontove
 ;Loading fonts
 ;
 MSG_STARTUP_IMAGES
-Uèitavam grafiku za suèelje
+Uï¿½itavam grafiku za suï¿½elje
 ;Loading GUI images
 ;
 MSG_STARTUP_CACHE
-Uèitavam indeks cache-a
+Uï¿½itavam indeks cache-a
 ;Loading cache index
 ;
 ;-------------- Hotlist requester -------------------
@@ -334,13 +334,13 @@ UR_L-ovi
 ;UR_Ls
 ;
 MSG_HOTL_MANAGER
-U_reðivaè
+U_reï¿½ivaï¿½
 ;_Manager
 ;
 ; -- new hotlist manager requester --
 ;
 MSG_HOTL_TITLE_MANAGER
-AWeb ureðivaè zbirke linkova
+AWeb ureï¿½ivaï¿½ zbirke linkova
 ;AWeb hotlist manager
 ;
 MSG_HOTL_LTYPE
@@ -384,7 +384,7 @@ MSG_HOTL_MOVE
 ;< _Move
 ;
 MSG_HOTL_DEL
-O_bri¹i
+O_briï¿½i
 ;_Delete
 ;
 MSG_HOTL_WHERE
@@ -392,7 +392,7 @@ Gd_je
 ;_Where
 ;
 MSG_HOTL_SHOW
-Pri_ka¾i
+Pri_kaï¿½i
 ;S_how
 ;
 MSG_HOTL_SORT
@@ -432,7 +432,7 @@ _Dodaj
 ;_Add
 ;
 MSG_HOTL_FIND
-Pr_onaði
+Pr_onaï¿½i
 ;_Find
 ;
 MSG_HOTL_PATTERN
@@ -440,7 +440,7 @@ Uskl_adi
 ;Mat_ch
 ;
 MSG_HOTL_NEXT
-Slij_edeæi
+Slij_edeï¿½i
 ;Ne_xt
 ;
 MSG_HOTL_DEFAULT_TITLE
@@ -456,7 +456,7 @@ Sve grupe
 ;All groups
 ;
 MSG_HOTL_TITLE_WHERE
-Grupe koje sadr¾e ovaj link
+Grupe koje sadrï¿½e ovaj link
 ;Groups containing this entry
 ;
 MSG_HOTL_TITLE_REST
@@ -468,7 +468,7 @@ Svi linkovi
 ;All entries
 ;
 MSG_HOTL_TITLE_ROOTGROUPS
-Ishodi¹ne grupe
+Ishodiï¿½ne grupe
 ;Root-level groups
 ;
 MSG_HOTL_LSORT_DATE
@@ -495,7 +495,7 @@ _Redoslijed
 ;_Order
 ;
 MSG_WHIS_DISPLAY
-Pri_ka¾i
+Pri_kaï¿½i
 ;_Display
 ;
 MSG_WHIS_ORDER_NATURAL
@@ -507,7 +507,7 @@ Osnovni
 ;Mainline
 ;
 MSG_WHIS_ORDER_RETRIEVED
-Kronolo¹ki
+Kronoloï¿½ki
 ;Retrieved
 ;
 MSG_WHIS_ORDER_TITLE
@@ -534,7 +534,7 @@ Datum
 ;Date
 ;
 MSG_CABR_SIZE
-Velièina
+Veliï¿½ina
 ;Size
 ;
 MSG_CABR_TYPE
@@ -562,11 +562,11 @@ Sni_mi
 ;Sa_ve
 ;
 MSG_CABR_DELETE
-O_bri¹i
+O_briï¿½i
 ;_Delete
 ;
 MSG_CABR_FIND
-_Pronaði
+_Pronaï¿½i
 ;_Find
 ;
 MSG_CABR_PATTERN
@@ -574,7 +574,7 @@ _Uskladi
 ;_Match
 ;
 MSG_CABR_NEXT
-Slij_edeæi
+Slij_edeï¿½i
 ;_Next
 ;
 ;
@@ -592,36 +592,36 @@ Odustani
 ;-------------- Fix cache requesters ---------------------
 ;
 MSG_FIXCACHE_WARNING
-UPOZORENJE!\nOva funkcija æe obrisati sve strane datoteke iz\n%s direktorija
+UPOZORENJE!\nOva funkcija ï¿½e obrisati sve strane datoteke iz\n%s direktorija
 ;WARNING!\n\
 ;This function will delete all foreign files from the\n\
 ;%s drawer
 ;
 MSG_FIXCACHE_BUTTONS
 _U redu|_Odustani
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
-Sreðujem cache na disku...
+Sreï¿½ujem cache na disku...
 ;Fixing the disk cache...
 ;
 MSG_FIXCACHE_DELETEIMAGES
-Jeste li sigurni da ¾elite obrisati\nsve slike iz cache-a?
+Jeste li sigurni da ï¿½elite obrisati\nsve slike iz cache-a?
 ;Are you sure you want to delete\n\
 ;all images from the cache?
 ;
 MSG_FIXCACHE_DELETEDOCS
-Jeste li sigurni da ¾elite obrisati\nsve dokumente iz cache-a?
+Jeste li sigurni da ï¿½elite obrisati\nsve dokumente iz cache-a?
 ;Are you sure you want to delete\n\
 ;all documents from the cache?
 ;
 MSG_FIXCACHE_ERASE
-Jeste li sigurni da ¾elite obrisati\nsve dokumente i slike iz cache-a?
+Jeste li sigurni da ï¿½elite obrisati\nsve dokumente i slike iz cache-a?
 ;Are you sure you want to delete\n\
 ;all documents and images from the cache?
 ;
 MSG_FIXCACHE_CORRUPT
-Popis cache-a je nemoguæe proèitati\nili je iz starije verzije AWeb-a.\nDatoteke u cache-u se vi¹e ne mogu upotrijebiti.\n®elite li oèistiti cache?
+Popis cache-a je nemoguï¿½e proï¿½itati\nili je iz starije verzije AWeb-a.\nDatoteke u cache-u se viï¿½e ne mogu upotrijebiti.\nï¿½elite li oï¿½istiti cache?
 ;The cache registration is unreadable\n\
 ;or from an older version of AWeb.\n\
 ;Cached files cannot be used any more.\n\
@@ -630,15 +630,15 @@ Popis cache-a je nemoguæe proèitati\nili je iz starije verzije AWeb-a.\nDatoteke
 ;-------------- Search requesters ---------------------
 ;
 MSG_SEARCH_STRING
-T_ra¾i
+T_raï¿½i
 ;Search _for
 ;
 MSG_SEARCH_IGNORECASE
-_Ignoriraj velièinu slova
+_Ignoriraj veliï¿½inu slova
 ;_Ignore case
 ;
 MSG_SEARCH_SEARCH
-_Tra¾i
+_Traï¿½i
 ;_Search
 ;
 MSG_SEARCH_FROMTOP
@@ -654,22 +654,22 @@ _Odustani
 ;_Cancel
 ;
 MSG_SEARCH_NOTFOUND
-Niz nije pronaðen
+Niz nije pronaï¿½en
 ;String not found
 ;
 MSG_SEARCH_OK
 _U redu
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
 ;
 MSG_POPUP_LOADIMAGE
-Uèitaj sliku
+Uï¿½itaj sliku
 ;Load image
 ;
 MSG_POPUP_RELOADIMAGE
-Osvje¾i sliku
+Osvjeï¿½i sliku
 ;Reload image
 ;
 MSG_POPUP_SAVEIMAGE
@@ -685,7 +685,7 @@ Izbaci sliku
 ;Flush image
 ;
 MSG_POPUP_SHOWIMAGE
-Prika¾i sliku
+Prikaï¿½i sliku
 ;Show image
 ;
 MSG_POPUP_OPENLINK
@@ -697,7 +697,7 @@ Otvori link u novom prozoru
 ;Open link in new window
 ;
 MSG_POPUP_LOADLINK
-Uèitaj link u pozadini
+Uï¿½itaj link u pozadini
 ;Load link in background
 ;
 MSG_POPUP_SAVELINK
@@ -713,7 +713,7 @@ Dodaj link u zbirku linkova
 ;Add link to hotlist
 ;
 MSG_POPUP_RELOADFRAME
-Osvje¾i sadr¾aj
+Osvjeï¿½i sadrï¿½aj
 ;Reload contents
 ;
 MSG_POPUP_SAVEFRAME
@@ -725,11 +725,11 @@ Pregled izvornog koda
 ;View source
 ;
 MSG_POPUP_SHOWFRAME
-Prika¾i odvojeno
+Prikaï¿½i odvojeno
 ;Show separately
 ;
 MSG_POPUP_SEARCHFRAME
-Tra¾i u sadr¾aju
+Traï¿½i u sadrï¿½aju
 ;Search in contents
 ;
 MSG_POPUP_INFOFRAME
@@ -739,15 +739,15 @@ Informacije
 ;-------------- Print --------------------------------
 ;
 MSG_PRINTP_TITLE
-Postavke za ¹tampanje
+Postavke za ï¿½tampanje
 ;Print parameters
 ;
 MSG_PRINTP_SCALE
-_Velièina (%)                    
+_Veliï¿½ina (%)                    
 ;_Scale (%)
 ;
 MSG_PRINTP_PRINTBG
-©tampaj  _pozadine
+ï¿½tampaj  _pozadine
 ;Print _backgrounds
 ;
 MSG_PRINTP_FORMFEED
@@ -759,7 +759,7 @@ _Centriranje
 ;Ce_nter
 ;
 MSG_PRINTP_PRINT
-©_tampaj
+ï¿½_tampaj
 ;_Print
 ;
 MSG_PRINTP_CANCEL
@@ -767,15 +767,15 @@ _Odustani
 ;_Cancel
 ;
 MSG_PRINT_NOPRINTER
-Ne mogu koristiti ¹tampaè
+Ne mogu koristiti ï¿½tampaï¿½
 ;Unable to access the printer
 ;
 MSG_PRINT_OK
 _U redu
-;_Ok
+;_OK 
 ;
 MSG_PRINT_PROGRESS
-©tampanje u tijeku...
+ï¿½tampanje u tijeku...
 ;Printing in progress...
 ;
 MSG_PRINTP_LAYOUTWIDTH
@@ -802,7 +802,7 @@ Upozorenje na cookie
 ;Cookie alert
 ;
 MSG_COOKIE_WARNING
-Biti æe postavljen NetScape cookie!
+Biti ï¿½e postavljen NetScape cookie!
 ;About to set a NetScape cookie!
 ;
 MSG_COOKIE_NAME
@@ -830,7 +830,7 @@ Maks. vijek:
 ;Max-age:
 ;
 MSG_COOKIE_EXPIRES
-Istjeèe:
+Istjeï¿½e:
 ;Expires:
 ;
 MSG_COOKIE_ONCE
@@ -850,11 +850,11 @@ _Odustani
 ;_Cancel
 ;
 MSG_COOKIE_SECURE
-AWeb æe slati nazad ovaj cookie\nsamo preko sigurne veze.
+AWeb ï¿½e slati nazad ovaj cookie\nsamo preko sigurne veze.
 ;AWeb will send this cookie back\nover secure connections only.
 ;
 MSG_COOKIE_UNSECURE
-AWeb æe slati nazad ovaj cookie\ni preko NESIGURNE veze.
+AWeb ï¿½e slati nazad ovaj cookie\ni preko NESIGURNE veze.
 ;AWeb will send this cookie back\nover UNSECURE connections too.
 ;
 ;
@@ -865,7 +865,7 @@ Informacije
 ;Information
 ;
 MSG_INFO_FROMCACHE
-Proèitano iz AWeb cache-a
+Proï¿½itano iz AWeb cache-a
 ;Read from AWeb cache
 ;
 MSG_INFO_XFER
@@ -902,7 +902,7 @@ Sat
 ;-------------- Authorizations edit requester -------
 ;
 MSG_AUTHEDIT_TITLE
-Ureðivanje autorizacija
+Ureï¿½ivanje autorizacija
 ;Edit authorizations
 ;
 MSG_AUTHEDIT_TITLE_SERVER
@@ -910,11 +910,11 @@ Server
 ;Server
 ;
 MSG_AUTHEDIT_TITLE_USERID
-Korisnièko ime
+Korisniï¿½ko ime
 ;Userid
 ;
 MSG_AUTHEDIT_DEL
-_Obri¹i
+_Obriï¿½i
 ;_Del
 ;
 MSG_AUTHEDIT_SERVER
@@ -922,7 +922,7 @@ Server
 ;Server
 ;
 MSG_AUTHEDIT_USERID
-_Korisnièko ime
+_Korisniï¿½ko ime
 ;_Userid
 ;
 MSG_AUTHEDIT_PASSWORD
@@ -934,7 +934,7 @@ _Lozinka
 ;
 MSG_JSPROMPT_OK
 _U redu
-;_Ok
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
 _Odustani
@@ -948,22 +948,22 @@ AWeb upozorenje
 ;AWeb warning
 ;
 MSG_FORMWARN_WARNING
-Podaci s ovog obrasca biti æe poslani\npreko NESIGURNE veze.
+Podaci s ovog obrasca biti ï¿½e poslani\npreko NESIGURNE veze.
 ;Data from this form will be sent\nover an UNSECURE connection.
 ;
 MSG_FORMWARN_BUTTONS
 _U redu|_Odustani
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
 ;
 MSG_MAIL_TITLE
-AWeb mailer - gre¹ka
+AWeb mailer - greï¿½ka
 ;AWeb mailer error
 ;
 MSG_MAIL_NOSMTPHOST
-Prvo morate podesiti svoj SMTP host.\nPogledajte postavke Mre¾a/Po¹ta.
+Prvo morate podesiti svoj SMTP host.\nPogledajte postavke Mreï¿½a/Poï¿½ta.
 ;You have to configure your SMTP host first.\nSee Network/Mail settings.
 ;
 MSG_MAIL_NOCONNECT
@@ -975,7 +975,7 @@ Nije uspjelo slanje e-mail poruke.
 ;Sending mail message failed.
 ;
 MSG_MAIL_BUTTONS
-_Poku¹aj ponovo|_Snimi|_Odustani
+_Pokuï¿½aj ponovo|_Snimi|_Odustani
 ;_Retry|_Save|_Cancel
 ;
 MSG_MAIL_SAVETITLE
@@ -1007,11 +1007,11 @@ Dodana posebna mail zaglavlja
 ;Extra mail headers included
 ;
 MSG_MAIL_SEND
-Po¹alji po¹tu
+Poï¿½alji poï¿½tu
 ;Send mail
 ;
 MSG_MAIL_RESET
-Poni¹ti
+Poniï¿½ti
 ;Reset
 ;
 MSG_MAIL_RETURN
@@ -1023,18 +1023,18 @@ Poruka poslana prema: %s
 ;Mail sent to: %s
 ;
 MSG_MAIL_MAIL_SENT
-<H1>Poruka poslana</H1>\nVa¹a e-mail poruka za <B>%s</B> uspje¹no je poslana.
+<H1>Poruka poslana</H1>\nVaï¿½a e-mail poruka za <B>%s</B> uspjeï¿½no je poslana.
 ;<H1>Mail sent</H1>\nYour mail message to <B>%s</B> has been sent succesfully.
 ;
 ;
 ;-------------- Newsreader messages -----------------
 ;
 MSG_NEWS_TITLE
-AWeb news preglednik - gre¹ka
+AWeb news preglednik - greï¿½ka
 ;AWeb newsreader error
 ;
 MSG_NEWS_NONNTPHOST
-Prvo morate podesiti svoj NNTP host.\nPogledajte postavke Mre¾a/News.
+Prvo morate podesiti svoj NNTP host.\nPogledajte postavke Mreï¿½a/News.
 ;You have to configure your NNTP host first.\nSee Network/News settings.
 ;
 MSG_NEWS_NOCONNECT
@@ -1046,7 +1046,7 @@ Nije uspjelo slanje news poruke.
 ;Posting article failed.
 ;
 MSG_NEWS_BUTTONS
-_Poku¹aj ponovo|_Snimi|_Odustani
+_Pokuï¿½aj ponovo|_Snimi|_Odustani
 ;_Retry|_Save|_Cancel
 ;
 MSG_NEWS_SAVETITLE
@@ -1058,7 +1058,7 @@ News
 ;News
 ;
 MSG_NEWS_SUBSCRIBED
-Pretplaæene newsgrupe
+Pretplaï¿½ene newsgrupe
 ;Subscribed newsgroups
 ;
 ; Don't forget to include the '8' in the %8ld below:
@@ -1083,19 +1083,19 @@ Pretplati
 ;Subscribe
 ;
 MSG_NEWS_READ
-Èitaj
+ï¿½itaj
 ;Read
 ;
 MSG_NEWS_SEARCH_FOR_GROUP
-Tra¾i grupu
+Traï¿½i grupu
 ;Search for group
 ;
 MSG_NEWS_SEARCH
-Tra¾i
+Traï¿½i
 ;Search
 ;
 MSG_NEWS_LONG_DOWNLOAD
-Kada prvi put budete tra¾ili grupu,\nbiti æe skinut popis naziva svih grupa.\nTo mo¾e potrajati i nekoliko minuta.
+Kada prvi put budete traï¿½ili grupu,\nbiti ï¿½e skinut popis naziva svih grupa.\nTo moï¿½e potrajati i nekoliko minuta.
 ;The first time you search for a group,\n\
 ;a list of all newsgroup names will be downloaded.\n\
 ;This may take several minutes to complete.
@@ -1109,7 +1109,7 @@ MSG_NEWS_LINES
 ;(%s lines)
 ;
 MSG_NEWS_POST_NEW_ARTICLE
-Po¹alji novu poruku
+Poï¿½alji novu poruku
 ;Post new article
 ;
 MSG_NEWS_GROUP_LIST
@@ -1117,11 +1117,11 @@ Popis grupa
 ;Group list
 ;
 MSG_NEWS_ERROR_NO_GROUP
-<h1>Gre¹ka</h1>\nGrupa %s ne postoji.
+<h1>Greï¿½ka</h1>\nGrupa %s ne postoji.
 ;<h1>Error</h1>\nGroup %s does not exist.
 ;
 MSG_NEWS_USE_FRAMES
-Newsi su pode¹eni da upotrebljavaju okvire
+Newsi su podeï¿½eni da upotrebljavaju okvire
 ;News is configured to use frames
 ;
 MSG_NEWS_ERROR_NO_ARTICLE
@@ -1157,11 +1157,11 @@ Dodana posebna news zaglavlja
 ;Extra news headers included
 ;
 MSG_NEWS_POST_ARTICLE
-Po¹alji poruku
+Poï¿½alji poruku
 ;Post article
 ;
 MSG_NEWS_RESET
-Poni¹ti
+Poniï¿½ti
 ;Reset
 ;
 MSG_NEWS_RETURN
@@ -1177,7 +1177,7 @@ Nastavak u:
 ;Follow-up to:
 ;
 MSG_NEWS_PLEASE_DELETE
-Molim vas obri¹ite suvi¹ne citirane redove
+Molim vas obriï¿½ite suviï¿½ne citirane redove
 ;Please delete unnecessary quoted lines
 ;
 MSG_NEWS_REPLY_TITLE
@@ -1193,7 +1193,7 @@ Poruka poslana
 ;Article posted
 ;
 MSG_NEWS_ARTICLE_POSTED
-<H1>Poruka poslana</h1>\nVa¹a poruka je poslana.
+<H1>Poruka poslana</h1>\nVaï¿½a poruka je poslana.
 ;<H1>Article posted</h1>\n\
 ;Your article has been posted.
 ;
@@ -1202,7 +1202,7 @@ Skini popis newsgrupa
 ;Download newsgroup list
 ;
 MSG_NEWS_DOWNLOAD_BODY
-<H1>Skidam...</H1>\nSkidam popis newsgrupa. To mo¾e potrajati nekoliko minuta.
+<H1>Skidam...</H1>\nSkidam popis newsgrupa. To moï¿½e potrajati nekoliko minuta.
 ;<H1>Downloading...</H1>\n\
 ;Downloading newsgroup list. This can take several minutes.
 ;
@@ -1215,7 +1215,7 @@ Prvih %ld od %ld naziva newsgrupa koji odgovaraju <B>%s</B>
 ;First %ld of %ld newsgroup names matching <B>%s</B>
 ;
 MSG_NEWS_FOUND_MATCHING
-Pronaðeno %ld naziva newsgrupa koji odgovaraju <B>%s</B>
+Pronaï¿½eno %ld naziva newsgrupa koji odgovaraju <B>%s</B>
 ;Found %ld newsgroup names matching <B>%s</B>
 ;
 ;
@@ -1226,16 +1226,16 @@ AWeb upozorenje
 ;AWeb warning
 ;
 MSG_CMDWARN_SHELL
-Biti æe izvr¹ena shell komanda:\n%s
+Biti ï¿½e izvrï¿½ena shell komanda:\n%s
 ;About to execute shell command:\n%s
 ;
 MSG_CMDWARN_AREXX
-Biti æe izvr¹en ARexx program:\n%s
+Biti ï¿½e izvrï¿½en ARexx program:\n%s
 ;About to start ARexx program:\n%s
 ;
 MSG_CMDWARN_BUTTONS
 _U redu|_Odustani
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
@@ -1253,7 +1253,7 @@ _Nesigurna v.|_Odustani
 ;_Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL
-Sigurne veze su podr¾ane jedino s Miami TCP programom i MiamiSSL dodatkom.
+Sigurne veze su podrï¿½ane jedino s Miami TCP programom i MiamiSSL dodatkom.
 ;Secure connections are only supported with the Miami TCP program and MiamiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE
@@ -1261,7 +1261,7 @@ AWeb upozorenje
 ;AWeb warning
 ;
 MSG_SSLWARN_CERT_TEXT
-Certifikat za %s ne mo¾e biti provjeren.\nDetalji: %s\n \nAko nastavite, podaci æe biti kriptirani (za¹tita od prislu¹kivanja), ali identitet servera ne mo¾e biti provjeren (-NEMA- za¹tite od prijevare).\n \n®elite li nastaviti?
+Certifikat za %s ne moï¿½e biti provjeren.\nDetalji: %s\n \nAko nastavite, podaci ï¿½e biti kriptirani (zaï¿½tita od prisluï¿½kivanja), ali identitet servera ne moï¿½e biti provjeren (-NEMA- zaï¿½tite od prijevare).\n \nï¿½elite li nastaviti?
 ;Certificate for %s cannot be verified.\nDetails: %s\n \n\
 ;If you continue the data will be encrypted (protection against eavesdropping), \
 ;but the identity of the server cannot be verified (-NO- protection against fraud).\n \n\
@@ -1269,7 +1269,7 @@ Certifikat za %s ne mo¾e biti provjeren.\nDetalji: %s\n \nAko nastavite, podaci 
 ;
 MSG_SSLWARN_CERT_BUTTONS
 _U redu|_Odustani
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2
 
@@ -1279,11 +1279,11 @@ MSG_SSLWARN_SSL_NO_SSL2
 ;-------------- Unknown MIME type -------------------
 ;
 MSG_UNKMIME_TITLE
-Nepoznat tip sadr¾aja
+Nepoznat tip sadrï¿½aja
 ;Unknown content type
 ;
 MSG_UNKMIME_TEXT
-Neprepoznata datoteka biti æe snimljena\n \nURL:   %s\nTip sadr¾aja:   %s\nNastavak:   %s\n \nMo¾da ¾elite odustati od snimanja i poku¹ati ponovo uèitati ovu datoteku nakon ¹to podesite preglednik ili akciju za ovaj MIME tip u postavkama 'Preglednik' (Preglednici).
+Neprepoznata datoteka biti ï¿½e snimljena\n \nURL:   %s\nTip sadrï¿½aja:   %s\nNastavak:   %s\n \nMoï¿½da ï¿½elite odustati od snimanja i pokuï¿½ati ponovo uï¿½itati ovu datoteku nakon ï¿½to podesite preglednik ili akciju za ovaj MIME tip u postavkama 'Preglednik' (Preglednici).
 ;Unrecognized file will be saved\n \n\
 ;URL:   %s\nContent type:   %s\nExtension:   %s\n \n\
 ;You might want to cancel the save now, and reload this file \
@@ -1306,12 +1306,12 @@ AWeb zahtjev
 ;AWeb request
 ;
 MSG_OPENURL_TEXT
-Upi¹ite URL koji treba otvoriti:
+Upiï¿½ite URL koji treba otvoriti:
 ;Type in the URL to open:
 ;
 MSG_OPENURL_BUTTONS
 _U redu|_Odustani
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------
@@ -1352,11 +1352,11 @@ L/Otvori lokalno...
 ;L/Open local...
 ;
 MSG_PROJECT_OPENSEARCH
-E/Mre¾ni pretra¾ivaèi
+E/Mreï¿½ni pretraï¿½ivaï¿½i
 ;E/Search engines
 ;
 MSG_PROJECT_SOURCE
-Prika¾i izvorni kod...
+Prikaï¿½i izvorni kod...
 ;View source...
 ;
 MSG_PROJECT_SAVEHTML
@@ -1372,11 +1372,11 @@ Q/Izlazak...
 ;Q/Quit...
 ;
 MSG_PROJECT_SEARCH
-G/Tra¾i...
+G/Traï¿½i...
 ;G/Search...
 ;
 MSG_PROJECT_PRINT
-P/©tampaj...
+P/ï¿½tampaj...
 ;P/Print...
 ;
 MSG_PROJECT_EDIT
@@ -1405,7 +1405,7 @@ Kontrola
 ;Control
 ;
 MSG_CONTROL_LOADNOW
-Uèitaj slike sada
+Uï¿½itaj slike sada
 ;Load images now
 ;
 MSG_CONTROL_LOADNOWALL
@@ -1417,18 +1417,18 @@ M/Samo mape
 ;M/Maps only
 ;
 MSG_CONTROL_NETWORKSTATUS
-?/Mre¾no stanje...
+?/Mreï¿½no stanje...
 ;?/Network status...
 ;
 MSG_DUMMY_2
 ?
 ;
 MSG_CONTROL_CANCEL
-Z/Prekini uèitavanje
+Z/Prekini uï¿½itavanje
 ;Z/Cancel load
 ;
 MSG_CONTROL_NEXTWINDOW
-./Slijedeæi prozor
+./Slijedeï¿½i prozor
 ;./Next window
 ;
 MSG_CONTROL_PREVWINDOW
@@ -1440,7 +1440,7 @@ Y/Ne koristi proxy
 ;Y/Disable proxy
 ;
 MSG_CONTROL_RLOAD
-Osvje¾i
+Osvjeï¿½i
 ;Reload
 ;
 MSG_CONTROL_RLOADDOC
@@ -1468,7 +1468,7 @@ C/Kopiraj blok
 ;C/Copy block
 ;
 MSG_CONTROL_DRAGGING
-Prevlaèenje
+Prevlaï¿½enje
 ;Dragging
 ;
 MSG_CONTROL_BREAKJS
@@ -1529,7 +1529,7 @@ Neprikazane dokumente
 ;Nondisplayed documents
 ;
 MSG_CACHE_DELETE
-Obri¹i s diska
+Obriï¿½i s diska
 ;Delete from disk
 ;
 MSG_CACHE_DELIMGS
@@ -1541,7 +1541,7 @@ Sve dokumente
 ;All documents
 ;
 MSG_CACHE_CLEAR
-Obri¹i cache
+Obriï¿½i cache
 ;Erase cache
 ;
 MSG_CACHE_FIX
@@ -1565,7 +1565,7 @@ F/Naprijed
 ;F/Forward
 ;
 MSG_NAVIGATE_HOME
-D/Poèetni dokument
+D/Poï¿½etni dokument
 ;D/Home document
 ;
 MSG_NAVIGATE_HISTORY
@@ -1581,12 +1581,12 @@ A/Dodaj u zbirku
 ;A/Add to hotlist
 ;
 MSG_HOTLIST_SHOWHOT
-H/Prika¾i zbirku
+H/Prikaï¿½i zbirku
 ;H/Show hotlist
 ;
 ;**obsolete**
 MSG_HOTLIST_MAINT
-T/Odr¾avanje...
+T/Odrï¿½avanje...
 ;T/Maintenance...
 ;
 MSG_HOTLIST_SAVE
@@ -1614,7 +1614,7 @@ V/Preglednik zbirke...
 ;V/View hotlist...
 ;
 MSG_HOTLIST_MGR
-T/Ureðivaè zbirke...
+T/Ureï¿½ivaï¿½ zbirke...
 ;T/Hotlist manager...
 ;
 MSG_SETTINGS_MENU
@@ -1622,7 +1622,7 @@ Postavke
 ;Settings
 ;
 MSG_SETTINGS_LOADIMG
-Uèitavanje slika
+Uï¿½itavanje slika
 ;Image loading
 ;
 MSG_SETTINGS_LOADIMGALL
@@ -1634,7 +1634,7 @@ Samo mape
 ;Maps only
 ;
 MSG_SETTINGS_LOADIMGOFF
-Iskljuèeno
+Iskljuï¿½eno
 ;Off
 ;
 MSG_DUMMY_7
@@ -1652,7 +1652,7 @@ Postavke za program...
 ;Program settings...
 ;
 MSG_SETTINGS_NETWORK
-Postavke za mre¾u...
+Postavke za mreï¿½u...
 ;Network settings...
 ;
 MSG_SETTINGS_CLASSACT
@@ -1669,7 +1669,7 @@ Zapamti prozore
 ;
 ;**obsolete
 MSG_SETTINGS_SNAPSHOTALT
-Zapamti kao alt. velièinu
+Zapamti kao alt. veliï¿½inu
 ;Snapshot as alternate size
 ;
 MSG_SETTINGS_BGIMAGES
@@ -1685,15 +1685,15 @@ Snimi postavke kao...
 ;Save settings as...
 ;
 MSG_SETTINGS_LOAD
-Uèitaj postavke...
+Uï¿½itaj postavke...
 ;Load settings...
 ;
 MSG_SETTINGS_GUI
-Postavke za suèelje...
+Postavke za suï¿½elje...
 ;GUI settings...
 ;
 MSG_HELP_MENU
-Pomoæ
+Pomoï¿½
 ;Help
 ;
 MSG_HELP_HELP
@@ -1738,13 +1738,13 @@ AWeb treba OS 3.0 ili noviji
 ;AWeb needs OS 3.0 or better
 ;
 MSG_ERROR_CANTQUIT
-Ne mogu izaæi!\n%s\nje jo¹ u upotrebi
+Ne mogu izaï¿½i!\n%s\nje joï¿½ u upotrebi
 ;Cannot quit!\n%s\nis still in use
 ;
 ;-------------- partial error messages --------------
 ;
 MSG_EPART_ERROR
-Gre¹ka
+Greï¿½ka
 ;Error
 ;
 MSG_EPART_RETURL
@@ -1752,7 +1752,7 @@ Za vrijeme dobavljanja URL-a
 ;While retrieving URL
 ;
 MSG_EPART_ADDRSCHEME
-&quot;%s&quot; shema adresiranja nije podr¾ana u ovoj verziji AWeb-a
+&quot;%s&quot; shema adresiranja nije podrï¿½ana u ovoj verziji AWeb-a
 ;The &quot;%s&quot; addressing scheme is not implemented in this version of AWeb
 ;
 MSG_EPART_NOLIB
@@ -1776,15 +1776,15 @@ Neispravan interni (x-aweb:) naziv &quot;%s&quot;
 ;Invalid internal (x-aweb:) name &quot;%s&quot;
 ;
 MSG_EPART_FLUSHED_HEAD
-Izbaèeno
+Izbaï¿½eno
 ;Flushed
 ;
 MSG_EPART_FLUSHED_MSG
-Ovog dokumenta vi¹e nema u memoriji
+Ovog dokumenta viï¿½e nema u memoriji
 ;This document is no longer available in memory
 ;
 MSG_EPART_FLUSHED_NORELOAD
-Ovaj dokument ne mo¾e biti ponovo dobiven. Morat æete ponovo poslati obrazac koji je proizveo ovu stranicu. Pripazite na moguæe ne¾eljene posljedice dvostrukog slanja obrasca, poput duple registracije i sl.
+Ovaj dokument ne moï¿½e biti ponovo dobiven. Morat ï¿½ete ponovo poslati obrazac koji je proizveo ovu stranicu. Pripazite na moguï¿½e neï¿½eljene posljedice dvostrukog slanja obrasca, poput duple registracije i sl.
 ;This document cannot be retrieved again. You will have to submit the form again that \
 ;produced this page. Beware of undesired side-effects if you submit that form twice, \
 ;like a duplicate registration.
@@ -1794,7 +1794,7 @@ Ne mogu se logirati na &quot;%s&quot; kao &quot;%s&quot;
 ;Cannot login at &quot;%s&quot; as &quot;%s&quot;
 ;
 MSG_EPART_NOAWEBLIB
-Ne mogu uèitati AWebLib modul za &quot;%s&quot;.
+Ne mogu uï¿½itati AWebLib modul za &quot;%s&quot;.
 ;Unable to load the AWebLib module for &quot;%s&quot;.
 ;
 MSG_EPART_NOPROGRAM
@@ -1811,27 +1811,27 @@ AWeb vanjski program
 ;
 ; (status field text)
 MSG_AWEB_BYTESREAD
-Byteova proèitano
+Byteova proï¿½itano
 ;Bytes read
 ;
 ; (form SUBMIT button default text)
 MSG_AWEB_FORMSUBMIT
-Po¹alji
+Poï¿½alji
 ;Submit
 ;
 ; (form RESET button default text)
 MSG_AWEB_FORMRESET
-Poni¹ti
+Poniï¿½ti
 ;Reset
 ;
 ; (ISINDEX default prompt)
 MSG_AWEB_INDEXPROMPT
-Ovo je indeks za pretra¾ivanje. Upi¹ite kljuène rijeèi:
+Ovo je indeks za pretraï¿½ivanje. Upiï¿½ite kljuï¿½ne rijeï¿½i:
 ;This is a searchable index. Enter keywords: 
 ;
 ; (window title)
 MSG_AWEB_NODOCTITLE
-(Nije uèitan dokument)
+(Nije uï¿½itan dokument)
 ;(No document loaded)
 ;
 ; (screen title)
@@ -1866,7 +1866,7 @@ Ostalo
 ;
 ; (transfer status messages)
 MSG_AWEB_LOOKUP
-Tra¾im %s
+Traï¿½im %s
 ;Looking up %s
 ;
 MSG_AWEB_CONNECT
@@ -1874,7 +1874,7 @@ Uspostavljam %s vezu sa %s
 ;Making %s connection to %s
 ;
 MSG_AWEB_WAITING
-%s zahtjev poslan; èekam odgovor
+%s zahtjev poslan; ï¿½ekam odgovor
 ;%s request sent; waiting for response
 ;
 MSG_AWEB_TCPSTART
@@ -1883,17 +1883,17 @@ Uspostavljam TCP vezu
 ;
 ; (form image fieldstatus text)
 MSG_AWEB_FORMLOCATION
-Po¹alji obrazac sa x=%ld, y=%ld
+Poï¿½alji obrazac sa x=%ld, y=%ld
 ;Submit form at x=%ld, y=%ld
 ;
 ; (form BUTTON button default text)
 MSG_AWEB_FORMBUTTON
-Poèetak
+Poï¿½etak
 ;Start
 ;
 ; (frame resizing status prompt)
 MSG_AWEB_FRAME_RESIZE
-Promijeni velièinu okvira
+Promijeni veliï¿½inu okvira
 ;Resize frame
 ;
 ; (transfer status message)
@@ -1903,12 +1903,12 @@ Logiram se na %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSGROUP
-Pretra¾ujem %s
+Pretraï¿½ujem %s
 ;Scanning %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSSCAN
-Pretra¾ujem %s (%ld news poruka)
+Pretraï¿½ujem %s (%ld news poruka)
 ;Scanning %s (%ld articles)
 ;
 ; (transfer status message)
@@ -1918,17 +1918,17 @@ Sortiram %s
 ;
 ; (transfer status message)
 MSG_AWEB_NEWSPOST
-©aljem news poruku
+ï¿½aljem news poruku
 ;Posting article
 ;
 ; (transfer status message)
 MSG_AWEB_MAILSEND
-©aljem e-mail poruku
+ï¿½aljem e-mail poruku
 ;Sending mail message
 ;
 ; (transfer status message)
 MSG_AWEB_UPLOAD
-©aljem datoteku
+ï¿½aljem datoteku
 ;Uploading file
 ;
 ; ** (don't use numbers 40001 or higher) **

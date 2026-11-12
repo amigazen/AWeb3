@@ -1,9 +1,14 @@
 ## SAS/C makefile for awebjfif aweb plugin module
 
 # Compiler and flags
+# RTG backend: CyberGfx default. Override with AWEBGFXFLAGS=DEFINE=AWEB_USE_P96
+AWEBGFXFLAGS=
+
 CC=sc
 CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
-        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4 define CPU="68020" cpu=68020
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4 define CPU="68020" cpu=68020\
+        INCLUDEDIR=SDK:Include_h $(AWEBGFXFLAGS)
+
 
 # Linker and flags
 LN=slink
@@ -25,16 +30,16 @@ awebjfif.awebplugin: $(PLUGIN_OBJS) awebjfif.lnk jpeglib/libjpeg.lib
 
 # Individual object file rules
 startup.o: startup.c pluginlib.h
-   $(CC) startup.c
+   $(CC) $(CFLAGS) startup.c
 
 awebjfif.o: awebjfif.c pluginlib.h awebjfif.h
-   $(CC) awebjfif.c
+   $(CC) $(CFLAGS) awebjfif.c
 
 jfifsource.o: jfifsource.c pluginlib.h awebjfif.h
-   $(CC) jfifsource.c
+   $(CC) $(CFLAGS) jfifsource.c
 
 jfifcopy.o: jfifcopy.c pluginlib.h awebjfif.h
-   $(CC) jfifcopy.c
+   $(CC) $(CFLAGS) jfifcopy.c
 
 # Clean targets
 clean:

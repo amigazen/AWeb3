@@ -19,13 +19,14 @@
 /* pngsource.c - AWeb png plugin sourcedriver */
 
 #include "pluginlib.h"
+extern struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebpng.h"
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
 #include "ezlists.h"
 #include <libraries/awebplugin.h>
-#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <datatypes/pictureclass.h>
@@ -35,8 +36,6 @@
 #include <proto/graphics.h>
 #include <clib/graphics_protos.h>
 #include <proto/utility.h>
-#include <proto/Picasso96.h>
-
 /* AWeb plugin functions are declared in proto/awebplugin.h */
 
 /* Define STDC and OF() macro for SAS/C compatibility with zlib */
@@ -144,6 +143,7 @@ struct Pngsource
 #define PNGSF_READY        0x0010   /* Decoding is ready */
 #define PNGSF_LOWPRI       0x0020   /* Run decoder at low priority */
 #define PNGSF_DISPOSING    0x0040   /* Source is being disposed - decoder should exit */
+#define PNGSF_RTGSCREEN    0x0080   /* Screen mode is RTG (AwebScreenIsRtg) */
 
 /*--------------------------------------------------------------------*/
 /* Memory accounting helpers                                          */
@@ -221,7 +221,6 @@ struct Decoder
    struct RastPort rp;              /* Temporary for pixelline8 functions */
    struct RastPort temprp;          /* Temporary for pixelline8 functions */
    UBYTE *chunky;                   /* Row of chunky pixels */
-   struct RenderInfo renderinfo;    /* RenderInfo for p96WritePixelArray */
    APTR pool;                       /* Per-decoder libpng allocation pool */
 };
 
@@ -230,8 +229,8 @@ struct Decoder
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_TRANSPARENT  0x0004   /* Transparent png */
 #define DECOF_INTERLACED   0x0008   /* Interlaced png */
-#define DECOF_P96MAP       0x0010   /* Bitmap is Picasso96 */
-#define DECOF_P96DEEP      0x0020   /* Bitmap is Picasso96 >8 bits */
+#define DECOF_CYBERMAP       0x0010   /* Bitmap is RTG */
+#define DECOF_CYBERDEEP      0x0020   /* Bitmap is RTG >8 bits */
 
 /*--------------------------------------------------------------------*/
 /* Read from the input stream                                         */
@@ -588,9 +587,8 @@ static BOOL Parsepngimage(struct Decoder *decoder)
           * regression in an edge case that almost never occurs in
           * practice. */
          probable_deep=FALSE;
-         if(P96Base && decoder->source && decoder->source->friendbitmap
-            && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96)
-            && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH)>8)
+         if(AwebFriendIsRtg(decoder->source?decoder->source->friendbitmap:NULL)
+            && AwebFriendDepth(decoder->source->friendbitmap)>8)
          {  probable_deep=TRUE;
          }
          if(probable_deep)
@@ -668,22 +666,25 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             goto cleanup;
          }
          ReleaseSemaphore(&decoder->source->sema);
-         /* Only call p96* on friendbitmap when it is a P96 bitmap; screen RastPort
-          * BitMaps are often classic planar even if Picasso96.library is open,
-          * and p96GetBitMapAttr(P96BMA_DEPTH) on those can deadlock. */
-         if(P96Base && decoder->source->friendbitmap
-         && p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_ISP96))
-         {  depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
-            decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
-               BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap,RGBFB_NONE);
-            if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
-            {  decoder->flags|=DECOF_P96MAP;
+         /* CyberGfx: do not GetCyberMapAttr() the screen friend (mixed
+          * P96 screens).  P96 builds still require ISP96 on friend first. */
+         if((decoder->source->flags&PNGSF_RTGSCREEN)
+            && AwebFriendIsRtg(decoder->source->friendbitmap))
+         {  depth=AwebFriendDepth(decoder->source->friendbitmap);
+            decoder->bitmap=AwebAllocRtgBitMap(decoder->width,decoder->height,depth,
+               BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap);
+            if(decoder->bitmap && GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
+            {  decoder->flags|=DECOF_CYBERMAP;
                if(depth>8)
-               {  decoder->flags|=DECOF_P96DEEP;
+               {  decoder->flags|=DECOF_CYBERDEEP;
                }
             }
+            else if(decoder->bitmap)
+            {  AwebFreeRtgBitMap(decoder->bitmap);
+               decoder->bitmap=NULL;
+            }
          }
-         else
+         if(!decoder->bitmap)
          {  /* Classic: decode into a non-displayable planar master so graphics.library
              * can place planes in Fast RAM when possible (Chip is reserved for
              * display bitmaps). Rendering code can still copy/blit from this
@@ -697,16 +698,16 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             goto cleanup;
          }
          if(decoder->flags&DECOF_TRANSPARENT)
-         {  if(decoder->flags&DECOF_P96MAP)
-            {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
+         {  if(decoder->flags&DECOF_CYBERMAP)
+            {  decoder->maskw=GetCyberMapAttr(decoder->bitmap,CYBRMATTR_WIDTH)/8;
             }
             else
             {  decoder->maskw=decoder->bitmap->BytesPerRow;
             }
             decoder->mask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
-               MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_P96MAP?0:MEMF_CHIP));
+               MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_CYBERMAP?0:MEMF_CHIP));
             if(!decoder->mask)
-            {  FreeBitMap(decoder->bitmap);
+            {  AwebFreeRtgBitMap(decoder->bitmap);
                decoder->bitmap=NULL;
                error=TRUE;
                goto cleanup;
@@ -715,7 +716,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
 #ifdef DEBUG_PLUGINS
          PngLog("parse","bitmap %lux%lu depth=%ld p96map=%d mask=%p",
             (unsigned long)decoder->width,(unsigned long)decoder->height,(long)depth,
-            (decoder->flags&DECOF_P96MAP)?1:0,(APTR)decoder->mask);
+            (decoder->flags&DECOF_CYBERMAP)?1:0,(APTR)decoder->mask);
 #endif
 
          /* Save our bitmap and dimensions. */
@@ -726,7 +727,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                decoder->mask=NULL;
             }
             if(decoder->bitmap)
-            {  FreeBitMap(decoder->bitmap);
+            {  AwebFreeRtgBitMap(decoder->bitmap);
                decoder->bitmap=NULL;
             }
             error=TRUE;
@@ -740,7 +741,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                decoder->mask=NULL;
             }
             if(decoder->bitmap)
-            {  FreeBitMap(decoder->bitmap);
+            {  AwebFreeRtgBitMap(decoder->bitmap);
                decoder->bitmap=NULL;
             }
             error=TRUE;
@@ -774,13 +775,9 @@ static BOOL Parsepngimage(struct Decoder *decoder)
 
          InitRastPort(&decoder->rp);
          decoder->rp.BitMap=decoder->bitmap;
-         if(decoder->flags&DECOF_P96MAP)
+         if(decoder->flags&DECOF_CYBERMAP)
          {  error=!(decoder->chunky=AllocVec(decoder->width*4,MEMF_PUBLIC));
-            /* Initialize RenderInfo for p96WritePixelArray */
-            decoder->renderinfo.Memory=decoder->chunky;
-            decoder->renderinfo.BytesPerRow=decoder->width*4;
-            decoder->renderinfo.RGBFormat=RGBFB_R8G8B8;
-         }
+}
          else
          {  /* The colour mapping process needs a temporary RastPort plus BitMap
              * for the PixelLine8 functions. */
@@ -788,15 +785,11 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             error=!(decoder->temprp.BitMap=AllocBitMap(
                   8*(((decoder->width+15)>>4)<<1),1,8,BMF_DISPLAYABLE,decoder->bitmap))
                || !(decoder->chunky=AllocVec(((decoder->width+15)>>4)<<4,MEMF_PUBLIC));
-            /* Initialize RenderInfo for 8-bit mode */
-            decoder->renderinfo.Memory=decoder->chunky;
-            decoder->renderinfo.BytesPerRow=decoder->width;
-            decoder->renderinfo.RGBFormat=RGBFB_CLUT;
-         }
+}
          if(error) longjmp(png_jmpbuf(png),1);
 #ifdef DEBUG_PLUGINS
          PngLog("parse","rastport/chunky init ok p96deep=%d",
-            (decoder->flags&DECOF_P96DEEP)?1:0);
+            (decoder->flags&DECOF_CYBERDEEP)?1:0);
 #endif
          
          /* For normal images, we just need 1 row of data. For interlaced images,
@@ -811,7 +804,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
              * saves width*3 bytes of memory bandwidth per row, which for
              * a typical 1024-wide photograph is around 2 MB of pointless
              * copying eliminated across the whole image. */
-            if((decoder->flags&DECOF_P96DEEP)
+            if((decoder->flags&DECOF_CYBERDEEP)
                && colortype==PNG_COLOR_TYPE_RGB
                && rowbytes<=decoder->width*4)
             {  buffer=(png_byte *)decoder->chunky;
@@ -855,7 +848,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
           * first few rows and a branch per pixel forever after. */
          if(colortype==PNG_COLOR_TYPE_PALETTE)
          {  png_get_PLTE(png,pnginfo,&palette,&npalette);
-            if(!(decoder->flags&DECOF_P96DEEP) && palette)
+            if(!(decoder->flags&DECOF_CYBERDEEP) && palette)
             {  for(pi=0;pi<npalette;pi++)
                {  if(!decoder->source->mapped[pi])
                   {  map=ObtainBestPen(decoder->source->colormap,
@@ -916,7 +909,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                /* Hoist mask-row pointer out of the per-pixel loops. */
                trow=decoder->mask ? (decoder->mask+y*decoder->maskw) : NULL;
 
-               if(decoder->flags&DECOF_P96DEEP)
+               if(decoder->flags&DECOF_CYBERDEEP)
                {  /* Direct 24-bit RGB output to a Picasso96 deep bitmap.
                    * Dispatch on colortype once per row, not once per pixel. */
                   switch(colortype)
@@ -1012,8 +1005,8 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                         }
                         break;
                   }
-                  p96WritePixelArray(&decoder->renderinfo,0,0,
-                     &decoder->rp,0,y,decoder->width,1);
+                  WritePixelArray(decoder->chunky,0,0,3*decoder->width,
+                     &decoder->rp,0,y,decoder->width,1,RECTFMT_RGB);
                }
                else
                {  /* 8-bit colormap output.  Colortype is invariant for the
@@ -1321,7 +1314,11 @@ static void Startdecoder(struct Pngsource *ps)
          AOAPP_Screen,&screen,
          AOAPP_Colormap,&ps->colormap,
          TAG_END);
-      if(screen) ps->friendbitmap=screen->RastPort.BitMap;
+      if(screen)
+      {  ps->friendbitmap=screen->RastPort.BitMap;
+         if(AwebScreenIsRtg(screen)) ps->flags|=PNGSF_RTGSCREEN;
+         else ps->flags&=~PNGSF_RTGSCREEN;
+      }
       if(ps->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,Decodetask,
          AOTSK_Name,"AWebPng decoder",
@@ -1343,7 +1340,7 @@ static void Releaseimage(struct Pngsource *ps)
       AOPNG_Mask,NULL,
       TAG_END);
    if(ps->bitmap)
-   {  FreeBitMap(ps->bitmap);
+   {  AwebFreeRtgBitMap(ps->bitmap);
       ps->bitmap=NULL;
    }
    if(ps->mask)

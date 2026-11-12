@@ -48,7 +48,7 @@ MSG_ABOUT_WWW
 ;
 MSG_ABOUT_OK
 
-;_Ok
+;_OK 
 ;
 MSG_ABOUT_UNREGISTERED
 
@@ -81,7 +81,7 @@ MSG_QUIT_TEXT
 ;
 MSG_QUIT_OK
 
-;_Ok
+;_OK 
 ;
 MSG_QUIT_CANCEL
 
@@ -99,7 +99,7 @@ MSG_DEMO_TEXT
 ;
 MSG_DEMO_OK
 
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Close windows requester -------------
@@ -179,7 +179,7 @@ MSG_AUTH_PASSWORD
 ;
 MSG_AUTH_OK
 
-;_Ok
+;_OK 
 ;
 MSG_AUTH_CANCEL
 
@@ -245,11 +245,11 @@ MSG_FILE_TEMPTITLE
 ;
 MSG_FILE_TEMPBUTTONS
 
-;_Ok
+;_OK 
 ;
 MSG_FILE_INCBUTTONS2
 
-;_Ok|_Retry|_Cancel
+;_OK |_Retry|_Cancel
 ;
 MSG_FILE_SETTINGSTITLE
 
@@ -595,7 +595,7 @@ MSG_FIXCACHE_WARNING
 ;
 MSG_FIXCACHE_BUTTONS
 
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 MSG_FIXCACHE_PROGRESS
 
@@ -655,7 +655,7 @@ MSG_SEARCH_NOTFOUND
 ;
 MSG_SEARCH_OK
 
-;_Ok
+;_OK 
 ;
 ;
 ;-------------- Popup menu ---------------------------
@@ -768,7 +768,7 @@ MSG_PRINT_NOPRINTER
 ;
 MSG_PRINT_OK
 
-;_Ok
+;_OK 
 ;
 MSG_PRINT_PROGRESS
 
@@ -911,7 +911,7 @@ MSG_AUTHEDIT_PASSWORD
 ;
 MSG_JSPROMPT_OK
 
-;_Ok
+;_OK 
 ;
 MSG_JSPROMPT_CANCEL
 
@@ -930,7 +930,7 @@ MSG_FORMWARN_WARNING
 ;
 MSG_FORMWARN_BUTTONS
 
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Mailer messages ---------------------
@@ -1212,7 +1212,7 @@ MSG_CMDWARN_AREXX
 ;
 MSG_CMDWARN_BUTTONS
 
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- SSL related warnings ----------------
@@ -1246,7 +1246,7 @@ MSG_SSLWARN_CERT_TEXT
 ;
 MSG_SSLWARN_CERT_BUTTONS
 
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Unknown MIME type -------------------
@@ -1281,7 +1281,7 @@ MSG_OPENURL_TEXT
 ;
 MSG_OPENURL_BUTTONS
 
-;_Ok|_Cancel
+;_OK |_Cancel
 ;
 ;
 ;-------------- Save as IFF requester ---------------

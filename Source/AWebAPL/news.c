@@ -743,7 +743,7 @@ static void Buildmain(struct Fetchdriver *fd)
 #ifndef DEMOVERSION
       Bprintf(&buf,fd->block,"%s:<BR>\n<PRE>\n",AWEBSTR(MSG_NEWS_SUBSCRIBED));
 #else
-      Bprintf(&buf,fd->block,"The full commercial version of AWeb-II allows you to "
+      Bprintf(&buf,fd->block,"The full commercial version of AWeb allows you to "
          "subscribe to newsgroups\n"
          "and remember the last article you read in those groups.\n");
 #endif
@@ -1948,7 +1948,7 @@ badform:
 }
 
 enum POSTARTICLE_RETURNS
-{  PAR_FAIL,PAR_NOCONNECT,PAR_OK,
+{  PAR_FAIL,PAR_NOCONNECT,PAR_Ok,
 };
 
 /* Show post error requester. Return TRUE if retry requested. */
@@ -2023,7 +2023,7 @@ static short Sendarticle(struct Fetchdriver *fd,struct Buffer *buf,UBYTE *host)
       {  if(a_send(ni.sock,buf->buffer,buf->length,0,ni.socketbase)==buf->length
          && a_send(ni.sock,".\r\n",3,0,ni.socketbase)==3
          && Getresponse(&ni)<400)
-         {  retval=PAR_OK;
+         {  retval=PAR_Ok;
          }
       }
    }
@@ -2055,10 +2055,10 @@ static void Postarticle(struct Fetchdriver *fd,UBYTE *formdata,UBYTE *host)
    if(Buildarticle(fd,&buf,formdata))
    {  for(;;)
       {  r=Sendarticle(fd,&buf,host);
-         if(r==PAR_OK) break;
+         if(r==PAR_Ok) break;
          if(!Postretry(fd,&buf,r)) break;
       }
-      if(r==PAR_OK)
+      if(r==PAR_Ok)
       {  Buildresult(fd);
       }
    }

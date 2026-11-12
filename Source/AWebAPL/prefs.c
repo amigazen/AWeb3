@@ -24,6 +24,7 @@
 #include "application.h"
 #include "jslib.h"
 #include "ttengine.h"
+#include "bulletfont.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
@@ -254,14 +255,36 @@ static void Makepatterns(void *listp)
 
 static BOOL Openfonts(void)
 {  short i,j;
+#ifndef AWEB4
    struct TextAttr ta={0};
+#endif
    for(j=0;j<2;j++)
    {  for(i=0;i<NRFONTS;i++)
-      {  ta.ta_Name=prefs.browser.font[j][i].fontname;
+      {
+#ifdef AWEB4
+         /* Browser HTML fonts: bullet outline pack (or stub+ttengine),
+          * not diskfont.library. */
+         prefs.browser.font[j][i].font=BulletFontOpen(
+            prefs.browser.font[j][i].fontname,
+            prefs.browser.font[j][i].fontsize);
+         if(!prefs.browser.font[j][i].font)
+         {  if(j==0)
+               prefs.browser.font[j][i].font=BulletFontOpen((UBYTE *)"CGTimes.font",
+                  prefs.browser.font[j][i].fontsize);
+            else
+               prefs.browser.font[j][i].font=BulletFontOpen((UBYTE *)"Courier.font",
+                  prefs.browser.font[j][i].fontsize);
+            if(!prefs.browser.font[j][i].font)
+            {  prefs.browser.font[j][i].font=BulletFontOpen((UBYTE *)"topaz.font",
+                  prefs.browser.font[j][i].fontsize);
+               if(!prefs.browser.font[j][i].font) return FALSE;
+            }
+         }
+#else
+         ta.ta_Name=prefs.browser.font[j][i].fontname;
          ta.ta_YSize=prefs.browser.font[j][i].fontsize;
          if(!(prefs.browser.font[j][i].font=OpenDiskFont(&ta)))
-         {  /* Fallback to bitmap fonts if scalable fonts not available */
-            if(j==0)
+         {  if(j==0)
             {  ta.ta_Name="times.font";
             }
             else
@@ -272,6 +295,7 @@ static BOOL Openfonts(void)
                if(!(prefs.browser.font[j][i].font=OpenDiskFont(&ta))) return FALSE;
             }
          }
+#endif
       }
       Setloadreqlevel(j+1,2);
    }
@@ -279,10 +303,21 @@ static BOOL Openfonts(void)
 }
 
 static void Opennewfont(struct Fontprefs *newf)
-{  struct TextAttr ta={0};
+{
+#ifdef AWEB4
+   newf->font=BulletFontOpen(newf->fontname,newf->fontsize);
+   if(!newf->font)
+      newf->font=BulletFontOpen((UBYTE *)"topaz.font",newf->fontsize);
+#else
+   struct TextAttr ta={0};
    ta.ta_Name=newf->fontname;
    ta.ta_YSize=newf->fontsize;
    newf->font=OpenDiskFont(&ta);
+   if(!newf->font)
+   {  ta.ta_Name="topaz.font";
+      newf->font=OpenDiskFont(&ta);
+   }
+#endif
 }
 
 static ULONG Comparefontprefsarray(struct Fontprefs *oldfa,struct Fontprefs *newfa,BOOL open)
@@ -696,11 +731,7 @@ BOOL Initprefs(void)
 }
 
 BOOL Initprefs2(void)
-{  /* If ttengine is present we avoid preloading all disk fonts at startup.
-    * Fonts are opened on demand through Matchfontprefs()/Opennewfont(). */
-   if(TTEngineAvailable())
-   {  return TRUE;
-   }
+{  /* Always open prefs TextFonts so layout has non-NULL fonts with real ink. */
    if(!Openfonts()) return FALSE;
    return TRUE;
 }
@@ -996,12 +1027,14 @@ static BOOL Isgenericfamily(UBYTE *name)
 /* Try to open a font directly by name from the system.
  * Returns the opened font, or NULL if not found.
  * The actual font name used (with .font extension) is stored in usedname buffer.
- * Uses OpenDiskFont() from diskfont.library to open fonts from disk.
+ * AWEB4: bullet.library outline (or stub+ttengine). Classic: OpenDiskFont.
  */
 static struct TextFont *Tryopenfontdirect(UBYTE *name,short fontsize,UBYTE *usedname,long usednamelen)
-{  struct TextAttr ta={0};
-   struct TextFont *font;
+{  struct TextFont *font;
    UBYTE *p;
+#ifndef AWEB4
+   struct TextAttr ta={0};
+#endif
    /* Build font name with .font extension if not present */
    strncpy(usedname,name,usednamelen-1);
    usedname[usednamelen-1]='\0';
@@ -1015,9 +1048,13 @@ static struct TextFont *Tryopenfontdirect(UBYTE *name,short fontsize,UBYTE *used
       {  strcpy(p,".font");
       }
    }
+#ifdef AWEB4
+   font=BulletFontOpen(usedname,fontsize);
+#else
    ta.ta_Name=usedname;
    ta.ta_YSize=fontsize;
    font=OpenDiskFont(&ta);
+#endif
    return font;
 }
 
@@ -1062,18 +1099,18 @@ struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fi
                }
                else
                {  /* Already in alias list, close the duplicate */
-                  CloseFont(directfont);
+                  AwebCloseBrowserFont(directfont);
                }
                return &fa->fp[size];
             }
             else
             {  /* Could not add to alias list, close font and continue */
-               CloseFont(directfont);
+               AwebCloseBrowserFont(directfont);
             }
          }
          else
          {  /* Font is proportional but we need fixed-width */
-            CloseFont(directfont);
+            AwebCloseBrowserFont(directfont);
          }
       }
    }
@@ -1140,16 +1177,16 @@ struct Fontprefs *Matchfontprefs(struct Prefs *pr,UBYTE *face,short size,BOOL fi
                      fa->fp[size].font=directfont;
                   }
                   else
-                  {  CloseFont(directfont);
+                  {  AwebCloseBrowserFont(directfont);
                   }
                   return &fa->fp[size];
                }
                else
-               {  CloseFont(directfont);
+               {  AwebCloseBrowserFont(directfont);
                }
             }
             else
-            {  CloseFont(directfont);
+            {  AwebCloseBrowserFont(directfont);
             }
          }
          /* Final fallback: use default font (may be serif, but better than nothing) */

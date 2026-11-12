@@ -29,6 +29,7 @@
 #include "html.h"
 #include "application.h"
 #include "ttengine.h"
+#include "bulletfont.h"
 #include "copydriver.h"
 
 #include <proto/exec.h>
@@ -222,10 +223,19 @@ struct Openfont *Addopenfont(struct Body *bd,struct TextFont *font)
       }
    }
    if(of=ALLOCSTRUCT(Openfont,1,MEMF_CLEAR))
-   {  struct TextAttr ta={0};
-      ta.ta_Name=font->ln_Name;
-      ta.ta_YSize=font->tf_YSize;
-      of->font=OpenFont(&ta);
+   {
+#ifdef AWEB4
+      /* Bullet outline fonts are not in the system font list; dup our handle. */
+      if(BulletFontIsOurs(font))
+      {  of->font=BulletFontDup(font);
+      }
+      else
+#endif
+      {  struct TextAttr ta={0};
+         ta.ta_Name=font->tf_Message.mn_Node.ln_Name;
+         ta.ta_YSize=font->tf_YSize;
+         of->font=OpenFont(&ta);
+      }
       ADDTAIL(&bd->openfonts,of);
    }
    return of;
@@ -234,7 +244,7 @@ struct Openfont *Addopenfont(struct Body *bd,struct TextFont *font)
 /* Close this font and dispose structure */
 void Freeopenfont(struct Openfont *of)
 {  if(of)
-   {  if(of->font) CloseFont(of->font);
+   {  if(of->font) AwebCloseBrowserFont(of->font);
       FREE(of);
    }
 }

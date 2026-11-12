@@ -329,7 +329,11 @@ static long Processkey(struct Ainput *inp,USHORT code,USHORT qual,void *iaddress
          }
          break;
       case KEYEQV_ENTER:
-         Amethod(inp->form,AFO_SUBMIT,inp,0,0);
+         /* Pass NULL as the submitter so Dosubmitform always runs.  Passing
+          * the text field itself only works for FORTP_1INPUT / FORF_NOSUBMIT;
+          * most modern forms have multiple submit buttons, so Enter would
+          * otherwise do nothing.  NULL still includes autosubmit. */
+         if(inp->form) Amethod(inp->form,AFO_SUBMIT,NULL,0,0);
          result=AMR_NOREUSE;
          break;
       case KEYEQV_SLEFT:

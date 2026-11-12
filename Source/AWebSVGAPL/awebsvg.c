@@ -19,6 +19,8 @@
 /* awebsvg.c - AWeb SVG plugin main */
 
 #include "pluginlib.h"
+struct Library *CyberGfxBase;
+#include <awebgfx.h>
 #include "awebsvg.h"
 #include <string.h>
 #include <libraries/awebplugin.h>
@@ -44,7 +46,6 @@ struct Library *IntuitionBase;
 struct Library *UtilityBase;
 struct Library *AwebPluginBase;
 struct Library *DOSBase;
-struct Library *P96Base;
 struct Library *TTEngineBase;
 struct Library *LowLevelBase;
 BOOL            TTEngineAvail;
@@ -55,7 +56,7 @@ ULONG Initpluginlib(struct AwebSvgBase *base)
    UtilityBase=(struct Library *)OpenLibrary("utility.library",39);
    AwebPluginBase=(struct Library *)OpenLibrary("awebplugin.library",0);
    DOSBase=(struct Library *)OpenLibrary("dos.library",37);
-   P96Base=OpenLibrary("Picasso96.library",0);
+   CyberGfxBase=AwebOpenRtgGfx();
    /* OPTIONAL: lowlevel.library v40+.  Used by the SVG renderer to
     * pick an adaptive quality tier (see Benchmarkcpu in svgsource.c).
     * Failure is silent - we fall back to AttnFlags-based detection. */
@@ -96,7 +97,7 @@ void Expungepluginlib(struct AwebSvgBase *base)
    if(IntuitionBase)  { CloseLibrary(IntuitionBase);  IntuitionBase=NULL; }
    if(GfxBase)        { CloseLibrary(GfxBase);        GfxBase=NULL; }
    if(DOSBase)        { CloseLibrary(DOSBase);        DOSBase=NULL; }
-   if(P96Base)        { CloseLibrary(P96Base);        P96Base=NULL; }
+   if(CyberGfxBase)        { CloseLibrary(CyberGfxBase);        CyberGfxBase=NULL; }
    TTEngineAvail=FALSE;
 }
 

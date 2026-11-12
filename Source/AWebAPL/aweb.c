@@ -32,6 +32,7 @@
 #include "cidregistry.h"
 #include "ttengine.h"
 #include "bulletfont.h"
+#include "awebutf8.h"
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
@@ -1237,6 +1238,7 @@ static void Cleanup(void)
    Freeprefs();
    AwebLog("exit","Cleanup: after Freeprefs");
    FreeTTEngine(); /* Cleanup ttengine.library support */
+   FreeAwebUtf8();
 #ifdef AWEB4
    FreeBulletFont();
 #endif
@@ -1508,14 +1510,13 @@ static BOOL Initall(void)
    if(!Initarexx()) return FALSE;   /* must be inited before window */
    if(!Initmime()) return FALSE;    /* must be inited before prefs */
    if(!Initdefprefs()) return FALSE;/* must be inited before prefs */
-   if(!Initprefs()) return FALSE;   /* must be inited before window,layout, cache */
-   /* Initialize ttengine.library support (optional, non-fatal) */
+   /* TTEngine + UTF-8 Latin fold + Bullet before Initprefs: Openfonts uses BulletFontOpen. */
    InitTTEngine();
+   InitAwebUtf8();
 #ifdef AWEB4
-   /* Open bullet.library (optional) before Openfonts/BulletFontOpen.
-    * Metric stubs still work if bullet is missing but ttengine is present. */
    if(!InitBulletFont()) return FALSE;
 #endif
+   if(!Initprefs()) return FALSE;   /* must be inited before window,layout, cache */
    if(!Initboopsi()) return FALSE;  /* must be inited before window */
    if(!Initrequest()) return FALSE; /* must be inited before io */
    if(!Installapplication()) return FALSE;   /* Opens the startup window */

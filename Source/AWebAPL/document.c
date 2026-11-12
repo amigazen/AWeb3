@@ -36,6 +36,9 @@
 #include "map.h"
 #include "jslib.h"
 #include "xhrjs.h"
+#ifdef AWEB4
+#include "wasmjs.h"
+#endif
 #include "css.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
@@ -476,7 +479,10 @@ static long Renderdocument(struct Document *doc,struct Amrender *amr)
          if(doc->dflags&DDF_TITLEVALID)
          {  title=doc->text.buffer+doc->titlepos;
          }
-         else
+         else if(doc->copy)
+         {  title=(UBYTE *)Agetattr(doc->copy,AOCDV_Title);
+         }
+         if(!title)
          {  void *url=(void *)Agetattr(doc->source->source,AOSRC_Url);
             title=(UBYTE *)Agetattr(url,AOURL_Url);
          }
@@ -979,6 +985,7 @@ static void Disposedocument(struct Document *doc)
    struct Colorinfo *ci;
    struct Bgimage *bgi;
    short i;
+
    FreeDOCTYPEinfo(doc);
    for(i=0;i<doc->divancsp && i<DIV_ANCESTOR_STACK_MAX;i++)
    {  if(doc->divanc[i].tagname) FREE(doc->divanc[i].tagname);
@@ -1464,6 +1471,9 @@ static long Dragcopydocument(struct Document *doc,struct Amdragcopy *amd)
 
 static void Deinstalldocument(void)
 {  Exitxhrjs();
+#ifdef AWEB4
+   Exitwasmjs();
+#endif
    Exitdocjs();
 }
 
@@ -1529,6 +1539,9 @@ static long Dispatch(struct Document *doc,struct Amessage *amsg)
 BOOL Installdocument(void)
 {  Initdocjs();
    Initxhrjs();
+#ifdef AWEB4
+   Initwasmjs();
+#endif
    if(!Amethod(NULL,AOM_INSTALL,AOTP_DOCUMENT,Dispatch)) return FALSE;
    return TRUE;
 }

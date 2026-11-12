@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
+ * Changes Copyright (C) 2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -16,7 +17,9 @@
  *
  **********************************************************************/
 
-/* popup.c - AWeb popup menu object */
+/* popup.c - AWeb popup menu object.
+ * AWEB4: when popupmenu.library is available at runtime, build and open
+ * menus through that library; otherwise keep the classic Reaction window. */
 
 #include "aweb.h"
 #include "popup.h"
@@ -38,6 +41,12 @@
 #include <proto/bevel.h>
 #include <proto/window.h>
 
+#ifdef AWEB4
+#include "awebpm.h"
+struct PopupMenuBase *PopupMenuBase=NULL;
+static BOOL pm_available=FALSE;
+#endif
+
 /*------------------------------------------------------------------------*/
 
 #define NRMENUITEMS  18
@@ -49,26 +58,34 @@ struct Popup
    short left,top;                  /* Our coordinates */
    void *win;                       /* The WINDOW object attached to. */
    void *cawin;                     /* The Reaction Window object. */
-void *layout;                    /* The Reaction layout object. */
+   void *layout;                    /* The Reaction layout object. */
    LIST(Label) labels;              /* All the labels. */
    struct Label *selected;          /* Selected label, action still to perform. */
    struct Window *window;           /* The Intuition Window. */
    struct DrawInfo *drinfo;
    struct Hook idcmphook;
    USHORT flags;
+#ifdef AWEB4
+   struct PopupMenu *pmmenu;        /* popupmenu.library menu (AWEB4). */
+#endif
 };
 
 #define PUPF_DONE          0x0001   /* Menu should close. */
 #define PUPF_VALID         0x0002   /* Menu has items. */
 #define PUPF_CLOSING       0x0004   /* Closing, don't dispose. */
 #define PUPF_SEPARATOR     0x0008   /* Add separator before next item */
+#define PUPF_USEPM         0x0010   /* AWEB4: use popupmenu.library */
+#define PUPF_NEXTBAR       0x0020   /* AWEB4 PM: next item gets a bar */
 
 struct Label                        /* Also kept in gadget's UserData */
 {  NODE(Label);
    void *target;                    /* Target object to update */
    UBYTE *title;                    /* Title string to display */
    UBYTE *command;                  /* Command to execute when selected */
+   USHORT flags;
 };
+
+#define LABF_BAR        0x0001      /* Insert a separator bar before this item */
 
 static LIST(Popup) popups;
 
@@ -82,9 +99,70 @@ static void Freelabel(struct Label *l)
    }
 }
 
+#ifdef AWEB4
+/* Build a popupmenu.library menu from collected labels (sync open). */
+static struct PopupMenu *Buildpmmenu(struct Popup *pup)
+{  struct PopupMenu *menu;
+   struct PopupMenu *item;
+   struct Label *l;
+   menu=PM_MakeMenu(
+      PM_Item,PM_MakeItem(PM_Hidden,TRUE,TAG_DONE),
+      TAG_DONE);
+   if(!menu) return NULL;
+   for(l=pup->labels.first;l->next;l=l->next)
+   {  if(l->flags&LABF_BAR)
+      {  item=PM_MakeItem(PM_TitleBar,TRUE,TAG_DONE);
+         if(item) PM_InsertMenuItem(menu,PM_Insert_Last,TRUE,PM_Insert_Item,item,TAG_DONE);
+      }
+      item=PM_MakeItem(
+         PM_Title,l->title,
+         PM_UserData,l,
+         TAG_DONE);
+      if(item) PM_InsertMenuItem(menu,PM_Insert_Last,TRUE,PM_Insert_Item,item,TAG_DONE);
+   }
+   return menu;
+}
+
+/* Run the modal popupmenu.library menu and apply the selection. */
+static void Runpmmenu(struct Popup *pup)
+{  struct Window *parent;
+   struct Label *sel;
+   ULONG result;
+   long left,top;
+   if(!pup->pmmenu || !pup->win) return;
+   parent=(struct Window *)Agetattr(pup->win,AOWIN_Window);
+   if(!parent) return;
+   left=pup->left;
+   top=pup->top;
+   left+=parent->LeftEdge;
+   top+=parent->TopEdge;
+   result=PM_OpenPopupMenu(parent,
+      PM_Menu,pup->pmmenu,
+      PM_Left,left,
+      PM_Top,top,
+      TAG_DONE);
+   sel=(struct Label *)result;
+   if(sel && sel->command)
+   {  pup->flags|=PUPF_CLOSING;
+      Aupdateattrs(sel->target,NULL,
+         AOPUP_Command,sel->command,
+         TAG_END);
+      pup->flags&=~PUPF_CLOSING;
+      if(sel->target==pup->owner) pup->owner=NULL;
+   }
+}
+#endif /* AWEB4 */
+
 /* Add a separator if there are already items in the menu */
 static void Addseparator(struct Popup *pup)
-{  if(pup->flags&PUPF_VALID)  /* Already items in menu - add separator */
+{
+#ifdef AWEB4
+   if(pup->flags&PUPF_USEPM)
+   {  if(pup->flags&PUPF_VALID) pup->flags|=PUPF_NEXTBAR;
+      return;
+   }
+#endif
+   if(pup->flags&PUPF_VALID)  /* Already items in menu - add separator */
    {  SetAttrs(pup->layout,
          StartImage,BevelObject,
             BEVEL_Style,BVS_SBAR_VERT,
@@ -93,39 +171,65 @@ static void Addseparator(struct Popup *pup)
    }
 }
 
-/* Add a button */
-static void Addbutton(struct Popup *pup,UBYTE *title,UBYTE *command)
+/* Remember a label for both Reaction and popupmenu.library paths. */
+static struct Label *Makelabel(struct Popup *pup,UBYTE *title,UBYTE *command)
 {  struct Label *l;
-   void *button;
-   long bpen=-1,dpen=-1;
-   if(pup->drinfo->dri_NumPens>BARBLOCKPEN)
-   {  bpen=pup->drinfo->dri_Pens[BARBLOCKPEN];
-      dpen=pup->drinfo->dri_Pens[BARDETAILPEN];
-   }
    if((l=ALLOCSTRUCT(Label,1,MEMF_PUBLIC|MEMF_CLEAR))
    && (l->title=Dupstr(title,-1))
    && (l->command=Dupstr(command,-1)))
    {  l->target=pup->target;
-      button=ButtonObject,
-         GA_ID,1,
-         GA_RelVerify,TRUE,
-         GA_Text,l->title,
-         GA_UserData,l,
-         BUTTON_BevelStyle,BVS_NONE,
-         BUTTON_TextPen,dpen,
-         BUTTON_BackgroundPen,bpen,
-         BUTTON_FillTextPen,bpen,
-         BUTTON_FillPen,dpen,
-      End;
-      if(button)
-      {  SetAttrs(pup->layout,
-            StartMember,button,
-         End;
-         pup->flags|=PUPF_VALID;
-         return;
+#ifdef AWEB4
+      if(pup->flags&PUPF_NEXTBAR)
+      {  l->flags|=LABF_BAR;
+         pup->flags&=~PUPF_NEXTBAR;
       }
+#endif
+      ADDTAIL(&pup->labels,l);
+      return l;
    }
    if(l) Freelabel(l);
+   return NULL;
+}
+
+/* Add a button (Reaction path) */
+static void Addbutton(struct Popup *pup,UBYTE *title,UBYTE *command)
+{  struct Label *l;
+   void *button;
+   long bpen=-1,dpen=-1;
+#ifdef AWEB4
+   if(pup->flags&PUPF_USEPM)
+   {  if(Makelabel(pup,title,command))
+      {  pup->flags|=PUPF_VALID;
+      }
+      return;
+   }
+#endif
+   if(pup->drinfo && pup->drinfo->dri_NumPens>BARBLOCKPEN)
+   {  bpen=pup->drinfo->dri_Pens[BARBLOCKPEN];
+      dpen=pup->drinfo->dri_Pens[BARDETAILPEN];
+   }
+   l=Makelabel(pup,title,command);
+   if(!l) return;
+   button=ButtonObject,
+      GA_ID,1,
+      GA_RelVerify,TRUE,
+      GA_Text,l->title,
+      GA_UserData,l,
+      BUTTON_BevelStyle,BVS_NONE,
+      BUTTON_TextPen,dpen,
+      BUTTON_BackgroundPen,bpen,
+      BUTTON_FillTextPen,bpen,
+      BUTTON_FillPen,dpen,
+   End;
+   if(button)
+   {  SetAttrs(pup->layout,
+         StartMember,button,
+      End;
+      pup->flags|=PUPF_VALID;
+      return;
+   }
+   REMOVE(l);
+   Freelabel(l);
 }
 
 static long __saveds __asm Idcmphook(register __a0 struct Hook *hook,
@@ -154,6 +258,13 @@ static void Processpopup(void)
    ULONG result;
    for(pup=popups.first;pup->next;pup=next)
    {  next=pup->next;
+#ifdef AWEB4
+      if(pup->flags&PUPF_USEPM)
+      {  /* Modal PM menus finish in Newpopup; nothing to poll. */
+         if(pup->flags&PUPF_DONE) Adisposeobject(pup);
+         continue;
+      }
+#endif
       if(!(pup->flags&PUPF_DONE))
       {  while((result=RA_HandleInput(pup->cawin,NULL))!=WMHI_LASTMSG)
          {  switch(result&WMHI_CLASSMASK)
@@ -252,6 +363,12 @@ static void Disposepopup(struct Popup *pup)
             TAG_END);
       }
       if(pup->win) Aremchild(pup->win,pup,AOREL_WIN_POPUP);
+#ifdef AWEB4
+      if(pup->pmmenu)
+      {  PM_FreePopupMenu(pup->pmmenu);
+         pup->pmmenu=NULL;
+      }
+#endif
       if(pup->cawin)
       {  DisposeObject(pup->cawin);
       }
@@ -270,8 +387,30 @@ static struct Popup *Newpopup(struct Amset *ams)
    {  NEWLIST(&pup->labels);
       ADDTAIL(&popups,pup);
       Aaddchild(Aweb(),pup,AOREL_APP_USE_SCREEN);
+#ifdef AWEB4
+      if(pm_available) pup->flags|=PUPF_USEPM;
+#endif
       if(Agetattr(Aweb(),AOAPP_Screenvalid))
-      {  pup->idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
+      {
+#ifdef AWEB4
+         if(pup->flags&PUPF_USEPM)
+         {  Setpopup(pup,ams);
+            if(pup->flags&PUPF_VALID)
+            {  pup->pmmenu=Buildpmmenu(pup);
+               if(pup->pmmenu)
+               {  Runpmmenu(pup);
+                  /* Finished synchronously; dispose without re-notifying owner
+                   * if a command was already delivered (owner cleared). */
+                  pup->flags|=PUPF_DONE;
+                  Disposepopup(pup);
+                  return NULL;
+               }
+            }
+            Disposepopup(pup);
+            return NULL;
+         }
+#endif
+         pup->idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
          pup->idcmphook.h_Data=pup;
          Agetattrs(Aweb(),
             AOAPP_Screen,&screen,
@@ -343,6 +482,13 @@ static long Dispatch(struct Popup *pup,struct Amessage *amsg)
          Disposepopup(pup);
          break;
       case AOM_DEINSTALL:
+#ifdef AWEB4
+         if(PopupMenuBase)
+         {  CloseLibrary((struct Library *)PopupMenuBase);
+            PopupMenuBase=NULL;
+            pm_available=FALSE;
+         }
+#endif
          break;
    }
    return result;
@@ -361,6 +507,11 @@ void Closeopenpopups(void)
 
 BOOL Installpopup(void)
 {  NEWLIST(&popups);
+#ifdef AWEB4
+   /* Optional at runtime: fall back to Reaction popups if absent. */
+   PopupMenuBase=(struct PopupMenuBase *)OpenLibrary(POPUPMENU_NAME,POPUPMENU_VERSION);
+   pm_available=BOOLVAL(PopupMenuBase!=NULL);
+#endif
    if(!Amethod(NULL,AOM_INSTALL,AOTP_POPUP,Dispatch)) return FALSE;
    return TRUE;
 }

@@ -28,8 +28,10 @@
 #include <string.h>
 #undef NOPROTOTYPES
 #include <proto/exec.h>
+#include <proto/dos.h>
 #include <graphics/text.h>
 #include <libraries/diskfont.h>
+#include <diskfont/diskfont.h>
 #include <libraries/ttengine.h>
 #include <utility/tagitem.h>
 #include <proto/graphics.h>
@@ -38,6 +40,7 @@
 
 /* Library bases for pragma libcall stubs in this module only (about.aweblib). */
 extern struct GfxBase *GfxBase;
+extern struct DosLibrary *DOSBase;
 struct Library *DiskfontBase;
 struct Library *TTEngineBase;
 
@@ -179,8 +182,11 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 /*
- * about:fonts — HTML4-style face mapping hints: diskfont OpenDiskFont probe chains
- * (.font / outline under FONTS:) plus optional ttengine TT_OpenFontA per family.
+ * about:fonts -- face mapping probes aligned with AWeb4 font open:
+ *  1) Bullet outline: FONTS:name.font with OFCH_ID (same test as bulletfont.c)
+ *  2) diskfont OpenDiskFont (bitmap or outline via diskfont)
+ *  3) optional ttengine TT_OpenFontA
+ * Default aliases map web names -> CGTimes / CGTriumvirate / LetterGothic.
  */
 typedef struct FontdiagRow FontdiagRow;
 struct FontdiagRow
@@ -359,6 +365,28 @@ static const char * const fd_t_consolas[] = {
    "Consolas","Courier New","Liberation Mono",NULL
 };
 
+/* Native Amiga outline faces used by default Browser aliases / prefs. */
+static const char * const fd_d_cgtimes[] = {
+   "CGTimes.font",NULL
+};
+static const char * const fd_t_cgtimes[] = {
+   "CGTimes","Times New Roman","Times",NULL
+};
+
+static const char * const fd_d_cgtri[] = {
+   "CGTriumvirate.font",NULL
+};
+static const char * const fd_t_cgtri[] = {
+   "CGTriumvirate","Helvetica","Arial",NULL
+};
+
+static const char * const fd_d_lgoth[] = {
+   "LetterGothic.font",NULL
+};
+static const char * const fd_t_lgoth[] = {
+   "LetterGothic","Courier New","Courier",NULL
+};
+
 static const FontdiagRow fd_rows[] =
 {
    { "serif", "serif", fd_d_serif, fd_t_serif },
@@ -384,7 +412,10 @@ static const FontdiagRow fd_rows[] =
    { "Courier New, Courier, monospace", "Courier New", fd_d_courier, fd_t_courier },
    { "Monaco", "Monaco", fd_d_monaco, fd_t_monaco },
    { "Lucida Console", "Lucida Console", fd_d_luccon, fd_t_luccon },
-   { "Consolas", "Consolas", fd_d_consolas, fd_t_consolas }
+   { "Consolas", "Consolas", fd_d_consolas, fd_t_consolas },
+   { "CGTimes", "CGTimes", fd_d_cgtimes, fd_t_cgtimes },
+   { "CGTriumvirate", "CGTriumvirate", fd_d_cgtri, fd_t_cgtri },
+   { "LetterGothic", "LetterGothic", fd_d_lgoth, fd_t_lgoth }
 };
 
 static struct TextFont *FontdiagOpenDiskfont(const char *fontfile, USHORT ysize)
@@ -402,6 +433,72 @@ static struct TextFont *FontdiagOpenDiskfont(const char *fontfile, USHORT ysize)
    ta.ta_Flags = 0;
    tf = OpenDiskFont(&ta);
    return tf;
+}
+
+/* Same outline cookie test as bulletfont.c Isoutlinefontfile (Bullet live path). */
+static BOOL FontdiagIsOutlineFont(const char *fontfile)
+{
+   char path[256];
+   const char *base;
+   const char *p;
+   ULONG n;
+   BPTR fh;
+   UWORD id;
+   BOOL ok;
+
+   ok = FALSE;
+   if(!fontfile || !DOSBase)
+   {
+      return FALSE;
+   }
+   base = fontfile;
+   for(p = fontfile; *p; p++)
+   {
+      if(*p == ':' || *p == '/')
+      {
+         base = p + 1;
+      }
+   }
+   n = (ULONG)strlen(base);
+   if(n + 7UL >= sizeof(path))
+   {
+      return FALSE;
+   }
+   strcpy(path, "FONTS:");
+   strcat(path, base);
+   if(n < 5UL || stricmp(base + n - 5UL, ".font") != 0)
+   {
+      strcat(path, ".font");
+   }
+   fh = Open(path, MODE_OLDFILE);
+   if(fh)
+   {
+      if(Read(fh, &id, sizeof(id)) == (LONG)sizeof(id) && id == OFCH_ID)
+      {
+         ok = TRUE;
+      }
+      Close(fh);
+   }
+   return ok;
+}
+
+/* First chain entry that is a Bullet-usable outline under FONTS:. */
+static const char *FontdiagFirstOutlineHit(const char * const *names)
+{
+   int i;
+
+   if(!names)
+   {
+      return NULL;
+   }
+   for(i = 0; names[i] != NULL; i++)
+   {
+      if(FontdiagIsOutlineFont(names[i]))
+      {
+         return names[i];
+      }
+   }
+   return NULL;
 }
 
 static const char *FontdiagFirstDiskHit(const char * const *names, USHORT ysize)
@@ -503,8 +600,10 @@ static void FontdiagEmitTtengineNotice(char **wpp, long *room, int tt_ok)
       FontdiagSnprintf(wpp, room,
          "<table width=\"100%%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" >"
          "<tr><td align=\"left\"><strong>TTEngine is installed on this system</strong></td></tr>"
-         "<tr><td>TTEngine is installed on this system. OpenType/TrueType fonts will "
-         "be used in preference to Amiga bitmap and scalable fonts when available."
+         "<tr><td>TTEngine OpenType/TrueType faces are preferred when they match. "
+         "If TTEngine does not bind a face, AWeb4 falls back to the live "
+         "<code>bullet.library</code> GlyphEngine (kerning, soft bold/italic) for "
+         "outline fonts under <code>FONTS:</code> such as CGTimes, CGTriumvirate, and LetterGothic."
          "</td></tr>"
          "</table><p></p>");
    }
@@ -513,8 +612,10 @@ static void FontdiagEmitTtengineNotice(char **wpp, long *room, int tt_ok)
       FontdiagSnprintf(wpp, room,
          "<table width=\"100%%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" bordercolor=\"#996600\" bgcolor=\"#FFF0CC\">"
          "<tr><td align=\"left\"><strong>TTEngine is not installed on this system</strong></td></tr>"
-         "<tr><td>Without TTEngine, AWeb renders HTML using standard Amiga bitmap and scalable fonts. "
-         "Install TTEngine (ttengine.library) and OpenType/TrueType fonts to add UTF-8 support, kerning, and more accurate font family matching."
+         "<tr><td>AWeb4 renders HTML with <code>bullet.library</code> outline fonts when "
+         "<code>FONTS:name.font</code> is an outline (OFCH_ID), including live kerning and "
+         "soft embolden/shear. Bitmap-only faces fall back to ROM topaz. "
+         "Install TTEngine for UTF-8 coverage and TrueType family matching."
          "</td></tr>"
          "</table><p></p>");
    }
@@ -526,6 +627,7 @@ static void FontdiagProbeTable(char **wpp, long *room, int tt_ok)
    int nrows;
    const char *ideal_disp;
    const char *primary_file;
+   const char *ohit;
    const char *dhit;
    const char *thit;
    int n;
@@ -534,8 +636,9 @@ static void FontdiagProbeTable(char **wpp, long *room, int tt_ok)
    n = FontdiagSnprintf(wpp, room,
       "<table width=\"100%%\" cellpadding=\"6\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
       "<tr bgcolor=\"#E5E5E5\"><th align=\"left\">Font family</th>"
-      "<th align=\"left\">Matched Amiga font</th>"
-      "<th align=\"left\">Matched TTEngine font</th></tr>");
+      "<th align=\"left\">Bullet outline (FONTS:)</th>"
+      "<th align=\"left\">diskfont OpenDiskFont</th>"
+      "<th align=\"left\">TTEngine</th></tr>");
    if(n < 1)
    {
       return;
@@ -544,6 +647,7 @@ static void FontdiagProbeTable(char **wpp, long *room, int tt_ok)
    {
       ideal_disp = fd_rows[ri].ideal_name;
       primary_file = fd_rows[ri].disk_try[0];
+      ohit = FontdiagFirstOutlineHit(fd_rows[ri].disk_try);
       dhit = FontdiagFirstDiskHit(fd_rows[ri].disk_try, 15);
       thit = NULL;
       if(tt_ok)
@@ -554,16 +658,24 @@ static void FontdiagProbeTable(char **wpp, long *room, int tt_ok)
          "<tr><td><strong>%s</strong><br>%s</td>",
          fd_rows[ri].label,
          ideal_disp ? ideal_disp : "-");
-      if(dhit)
+      if(ohit)
       {
-         if(primary_file && strcmp((const char *)dhit, (const char *)primary_file) == 0)
+         if(primary_file && strcmp(ohit, primary_file) == 0)
          {
-            FontdiagSnprintf(wpp, room, "<td>%s <em>(exact match)</em></td>", dhit);
+            FontdiagSnprintf(wpp, room, "<td>%s <em>(exact)</em></td>", ohit);
          }
          else
          {
-            FontdiagSnprintf(wpp, room, "<td>%s <em>(best match)</em></td>", dhit);
+            FontdiagSnprintf(wpp, room, "<td>%s <em>(alias)</em></td>", ohit);
          }
+      }
+      else
+      {
+         FontdiagSnprintf(wpp, room, "<td>-</td>");
+      }
+      if(dhit)
+      {
+         FontdiagSnprintf(wpp, room, "<td>%s</td>", dhit);
       }
       else
       {
@@ -608,19 +720,24 @@ static void FontdiagBuildHtml(UBYTE *buf, long maxlen)
    }
    FontdiagSnprintf(&wp, &room,
       "<h2 id=\"mapping\">Font family mapping</h2>"
-      "<p>This section dynamically illustrates how font families are mapped to the fonts"
-      " installed on this Amiga. AWeb supports both standard Amiga bitmap and scalable fonts, and"
-      " will also use TTEngine to render scalable OpenType/TrueType fonts directly if available on the system."
+      "<p>This section probes the same name chains AWeb tries for HTML "
+      "<code>face</code> / CSS <code>font-family</code>. "
+      "<strong>Bullet outline</strong> is the AWeb4 path: <code>FONTS:name.font</code> "
+      "must be an outline file (OFCH_ID) for live GlyphEngine kerning and soft styles. "
+      "Default aliases map common web families to "
+      "<code>CGTimes.font</code>, <code>CGTriumvirate.font</code>, and "
+      "<code>LetterGothic.font</code>. "
+      "TTEngine, when present, is preferred for matching TrueType families."
       "</p>");
    FontdiagEmitTtengineNotice(&wp, &room, tt_ok);
-   if(DiskfontBase)
+   if(DiskfontBase || DOSBase)
    {
       FontdiagProbeTable(&wp, &room, tt_ok);
    }
    else
    {
       FontdiagSnprintf(&wp, &room,
-         "<p>diskfont.library could not be opened.</p>");
+         "<p>Could not open diskfont.library for font probes.</p>");
    }
    if(TTEngineBase)
    {
@@ -747,10 +864,10 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
          /* Font diagnostics: bounded OpenDiskFont chains with CloseFont (diskfont.doc); optional ttengine probes. */
          fontdiag_heap=0;
          fontdiag=(UBYTE *)fontdiag_empty;
-         fontdiag=ALLOCTYPE(UBYTE,56000,MEMF_PUBLIC);
+         fontdiag=ALLOCTYPE(UBYTE,72000,MEMF_PUBLIC);
          if(fontdiag)
          {  fontdiag_heap=1;
-            FontdiagBuildHtml(fontdiag,56000L);
+            FontdiagBuildHtml(fontdiag,72000L);
          }
          else
          {  fontdiag=(UBYTE *)fontdiag_empty;
@@ -830,6 +947,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<ul>"
                "<li><a href=\"#safe\">Web safe font families</a></li>"
                "<li><a href=\"#mapping\">Font family mapping</a></li>"
+               "<li><a href=\"#bullet\">Bullet outline engine</a></li>"
                "<li><a href=\"#serif\">Serif fonts</a></li>"
                "<li><a href=\"#sans\">Sans-serif fonts</a></li>"
                "<li><a href=\"#mono\">Monospace and fixed-element fonts</a></li>"
@@ -851,6 +969,40 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><font face=\"fantasy\">fantasy</font></td><td><font face=\"fantasy\">An old silent pond<br>A frog jumps into the pond<br>Splash! Silence again.</font></td></tr>"
                "</table>"
                "%s"
+               "<h2 id=\"bullet\">Bullet outline engine</h2>"
+               "<p>These samples use Amiga outline face names that default Browser prefs and aliases "
+               "resolve to (<code>CGTimes</code>, <code>CGTriumvirate</code>, <code>LetterGothic</code>). "
+               "When TTEngine does not bind the face, AWeb4 draws with the live Bullet GlyphEngine: "
+               "per-glyph maps, <code>OT_TextKernPair</code>, and soft embolden/shear for "
+               "<code>&lt;b&gt;</code>/<code>&lt;i&gt;</code>. "
+               "Note: <code>CGTimes</code> may still render via TTEngine if it maps to Times New Roman; "
+               "<code>CGTriumvirate</code> and <code>LetterGothic</code> are the clearest live-Bullet checks "
+               "when TrueType is installed.</p>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Exercise</strong></td><td><strong>Sample</strong></td></tr>"
+               "<tr><td><code>face=\"CGTimes\"</code> (serif outline)</td>"
+               "<td><font face=\"CGTimes\" size=\"+2\">The quick brown fox jumps over the lazy dog.</font></td></tr>"
+               "<tr><td><code>face=\"CGTriumvirate\"</code> (sans outline)</td>"
+               "<td><font face=\"CGTriumvirate\" size=\"+2\">The quick brown fox jumps over the lazy dog.</font></td></tr>"
+               "<tr><td><code>face=\"LetterGothic\"</code> (mono outline)</td>"
+               "<td><font face=\"LetterGothic\" size=\"+2\">The quick brown fox jumps over the lazy dog.</font></td></tr>"
+               "<tr><td>Kerning pairs (CGTimes)</td>"
+               "<td><font face=\"CGTimes\" size=\"+3\">AV To WA Yo LT AT VA We</font></td></tr>"
+               "<tr><td>Kerning pairs (CGTriumvirate)</td>"
+               "<td><font face=\"CGTriumvirate\" size=\"+3\">AV To WA Yo LT AT VA We</font></td></tr>"
+               "<tr><td>Soft bold / italic / both (CGTimes)</td>"
+               "<td><font face=\"CGTimes\" size=\"+2\"><b>Bold</b> <i>Italic</i> <b><i>Bold Italic</i></b> "
+               "Normal AV To</font></td></tr>"
+               "<tr><td>Soft bold / italic / both (CGTriumvirate)</td>"
+               "<td><font face=\"CGTriumvirate\" size=\"+2\"><b>Bold</b> <i>Italic</i> <b><i>Bold Italic</i></b> "
+               "Normal AV To</font></td></tr>"
+               "<tr><td>Web alias &rarr; CGTimes (<code>Georgia</code>)</td>"
+               "<td><font face=\"Georgia\" size=\"+2\"><b>Georgia bold</b> <i>italic</i> AV To WA</font></td></tr>"
+               "<tr><td>Web alias &rarr; CGTriumvirate (<code>Verdana</code>)</td>"
+               "<td><font face=\"Verdana\" size=\"+2\"><b>Verdana bold</b> <i>italic</i> AV To WA</font></td></tr>"
+               "<tr><td>Web alias &rarr; LetterGothic (<code>Courier New</code>)</td>"
+               "<td><font face=\"Courier New, monospace\" size=\"+2\">FIXED 0123456789 AV To</font></td></tr>"
+               "</table>"
                "<h2 id=\"serif\">Serif fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
@@ -885,13 +1037,17 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td><code>&lt;tt&gt;</code></td><td><tt>O snail<br>climb Mount Fuji,<br>but slowly, slowly!</tt></td></tr>"
                "</table>"
                "<h2 id=\"chains\">Font selection chain examples</h2>"
-               "<p>These examples demonstrate the font selection priority: direct system font &rarr; alias mapping &rarr; generic family &rarr; default preference.</p>"
+               "<p>AWeb4 selection order: direct open (Bullet/TT stub) &rarr; configured aliases "
+               "(web name &rarr; CGTimes / CGTriumvirate / LetterGothic) &rarr; generic family &rarr; Browser prefs. "
+               "TTEngine binds first when available; otherwise live Bullet draws the outline.</p>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Face Attribute</strong></td><td><strong>Expected Behavior</strong></td><td><strong>Sample</strong></td></tr>"
-               "<tr><td><code>face=\"Times New Roman, serif\"</code></td><td>Try Times New Roman.font, then alias, then serif default</td><td><font face=\"Times New Roman, serif\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
-               "<tr><td><code>face=\"Arial, Helvetica, sans-serif\"</code></td><td>Try Arial.font, then Helvetica.font, then alias, then sans-serif default</td><td><font face=\"Arial, Helvetica, sans-serif\">After the storm the moon's brightness on the green pines.</font></td></tr>"
-               "<tr><td><code>face=\"Courier New, Courier, monospace\"</code></td><td>Try Courier New.font, then Courier.font, then alias, then monospace default</td><td><font face=\"Courier New, Courier, monospace\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
-               "<tr><td><code>face=\"Verdana, sans-serif\"</code></td><td>Try Verdana.font, then alias, then sans-serif default</td><td><font face=\"Verdana, sans-serif\">After the storm the moon's brightness on the green pines.</font></td></tr>"
+               "<tr><td><code>face=\"Times New Roman, serif\"</code></td><td>Direct/TT, else alias to CGTimes.font outline</td><td><font face=\"Times New Roman, serif\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
+               "<tr><td><code>face=\"Arial, Helvetica, sans-serif\"</code></td><td>Direct/TT, else alias to CGTriumvirate.font outline</td><td><font face=\"Arial, Helvetica, sans-serif\">After the storm the moon's brightness on the green pines.</font></td></tr>"
+               "<tr><td><code>face=\"Courier New, Courier, monospace\"</code></td><td>Direct/TT, else alias to LetterGothic.font outline</td><td><font face=\"Courier New, Courier, monospace\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
+               "<tr><td><code>face=\"Verdana, sans-serif\"</code></td><td>Direct/TT, else alias to CGTriumvirate.font</td><td><font face=\"Verdana, sans-serif\">After the storm the moon's brightness on the green pines.</font></td></tr>"
+               "<tr><td><code>face=\"CGTimes\"</code></td><td>Open CGTimes.font via Bullet (live when TT misses)</td><td><font face=\"CGTimes\">AV To WA -- Bullet outline serif</font></td></tr>"
+               "<tr><td><code>face=\"CGTriumvirate\"</code></td><td>Open CGTriumvirate.font via Bullet</td><td><font face=\"CGTriumvirate\">AV To WA -- Bullet outline sans</font></td></tr>"
                "</table>"
                "<h2 id=\"sizes\">Font sizes</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
@@ -907,11 +1063,11 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<h2 id=\"styles\">Font styles</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
                "<tr bgcolor=\"#E5E5E5\"><td><strong>Style</strong></td><td><strong>Sample Text</strong></td></tr>"
-               "<tr><td><code>&lt;b&gt;</code></td><td><b>Morning glory!</b></td></tr>"
-               "<tr><td><code>&lt;i&gt;</code></td><td><i>the well bucket-entangled,</i></td></tr>"
+               "<tr><td><code>&lt;b&gt;</code> on serif</td><td><font face=\"serif\"><b>Morning glory! AV To</b></font></td></tr>"
+               "<tr><td><code>&lt;i&gt;</code> on serif</td><td><font face=\"serif\"><i>the well bucket-entangled, AV To</i></font></td></tr>"
+               "<tr><td><code>&lt;b&gt;&lt;i&gt;</code> on sans-serif</td><td><font face=\"sans-serif\"><b><i>A summer river AV To</i></b></font></td></tr>"
                "<tr><td><code>&lt;u&gt;</code></td><td><u>I ask for water.</u></td></tr>"
                "<tr><td><code>&lt;strike&gt;</code></td><td><strike>An old silent pond</strike></td></tr>"
-               "<tr><td><code>&lt;b&gt;&lt;i&gt;</code></td><td><b><i>A summer river</i></b></td></tr>"
                "<tr><td><code>&lt;tt&gt;</code></td><td><tt>being crossed</tt></td></tr>"
                "<tr><td><code>&lt;small&gt;</code></td><td><small>how pleasing</small></td></tr>"
                "<tr><td><code>&lt;big&gt;</code></td><td><big>with sandals in my hands!</big></td></tr>"
@@ -922,16 +1078,18 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td>Numbers</td><td>0123456789</td></tr>"
                "<tr><td>Uppercase</td><td>ABCDEFGHIJKLMNOPQRSTUVWXYZ</td></tr>"
                "<tr><td>Lowercase</td><td>abcdefghijklmnopqrstuvwxyz</td></tr>"
-               "<tr><td>Punctuation</td><td>! @ # $ %% ^ & * ( ) _ + - = [ ] { } | ; ' : \" , . / &lt; &gt; ?</td></tr>"
-               "<tr><td>Special</td><td>&copy; &reg; &trade; &deg; &frac12; &frac14; &frac34; &euro; &pound; &yen;</td></tr>"
+               "<tr><td>Punctuation</td><td>! @ # $ %% ^ &amp; * ( ) _ + - = [ ] { } | ; ' : &quot; , . / &lt; &gt; ?</td></tr>"
+               "<tr><td>Special (Latin-1)</td><td>&copy; &reg; &deg; &frac14; &frac12; &frac34; &pound; &yen; &curren;</td></tr>"
+               "<tr><td>Special (ASCII)</td><td>(c) (R) (TM) deg 1/4 1/2 3/4 GBP EUR Yen</td></tr>"
                "</table>"
                "<h2 id=\"logic\">Font matching</h2>"
-               "<p>The font matching rules are detailed here. Note that in AWeb 3.6, while it remains possible to configure preferred font mappings, AWeb defaults to using the best matching fonts found on the system, especially if TTEngine is installed and OpenType/TrueType fonts are available.</p>"
+               "<p>AWeb 3.6 / AWeb4 picks the best available match. With TTEngine, TrueType families are preferred for rendering; "
+               "outline fonts under <code>FONTS:</code> still provide the TextFont shell and the Bullet live path when TT does not bind.</p>"
                "<ol>"
-               "<li><strong>Direct System Font:</strong> If a font name (e.g., \"Times New Roman\") exists on the system, it will be used directly.</li>"
-               "<li><strong>Alias Mapping:</strong> If the font is not found directly, AWeb checks alias mappings (e.g., \"Times New Roman\" &rarr; \"CGTimes.font\").</li>"
-               "<li><strong>Generic Family:</strong> If no alias is found, generic families (serif, sans-serif, monospace) map to default preference fonts.</li>"
-               "<li><strong>Default Fallback:</strong> Finally, the default preference font for the type (normal/fixed) is used.</li>"
+               "<li><strong>Direct open:</strong> Try each name in the face list via BulletFontOpen (outline OFCH_ID / stub). Exact names such as CGTimes.font succeed here.</li>"
+               "<li><strong>Alias mapping:</strong> Web names map to Amiga outlines (Times New Roman &rarr; CGTimes.font, Arial &rarr; CGTriumvirate.font, Courier New &rarr; LetterGothic.font).</li>"
+               "<li><strong>Generic family:</strong> serif / sans-serif / monospace resolve to Browser preference fonts (defaults CGTimes / CGTriumvirate / LetterGothic).</li>"
+               "<li><strong>Render:</strong> TTEngine if it binds the face; else live Bullet GlyphEngine; else graphics.library Text on the shell font.</li>"
                "</ol>"
                "<h2 id=\"utf8\">UTF-8 rendering examples</h2>"
                "<p>This table previews UTF-8 multibyte characters from non-Latin languages for checking if the fonts installed contain the necessary glyphs. "
@@ -942,7 +1100,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<h2 id=\"haiku\">Haiku credits</h2>"
                "<p>Sample texts on this page include <em>haiku</em> from classical Japanese poets:</p>"
                "<ul>"
-               "<li><strong>Matsuo Bash&otilde;</strong> (1644-1694): \"An old silent pond... A frog jumps into the pond, splash! Silence again.\"</li>"
+               "<li><strong>Matsuo Bash&ocirc;</strong> (1644-1694): \"An old silent pond... A frog jumps into the pond, splash! Silence again.\"</li>"
                "<li><strong>Yosa Buson</strong> (1716-1784): \"A summer river being crossed how pleasing with sandals in my hands!\"</li>"
                "<li><strong>Kobayashi Issa</strong> (1763-1828): \"O snail climb Mount Fuji, but slowly, slowly!\"</li>"
                "<li><strong>Chiyo-ni</strong> (1703-1775): \"Morning glory! the well bucket-entangled, I ask for water.\"</li>"
